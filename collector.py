@@ -83,7 +83,7 @@ class RateLimiter:
 
 class YouTubeCollector:
     def __init__(self):
-        # 🆕 SUPORTE PARA 23 CHAVES (KEY_2 a KEY_24)
+        # 🆕 SUPORTE PARA 12 CHAVES (KEY_2 a KEY_24)
         self.api_keys = [
             os.environ.get("YOUTUBE_API_KEY_3"),
             os.environ.get("YOUTUBE_API_KEY_4"),
