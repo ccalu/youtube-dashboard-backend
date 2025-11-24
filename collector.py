@@ -85,7 +85,6 @@ class YouTubeCollector:
     def __init__(self):
         # 🆕 SUPORTE PARA 23 CHAVES (KEY_2 a KEY_24)
         self.api_keys = [
-            os.environ.get("YOUTUBE_API_KEY_2"),
             os.environ.get("YOUTUBE_API_KEY_3"),
             os.environ.get("YOUTUBE_API_KEY_4"),
             os.environ.get("YOUTUBE_API_KEY_5"),
@@ -94,16 +93,6 @@ class YouTubeCollector:
             os.environ.get("YOUTUBE_API_KEY_8"),
             os.environ.get("YOUTUBE_API_KEY_9"),
             os.environ.get("YOUTUBE_API_KEY_10"),
-            os.environ.get("YOUTUBE_API_KEY_11"),
-            os.environ.get("YOUTUBE_API_KEY_12"),
-            os.environ.get("YOUTUBE_API_KEY_13"),
-            os.environ.get("YOUTUBE_API_KEY_14"),
-            os.environ.get("YOUTUBE_API_KEY_15"),
-            os.environ.get("YOUTUBE_API_KEY_16"),
-            os.environ.get("YOUTUBE_API_KEY_17"),
-            os.environ.get("YOUTUBE_API_KEY_18"),
-            os.environ.get("YOUTUBE_API_KEY_19"),
-            os.environ.get("YOUTUBE_API_KEY_20"),
             os.environ.get("YOUTUBE_API_KEY_21"),
             os.environ.get("YOUTUBE_API_KEY_22"),
             os.environ.get("YOUTUBE_API_KEY_23"),
