@@ -271,20 +271,19 @@ class SupabaseClient:
                 .execute()
             
             logger.info(f"📊 Histórico carregado: {len(historico_response.data)} linhas (otimizado)")
-            
-            # 🔧 Pegar o MAIS RECENTE de cada canal (ordenando por data DESC)
-            historico_dict = {}
+
+            # 🔧 Organizar histórico por canal_id e data (para calcular diferença)
+            historico_por_canal = {}
             for h in historico_response.data:
                 canal_id = h["canal_id"]
                 data_coleta = h.get("data_coleta", "")
-                
-                if canal_id not in historico_dict:
-                    historico_dict[canal_id] = h
-                elif data_coleta > historico_dict[canal_id].get("data_coleta", ""):
-                    # 🔧 SEMPRE pega o mais recente
-                    historico_dict[canal_id] = h
-            
-            logger.info(f"📊 Canais com histórico: {len(historico_dict)}")
+
+                if canal_id not in historico_por_canal:
+                    historico_por_canal[canal_id] = {}
+
+                historico_por_canal[canal_id][data_coleta] = h
+
+            logger.info(f"📊 Canais com histórico: {len(historico_por_canal)}")
             
             canais = []
             for item in canais_response.data:
@@ -302,23 +301,35 @@ class SupabaseClient:
                     "views_15d": 0,
                     "views_7d": 0,
                     "inscritos": 0,
+                    "inscritos_diff": None,
                     "engagement_rate": 0.0,
                     "videos_publicados_7d": 0,
                     "score_calculado": 0,
                     "growth_30d": 0,
                     "growth_7d": 0
                 }
-                
+
                 # 🔧 Se tem histórico recente, usa ele
-                if item["id"] in historico_dict:
-                    h = historico_dict[item["id"]]
-                    
-                    canal["views_30d"] = h.get("views_30d", 0)
-                    canal["views_15d"] = h.get("views_15d", 0)
-                    canal["views_7d"] = h.get("views_7d", 0)
-                    canal["inscritos"] = h.get("inscritos", 0)
-                    canal["engagement_rate"] = h.get("engagement_rate", 0.0)
-                    canal["videos_publicados_7d"] = h.get("videos_publicados_7d", 0)
+                if item["id"] in historico_por_canal:
+                    datas_disponiveis = sorted(historico_por_canal[item["id"]].keys(), reverse=True)
+
+                    if len(datas_disponiveis) > 0:
+                        # Dados mais recentes (hoje)
+                        h_hoje = historico_por_canal[item["id"]][datas_disponiveis[0]]
+
+                        canal["views_30d"] = h_hoje.get("views_30d", 0)
+                        canal["views_15d"] = h_hoje.get("views_15d", 0)
+                        canal["views_7d"] = h_hoje.get("views_7d", 0)
+                        canal["inscritos"] = h_hoje.get("inscritos", 0)
+                        canal["engagement_rate"] = h_hoje.get("engagement_rate", 0.0)
+                        canal["videos_publicados_7d"] = h_hoje.get("videos_publicados_7d", 0)
+
+                        # 🆕 Calcular diferença de inscritos (hoje vs ontem)
+                        if len(datas_disponiveis) >= 2:
+                            h_ontem = historico_por_canal[item["id"]][datas_disponiveis[1]]
+                            inscritos_hoje = h_hoje.get("inscritos", 0)
+                            inscritos_ontem = h_ontem.get("inscritos", 0)
+                            canal["inscritos_diff"] = inscritos_hoje - inscritos_ontem
                     
                     # Calcular score
                     if canal["inscritos"] > 0:
