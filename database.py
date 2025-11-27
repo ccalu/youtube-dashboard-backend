@@ -548,10 +548,10 @@ class SupabaseClient:
             logger.error(f"Error deleting canal permanently: {e}")
             raise
 
-    async def get_notificacoes_all(self, limit: int = 500, offset: int = 0, vista_filter: Optional[bool] = None, dias: Optional[int] = 30) -> List[Dict]:
+    async def get_notificacoes_all(self, limit: int = 500, offset: int = 0, vista_filter: Optional[bool] = None, dias: Optional[int] = 30, lingua: Optional[str] = None) -> List[Dict]:
         try:
             query = self.supabase.table("notificacoes").select(
-                "*, canais_monitorados(subnicho)"
+                "*, canais_monitorados(subnicho, lingua)"
             )
             
             if dias is not None:
@@ -585,12 +585,18 @@ class SupabaseClient:
                         notif["data_publicacao"] = None
             
             for notif in notificacoes:
-                if notif.get("canais_monitorados") and notif["canais_monitorados"].get("subnicho"):
-                    notif["subnicho"] = notif["canais_monitorados"]["subnicho"]
+                if notif.get("canais_monitorados"):
+                    notif["subnicho"] = notif["canais_monitorados"].get("subnicho")
+                    notif["lingua"] = notif["canais_monitorados"].get("lingua")
                 else:
                     notif["subnicho"] = None
+                    notif["lingua"] = None
                 notif.pop("canais_monitorados", None)
-            
+
+            # Filtrar por lingua se especificado
+            if lingua is not None:
+                notificacoes = [n for n in notificacoes if n.get("lingua") == lingua]
+
             return notificacoes
         except Exception as e:
             logger.error(f"Erro ao buscar notificacoes: {e}")

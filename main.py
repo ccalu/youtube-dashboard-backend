@@ -744,14 +744,16 @@ async def get_notificacoes_todas(
     limit: Optional[int] = 500,
     offset: Optional[int] = 0,
     vista: Optional[bool] = None,
-    dias: Optional[int] = 30
+    dias: Optional[int] = 30,
+    lingua: Optional[str] = None
 ):
     try:
         notificacoes = await db.get_notificacoes_all(
             limit=limit,
             offset=offset,
             vista_filter=vista,
-            dias=dias
+            dias=dias,
+            lingua=lingua
         )
         return {
             "notificacoes": notificacoes,
