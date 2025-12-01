@@ -277,52 +277,95 @@ class NotificationChecker:
     async def get_videos_that_hit_milestone(self, regra: Dict) -> List[Dict]:
         """
         Busca videos que atingiram o marco especificado na regra.
+        🔧 CORRIGIDO: Usa apenas entrada mais recente de cada vídeo
         🆕 SUPORTA FILTRO POR MÚLTIPLOS SUBNICHOS
         """
         try:
             # Calcular data de corte
             cutoff_date = (datetime.now(timezone.utc) - timedelta(days=regra['periodo_dias'])).isoformat()
-            
-            # Buscar videos recentes com views suficientes
+
+            # PASSO 1: Buscar vídeos que atendem critérios de data (pode ter duplicatas)
             query = self.db.table("videos_historico").select(
-                "*, canais_monitorados!inner(tipo, nome_canal, subnicho)"
-            ).gte("data_publicacao", cutoff_date).gte("views_atuais", regra['views_minimas'])
-            
+                "video_id, data_publicacao, data_coleta, canais_monitorados!inner(tipo, nome_canal, subnicho)"
+            ).gte("data_publicacao", cutoff_date)
+
             # Filtrar por tipo de canal se necessario
             tipo_canal = regra.get('tipo_canal', 'ambos')
             if tipo_canal != 'ambos':
                 query = query.eq("canais_monitorados.tipo", tipo_canal)
-            
+
             response = query.execute()
-            
-            # Processar resultados
-            videos = []
-            if response.data:
-                for item in response.data:
-                    canal_info = item.get('canais_monitorados', {})
-                    video_subnicho = canal_info.get('subnicho')
-                    
-                    # 🆕 FILTRAR POR SUBNICHOS DA REGRA
-                    if regra.get('subnichos'):
-                        # Se regra tem subnichos específicos, verificar se vídeo está na lista
-                        if video_subnicho not in regra['subnichos']:
-                            continue  # Pula este vídeo
-                    # Se regra não tem subnichos, aceita TODOS
-                    
-                    videos.append({
-                        'video_id': item['video_id'],
-                        'titulo': item['titulo'],
-                        'canal_id': item['canal_id'],
-                        'nome_canal': canal_info.get('nome_canal', 'Unknown'),
-                        'tipo_canal': canal_info.get('tipo', 'minerado'),
-                        'views_atuais': item['views_atuais'],
-                        'data_publicacao': item['data_publicacao']
+
+            if not response.data:
+                return []
+
+            # PASSO 2: Agrupar por video_id e pegar apenas a entrada mais recente
+            videos_map = {}  # {video_id: entrada_mais_recente}
+
+            for item in response.data:
+                video_id = item['video_id']
+                data_coleta = item['data_coleta']
+
+                # Se video_id já existe, comparar datas
+                if video_id in videos_map:
+                    if data_coleta > videos_map[video_id]['data_coleta']:
+                        videos_map[video_id] = item  # Substituir por mais recente
+                else:
+                    videos_map[video_id] = item
+
+            # PASSO 3: Buscar dados completos (views, titulo) das entradas mais recentes
+            video_ids = list(videos_map.keys())
+
+            if not video_ids:
+                return []
+
+            # Buscar views atuais das entradas mais recentes
+            videos_completos = []
+            for video_id, entrada in videos_map.items():
+                # Buscar entrada específica com views
+                video_data = self.db.table("videos_historico").select(
+                    "video_id, titulo, views_atuais, data_publicacao, canal_id"
+                ).eq("video_id", video_id).eq("data_coleta", entrada['data_coleta']).execute()
+
+                if video_data.data and len(video_data.data) > 0:
+                    videos_completos.append({
+                        'video_data': video_data.data[0],
+                        'canal_info': entrada.get('canais_monitorados', {})
                     })
-            
+
+            # PASSO 4: Filtrar por views_minimas e subnichos
+            videos = []
+            for item in videos_completos:
+                video = item['video_data']
+                canal_info = item['canal_info']
+
+                # Filtrar por views
+                if video['views_atuais'] < regra['views_minimas']:
+                    continue
+
+                video_subnicho = canal_info.get('subnicho')
+
+                # Filtrar por subnichos da regra
+                if regra.get('subnichos'):
+                    if video_subnicho not in regra['subnichos']:
+                        continue
+
+                videos.append({
+                    'video_id': video['video_id'],
+                    'titulo': video['titulo'],
+                    'canal_id': video['canal_id'],
+                    'nome_canal': canal_info.get('nome_canal', 'Unknown'),
+                    'tipo_canal': canal_info.get('tipo', 'minerado'),
+                    'views_atuais': video['views_atuais'],
+                    'data_publicacao': video['data_publicacao']
+                })
+
             return videos
-            
+
         except Exception as e:
             logger.error(f"Erro ao buscar videos que atingiram marco: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return []
     
     

@@ -559,54 +559,60 @@ class SupabaseClient:
             logger.error(f"Error deleting canal permanently: {e}")
             raise
 
-    async def get_notificacoes_all(self, limit: int = 500, offset: int = 0, vista_filter: Optional[bool] = None, dias: Optional[int] = 30, lingua: Optional[str] = None) -> List[Dict]:
+    async def get_notificacoes_all(self, limit: int = 500, offset: int = 0, vista_filter: Optional[bool] = None, dias: Optional[int] = 30, lingua: Optional[str] = None, tipo_canal: Optional[str] = None) -> List[Dict]:
         try:
             query = self.supabase.table("notificacoes").select(
-                "*, canais_monitorados(subnicho, lingua)"
+                "*, canais_monitorados(subnicho, lingua, tipo)"
             )
-            
+
             if dias is not None:
                 data_limite = (datetime.now(timezone.utc) - timedelta(days=dias)).isoformat()
                 query = query.gte("data_disparo", data_limite)
-            
+
             if vista_filter is not None:
                 query = query.eq("vista", vista_filter)
-            
+
             response = query.order("data_disparo", desc=True).range(offset, offset + limit - 1).execute()
-            
+
             if not response.data:
                 return []
-            
+
             notificacoes = response.data
-            
+
             video_ids = [n["video_id"] for n in notificacoes if n.get("video_id")]
-            
+
             if video_ids:
                 videos_response = self.supabase.table("videos_historico").select(
                     "video_id, data_publicacao"
                 ).in_("video_id", video_ids).execute()
-                
+
                 videos_dict = {v["video_id"]: v["data_publicacao"] for v in videos_response.data}
-                
+
                 for notif in notificacoes:
                     video_id = notif.get("video_id")
                     if video_id and video_id in videos_dict:
                         notif["data_publicacao"] = videos_dict[video_id]
                     else:
                         notif["data_publicacao"] = None
-            
+
             for notif in notificacoes:
                 if notif.get("canais_monitorados"):
                     notif["subnicho"] = notif["canais_monitorados"].get("subnicho")
                     notif["lingua"] = notif["canais_monitorados"].get("lingua")
+                    notif["tipo_canal"] = notif["canais_monitorados"].get("tipo")
                 else:
                     notif["subnicho"] = None
                     notif["lingua"] = None
+                    notif["tipo_canal"] = None
                 notif.pop("canais_monitorados", None)
 
             # Filtrar por lingua se especificado
             if lingua is not None:
                 notificacoes = [n for n in notificacoes if n.get("lingua") == lingua]
+
+            # Filtrar por tipo_canal se especificado
+            if tipo_canal is not None:
+                notificacoes = [n for n in notificacoes if n.get("tipo_canal") == tipo_canal]
 
             return notificacoes
         except Exception as e:
@@ -650,17 +656,70 @@ class SupabaseClient:
             logger.error(f"Erro ao desmarcar notificacao como vista: {e}")
             return False
     
-    async def marcar_todas_notificacoes_vistas(self) -> int:
+    async def marcar_todas_notificacoes_vistas(
+        self,
+        lingua: Optional[str] = None,
+        subnicho: Optional[str] = None,
+        tipo_canal: Optional[str] = None,
+        periodo_dias: Optional[int] = None
+    ) -> int:
         """
-        Marca todas as notificações não vistas como vistas.
+        Marca todas as notificações não vistas como vistas (com filtros opcionais).
+
+        Args:
+            lingua: Filtrar por língua do canal
+            subnicho: Filtrar por subnicho do canal
+            tipo_canal: Filtrar por tipo (nosso/minerado)
+            periodo_dias: Filtrar por período da regra
+
+        Returns:
+            Quantidade de notificações marcadas
         """
         try:
-            response = self.supabase.table("notificacoes").update({
+            # Se não tem filtros, marcar todas direto (comportamento original)
+            if not lingua and not subnicho and not tipo_canal and not periodo_dias:
+                response = self.supabase.table("notificacoes").update({
+                    "vista": True,
+                    "data_vista": datetime.now(timezone.utc).isoformat()
+                }).eq("vista", False).execute()
+
+                return len(response.data) if response.data else 0
+
+            # Com filtros: buscar IDs primeiro (JOIN com canais_monitorados)
+            query = self.supabase.table("notificacoes")\
+                .select("id, canal_id, periodo_dias, canais_monitorados!inner(lingua, subnicho, tipo)")\
+                .eq("vista", False)
+
+            # Aplicar filtros
+            if lingua:
+                query = query.eq("canais_monitorados.lingua", lingua)
+            if subnicho:
+                query = query.eq("canais_monitorados.subnicho", subnicho)
+            if tipo_canal:
+                query = query.eq("canais_monitorados.tipo", tipo_canal)
+            if periodo_dias:
+                query = query.eq("periodo_dias", periodo_dias)
+
+            ids_response = query.execute()
+
+            if not ids_response.data or len(ids_response.data) == 0:
+                logger.info("Nenhuma notificação encontrada com os filtros aplicados")
+                return 0
+
+            # Extrair IDs
+            ids = [item["id"] for item in ids_response.data]
+
+            # Marcar todas de uma vez
+            update_response = self.supabase.table("notificacoes").update({
                 "vista": True,
                 "data_vista": datetime.now(timezone.utc).isoformat()
-            }).eq("vista", False).execute()
-            
-            return len(response.data) if response.data else 0
+            }).in_("id", ids).execute()
+
+            marked_count = len(ids)
+            logger.info(f"✅ {marked_count} notificações marcadas como vistas (filtros aplicados)")
+
+            return marked_count
+
         except Exception as e:
             logger.error(f"Erro ao marcar todas notificacoes como vistas: {e}")
             return 0

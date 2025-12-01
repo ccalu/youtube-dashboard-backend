@@ -745,15 +745,26 @@ async def get_notificacoes_todas(
     offset: Optional[int] = 0,
     vista: Optional[bool] = None,
     dias: Optional[int] = 30,
-    lingua: Optional[str] = None
+    lingua: Optional[str] = None,
+    tipo_canal: Optional[str] = None
 ):
+    """
+    Lista todas as notificações com filtros.
+
+    Query params:
+    - tipo_canal: Filtrar por tipo (nosso/minerado)
+    - lingua: Filtrar por língua
+    - vista: Filtrar por vistas (true/false)
+    - dias: Período em dias (padrão: 30)
+    """
     try:
         notificacoes = await db.get_notificacoes_all(
             limit=limit,
             offset=offset,
             vista_filter=vista,
             dias=dias,
-            lingua=lingua
+            lingua=lingua,
+            tipo_canal=tipo_canal
         )
         return {
             "notificacoes": notificacoes,
@@ -823,9 +834,28 @@ async def desmarcar_notificacao_vista(notif_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/notificacoes/marcar-todas")
-async def marcar_todas_notificacoes_vistas():
+async def marcar_todas_notificacoes_vistas(
+    lingua: Optional[str] = None,
+    subnicho: Optional[str] = None,
+    tipo_canal: Optional[str] = None,
+    periodo_dias: Optional[int] = None
+):
+    """
+    Marca notificações não vistas como vistas (com filtros opcionais).
+
+    Query params:
+    - lingua: Filtrar por língua (ex: português, francês)
+    - subnicho: Filtrar por subnicho
+    - tipo_canal: Filtrar por tipo (nosso/minerado)
+    - periodo_dias: Filtrar por período da regra (7, 15, 30)
+    """
     try:
-        count = await db.marcar_todas_notificacoes_vistas()
+        count = await db.marcar_todas_notificacoes_vistas(
+            lingua=lingua,
+            subnicho=subnicho,
+            tipo_canal=tipo_canal,
+            periodo_dias=periodo_dias
+        )
         return {
             "message": f"{count} notificações marcadas como vistas",
             "count": count
