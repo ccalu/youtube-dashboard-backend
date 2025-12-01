@@ -1285,9 +1285,16 @@ async def run_collection_job():
                 logger.info("=" * 80)
                 await notifier.check_and_create_notifications()
                 logger.info("✅ Notification check completed")
+
+                # Cleanup old notifications (>30 days)
+                logger.info("=" * 80)
+                logger.info("🧹 CLEANING OLD NOTIFICATIONS")
+                logger.info("=" * 80)
+                deleted_count = await db.cleanup_old_notifications(days=30)
+                logger.info(f"✅ Cleaned up {deleted_count} old notifications (>30 days)")
             except Exception as e:
                 logger.error(f"❌ Error checking notifications: {e}")
-        
+
         if canais_sucesso >= (total_canais * 0.5):
             logger.info("🧹 Cleanup threshold met (>50% success)")
             await db.cleanup_old_data()

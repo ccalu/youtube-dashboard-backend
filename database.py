@@ -814,20 +814,52 @@ class SupabaseClient:
     async def toggle_regra_notificacao(self, regra_id: int) -> Optional[Dict]:
         try:
             current = self.supabase.table("regras_notificacoes").select("ativa").eq("id", regra_id).execute()
-            
+
             if not current.data:
                 return None
-            
+
             nova_ativa = not current.data[0]["ativa"]
-            
+
             response = self.supabase.table("regras_notificacoes").update({
                 "ativa": nova_ativa
             }).eq("id", regra_id).execute()
-            
+
             return response.data[0] if response.data else None
         except Exception as e:
             logger.error(f"Erro ao toggle regra de notificacao: {e}")
             return None
+
+    async def cleanup_old_notifications(self, days: int = 30) -> int:
+        """
+        Deleta notificações não vistas com mais de X dias.
+
+        Args:
+            days: Número de dias (padrão: 30)
+
+        Returns:
+            Quantidade de notificações deletadas
+        """
+        try:
+            cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+            logger.info(f"🧹 Iniciando limpeza de notificações antigas (>{days} dias)...")
+
+            # Deletar notificações não vistas com data_disparo < cutoff_date
+            response = self.supabase.table("notificacoes")\
+                .delete()\
+                .eq("vista", False)\
+                .lt("data_disparo", cutoff_date)\
+                .execute()
+
+            deleted_count = len(response.data) if response.data else 0
+
+            logger.info(f"✅ {deleted_count} notificações antigas deletadas (>{days} dias)")
+
+            return deleted_count
+
+        except Exception as e:
+            logger.error(f"Erro ao limpar notificações antigas: {e}")
+            return 0
 
     async def get_cached_transcription(self, video_id: str):
         try:
