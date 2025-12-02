@@ -435,12 +435,18 @@ async def get_canais_tabela():
             })
 
         # Ordenar canais dentro de cada grupo por desempenho
-        # Ordem: maior ganho positivo -> zero -> menor perda -> null
+        # Ordem primária: maior ganho positivo -> zero -> menor perda -> null
+        # Ordem secundária: maior número de inscritos (tiebreaker)
         def sort_key(canal):
             diff = canal['inscritos_diff']
+            inscritos = canal['inscritos']
+
+            # null por último (usar número positivo alto para jogar para o final)
             if diff is None:
-                return (-999999,)  # null por ultimo
-            return (-diff,)  # DESC (maior primeiro)
+                return (999999, -inscritos)
+
+            # Ordenar por diff DESC, depois por inscritos DESC
+            return (-diff, -inscritos)
 
         for subnicho in grupos:
             grupos[subnicho].sort(key=sort_key)
