@@ -101,12 +101,12 @@ class NotificationChecker:
                             total_puladas += 1
                             logger.info(f"⭕ Video '{video['titulo'][:50]}...' ja tem notificacao igual ou maior - PULANDO")
                     else:
-                        # Verificar se já foi visto alguma vez
-                        ja_visto = await self.video_already_seen(video['video_id'])
-                        
+                        # Verificar se já foi visto em marco maior ou igual
+                        ja_visto = await self.video_already_seen(video['video_id'], regra)
+
                         if ja_visto:
                             total_puladas += 1
-                            logger.info(f"👁️ Video '{video['titulo'][:50]}...' ja foi visto anteriormente - PULANDO")
+                            logger.info(f"👁️ Video '{video['titulo'][:50]}...' ja foi visto em marco maior/igual - PULANDO")
                             continue
                         
                         # Criar nova notificacao
@@ -186,21 +186,41 @@ class NotificationChecker:
             return None
     
     
-    async def video_already_seen(self, video_id: str) -> bool:
+    async def video_already_seen(self, video_id: str, regra_atual: Dict) -> bool:
         """
-        Verifica se video ja teve notificacao VISTA alguma vez.
-        Se sim, nunca mais cria notificação deste vídeo.
+        Verifica se video ja teve notificacao VISTA para um marco MAIOR OU IGUAL.
+        Permite notificar novamente se atingir marcos maiores.
+
+        Exemplo:
+        - Video atingiu 10k → notificou → viu ✓
+        - Video atingiu 50k → pode notificar novamente ✓
+        - Video atingiu 100k → pode notificar novamente ✓
         """
         try:
+            # Buscar notificações vistas deste vídeo
             response = self.db.table("notificacoes")\
-                .select("id")\
+                .select("periodo_dias, views_atingidas")\
                 .eq("video_id", video_id)\
                 .eq("vista", True)\
-                .limit(1)\
                 .execute()
-            
-            return len(response.data) > 0 if response.data else False
-            
+
+            if not response.data:
+                return False  # Nunca foi visto
+
+            # Verificar se já viu um marco maior ou igual
+            for notif in response.data:
+                # Buscar regra anterior
+                regra_anterior = await self.get_regra_by_periodo(notif['periodo_dias'])
+
+                if regra_anterior:
+                    # Se regra anterior é maior ou igual, não notificar
+                    if regra_anterior['views_minimas'] >= regra_atual['views_minimas']:
+                        logger.debug(f"Video '{video_id}' ja visto em marco maior/igual: {regra_anterior['views_minimas']} >= {regra_atual['views_minimas']}")
+                        return True
+
+            # Se chegou aqui, todas as notificações vistas são de marcos menores
+            return False
+
         except Exception as e:
             logger.error(f"Erro ao verificar se video ja foi visto: {e}")
             return False
@@ -281,13 +301,16 @@ class NotificationChecker:
         🆕 SUPORTA FILTRO POR MÚLTIPLOS SUBNICHOS
         """
         try:
+            logger.info(f"🔍 Buscando videos para regra: {regra['nome_regra']} ({regra['views_minimas']} views em {regra['periodo_dias']}d)")
+
             # Calcular data de corte
             cutoff_date = (datetime.now(timezone.utc) - timedelta(days=regra['periodo_dias'])).isoformat()
+            logger.info(f"📅 Data de corte: {cutoff_date[:10]}")
 
-            # PASSO 1: Buscar vídeos que atendem critérios de data (pode ter duplicatas)
+            # PASSO 1: Buscar TODOS os dados de uma vez (mais eficiente)
             query = self.db.table("videos_historico").select(
-                "video_id, data_publicacao, data_coleta, canais_monitorados!inner(tipo, nome_canal, subnicho)"
-            ).gte("data_publicacao", cutoff_date)
+                "video_id, titulo, views_atuais, data_publicacao, data_coleta, canal_id, canais_monitorados!inner(tipo, nome_canal, subnicho)"
+            ).gte("data_publicacao", cutoff_date).gte("views_atuais", regra['views_minimas'])
 
             # Filtrar por tipo de canal se necessario
             tipo_canal = regra.get('tipo_canal', 'ambos')
@@ -295,12 +318,14 @@ class NotificationChecker:
                 query = query.eq("canais_monitorados.tipo", tipo_canal)
 
             response = query.execute()
+            logger.info(f"📊 Total de entradas encontradas (pode ter duplicatas): {len(response.data) if response.data else 0}")
 
             if not response.data:
+                logger.info("❌ Nenhum video encontrado na query inicial")
                 return []
 
             # PASSO 2: Agrupar por video_id e pegar apenas a entrada mais recente
-            videos_map = {}  # {video_id: entrada_mais_recente}
+            videos_map = {}  # {video_id: entrada_completa_mais_recente}
 
             for item in response.data:
                 video_id = item['video_id']
@@ -313,52 +338,39 @@ class NotificationChecker:
                 else:
                     videos_map[video_id] = item
 
-            # PASSO 3: Buscar dados completos (views, titulo) das entradas mais recentes
-            video_ids = list(videos_map.keys())
+            logger.info(f"🔢 Videos unicos (apos agrupar por mais recente): {len(videos_map)}")
 
-            if not video_ids:
-                return []
-
-            # Buscar views atuais das entradas mais recentes
-            videos_completos = []
-            for video_id, entrada in videos_map.items():
-                # Buscar entrada específica com views
-                video_data = self.db.table("videos_historico").select(
-                    "video_id, titulo, views_atuais, data_publicacao, canal_id"
-                ).eq("video_id", video_id).eq("data_coleta", entrada['data_coleta']).execute()
-
-                if video_data.data and len(video_data.data) > 0:
-                    videos_completos.append({
-                        'video_data': video_data.data[0],
-                        'canal_info': entrada.get('canais_monitorados', {})
-                    })
-
-            # PASSO 4: Filtrar por views_minimas e subnichos
+            # PASSO 3: Filtrar por subnichos (views ja foi filtrado na query)
             videos = []
-            for item in videos_completos:
-                video = item['video_data']
-                canal_info = item['canal_info']
+            videos_filtrados_subnicho = 0
 
-                # Filtrar por views
-                if video['views_atuais'] < regra['views_minimas']:
-                    continue
+            for video_id, item in videos_map.items():
+                canal_info = item.get('canais_monitorados', {})
+                video_subnicho = canal_info.get('subnicho', '').strip()
 
-                video_subnicho = canal_info.get('subnicho')
-
-                # Filtrar por subnichos da regra
+                # Filtrar por subnichos da regra (normalizado e case-insensitive)
                 if regra.get('subnichos'):
-                    if video_subnicho not in regra['subnichos']:
+                    # Normalizar subnichos da regra
+                    regra_subnichos_normalized = [s.strip() for s in regra['subnichos']]
+
+                    # Verificar se subnicho do video esta na lista (case-insensitive)
+                    if not any(video_subnicho.lower() == rs.lower() for rs in regra_subnichos_normalized):
+                        videos_filtrados_subnicho += 1
+                        logger.debug(f"⏭️ Video '{item['titulo'][:40]}...' filtrado por subnicho: '{video_subnicho}' não está em {regra['subnichos']}")
                         continue
 
                 videos.append({
-                    'video_id': video['video_id'],
-                    'titulo': video['titulo'],
-                    'canal_id': video['canal_id'],
+                    'video_id': item['video_id'],
+                    'titulo': item['titulo'],
+                    'canal_id': item['canal_id'],
                     'nome_canal': canal_info.get('nome_canal', 'Unknown'),
                     'tipo_canal': canal_info.get('tipo', 'minerado'),
-                    'views_atuais': video['views_atuais'],
-                    'data_publicacao': video['data_publicacao']
+                    'views_atuais': item['views_atuais'],
+                    'data_publicacao': item['data_publicacao']
                 })
+
+            logger.info(f"✅ Videos que passaram filtros: {len(videos)}")
+            logger.info(f"📉 Filtrados por subnicho: {videos_filtrados_subnicho}")
 
             return videos
 
