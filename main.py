@@ -11,6 +11,10 @@ import logging
 import uuid
 import threading
 import time
+from dotenv import load_dotenv
+
+# Carregar variáveis de ambiente
+load_dotenv()
 
 from database import SupabaseClient
 from collector import YouTubeCollector
@@ -390,6 +394,72 @@ async def get_nossos_canais(
         return {"canais": canais, "total": len(canais)}
     except Exception as e:
         logger.error(f"Error fetching nossos canais: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/canais-tabela")
+async def get_canais_tabela():
+    """
+    Retorna nossos canais agrupados por subnicho para aba Tabela.
+    Canais ordenados por desempenho (maior ganho de inscritos no topo).
+    Subnichos ordenados alfabeticamente.
+    """
+    try:
+        logger.info("Buscando canais para aba Tabela...")
+
+        # Buscar todos os nossos canais (sem limite)
+        canais = await db.get_canais_with_filters(
+            tipo="nosso",
+            limit=1000,
+            offset=0
+        )
+
+        logger.info(f"Total de canais encontrados: {len(canais)}")
+
+        # Agrupar por subnicho
+        grupos = {}
+        for canal in canais:
+            subnicho = canal.get('subnicho') or 'Sem Categoria'
+
+            if subnicho not in grupos:
+                grupos[subnicho] = []
+
+            # Adicionar canal ao grupo
+            grupos[subnicho].append({
+                'id': canal['id'],
+                'nome_canal': canal['nome_canal'],
+                'url_canal': canal['url_canal'],
+                'inscritos': canal.get('inscritos', 0),
+                'inscritos_diff': canal.get('inscritos_diff'),
+                'ultima_coleta': canal.get('ultima_coleta'),
+                'subnicho': subnicho
+            })
+
+        # Ordenar canais dentro de cada grupo por desempenho
+        # Ordem: maior ganho positivo -> zero -> menor perda -> null
+        def sort_key(canal):
+            diff = canal['inscritos_diff']
+            if diff is None:
+                return (-999999,)  # null por ultimo
+            return (-diff,)  # DESC (maior primeiro)
+
+        for subnicho in grupos:
+            grupos[subnicho].sort(key=sort_key)
+
+        # Ordenar subnichos alfabeticamente
+        grupos_ordenados = dict(sorted(grupos.items()))
+
+        logger.info(f"Canais agrupados em {len(grupos_ordenados)} subnichos")
+
+        return {
+            "grupos": grupos_ordenados,
+            "total_canais": len(canais),
+            "total_subnichos": len(grupos_ordenados)
+        }
+
+    except Exception as e:
+        logger.error(f"Error fetching canais tabela: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/videos")
