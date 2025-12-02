@@ -431,7 +431,8 @@ async def get_canais_tabela():
                 'inscritos': canal.get('inscritos', 0),
                 'inscritos_diff': canal.get('inscritos_diff'),
                 'ultima_coleta': canal.get('ultima_coleta'),
-                'subnicho': subnicho
+                'subnicho': subnicho,
+                'lingua': canal.get('lingua', 'N/A')
             })
 
         # Ordenar canais dentro de cada grupo por desempenho
