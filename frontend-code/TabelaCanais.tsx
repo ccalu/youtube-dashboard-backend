@@ -159,26 +159,28 @@ export function TabelaCanais() {
     <div className="space-y-6">
       {/* Header com estatísticas */}
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-3">
-              <CardTitle className="text-2xl">📊 Nossos Canais</CardTitle>
-              <div className="flex gap-2">
-                <Badge variant="secondary" className="text-sm">
+        <CardHeader className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex flex-col gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-xl sm:text-2xl">📊 Nossos Canais</CardTitle>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <Badge variant="secondary" className="text-xs sm:text-sm">
                   {totalCanais} canais
                 </Badge>
-                <Badge variant="outline" className="text-sm">
+                <Badge variant="outline" className="text-xs sm:text-sm">
                   {totalSubnichos} subnichos
                 </Badge>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={fetchCanais}>
+            <Button variant="outline" size="sm" onClick={fetchCanais} className="w-full sm:w-auto">
               <RefreshCw className="h-4 w-4 mr-2" />
               Atualizar
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground mt-2">
-            Ganho de inscritos: ontem → hoje · Ordenado por desempenho
+          <p className="text-xs sm:text-sm text-muted-foreground mt-3">
+            Ganho: ontem → hoje · Por desempenho
           </p>
         </CardHeader>
       </Card>
@@ -190,28 +192,28 @@ export function TabelaCanais() {
         return (
           <Card key={subnicho} className="overflow-hidden">
             <CardHeader
-              className="border-b-2"
+              className="border-b-2 p-3 sm:p-6"
               style={{
                 backgroundColor: `${color}15`,
                 borderBottomColor: color,
               }}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <div
-                  className="w-5 h-5 rounded-full flex-shrink-0"
+                  className="w-4 h-4 sm:w-5 sm:h-5 rounded-full flex-shrink-0"
                   style={{ backgroundColor: color }}
                 />
-                <CardTitle className="text-xl">{subnicho}</CardTitle>
+                <CardTitle className="text-base sm:text-xl truncate">{subnicho}</CardTitle>
                 <Badge
                   variant="secondary"
-                  className="ml-auto"
+                  className="ml-auto text-xs"
                   style={{
                     backgroundColor: `${color}25`,
                     color: color,
                     borderColor: color,
                   }}
                 >
-                  {canais.length} {canais.length === 1 ? 'canal' : 'canais'}
+                  {canais.length}
                 </Badge>
               </div>
             </CardHeader>
@@ -220,12 +222,12 @@ export function TabelaCanais() {
                 {canais.map((canal, index) => (
                   <div
                     key={canal.id}
-                    className="p-4 flex items-center justify-between hover:bg-muted/50 transition-colors gap-4"
+                    className="p-3 sm:p-4 flex items-center justify-between hover:bg-muted/50 transition-colors gap-2 sm:gap-4"
                   >
                     {/* Badge de posição (top 3) */}
                     {index < 3 && (
                       <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                        className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold flex-shrink-0"
                         style={{
                           backgroundColor: `${color}20`,
                           color: color,
@@ -237,24 +239,24 @@ export function TabelaCanais() {
                     )}
 
                     {index >= 3 && (
-                      <div className="w-8 h-8 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">
                         {index + 1}
                       </div>
                     )}
 
                     {/* Nome do canal e inscritos */}
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate text-base">
+                      <div className="font-medium truncate text-sm sm:text-base">
                         {canal.nome_canal}
                       </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {formatNumber(canal.inscritos)} inscritos
+                      <div className="text-xs text-muted-foreground mt-0.5 sm:mt-1">
+                        {formatNumber(canal.inscritos)} ins
                       </div>
                     </div>
 
                     {/* Ganho de inscritos */}
                     <div
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-md min-w-[80px] justify-center"
+                      className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md min-w-[60px] sm:min-w-[80px] justify-center"
                       style={{
                         backgroundColor:
                           canal.inscritos_diff === null || canal.inscritos_diff === 0
@@ -264,8 +266,8 @@ export function TabelaCanais() {
                             : '#FEE2E2',
                       }}
                     >
-                      {getGrowthIcon(canal.inscritos_diff)}
-                      <span className={getGrowthColor(canal.inscritos_diff)}>
+                      <span className="hidden sm:inline">{getGrowthIcon(canal.inscritos_diff)}</span>
+                      <span className={`text-xs sm:text-sm ${getGrowthColor(canal.inscritos_diff)}`}>
                         {formatGrowth(canal.inscritos_diff)}
                       </span>
                     </div>
@@ -275,7 +277,7 @@ export function TabelaCanais() {
                       size="sm"
                       variant="outline"
                       onClick={() => openYouTube(canal.url_canal)}
-                      className="w-10 h-10 p-0 flex-shrink-0"
+                      className="w-9 h-9 sm:w-10 sm:h-10 p-0 flex-shrink-0 text-lg"
                       style={{
                         borderColor: `${color}50`,
                         color: color,
