@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, TrendingUp, TrendingDown, Minus, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, RefreshCw } from 'lucide-react';
 
 // Cores dos subnichos (mesmas do SubnicheTrendsCard)
 const SUBNICHE_COLORS: Record<string, string> = {
@@ -275,14 +275,14 @@ export function TabelaCanais() {
                       size="sm"
                       variant="outline"
                       onClick={() => openYouTube(canal.url_canal)}
-                      className="gap-2 flex-shrink-0"
+                      className="w-10 h-10 p-0 flex-shrink-0"
                       style={{
                         borderColor: `${color}50`,
                         color: color,
                       }}
+                      title="Abrir canal no YouTube"
                     >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      Acessar
+                      ▶️
                     </Button>
                   </div>
                 ))}
