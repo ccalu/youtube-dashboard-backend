@@ -19,6 +19,7 @@ load_dotenv()
 from database import SupabaseClient
 from collector import YouTubeCollector
 from notifier import NotificationChecker
+from monetization_endpoints import router as monetization_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -32,6 +33,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ========================================
+# 💰 MONETIZATION ROUTER
+# ========================================
+app.include_router(monetization_router)
 
 # ========================================
 # 🆕 MODELOS PYDANTIC
@@ -1380,6 +1386,17 @@ async def run_collection_job():
                 logger.info(f"✅ Cleaned up {deleted_count} old notifications (>30 days)")
             except Exception as e:
                 logger.error(f"❌ Error checking notifications: {e}")
+
+            # 💰 COLETA DE MONETIZAÇÃO
+            try:
+                logger.info("=" * 80)
+                logger.info("💰 STARTING MONETIZATION COLLECTION")
+                logger.info("=" * 80)
+                from monetization_collector import collect_monetization
+                await collect_monetization()
+                logger.info("✅ Monetization collection completed")
+            except Exception as e:
+                logger.error(f"❌ Error in monetization collection: {e}")
 
         if canais_sucesso >= (total_canais * 0.5):
             logger.info("🧹 Cleanup threshold met (>50% success)")
