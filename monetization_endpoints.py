@@ -279,10 +279,15 @@ async def get_monetization_channels(
             last_3_days_formatted = []
 
             for day in last_3_days:
+                revenue = day.get('revenue', 0) or 0
+                views = day.get('views', 0) or 0
+                rpm = round((revenue / views) * 1000, 2) if views > 0 else 0.0
+
                 last_3_days_formatted.append({
                     "date": day['date'],
-                    "revenue": round(day.get('revenue', 0) or 0, 2),
-                    "views": day.get('views', 0) or 0,
+                    "revenue": round(revenue, 2),
+                    "views": views,
+                    "rpm": rpm,
                     "is_estimate": day.get('is_estimate', False),
                     "badge": "estimate" if day.get('is_estimate', False) else "real"
                 })
@@ -406,34 +411,47 @@ async def get_channel_history(channel_id: str):
 
 @router.get("/analytics")
 async def get_monetization_analytics(
+    period: str = Query("7d", regex="^(24h|3d|7d|15d|30d|total)$"),
     language: Optional[str] = None,
     subnicho: Optional[str] = None
 ):
     """
     Retorna dados para o card Analytics
-    - Projeção mensal
-    - Comparação períodos
-    - Melhor/pior dia
-    - Retenção, tempo médio, CTR
+    - Projecao mensal
+    - Comparacao periodos
+    - Melhor/pior dia especifico do periodo
+    - Retencao, tempo medio, CTR
     """
     try:
         today = datetime.now().date()
+
+        # Calcular cutoff_date baseado no periodo
+        if period == "total":
+            cutoff_date = "2025-10-26"
+        elif period == "24h":
+            cutoff_date = (today - timedelta(days=1)).isoformat()
+        elif period == "3d":
+            cutoff_date = (today - timedelta(days=3)).isoformat()
+        elif period == "7d":
+            cutoff_date = (today - timedelta(days=7)).isoformat()
+        elif period == "15d":
+            cutoff_date = (today - timedelta(days=15)).isoformat()
+        else:  # 30d
+            cutoff_date = (today - timedelta(days=30)).isoformat()
+
         seven_days_ago = (today - timedelta(days=7)).isoformat()
         fourteen_days_ago = (today - timedelta(days=14)).isoformat()
 
         # Query base
         base_query = db.supabase.table("yt_daily_metrics").select("*")
 
-        # Filtros (se aplicável)
-        # TODO: Implementar filtros por língua/subnicho
-
-        # Últimos 7 dias
+        # Ultimos 7 dias para projecao
         current_metrics = base_query.gte("date", seven_days_ago).execute()
         current_data = current_metrics.data or []
 
         current_revenue = sum(m.get('revenue', 0) or 0 for m in current_data)
 
-        # 7 dias anteriores
+        # 7 dias anteriores para comparacao
         previous_metrics = db.supabase.table("yt_daily_metrics")\
             .select("revenue")\
             .gte("date", fourteen_days_ago)\
@@ -443,13 +461,13 @@ async def get_monetization_analytics(
         previous_data = previous_metrics.data or []
         previous_revenue = sum(m.get('revenue', 0) or 0 for m in previous_data)
 
-        # Comparação
+        # Comparacao
         growth_pct = round(((current_revenue - previous_revenue) / previous_revenue) * 100, 1) if previous_revenue > 0 else 0.0
 
-        # Projeção mensal (últimos 7 dias × 4.3)
+        # Projecao mensal (ultimos 7 dias x 4.3)
         projection_monthly = round(current_revenue * 4.3, 2)
 
-        # Calcular crescimento mensal (comparar com mês passado se tiver dados)
+        # Calcular crescimento mensal
         thirty_days_ago = (today - timedelta(days=30)).isoformat()
         last_month_metrics = db.supabase.table("yt_daily_metrics")\
             .select("revenue")\
@@ -459,8 +477,8 @@ async def get_monetization_analytics(
         last_month_revenue = sum(m.get('revenue', 0) or 0 for m in (last_month_metrics.data or []))
         growth_vs_last_month = round(((projection_monthly - last_month_revenue) / last_month_revenue) * 100, 1) if last_month_revenue > 0 else 0.0
 
-        # Melhor/pior dia da semana (análise histórica)
-        best_day, worst_day = analyze_best_worst_days()
+        # Melhor/pior dia especifico baseado no periodo e filtros
+        best_day, worst_day = analyze_best_worst_days(cutoff_date, language, subnicho)
 
         # Métricas de analytics (média de todos os canais)
         analytics_metrics = db.supabase.table("yt_daily_metrics")\
@@ -500,56 +518,80 @@ async def get_monetization_analytics(
         logger.error(f"Erro em /analytics: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-def analyze_best_worst_days():
-    """Analisa melhor e pior dia da semana baseado em histórico"""
+def analyze_best_worst_days(cutoff_date: str, language: Optional[str] = None, subnicho: Optional[str] = None):
+    """Analisa melhor e pior dia especifico do periodo com revenue total"""
     try:
-        # Buscar últimos 30 dias
-        thirty_days_ago = (datetime.now().date() - timedelta(days=30)).isoformat()
+        # Buscar metricas do periodo filtrado
+        query = db.supabase.table("yt_daily_metrics")\
+            .select("date, revenue, channel_id")\
+            .gte("date", cutoff_date)
 
-        metrics = db.supabase.table("yt_daily_metrics")\
-            .select("date, revenue")\
-            .gte("date", thirty_days_ago)\
-            .execute()
-
+        metrics = query.execute()
         data = metrics.data or []
 
-        # Agrupar por dia da semana
-        revenue_by_weekday = {i: [] for i in range(7)}  # 0=Monday, 6=Sunday
+        if not data:
+            return {"date": "N/A", "revenue": 0}, {"date": "N/A", "revenue": 0}
+
+        # Se houver filtros de lingua/subnicho, precisamos filtrar canais
+        if language or subnicho:
+            channels_query = db.supabase.table("yt_channels")\
+                .select("channel_id, channel_name")\
+                .eq("is_monetized", True)
+
+            channels = channels_query.execute().data or []
+            filtered_channel_ids = []
+
+            for ch in channels:
+                info = db.supabase.table("canais_monitorados")\
+                    .select("subnicho, lingua")\
+                    .ilike("nome_canal", f"%{ch['channel_name']}%")\
+                    .limit(1)\
+                    .execute()
+
+                if info.data:
+                    canal_info = info.data[0]
+                    canal_lingua = canal_info.get('lingua', '')
+                    canal_subnicho = canal_info.get('subnicho', '')
+
+                    if language and canal_lingua.lower() != language.lower():
+                        continue
+                    if subnicho and canal_subnicho.lower() != subnicho.lower():
+                        continue
+
+                    filtered_channel_ids.append(ch['channel_id'])
+
+            data = [m for m in data if m['channel_id'] in filtered_channel_ids]
+
+        # Agrupar revenue por data
+        revenue_by_date = {}
 
         for item in data:
-            date_obj = date.fromisoformat(item['date'])
-            weekday = date_obj.weekday()
+            day_date = item['date']
             revenue = item.get('revenue', 0) or 0
-            revenue_by_weekday[weekday].append(revenue)
 
-        # Calcular média por dia
-        avg_by_weekday = {}
-        weekday_names = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
+            if day_date not in revenue_by_date:
+                revenue_by_date[day_date] = 0
 
-        for weekday, revenues in revenue_by_weekday.items():
-            if revenues:
-                avg_by_weekday[weekday] = sum(revenues) / len(revenues)
-            else:
-                avg_by_weekday[weekday] = 0
+            revenue_by_date[day_date] += revenue
 
-        # Encontrar melhor e pior
-        if avg_by_weekday:
-            best_weekday = max(avg_by_weekday, key=avg_by_weekday.get)
-            worst_weekday = min(avg_by_weekday, key=avg_by_weekday.get)
+        if not revenue_by_date:
+            return {"date": "N/A", "revenue": 0}, {"date": "N/A", "revenue": 0}
 
-            return {
-                "day_of_week": weekday_names[best_weekday],
-                "avg_revenue": round(avg_by_weekday[best_weekday], 2)
-            }, {
-                "day_of_week": weekday_names[worst_weekday],
-                "avg_revenue": round(avg_by_weekday[worst_weekday], 2)
-            }
+        # Encontrar melhor e pior dia
+        best_date = max(revenue_by_date, key=revenue_by_date.get)
+        worst_date = min(revenue_by_date, key=revenue_by_date.get)
 
-        return {"day_of_week": "N/A", "avg_revenue": 0}, {"day_of_week": "N/A", "avg_revenue": 0}
+        return {
+            "date": best_date,
+            "revenue": round(revenue_by_date[best_date], 2)
+        }, {
+            "date": worst_date,
+            "revenue": round(revenue_by_date[worst_date], 2)
+        }
 
     except Exception as e:
         logger.error(f"Erro ao analisar dias: {e}")
-        return {"day_of_week": "N/A", "avg_revenue": 0}, {"day_of_week": "N/A", "avg_revenue": 0}
+        return {"date": "N/A", "revenue": 0}, {"date": "N/A", "revenue": 0}
 
 # =============================================================================
 # ENDPOINT 5: TOP PERFORMERS
@@ -623,8 +665,22 @@ async def get_top_performers(
 
         return {
             "period_filter": period,
-            "top_rpm": [{"name": c['name'], "rpm": c['rpm']} for c in top_rpm],
-            "top_revenue": [{"name": c['name'], "revenue": c['revenue']} for c in top_revenue]
+            "top_rpm": [
+                {
+                    "channel_id": "",
+                    "channel_name": c['name'],
+                    "avg_rpm": c['rpm'],
+                    "total_revenue": c['revenue']
+                } for c in top_rpm
+            ],
+            "top_revenue": [
+                {
+                    "channel_id": "",
+                    "channel_name": c['name'],
+                    "total_revenue": c['revenue'],
+                    "avg_rpm": c['rpm']
+                } for c in top_revenue
+            ]
         }
 
     except Exception as e:
@@ -831,17 +887,40 @@ async def get_monetization_by_subnicho(
 @router.get("/config")
 async def get_monetization_config():
     """
-    Retorna lista de canais monetizados ativos
-    Usado para configuração/gerenciamento
+    Retorna lista de canais monetizados ativos com subnicho e lingua
+    Usado para filtros dinamicos no frontend
     """
     try:
+        # Buscar canais monetizados
         channels = db.supabase.table("yt_channels")\
             .select("channel_id, channel_name, monetization_start_date, is_monetized")\
             .eq("is_monetized", True)\
             .execute()
 
+        channels_data = channels.data or []
+
+        # Para cada canal, buscar subnicho e lingua
+        enriched_channels = []
+
+        for channel in channels_data:
+            # Buscar dados em canais_monitorados
+            canal_info = db.supabase.table("canais_monitorados")\
+                .select("subnicho, lingua")\
+                .ilike("nome_canal", f"%{channel['channel_name']}%")\
+                .limit(1)\
+                .execute()
+
+            if canal_info.data:
+                enriched_channels.append({
+                    "channel_id": channel['channel_id'],
+                    "channel_name": channel['channel_name'],
+                    "monetization_start_date": channel.get('monetization_start_date'),
+                    "subnicho": canal_info.data[0].get('subnicho', 'Outros'),
+                    "lingua": canal_info.data[0].get('lingua', 'N/A')
+                })
+
         return {
-            "monetized_channels": channels.data or []
+            "channels": enriched_channels
         }
 
     except Exception as e:
