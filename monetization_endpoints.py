@@ -283,8 +283,17 @@ async def get_monetization_channels(
                 views = day.get('views', 0) or 0
                 rpm = round((revenue / views) * 1000, 2) if views > 0 else 0.0
 
+                # Formatar data (ISO -> dd/mm)
+                date_iso = day['date']
+                try:
+                    date_obj = date.fromisoformat(date_iso)
+                    date_formatted = date_obj.strftime("%d/%m")
+                except:
+                    date_formatted = date_iso
+
                 last_3_days_formatted.append({
-                    "date": day['date'],
+                    "date": date_iso,
+                    "date_formatted": date_formatted,
                     "revenue": round(revenue, 2),
                     "views": views,
                     "rpm": rpm,
