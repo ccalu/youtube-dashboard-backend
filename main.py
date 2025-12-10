@@ -1387,16 +1387,27 @@ async def run_collection_job():
             except Exception as e:
                 logger.error(f"❌ Error checking notifications: {e}")
 
-            # 💰 COLETA DE MONETIZAÇÃO
+            # 💰 COLETA DE MONETIZAÇÃO (ESTIMATIVAS)
             try:
                 logger.info("=" * 80)
-                logger.info("💰 STARTING MONETIZATION COLLECTION")
+                logger.info("💰 STARTING MONETIZATION COLLECTION (ESTIMATES)")
                 logger.info("=" * 80)
                 from monetization_collector import collect_monetization
                 await collect_monetization()
-                logger.info("✅ Monetization collection completed")
+                logger.info("✅ Monetization estimates collection completed")
             except Exception as e:
                 logger.error(f"❌ Error in monetization collection: {e}")
+
+            # 🔐 COLETA OAUTH (REVENUE REAL)
+            try:
+                logger.info("=" * 80)
+                logger.info("🔐 STARTING OAUTH COLLECTION (REAL REVENUE)")
+                logger.info("=" * 80)
+                from monetization_oauth_collector import collect_oauth_metrics
+                result = await collect_oauth_metrics()
+                logger.info(f"✅ OAuth collection completed - Success: {result['success']}, Errors: {result['errors']}")
+            except Exception as e:
+                logger.error(f"❌ Error in OAuth collection: {e}")
 
         if canais_sucesso >= (total_canais * 0.5):
             logger.info("🧹 Cleanup threshold met (>50% success)")
