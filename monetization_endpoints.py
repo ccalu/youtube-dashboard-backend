@@ -556,12 +556,28 @@ def analyze_best_worst_days():
 # =============================================================================
 
 @router.get("/top-performers")
-async def get_top_performers(days: int = 7):
+async def get_top_performers(
+    period: str = Query("7d", regex="^(24h|3d|7d|15d|30d|total)$")
+):
     """
     Retorna Top 3 canais por RPM e Revenue
     """
     try:
-        cutoff_date = (datetime.now().date() - timedelta(days=days)).isoformat()
+        # Calcular data de início baseado no período
+        today = datetime.now().date()
+
+        if period == "total":
+            cutoff_date = "2025-10-26"  # Início da monetização
+        elif period == "24h":
+            cutoff_date = (today - timedelta(days=1)).isoformat()
+        elif period == "3d":
+            cutoff_date = (today - timedelta(days=3)).isoformat()
+        elif period == "7d":
+            cutoff_date = (today - timedelta(days=7)).isoformat()
+        elif period == "15d":
+            cutoff_date = (today - timedelta(days=15)).isoformat()
+        else:  # 30d
+            cutoff_date = (today - timedelta(days=30)).isoformat()
 
         # Buscar canais monetizados
         channels = db.supabase.table("yt_channels")\
@@ -606,7 +622,7 @@ async def get_top_performers(days: int = 7):
         top_revenue = sorted(channel_stats, key=lambda x: x['revenue'], reverse=True)[:3]
 
         return {
-            "period_days": days,
+            "period_filter": period,
             "top_rpm": [{"name": c['name'], "rpm": c['rpm']} for c in top_rpm],
             "top_revenue": [{"name": c['name'], "revenue": c['revenue']} for c in top_revenue]
         }
@@ -620,12 +636,28 @@ async def get_top_performers(days: int = 7):
 # =============================================================================
 
 @router.get("/by-language")
-async def get_monetization_by_language(days: int = 7):
+async def get_monetization_by_language(
+    period: str = Query("7d", regex="^(24h|3d|7d|15d|30d|total)$")
+):
     """
     Análise por língua: RPM, Views, Revenue
     """
     try:
-        cutoff_date = (datetime.now().date() - timedelta(days=days)).isoformat()
+        # Calcular data de início baseado no período
+        today = datetime.now().date()
+
+        if period == "total":
+            cutoff_date = "2025-10-26"
+        elif period == "24h":
+            cutoff_date = (today - timedelta(days=1)).isoformat()
+        elif period == "3d":
+            cutoff_date = (today - timedelta(days=3)).isoformat()
+        elif period == "7d":
+            cutoff_date = (today - timedelta(days=7)).isoformat()
+        elif period == "15d":
+            cutoff_date = (today - timedelta(days=15)).isoformat()
+        else:  # 30d
+            cutoff_date = (today - timedelta(days=30)).isoformat()
 
         # Buscar todos os canais monetizados com língua
         channels = db.supabase.table("yt_channels")\
@@ -688,7 +720,7 @@ async def get_monetization_by_language(days: int = 7):
             lang_data["revenue"] = round(lang_data["revenue"], 2)
 
         return {
-            "period_days": days,
+            "period_filter": period,
             "languages": list(by_language.values())
         }
 
@@ -701,12 +733,28 @@ async def get_monetization_by_language(days: int = 7):
 # =============================================================================
 
 @router.get("/by-subnicho")
-async def get_monetization_by_subnicho(days: int = 7):
+async def get_monetization_by_subnicho(
+    period: str = Query("7d", regex="^(24h|3d|7d|15d|30d|total)$")
+):
     """
     Análise por subnicho: RPM, Views, Revenue
     """
     try:
-        cutoff_date = (datetime.now().date() - timedelta(days=days)).isoformat()
+        # Calcular data de início baseado no período
+        today = datetime.now().date()
+
+        if period == "total":
+            cutoff_date = "2025-10-26"
+        elif period == "24h":
+            cutoff_date = (today - timedelta(days=1)).isoformat()
+        elif period == "3d":
+            cutoff_date = (today - timedelta(days=3)).isoformat()
+        elif period == "7d":
+            cutoff_date = (today - timedelta(days=7)).isoformat()
+        elif period == "15d":
+            cutoff_date = (today - timedelta(days=15)).isoformat()
+        else:  # 30d
+            cutoff_date = (today - timedelta(days=30)).isoformat()
 
         # Similar ao by-language, mas agrupa por subnicho
         channels = db.supabase.table("yt_channels")\
@@ -768,7 +816,7 @@ async def get_monetization_by_subnicho(days: int = 7):
             sub_data["revenue"] = round(sub_data["revenue"], 2)
 
         return {
-            "period_days": days,
+            "period_filter": period,
             "subnichos": list(by_subnicho.values())
         }
 
