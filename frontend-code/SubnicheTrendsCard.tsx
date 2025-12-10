@@ -16,6 +16,7 @@ const SUBNICHE_COLORS: Record<string, string> = {
   'Mistérios': '#4F46E5',
   'Pessoas Desaparecidas': '#0284C7',
   'Psicologia & Mindset': '#0D9488',
+  'Guerras e Civilizações': '#10B981', // Verde-esmeralda (NOVO - adicionado 2025-01-12)
 };
 
 interface SubnicheTrend {

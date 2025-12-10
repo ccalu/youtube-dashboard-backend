@@ -4,10 +4,16 @@ Roda UMA VEZ para ter ponto de partida
 A partir de amanhã, coleta diária calcula views_24h automaticamente
 """
 import os
+import sys
 import requests
 import asyncio
 import aiohttp
 from datetime import datetime
+
+# Fix encoding for Windows
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://prvkmzstyedepvlbppyo.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBydmttenN0eWVkZXB2bGJwcHlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQxNDY3MTQsImV4cCI6MjA1OTcyMjcxNH0.T0aspHrF0tz1G6iVOBIO3zgvs1g5vvQcb25jhGriQGo")
@@ -25,7 +31,7 @@ API_KEYS = [
 API_KEYS = [k for k in API_KEYS if k]
 
 if not API_KEYS:
-    print("⚠️ ERRO: Nenhuma YouTube API Key configurada!")
+    print("[ERRO] Nenhuma YouTube API Key configurada!")
     print("Configure pelo menos YOUTUBE_API_KEY_3 no .env")
     exit(1)
 
