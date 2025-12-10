@@ -255,51 +255,68 @@ async def get_monetization_channels(
             if subnicho and canal_subnicho.lower() != subnicho.lower():
                 continue
 
-            # Buscar últimos 3 dias
+            # Calcular start_date baseado no period
             today = datetime.now().date()
-            three_days_ago = (today - timedelta(days=3)).isoformat()
 
+            if period == "total":
+                start_date = "2025-10-26"
+            elif period == "24h":
+                start_date = (today - timedelta(days=1)).isoformat()
+            elif period == "3d":
+                start_date = (today - timedelta(days=3)).isoformat()
+            elif period == "7d":
+                start_date = (today - timedelta(days=7)).isoformat()
+            elif period == "15d":
+                start_date = (today - timedelta(days=15)).isoformat()
+            else:  # 30d
+                start_date = (today - timedelta(days=30)).isoformat()
+
+            # Buscar todas as metricas do periodo
             metrics_query = db.supabase.table("yt_daily_metrics")\
                 .select("date, revenue, views, is_estimate")\
                 .eq("channel_id", channel_id)\
-                .gte("date", three_days_ago)\
-                .order("date", desc=True)\
-                .limit(3)
+                .gte("date", start_date)\
+                .order("date", desc=True)
 
             if type_filter == "real_only":
                 metrics_query = metrics_query.eq("is_estimate", False)
 
             metrics_response = metrics_query.execute()
-            last_3_days = metrics_response.data or []
+            period_data = metrics_response.data or []
 
-            # Calcular RPM médio
-            rpm_avg = calculate_channel_rpm(channel_id)
+            # Agregar totais do periodo
+            total_revenue = 0
+            total_views = 0
+            has_estimate = False
+            last_date = None
 
-            # Formatar dados
-            last_3_days_formatted = []
-
-            for day in last_3_days:
+            for day in period_data:
                 revenue = day.get('revenue', 0) or 0
                 views = day.get('views', 0) or 0
-                rpm = round((revenue / views) * 1000, 2) if views > 0 else 0.0
+                total_revenue += revenue
+                total_views += views
 
-                # Formatar data (ISO -> dd/mm)
-                date_iso = day['date']
+                if day.get('is_estimate', False):
+                    has_estimate = True
+
+                # Pegar a data mais recente
+                if last_date is None or day['date'] > last_date:
+                    last_date = day['date']
+
+            # Calcular RPM do periodo
+            period_rpm = round((total_revenue / total_views) * 1000, 2) if total_views > 0 else 0.0
+
+            # Formatar data da ultima atualizacao
+            date_formatted = "N/A"
+            if last_date:
                 try:
-                    date_obj = date.fromisoformat(date_iso)
+                    date_obj = date.fromisoformat(last_date)
                     date_formatted = date_obj.strftime("%d/%m")
                 except:
-                    date_formatted = date_iso
+                    date_formatted = last_date
 
-                last_3_days_formatted.append({
-                    "date": date_iso,
-                    "date_formatted": date_formatted,
-                    "revenue": round(revenue, 2),
-                    "views": views,
-                    "rpm": rpm,
-                    "is_estimate": day.get('is_estimate', False),
-                    "badge": "estimate" if day.get('is_estimate', False) else "real"
-                })
+            # Determinar badge
+            badge = "estimate" if has_estimate else "real"
 
             # Agrupar por subnicho
             if canal_subnicho not in result_by_subnicho:
@@ -313,8 +330,14 @@ async def get_monetization_channels(
                 "name": channel_name,
                 "channel_id": channel_id,
                 "language": canal_lingua,
-                "rpm_avg": rpm_avg,
-                "last_3_days": last_3_days_formatted
+                "period_total": {
+                    "revenue": round(total_revenue, 2),
+                    "views": total_views,
+                    "rpm": period_rpm,
+                    "last_update": last_date,
+                    "last_update_formatted": date_formatted,
+                    "badge": badge
+                }
             })
 
         # Converter para lista
@@ -934,4 +957,83 @@ async def get_monetization_config():
 
     except Exception as e:
         logger.error(f"Erro em /config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# =============================================================================
+# ENDPOINT 9: REVENUE 24H (Resumo últimas 24 horas)
+# =============================================================================
+
+@router.get("/revenue-24h")
+async def get_revenue_24h():
+    """
+    Retorna revenue das ultimas 24 horas
+    - real: dados coletados (ultima coleta)
+    - estimate: estimativa do dia atual
+    """
+    try:
+        today = datetime.now().date()
+
+        # Buscar ultima data com dados reais (is_estimate=false)
+        last_real_query = db.supabase.table("yt_daily_metrics")\
+            .select("date")\
+            .eq("is_estimate", False)\
+            .order("date", desc=True)\
+            .limit(1)\
+            .execute()
+
+        last_real_date = None
+        if last_real_query.data:
+            last_real_date = last_real_query.data[0]['date']
+
+        # Revenue real (ultima coleta)
+        real_revenue = 0
+        if last_real_date:
+            real_metrics = db.supabase.table("yt_daily_metrics")\
+                .select("revenue")\
+                .eq("date", last_real_date)\
+                .eq("is_estimate", False)\
+                .execute()
+
+            for item in real_metrics.data or []:
+                real_revenue += item.get('revenue', 0) or 0
+
+        # Buscar dados estimados de hoje
+        estimate_metrics = db.supabase.table("yt_daily_metrics")\
+            .select("revenue")\
+            .eq("date", today.isoformat())\
+            .eq("is_estimate", True)\
+            .execute()
+
+        estimate_revenue = 0
+        for item in estimate_metrics.data or []:
+            estimate_revenue += item.get('revenue', 0) or 0
+
+        # Formatar datas
+        real_date_formatted = "N/A"
+        if last_real_date:
+            try:
+                date_obj = date.fromisoformat(last_real_date)
+                real_date_formatted = date_obj.strftime("%d/%m")
+            except:
+                real_date_formatted = last_real_date
+
+        today_formatted = today.strftime("%d/%m")
+
+        return {
+            "real": {
+                "date": last_real_date,
+                "date_formatted": real_date_formatted,
+                "revenue": round(real_revenue, 2),
+                "badge": "real"
+            },
+            "estimate": {
+                "date": today.isoformat(),
+                "date_formatted": today_formatted,
+                "revenue": round(estimate_revenue, 2),
+                "badge": "estimate"
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Erro em /revenue-24h: {e}")
         raise HTTPException(status_code=500, detail=str(e))
