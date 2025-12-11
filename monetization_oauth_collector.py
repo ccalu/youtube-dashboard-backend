@@ -197,23 +197,8 @@ def collect_video_metrics(channel_id, access_token, start_date, end_date):
 
     rows = resp.json().get("rows", [])
 
-    # Buscar títulos dos vídeos
-    if rows:
-        video_ids = [r[0] for r in rows[:25]]
-        resp2 = requests.get(
-            "https://www.googleapis.com/youtube/v3/videos",
-            params={"part": "snippet", "id": ",".join(video_ids)},
-            headers=headers
-        )
-
-        titles = {}
-        if resp2.status_code == 200:
-            for v in resp2.json().get("items", []):
-                titles[v["id"]] = v["snippet"]["title"]
-
-        # Adicionar títulos aos rows
-        for row in rows:
-            row.append(titles.get(row[0], ""))
+    # Títulos removidos - OAuth não deve usar YouTube Data API v3
+    # Videos serão salvos apenas com video_id e métricas
 
     return rows
 
@@ -289,7 +274,7 @@ def save_video_metrics(channel_id, rows):
             "likes": int(row[3]),
             "comments": int(row[4]),
             "subscribers_gained": int(row[5]),
-            "title": row[6] if len(row) > 6 else "",
+            "title": "",  # Titulo removido - OAuth nao usa Data API v3
             "updated_at": datetime.now().isoformat()
         }
 
@@ -316,7 +301,7 @@ def save_video_daily(channel_id, rows, date):
             "likes": int(row[3]),
             "comments": int(row[4]),
             "subscribers_gained": int(row[5]),
-            "title": row[6] if len(row) > 6 else ""
+            "title": ""  # Titulo removido - OAuth nao usa Data API v3
         }
 
         resp = requests.post(
@@ -329,30 +314,31 @@ def save_video_daily(channel_id, rows, date):
 
     return saved
 
-def update_channel_info(channel_id, access_token):
-    """Atualiza info do canal (inscritos, vídeos)"""
-    headers = {"Authorization": f"Bearer {access_token}"}
-
-    resp = requests.get(
-        "https://www.googleapis.com/youtube/v3/channels",
-        params={"part": "statistics", "id": channel_id},
-        headers=headers
-    )
-
-    if resp.status_code == 200:
-        items = resp.json().get("items", [])
-        if items:
-            stats = items[0]["statistics"]
-            requests.patch(
-                f"{SUPABASE_URL}/rest/v1/yt_channels",
-                params={"channel_id": f"eq.{channel_id}"},
-                headers=SUPABASE_HEADERS,
-                json={
-                    "total_subscribers": int(stats.get("subscriberCount", 0)),
-                    "total_videos": int(stats.get("videoCount", 0)),
-                    "updated_at": datetime.now().isoformat()
-                }
-            )
+# FUNÇÃO DESABILITADA - USA DATA API V3 (CONSOME QUOTA DE MINERAÇÃO)
+# def update_channel_info(channel_id, access_token):
+#     """Atualiza info do canal (inscritos, vídeos)"""
+#     headers = {"Authorization": f"Bearer {access_token}"}
+#
+#     resp = requests.get(
+#         "https://www.googleapis.com/youtube/v3/channels",
+#         params={"part": "statistics", "id": channel_id},
+#         headers=headers
+#     )
+#
+#     if resp.status_code == 200:
+#         items = resp.json().get("items", [])
+#         if items:
+#             stats = items[0]["statistics"]
+#             requests.patch(
+#                 f"{SUPABASE_URL}/rest/v1/yt_channels",
+#                 params={"channel_id": f"eq.{channel_id}"},
+#                 headers=SUPABASE_HEADERS,
+#                 json={
+#                     "total_subscribers": int(stats.get("subscriberCount", 0)),
+#                     "total_videos": int(stats.get("videoCount", 0)),
+#                     "updated_at": datetime.now().isoformat()
+#                 }
+#             )
 
 # =============================================================================
 # MAIN - FUNÇÃO ASSÍNCRONA PARA RAILWAY
@@ -438,8 +424,8 @@ async def collect_oauth_metrics():
             saved_video_daily = save_video_daily(channel_id, video_rows, today)
             log.info(f"[{channel_name}] Histórico diário vídeos: {saved_video_daily} registros")
 
-            # Atualizar info do canal
-            update_channel_info(channel_id, access_token)
+            # Atualizar info do canal - DESABILITADO (usa Data API v3)
+            # update_channel_info(channel_id, access_token)
 
             # Log de sucesso
             log_collection(channel_id, "success", f"Coletados {saved_daily} dias, {saved_country} países, {saved_video} vídeos")
