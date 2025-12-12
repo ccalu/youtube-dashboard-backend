@@ -444,60 +444,144 @@ async def get_channel_history(channel_id: str):
 @router.get("/analytics")
 async def get_monetization_analytics(
     period: str = Query("7d", regex="^(24h|3d|7d|15d|30d|total)$"),
+    month: Optional[str] = Query(None, regex="^\\d{4}-\\d{2}$"),  # Formato YYYY-MM
     language: Optional[str] = None,
     subnicho: Optional[str] = None
 ):
     """
     Retorna dados para o card Analytics
     - Projecao mensal
-    - Comparacao periodos
+    - Comparacao periodos (dinâmica baseada no período ou mês)
     - Melhor/pior dia especifico do periodo
     - Retencao, tempo medio, CTR
     """
     try:
         today = datetime.now().date()
 
-        # Calcular cutoff_date baseado no periodo
-        if period == "total":
-            cutoff_date = "2025-10-26"
-        elif period == "24h":
-            cutoff_date = (today - timedelta(days=1)).isoformat()
-        elif period == "3d":
-            cutoff_date = (today - timedelta(days=3)).isoformat()
-        elif period == "7d":
-            cutoff_date = (today - timedelta(days=7)).isoformat()
-        elif period == "15d":
-            cutoff_date = (today - timedelta(days=15)).isoformat()
-        else:  # 30d
-            cutoff_date = (today - timedelta(days=30)).isoformat()
+        # Se month foi fornecido, usar lógica específica para mês
+        if month:
+            year, month_num = map(int, month.split('-'))
+            # Primeiro dia do mês
+            month_start = date(year, month_num, 1)
+            # Último dia do mês (próximo mês - 1 dia)
+            if month_num == 12:
+                month_end = date(year + 1, 1, 1) - timedelta(days=1)
+            else:
+                month_end = date(year, month_num + 1, 1) - timedelta(days=1)
 
+            # Se o mês for o atual, usar hoje como fim
+            if month_end > today:
+                month_end = today
+
+            cutoff_date = month_start.isoformat()
+            end_date = month_end.isoformat()
+
+            # Para comparison_period quando month é usado
+            # Comparar com o mês anterior
+            if month_num == 1:
+                prev_month_start = date(year - 1, 12, 1)
+                prev_month_end = date(year, 1, 1) - timedelta(days=1)
+            else:
+                prev_month_start = date(year, month_num - 1, 1)
+                prev_month_end = month_start - timedelta(days=1)
+
+            comparison_start = prev_month_start.isoformat()
+            comparison_end = prev_month_end.isoformat()
+
+        else:
+            # Lógica original baseada em period
+            if period == "total":
+                cutoff_date = "2025-10-26"
+                end_date = today.isoformat()
+                # Para total, não há comparação de período
+                comparison_start = None
+                comparison_end = None
+            elif period == "24h":
+                cutoff_date = (today - timedelta(days=1)).isoformat()
+                end_date = today.isoformat()
+                comparison_start = (today - timedelta(days=2)).isoformat()
+                comparison_end = (today - timedelta(days=1)).isoformat()
+            elif period == "3d":
+                cutoff_date = (today - timedelta(days=3)).isoformat()
+                end_date = today.isoformat()
+                comparison_start = (today - timedelta(days=6)).isoformat()
+                comparison_end = (today - timedelta(days=3)).isoformat()
+            elif period == "7d":
+                cutoff_date = (today - timedelta(days=7)).isoformat()
+                end_date = today.isoformat()
+                comparison_start = (today - timedelta(days=14)).isoformat()
+                comparison_end = (today - timedelta(days=7)).isoformat()
+            elif period == "15d":
+                cutoff_date = (today - timedelta(days=15)).isoformat()
+                end_date = today.isoformat()
+                comparison_start = (today - timedelta(days=30)).isoformat()
+                comparison_end = (today - timedelta(days=15)).isoformat()
+            else:  # 30d
+                cutoff_date = (today - timedelta(days=30)).isoformat()
+                end_date = today.isoformat()
+                comparison_start = (today - timedelta(days=60)).isoformat()
+                comparison_end = (today - timedelta(days=30)).isoformat()
+
+        # Métricas do período atual
+        current_metrics = db.supabase.table("yt_daily_metrics")\
+            .select("revenue, views, avg_retention_pct, avg_view_duration_sec, ctr_approx")\
+            .gte("date", cutoff_date)\
+            .lte("date", end_date)\
+            .execute()
+
+        current_data = current_metrics.data or []
+        current_revenue = sum(m.get('revenue', 0) or 0 for m in current_data)
+
+        # Métricas do período de comparação (se aplicável)
+        previous_revenue = 0
+        growth_pct = 0.0
+
+        if comparison_start and comparison_end:
+            previous_metrics = db.supabase.table("yt_daily_metrics")\
+                .select("revenue")\
+                .gte("date", comparison_start)\
+                .lte("date", comparison_end)\
+                .execute()
+
+            previous_data = previous_metrics.data or []
+            previous_revenue = sum(m.get('revenue', 0) or 0 for m in previous_data)
+
+            # Calcular crescimento
+            if previous_revenue > 0:
+                growth_pct = round(((current_revenue - previous_revenue) / previous_revenue) * 100, 1)
+
+        # Sempre calcular comparison_7d como fallback
         seven_days_ago = (today - timedelta(days=7)).isoformat()
         fourteen_days_ago = (today - timedelta(days=14)).isoformat()
 
-        # Query base
-        base_query = db.supabase.table("yt_daily_metrics").select("*")
+        seven_day_metrics = db.supabase.table("yt_daily_metrics")\
+            .select("revenue")\
+            .gte("date", seven_days_ago)\
+            .execute()
+        seven_day_revenue = sum(m.get('revenue', 0) or 0 for m in (seven_day_metrics.data or []))
 
-        # Ultimos 7 dias para projecao
-        current_metrics = base_query.gte("date", seven_days_ago).execute()
-        current_data = current_metrics.data or []
-
-        current_revenue = sum(m.get('revenue', 0) or 0 for m in current_data)
-
-        # 7 dias anteriores para comparacao
-        previous_metrics = db.supabase.table("yt_daily_metrics")\
+        seven_day_prev_metrics = db.supabase.table("yt_daily_metrics")\
             .select("revenue")\
             .gte("date", fourteen_days_ago)\
             .lt("date", seven_days_ago)\
             .execute()
+        seven_day_prev_revenue = sum(m.get('revenue', 0) or 0 for m in (seven_day_prev_metrics.data or []))
 
-        previous_data = previous_metrics.data or []
-        previous_revenue = sum(m.get('revenue', 0) or 0 for m in previous_data)
+        seven_day_growth = round(((seven_day_revenue - seven_day_prev_revenue) / seven_day_prev_revenue) * 100, 1) if seven_day_prev_revenue > 0 else 0.0
 
-        # Comparacao
-        growth_pct = round(((current_revenue - previous_revenue) / previous_revenue) * 100, 1) if previous_revenue > 0 else 0.0
-
-        # Projecao mensal (ultimos 7 dias x 4.3)
-        projection_monthly = round(current_revenue * 4.3, 2)
+        # Projecao mensal
+        if month:
+            # Se estamos visualizando um mês específico, projetar com base nesse mês
+            days_in_month = (month_end - month_start).days + 1
+            days_passed = (min(month_end, today) - month_start).days + 1
+            if days_passed > 0:
+                daily_avg = current_revenue / days_passed
+                projection_monthly = round(daily_avg * days_in_month, 2)
+            else:
+                projection_monthly = 0
+        else:
+            # Projeção baseada nos últimos 7 dias
+            projection_monthly = round(seven_day_revenue * 4.3, 2)
 
         # Calcular crescimento mensal
         thirty_days_ago = (today - timedelta(days=30)).isoformat()
@@ -512,10 +596,11 @@ async def get_monetization_analytics(
         # Melhor/pior dia especifico baseado no periodo e filtros
         best_day, worst_day = analyze_best_worst_days(cutoff_date, language, subnicho)
 
-        # Métricas de analytics (média de todos os canais)
+        # Métricas de analytics (média do período selecionado)
         analytics_metrics = db.supabase.table("yt_daily_metrics")\
             .select("avg_retention_pct, avg_view_duration_sec, ctr_approx")\
-            .gte("date", seven_days_ago)\
+            .gte("date", cutoff_date)\
+            .lte("date", end_date)\
             .execute()
 
         analytics_data = analytics_metrics.data or []
@@ -534,10 +619,16 @@ async def get_monetization_analytics(
                 "value": projection_monthly,
                 "growth_vs_last_month": growth_vs_last_month
             },
-            "comparison_7d": {
+            "comparison_period": {
                 "current_period_revenue": round(current_revenue, 2),
                 "previous_period_revenue": round(previous_revenue, 2),
-                "growth_pct": growth_pct
+                "growth_pct": growth_pct,
+                "period": month if month else period
+            },
+            "comparison_7d": {
+                "current_period_revenue": round(seven_day_revenue, 2),
+                "previous_period_revenue": round(seven_day_prev_revenue, 2),
+                "growth_pct": seven_day_growth
             },
             "best_day": best_day,
             "worst_day": worst_day,
