@@ -88,6 +88,7 @@ def get_growth_rate(channel_id: str, days: int = 7) -> float:
 @router.get("/summary")
 async def get_monetization_summary(
     period: str = Query("total", regex="^(24h|3d|7d|15d|30d|total)$"),
+    month: Optional[str] = Query(None, regex="^\\d{4}-\\d{2}$"),  # Formato YYYY-MM
     type_filter: str = Query("real_estimate", regex="^(real_estimate|real_only)$")
 ):
     """
@@ -101,18 +102,39 @@ async def get_monetization_summary(
         # Determinar período
         today = datetime.now().date()
 
-        if period == "24h":
-            start_date = (today - timedelta(days=1)).isoformat()
-        elif period == "3d":
-            start_date = (today - timedelta(days=3)).isoformat()
-        elif period == "7d":
-            start_date = (today - timedelta(days=7)).isoformat()
-        elif period == "15d":
-            start_date = (today - timedelta(days=15)).isoformat()
-        elif period == "30d":
-            start_date = (today - timedelta(days=30)).isoformat()
-        else:  # total
-            start_date = "2025-10-26"  # Início da monetização
+        # Se month foi fornecido, usar lógica específica para mês
+        if month:
+            year, month_num = map(int, month.split('-'))
+            # Primeiro dia do mês
+            month_start = date(year, month_num, 1)
+            # Último dia do mês
+            if month_num == 12:
+                month_end = date(year + 1, 1, 1) - timedelta(days=1)
+            else:
+                month_end = date(year, month_num + 1, 1) - timedelta(days=1)
+
+            # Se o mês for o atual, usar hoje como fim
+            if month_end > today:
+                month_end = today
+
+            start_date = month_start.isoformat()
+            end_date = month_end.isoformat()
+        else:
+            # Lógica original baseada em period
+            if period == "24h":
+                start_date = (today - timedelta(days=1)).isoformat()
+            elif period == "3d":
+                start_date = (today - timedelta(days=3)).isoformat()
+            elif period == "7d":
+                start_date = (today - timedelta(days=7)).isoformat()
+            elif period == "15d":
+                start_date = (today - timedelta(days=15)).isoformat()
+            elif period == "30d":
+                start_date = (today - timedelta(days=30)).isoformat()
+            else:  # total
+                start_date = "2025-10-26"  # Início da monetização
+
+            end_date = today.isoformat()
 
         # Buscar canais monetizados
         channels_response = db.supabase.table("yt_channels")\
@@ -125,7 +147,8 @@ async def get_monetization_summary(
         # Buscar métricas do período
         query = db.supabase.table("yt_daily_metrics")\
             .select("revenue, views, channel_id, is_estimate")\
-            .gte("date", start_date)
+            .gte("date", start_date)\
+            .lte("date", end_date)
 
         if type_filter == "real_only":
             query = query.eq("is_estimate", False)
@@ -145,7 +168,12 @@ async def get_monetization_summary(
         rpm_avg = round((total_revenue_real / total_views_real) * 1000, 2) if total_views_real > 0 else 0.0
 
         # Calcular média diária
-        if period == "total":
+        if month:
+            # Para mês específico, calcular dias no período
+            month_start = date.fromisoformat(start_date)
+            month_end = date.fromisoformat(end_date)
+            days_count = (month_end - month_start).days + 1
+        elif period == "total":
             days_count = (today - date.fromisoformat("2025-10-26")).days + 1
         elif period == "24h":
             days_count = 1
@@ -210,6 +238,7 @@ async def get_monetization_summary(
 @router.get("/channels")
 async def get_monetization_channels(
     period: str = Query("total", regex="^(24h|3d|7d|15d|30d|total)$"),
+    month: Optional[str] = Query(None, regex="^\\d{4}-\\d{2}$"),  # Formato YYYY-MM
     language: Optional[str] = None,
     subnicho: Optional[str] = None,
     type_filter: str = Query("real_estimate", regex="^(real_estimate|real_only)$")
@@ -255,27 +284,46 @@ async def get_monetization_channels(
             if subnicho and canal_subnicho.lower() != subnicho.lower():
                 continue
 
-            # Calcular start_date baseado no period
+            # Calcular start_date e end_date
             today = datetime.now().date()
 
-            if period == "total":
-                start_date = "2025-10-26"
-            elif period == "24h":
-                start_date = (today - timedelta(days=1)).isoformat()
-            elif period == "3d":
-                start_date = (today - timedelta(days=3)).isoformat()
-            elif period == "7d":
-                start_date = (today - timedelta(days=7)).isoformat()
-            elif period == "15d":
-                start_date = (today - timedelta(days=15)).isoformat()
-            else:  # 30d
-                start_date = (today - timedelta(days=30)).isoformat()
+            # Se month foi fornecido, usar lógica específica para mês
+            if month:
+                year, month_num = map(int, month.split('-'))
+                month_start = date(year, month_num, 1)
+                if month_num == 12:
+                    month_end = date(year + 1, 1, 1) - timedelta(days=1)
+                else:
+                    month_end = date(year, month_num + 1, 1) - timedelta(days=1)
+
+                if month_end > today:
+                    month_end = today
+
+                start_date = month_start.isoformat()
+                end_date = month_end.isoformat()
+            else:
+                # Lógica original baseada em period
+                if period == "total":
+                    start_date = "2025-10-26"
+                elif period == "24h":
+                    start_date = (today - timedelta(days=1)).isoformat()
+                elif period == "3d":
+                    start_date = (today - timedelta(days=3)).isoformat()
+                elif period == "7d":
+                    start_date = (today - timedelta(days=7)).isoformat()
+                elif period == "15d":
+                    start_date = (today - timedelta(days=15)).isoformat()
+                else:  # 30d
+                    start_date = (today - timedelta(days=30)).isoformat()
+
+                end_date = today.isoformat()
 
             # Buscar todas as metricas do periodo
             metrics_query = db.supabase.table("yt_daily_metrics")\
                 .select("date, revenue, views, is_estimate")\
                 .eq("channel_id", channel_id)\
                 .gte("date", start_date)\
+                .lte("date", end_date)\
                 .order("date", desc=True)
 
             if type_filter == "real_only":
@@ -722,7 +770,8 @@ def analyze_best_worst_days(cutoff_date: str, language: Optional[str] = None, su
 
 @router.get("/top-performers")
 async def get_top_performers(
-    period: str = Query("7d", regex="^(24h|3d|7d|15d|30d|total)$")
+    period: str = Query("7d", regex="^(24h|3d|7d|15d|30d|total)$"),
+    month: Optional[str] = Query(None, regex="^\\d{4}-\\d{2}$")  # Formato YYYY-MM
 ):
     """
     Retorna Top 3 canais por RPM e Revenue
@@ -731,18 +780,36 @@ async def get_top_performers(
         # Calcular data de início baseado no período
         today = datetime.now().date()
 
-        if period == "total":
-            cutoff_date = "2025-10-26"  # Início da monetização
-        elif period == "24h":
-            cutoff_date = (today - timedelta(days=1)).isoformat()
-        elif period == "3d":
-            cutoff_date = (today - timedelta(days=3)).isoformat()
-        elif period == "7d":
-            cutoff_date = (today - timedelta(days=7)).isoformat()
-        elif period == "15d":
-            cutoff_date = (today - timedelta(days=15)).isoformat()
-        else:  # 30d
-            cutoff_date = (today - timedelta(days=30)).isoformat()
+        # Se month foi fornecido, usar lógica específica para mês
+        if month:
+            year, month_num = map(int, month.split('-'))
+            month_start = date(year, month_num, 1)
+            if month_num == 12:
+                month_end = date(year + 1, 1, 1) - timedelta(days=1)
+            else:
+                month_end = date(year, month_num + 1, 1) - timedelta(days=1)
+
+            if month_end > today:
+                month_end = today
+
+            cutoff_date = month_start.isoformat()
+            end_date = month_end.isoformat()
+        else:
+            # Lógica original baseada em period
+            if period == "total":
+                cutoff_date = "2025-10-26"  # Início da monetização
+            elif period == "24h":
+                cutoff_date = (today - timedelta(days=1)).isoformat()
+            elif period == "3d":
+                cutoff_date = (today - timedelta(days=3)).isoformat()
+            elif period == "7d":
+                cutoff_date = (today - timedelta(days=7)).isoformat()
+            elif period == "15d":
+                cutoff_date = (today - timedelta(days=15)).isoformat()
+            else:  # 30d
+                cutoff_date = (today - timedelta(days=30)).isoformat()
+
+            end_date = today.isoformat()
 
         # Buscar canais monetizados
         channels = db.supabase.table("yt_channels")\
@@ -765,6 +832,7 @@ async def get_top_performers(
                 .eq("channel_id", channel_id)\
                 .eq("is_estimate", False)\
                 .gte("date", cutoff_date)\
+                .lte("date", end_date)\
                 .execute()
 
             data = metrics.data or []
