@@ -1202,16 +1202,19 @@ async def get_revenue_24h():
 
 @router.get("/quality-metrics")
 async def get_quality_metrics(
-    month: str = Query(None, description="Mês (YYYY-MM)"),
-    start_date: str = Query(None, description="Data inicial (YYYY-MM-DD)"),
-    end_date: str = Query(None, description="Data final (YYYY-MM-DD)")
+    period: str = Query("7d", regex="^(24h|3d|7d|15d|30d|total)$", description="Período de análise"),
+    month: Optional[str] = Query(None, regex="^\\d{4}-\\d{2}$", description="Mês (YYYY-MM)"),
+    start_date: Optional[str] = Query(None, description="Data inicial (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="Data final (YYYY-MM-DD)")
 ):
     """
     Retorna métricas de qualidade (retenção e CTR) agrupadas por subnicho.
     Agora com dados REAIS coletados do YouTube Analytics.
     """
     try:
-        # Processar parâmetro de mês se fornecido
+        today = datetime.now().date()
+
+        # Prioridade 1: Processar parâmetro de mês se fornecido
         if month:
             try:
                 # Parse do mês (formato YYYY-MM)
@@ -1235,12 +1238,27 @@ async def get_quality_metrics(
                 today = datetime.now()
                 start_date = today.replace(day=1).strftime("%Y-%m-%d")
                 end_date = today.strftime("%Y-%m-%d")
+        # Prioridade 2: Usar datas customizadas se fornecidas
+        elif start_date and end_date:
+            # Usar as datas fornecidas diretamente
+            pass
+        # Prioridade 3: Processar período
         else:
-            # Datas padrão
-            if not end_date:
-                end_date = datetime.now().strftime("%Y-%m-%d")
-            if not start_date:
-                start_date = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+            # Calcular datas baseadas no period
+            end_date = today.isoformat()
+
+            if period == "total":
+                start_date = "2025-10-26"
+            elif period == "24h":
+                start_date = (today - timedelta(days=1)).isoformat()
+            elif period == "3d":
+                start_date = (today - timedelta(days=3)).isoformat()
+            elif period == "7d":
+                start_date = (today - timedelta(days=7)).isoformat()
+            elif period == "15d":
+                start_date = (today - timedelta(days=15)).isoformat()
+            else:  # 30d
+                start_date = (today - timedelta(days=30)).isoformat()
 
         # Buscar canais monetizados (sem subnicho que não existe em yt_channels)
         channels_resp = db.supabase.table("yt_channels")\
