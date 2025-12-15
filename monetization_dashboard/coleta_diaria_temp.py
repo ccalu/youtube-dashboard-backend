@@ -119,6 +119,8 @@ def collect_daily_metrics(channel_id, access_token, start_date, end_date):
             "ids": f"channel=={channel_id}",
             "startDate": start_date,
             "endDate": end_date,
+            # NOTA: impressionClickThroughRate NÃO está disponível na API
+            # Usando cardClickRate como alternativa (CTR de cards/telas finais)
             "metrics": "estimatedRevenue,views,likes,comments,shares,subscribersGained,subscribersLost,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,cardClickRate",
             "dimensions": "day",
             "sort": "day"
@@ -142,7 +144,7 @@ def collect_video_metrics(channel_id, access_token, start_date, end_date):
             "ids": f"channel=={channel_id}",
             "startDate": start_date,
             "endDate": end_date,
-            "metrics": "estimatedRevenue,views,likes,comments,subscribersGained,averageViewDuration,averageViewPercentage,cardClickRate",
+            "metrics": "estimatedRevenue,views,likes,comments,subscribersGained,averageViewDuration,averageViewPercentage,impressionClickThroughRate",
             "dimensions": "video",
             "sort": "-views",
             "maxResults": "50"

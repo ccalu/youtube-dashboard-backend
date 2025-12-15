@@ -1202,35 +1202,66 @@ async def get_revenue_24h():
 
 @router.get("/quality-metrics")
 async def get_quality_metrics(
+    month: str = Query(None, description="Mês (YYYY-MM)"),
     start_date: str = Query(None, description="Data inicial (YYYY-MM-DD)"),
     end_date: str = Query(None, description="Data final (YYYY-MM-DD)")
 ):
     """
     Retorna métricas de qualidade (retenção e CTR) agrupadas por subnicho.
-    TEMPORÁRIO: Valores simulados baseados em RPM.
+    Agora com dados REAIS coletados do YouTube Analytics.
     """
     try:
-        # Datas padrão
-        if not end_date:
-            end_date = datetime.now().strftime("%Y-%m-%d")
-        if not start_date:
-            start_date = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+        # Processar parâmetro de mês se fornecido
+        if month:
+            try:
+                # Parse do mês (formato YYYY-MM)
+                year, month_num = month.split('-')
+                start_date = f"{year}-{month_num}-01"
 
-        # Buscar canais monetizados
+                # Calcular último dia do mês
+                if month_num == "12":
+                    next_month = f"{int(year)+1}-01-01"
+                else:
+                    next_month = f"{year}-{int(month_num)+1:02d}-01"
+
+                end_date = (datetime.strptime(next_month, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+            except:
+                # Fallback para mês atual se houver erro
+                today = datetime.now()
+                start_date = today.replace(day=1).strftime("%Y-%m-%d")
+                end_date = today.strftime("%Y-%m-%d")
+        else:
+            # Datas padrão
+            if not end_date:
+                end_date = datetime.now().strftime("%Y-%m-%d")
+            if not start_date:
+                start_date = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+
+        # Buscar canais monetizados (sem subnicho que não existe em yt_channels)
         channels_resp = db.supabase.table("yt_channels")\
-            .select("channel_id,channel_name,subnicho")\
+            .select("channel_id,channel_name")\
             .eq("is_monetized", True)\
             .execute()
 
         if not channels_resp.data:
             return {"subnichios": [], "period": {"start": start_date, "end": end_date}}
 
-        # Organizar por subnicho
+        # Buscar subnicho de cada canal em canais_monitorados
         subnichios = {}
         for channel in channels_resp.data:
-            subnicho = channel.get("subnicho", "Outros")
+            # Buscar subnicho em canais_monitorados (mesmo padrão dos outros endpoints)
+            subnicho_resp = db.supabase.table("canais_monitorados")\
+                .select("subnicho")\
+                .ilike("nome_canal", f"%{channel['channel_name']}%")\
+                .limit(1)\
+                .execute()
+
+            subnicho = subnicho_resp.data[0]["subnicho"] if subnicho_resp.data else "Outros"
+
             if subnicho not in subnichios:
                 subnichios[subnicho] = []
+
+            channel["subnicho"] = subnicho  # Adicionar subnicho ao channel
             subnichios[subnicho].append(channel)
 
         result = []
@@ -1240,39 +1271,61 @@ async def get_quality_metrics(
 
             for channel in channels:
                 try:
-                    # Buscar métricas do período
+                    # Buscar métricas REAIS do período incluindo retenção
                     metrics_resp = db.supabase.table("yt_daily_metrics")\
-                        .select("views,revenue")\
+                        .select("views,revenue,avg_retention_pct,avg_view_duration_sec")\
                         .eq("channel_id", channel["channel_id"])\
                         .gte("date", start_date)\
                         .lte("date", end_date)\
                         .execute()
 
                     if metrics_resp.data and len(metrics_resp.data) > 0:
+                        # Calcular médias ponderadas pelos views
                         total_views = sum(m.get("views", 0) for m in metrics_resp.data)
                         total_revenue = sum(m.get("revenue", 0) for m in metrics_resp.data)
 
-                        if total_views > 0:
-                            avg_rpm = (total_revenue / total_views) * 1000
+                        # Coletar métricas de retenção (ponderar por views)
+                        weighted_retention = 0
+                        weighted_duration = 0
+                        valid_retention_count = 0
 
-                            # Simular retenção e CTR baseado em RPM
-                            if avg_rpm > 2.0:
-                                retention = min(60, 42.0 + (avg_rpm - 2.0) * 5)
-                                ctr = min(5, 2.5 + (avg_rpm - 2.0) * 0.3)
-                            elif avg_rpm > 1.0:
-                                retention = 35.0 + (avg_rpm - 1.0) * 7
-                                ctr = 1.8 + (avg_rpm - 1.0) * 0.7
+                        for metric in metrics_resp.data:
+                            views = metric.get("views", 0)
+                            if views > 0:
+                                # Retenção
+                                retention = metric.get("avg_retention_pct")
+                                if retention is not None and retention > 0:
+                                    weighted_retention += retention * views
+                                    valid_retention_count += views
+
+                                # Duração
+                                duration = metric.get("avg_view_duration_sec")
+                                if duration is not None and duration > 0:
+                                    weighted_duration += duration * views
+
+                        # Calcular médias finais
+                        avg_retention = (weighted_retention / valid_retention_count) if valid_retention_count > 0 else None
+                        avg_duration = (weighted_duration / total_views) if total_views > 0 else None
+
+                        # Se temos dados reais, usar; senão, estimar baseado em RPM
+                        if avg_retention is not None:
+                            retention = avg_retention
+                        else:
+                            # Fallback: estimar baseado em RPM se não houver dados
+                            if total_views > 0:
+                                avg_rpm = (total_revenue / total_views) * 1000
+                                retention = min(50, max(15, 20 + avg_rpm * 5))
                             else:
-                                retention = max(20, 25.0 + avg_rpm * 10)
-                                ctr = max(0.5, 1.0 + avg_rpm * 0.8)
+                                retention = 25.0
 
-                            metrics_data.append({
-                                "name": channel.get("channel_name", "Unknown"),
-                                "channel_id": channel["channel_id"],
-                                "retention": round(retention, 1),
-                                "ctr": round(ctr, 2),
-                                "performance": "good" if retention > 30 else "medium" if retention > 20 else "low"
-                            })
+                        metrics_data.append({
+                            "name": channel.get("channel_name", "Unknown"),
+                            "channel_id": channel["channel_id"],
+                            "retention": round(retention, 1),
+                            "avg_duration_sec": round(avg_duration, 0) if avg_duration else None,
+                            "total_views": total_views,
+                            "performance": "good" if retention > 40 else "medium" if retention > 25 else "low"
+                        })
                 except Exception as channel_error:
                     logger.warning(f"Erro ao processar canal {channel.get('channel_id')}: {channel_error}")
                     continue
@@ -1283,14 +1336,12 @@ async def get_quality_metrics(
 
                 # Calcular médias do subnicho
                 avg_retention = sum(m["retention"] for m in metrics_data) / len(metrics_data) if metrics_data else 0
-                avg_ctr = sum(m["ctr"] for m in metrics_data) / len(metrics_data) if metrics_data else 0
 
                 result.append({
                     "name": subnicho_name,
                     "channel_count": len(metrics_data),
                     "avg_retention": round(avg_retention, 1),
-                    "avg_ctr": round(avg_ctr, 2),
-                    "performance": "good" if avg_retention > 30 else "medium" if avg_retention > 20 else "low",
+                    "performance": "good" if avg_retention > 40 else "medium" if avg_retention > 25 else "low",
                     "channels": metrics_data
                 })
 

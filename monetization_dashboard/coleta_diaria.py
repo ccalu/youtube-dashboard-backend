@@ -119,7 +119,7 @@ def collect_daily_metrics(channel_id, access_token, start_date, end_date):
             "ids": f"channel=={channel_id}",
             "startDate": start_date,
             "endDate": end_date,
-            "metrics": "estimatedRevenue,views,likes,comments,shares,subscribersGained,subscribersLost,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,cardClickRate",
+            "metrics": "estimatedRevenue,views,likes,comments,shares,subscribersGained,subscribersLost,estimatedMinutesWatched,averageViewDuration,averageViewPercentage",
             "dimensions": "day",
             "sort": "day"
         },
@@ -167,7 +167,7 @@ def collect_video_metrics(channel_id, access_token, start_date, end_date):
             "ids": f"channel=={channel_id}",
             "startDate": start_date,
             "endDate": end_date,
-            "metrics": "estimatedRevenue,views,likes,comments,subscribersGained,averageViewDuration,averageViewPercentage,cardClickRate",
+            "metrics": "estimatedRevenue,views,likes,comments,subscribersGained,averageViewDuration,averageViewPercentage",
             "dimensions": "video",
             "sort": "-views",
             "maxResults": "50"
@@ -213,7 +213,6 @@ def save_daily_metrics(channel_id, rows):
         # Extrair métricas com valores padrão se não existirem
         avg_duration = float(row[9]) if len(row) > 9 else 0
         avg_percentage = float(row[10]) if len(row) > 10 else 0
-        ctr = float(row[11]) if len(row) > 11 else 0
 
         data = {
             "channel_id": channel_id,
@@ -227,9 +226,9 @@ def save_daily_metrics(channel_id, rows):
             "subscribers_lost": int(row[7]),
             "watch_time_minutes": int(row[8]),
             "rpm": (float(row[1]) / int(row[2]) * 1000) if int(row[2]) > 0 else 0,
-            "average_view_duration": avg_duration,
-            "average_view_percentage": avg_percentage,
-            "card_click_rate": ctr,
+            "avg_view_duration_sec": float(avg_duration) if avg_duration else None,  # Garante float ou NULL
+            "avg_retention_pct": float(avg_percentage) if avg_percentage else None,     # Garante float ou NULL
+            "ctr_approx": None,  # CTR removido - não temos dados confiáveis
             "is_estimate": False  # IMPORTANTE: Marca como dados REAIS do OAuth
         }
 
@@ -244,7 +243,7 @@ def save_daily_metrics(channel_id, rows):
 
         if update_resp.status_code in [200, 204]:
             saved += 1
-            log.info(f"[{date}] Atualizado com revenue real: ${float(row[1]):.2f}")
+            log.info(f"[{date}] Atualizado: ${float(row[1]):.2f} | Ret: {avg_percentage:.1f}%")
         elif update_resp.status_code == 404:
             # Se não existir, criar novo
             create_resp = requests.post(
@@ -258,7 +257,7 @@ def save_daily_metrics(channel_id, rows):
             else:
                 log.error(f"[{date}] Erro ao criar: {create_resp.status_code} - {create_resp.text[:200]}")
         else:
-            log.error(f"[{date}] Erro ao atualizar: {update_resp.status_code}")
+            log.error(f"[{date}] Erro ao atualizar: {update_resp.status_code} - {update_resp.text[:500]}")
 
     return saved
 

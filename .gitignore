@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Tokens and credentials
+tokens*.json
+credentials*.json
+client_secret*.json
+
+# Claude settings (local)
+.claude/settings.local.json
+
+# Temporary files
+*.tmp
+*.temp
+*_temp.py
+*_backup.py

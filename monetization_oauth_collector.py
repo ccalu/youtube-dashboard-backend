@@ -135,7 +135,7 @@ def collect_daily_metrics(channel_id, access_token, start_date, end_date):
             "ids": f"channel=={channel_id}",
             "startDate": start_date,
             "endDate": end_date,
-            "metrics": "estimatedRevenue,views,likes,comments,shares,subscribersGained,subscribersLost,estimatedMinutesWatched",
+            "metrics": "estimatedRevenue,views,likes,comments,shares,subscribersGained,subscribersLost,estimatedMinutesWatched,averageViewDuration,averageViewPercentage",
             "dimensions": "day",
             "sort": "day"
         },
@@ -183,7 +183,7 @@ def collect_video_metrics(channel_id, access_token, start_date, end_date):
             "ids": f"channel=={channel_id}",
             "startDate": start_date,
             "endDate": end_date,
-            "metrics": "estimatedRevenue,views,likes,comments,subscribersGained",
+            "metrics": "estimatedRevenue,views,likes,comments,subscribersGained,averageViewDuration,averageViewPercentage,cardClickRate",
             "dimensions": "video",
             "sort": "-views",
             "maxResults": "50"
@@ -248,6 +248,10 @@ def save_daily_metrics(channel_id, rows):
             log.warning(f"[{date}] Revenue=0 mas views={views} - provável delay da API")
             # Continua e salva, mas pode ser que o frontend ignore
 
+        # Extrair métricas de retenção se existirem
+        avg_duration = float(row[9]) if len(row) > 9 else 0
+        avg_percentage = float(row[10]) if len(row) > 10 else 0
+
         data = {
             "channel_id": channel_id,
             "date": date,
@@ -260,6 +264,9 @@ def save_daily_metrics(channel_id, rows):
             "subscribers_lost": int(row[7]),
             "watch_time_minutes": int(row[8]),
             "rpm": (revenue / views * 1000) if views > 0 else 0,
+            "avg_view_duration_sec": float(avg_duration) if avg_duration else None,  # Garante float ou NULL
+            "avg_retention_pct": float(avg_percentage) if avg_percentage else None,     # Garante float ou NULL
+            "ctr_approx": None,  # CTR removido - não temos dados confiáveis
             "is_estimate": False  # Dados do YouTube Analytics (podem ter delay)
         }
 

@@ -549,11 +549,13 @@ class SupabaseClient:
 
     async def delete_canal_permanently(self, canal_id: int):
         try:
+            # Ordem de deleção (respeitar foreign keys)
             self.supabase.table("videos_historico").delete().eq("canal_id", canal_id).execute()
             self.supabase.table("dados_canais_historico").delete().eq("canal_id", canal_id).execute()
+            self.supabase.table("notificacoes").delete().eq("canal_id", canal_id).execute()  # Adicionado!
             self.supabase.table("favoritos").delete().eq("tipo", "canal").eq("item_id", canal_id).execute()
             self.supabase.table("canais_monitorados").delete().eq("id", canal_id).execute()
-            
+
             return True
         except Exception as e:
             logger.error(f"Error deleting canal permanently: {e}")
