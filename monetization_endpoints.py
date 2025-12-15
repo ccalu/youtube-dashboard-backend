@@ -1225,6 +1225,11 @@ async def get_quality_metrics(
                     next_month = f"{year}-{int(month_num)+1:02d}-01"
 
                 end_date = (datetime.strptime(next_month, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+
+                # Limitar end_date ao dia atual se necessário
+                today_str = datetime.now().strftime("%Y-%m-%d")
+                if end_date > today_str:
+                    end_date = today_str
             except:
                 # Fallback para mês atual se houver erro
                 today = datetime.now()
@@ -1249,19 +1254,21 @@ async def get_quality_metrics(
         # Buscar subnicho de cada canal em canais_monitorados
         subnichios = {}
         for channel in channels_resp.data:
-            # Buscar subnicho em canais_monitorados (mesmo padrão dos outros endpoints)
+            # Buscar subnicho e lingua em canais_monitorados (mesmo padrão dos outros endpoints)
             subnicho_resp = db.supabase.table("canais_monitorados")\
-                .select("subnicho")\
+                .select("subnicho, lingua")\
                 .ilike("nome_canal", f"%{channel['channel_name']}%")\
                 .limit(1)\
                 .execute()
 
             subnicho = subnicho_resp.data[0]["subnicho"] if subnicho_resp.data else "Outros"
+            lingua = subnicho_resp.data[0].get("lingua", "N/A") if subnicho_resp.data else "N/A"
 
             if subnicho not in subnichios:
                 subnichios[subnicho] = []
 
             channel["subnicho"] = subnicho  # Adicionar subnicho ao channel
+            channel["lingua"] = lingua  # Adicionar lingua ao channel
             subnichios[subnicho].append(channel)
 
         result = []
@@ -1321,10 +1328,11 @@ async def get_quality_metrics(
                         metrics_data.append({
                             "name": channel.get("channel_name", "Unknown"),
                             "channel_id": channel["channel_id"],
+                            "language": channel.get("lingua", "N/A"),
                             "retention": round(retention, 1),
                             "avg_duration_sec": round(avg_duration, 0) if avg_duration else None,
                             "total_views": total_views,
-                            "performance": "good" if retention > 40 else "medium" if retention > 25 else "low"
+                            "performance": "excellent" if retention >= 40 else "good" if retention >= 30 else "medium" if retention >= 20 else "low"
                         })
                 except Exception as channel_error:
                     logger.warning(f"Erro ao processar canal {channel.get('channel_id')}: {channel_error}")
@@ -1341,7 +1349,7 @@ async def get_quality_metrics(
                     "name": subnicho_name,
                     "channel_count": len(metrics_data),
                     "avg_retention": round(avg_retention, 1),
-                    "performance": "good" if avg_retention > 40 else "medium" if avg_retention > 25 else "low",
+                    "performance": "excellent" if avg_retention >= 40 else "good" if avg_retention >= 30 else "medium" if avg_retention >= 20 else "low",
                     "channels": metrics_data
                 })
 
