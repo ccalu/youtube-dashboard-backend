@@ -1198,3 +1198,115 @@ async def get_revenue_24h():
     except Exception as e:
         logger.error(f"Erro em /revenue-24h: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/quality-metrics")
+async def get_quality_metrics(
+    start_date: str = Query(None, description="Data inicial (YYYY-MM-DD)"),
+    end_date: str = Query(None, description="Data final (YYYY-MM-DD)"),
+    db: SupabaseClient = Depends(get_database)
+):
+    """
+    Retorna métricas de qualidade (retenção e CTR) agrupadas por subnicho.
+    """
+    try:
+        # Se não especificadas, usar últimos 30 dias
+        if not end_date:
+            end_date = datetime.now().strftime("%Y-%m-%d")
+        if not start_date:
+            start_date = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+
+        # Buscar canais monetizados com subnicho
+        channels_resp = db.supabase.table("yt_channels")\
+            .select("channel_id,channel_name,subnicho")\
+            .eq("is_monetized", True)\
+            .execute()
+
+        if not channels_resp.data:
+            return {"subnichios": []}
+
+        # Organizar por subnicho
+        subnichios = {}
+        for channel in channels_resp.data:
+            subnicho = channel.get("subnicho", "Outros")
+            if subnicho not in subnichios:
+                subnichios[subnicho] = []
+            subnichios[subnicho].append(channel)
+
+        result = []
+
+        for subnicho_name, channels in subnichios.items():
+            channel_ids = [c["channel_id"] for c in channels]
+
+            # Buscar métricas agregadas do período
+            metrics_data = []
+
+            for channel in channels:
+                # Buscar métricas reais
+                channel_metrics = db.supabase.table("yt_daily_metrics")\
+                    .select("views,revenue,rpm")\
+                    .eq("channel_id", channel["channel_id"])\
+                    .gte("date", start_date)\
+                    .lte("date", end_date)\
+                    .execute()
+
+                if channel_metrics.data:
+                    total_views = sum(m.get("views", 0) for m in channel_metrics.data)
+                    total_revenue = sum(m.get("revenue", 0) for m in channel_metrics.data)
+                    avg_rpm = total_revenue / total_views * 1000 if total_views > 0 else 0
+
+                    # TEMPORÁRIO: Simular retenção e CTR baseado em RPM
+                    # Quando as colunas existirem, buscar valores reais
+                    if avg_rpm > 2.0:
+                        retention = 42.0 + (avg_rpm - 2.0) * 5  # Alta performance
+                        ctr = 2.5 + (avg_rpm - 2.0) * 0.3
+                    elif avg_rpm > 1.0:
+                        retention = 35.0 + (avg_rpm - 1.0) * 7  # Média
+                        ctr = 1.8 + (avg_rpm - 1.0) * 0.7
+                    else:
+                        retention = 25.0 + avg_rpm * 10  # Baixa
+                        ctr = 1.0 + avg_rpm * 0.8
+
+                    metrics_data.append({
+                        "name": channel["channel_name"],
+                        "channel_id": channel["channel_id"],
+                        "retention": round(retention, 1),
+                        "ctr": round(ctr, 2),
+                        "rpm": round(avg_rpm, 2),
+                        "views": total_views,
+                        "revenue": round(total_revenue, 2),
+                        "performance": "good" if retention > 30 else "medium" if retention > 20 else "low"
+                    })
+
+            if metrics_data:
+                # Ordenar por retenção
+                metrics_data.sort(key=lambda x: x["retention"], reverse=True)
+
+                # Calcular médias do subnicho
+                avg_retention = sum(m["retention"] for m in metrics_data) / len(metrics_data)
+                avg_ctr = sum(m["ctr"] for m in metrics_data) / len(metrics_data)
+
+                result.append({
+                    "name": subnicho_name,
+                    "channel_count": len(metrics_data),
+                    "avg_retention": round(avg_retention, 1),
+                    "avg_ctr": round(avg_ctr, 2),
+                    "performance": "good" if avg_retention > 30 else "medium" if avg_retention > 20 else "low",
+                    "channels": metrics_data
+                })
+
+        # Ordenar subnichos por performance
+        result.sort(key=lambda x: x["avg_retention"], reverse=True)
+
+        return {
+            "period": {
+                "start": start_date,
+                "end": end_date
+            },
+            "subnichios": result,
+            "note": "TEMPORÁRIO: Valores simulados baseados em RPM. Retenção/CTR reais virão após adicionar colunas no banco."
+        }
+
+    except Exception as e:
+        logger.error(f"Erro em quality-metrics: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

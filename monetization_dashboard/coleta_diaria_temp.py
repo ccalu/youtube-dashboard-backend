@@ -1,6 +1,6 @@
 """
-Coleta Diaria de Metricas do YouTube
-Roda via Agendador de Tarefas do Windows
+Coleta Diaria de Metricas do YouTube - VERSÃO TEMPORÁRIA
+Funciona SEM as colunas de retenção no banco
 """
 import requests
 import json
@@ -110,7 +110,7 @@ def log_collection(channel_id, status, message):
 # =============================================================================
 
 def collect_daily_metrics(channel_id, access_token, start_date, end_date):
-    """Coleta metricas diarias do canal"""
+    """Coleta metricas diarias do canal - COM RETENÇÃO"""
     headers = {"Authorization": f"Bearer {access_token}"}
 
     resp = requests.get(
@@ -132,35 +132,10 @@ def collect_daily_metrics(channel_id, access_token, start_date, end_date):
 
     return resp.json().get("rows", [])
 
-def collect_country_metrics(channel_id, access_token, start_date, end_date):
-    """Coleta metricas por pais"""
-    headers = {"Authorization": f"Bearer {access_token}"}
-
-    resp = requests.get(
-        "https://youtubeanalytics.googleapis.com/v2/reports",
-        params={
-            "ids": f"channel=={channel_id}",
-            "startDate": start_date,
-            "endDate": end_date,
-            "metrics": "views,estimatedRevenue,estimatedMinutesWatched",
-            "dimensions": "country",
-            "sort": "-views",
-            "maxResults": "25"
-        },
-        headers=headers
-    )
-
-    if resp.status_code != 200:
-        log.error(f"Erro metricas pais: {resp.status_code}")
-        return []
-
-    return resp.json().get("rows", [])
-
 def collect_video_metrics(channel_id, access_token, start_date, end_date):
-    """Coleta metricas por video"""
+    """Coleta metricas por video - COM RETENÇÃO"""
     headers = {"Authorization": f"Bearer {access_token}"}
 
-    # Buscar metricas
     resp = requests.get(
         "https://youtubeanalytics.googleapis.com/v2/reports",
         params={
@@ -202,18 +177,29 @@ def collect_video_metrics(channel_id, access_token, start_date, end_date):
     return rows
 
 # =============================================================================
-# SALVAR DADOS
+# SALVAR DADOS - SEM CAMPOS DE RETENÇÃO POR ENQUANTO
 # =============================================================================
 
 def save_daily_metrics(channel_id, rows):
-    """Salva metricas diarias no Supabase"""
+    """Salva metricas diarias no Supabase - SEM RETENÇÃO"""
     saved = 0
+    retention_data = []  # Guardar para depois
+
     for row in rows:
         date = row[0]
-        # Extrair métricas com valores padrão se não existirem
-        avg_duration = float(row[9]) if len(row) > 9 else 0
-        avg_percentage = float(row[10]) if len(row) > 10 else 0
-        ctr = float(row[11]) if len(row) > 11 else 0
+
+        # Extrair métricas de retenção (mas não salvar ainda)
+        if len(row) > 9:
+            avg_duration = float(row[9]) if row[9] else 0
+            avg_percentage = float(row[10]) if len(row) > 10 and row[10] else 0
+            ctr = float(row[11]) if len(row) > 11 and row[11] else 0
+
+            retention_data.append({
+                "date": date,
+                "avg_duration": avg_duration,
+                "avg_percentage": avg_percentage,
+                "ctr": ctr
+            })
 
         data = {
             "channel_id": channel_id,
@@ -227,14 +213,10 @@ def save_daily_metrics(channel_id, rows):
             "subscribers_lost": int(row[7]),
             "watch_time_minutes": int(row[8]),
             "rpm": (float(row[1]) / int(row[2]) * 1000) if int(row[2]) > 0 else 0,
-            "average_view_duration": avg_duration,
-            "average_view_percentage": avg_percentage,
-            "card_click_rate": ctr,
-            "is_estimate": False  # IMPORTANTE: Marca como dados REAIS do OAuth
+            "is_estimate": False
         }
 
         # Usar PATCH para atualizar registros existentes
-        # Primeiro tenta atualizar, se não existir, cria novo
         update_resp = requests.patch(
             f"{SUPABASE_URL}/rest/v1/yt_daily_metrics",
             params={"channel_id": f"eq.{channel_id}", "date": f"eq.{date}"},
@@ -244,7 +226,7 @@ def save_daily_metrics(channel_id, rows):
 
         if update_resp.status_code in [200, 204]:
             saved += 1
-            log.info(f"[{date}] Atualizado com revenue real: ${float(row[1]):.2f}")
+            log.info(f"[{date}] Atualizado com revenue: ${float(row[1]):.2f}")
         elif update_resp.status_code == 404:
             # Se não existir, criar novo
             create_resp = requests.post(
@@ -254,46 +236,25 @@ def save_daily_metrics(channel_id, rows):
             )
             if create_resp.status_code in [200, 201, 204]:
                 saved += 1
-                log.info(f"[{date}] Criado novo com revenue: ${float(row[1]):.2f}")
+                log.info(f"[{date}] Criado com revenue: ${float(row[1]):.2f}")
             else:
-                log.error(f"[{date}] Erro ao criar: {create_resp.status_code} - {create_resp.text[:200]}")
+                log.error(f"[{date}] Erro ao criar: {create_resp.status_code}")
         else:
             log.error(f"[{date}] Erro ao atualizar: {update_resp.status_code}")
 
-    return saved
-
-def save_country_metrics(channel_id, rows, date):
-    """Salva metricas por pais no Supabase"""
-    saved = 0
-    for row in rows:
-        data = {
-            "channel_id": channel_id,
-            "date": date,
-            "country_code": row[0],
-            "views": int(row[1]),
-            "revenue": float(row[2]),
-            "watch_time_minutes": int(row[3])
-        }
-
-        resp = requests.post(
-            f"{SUPABASE_URL}/rest/v1/yt_country_metrics",
-            headers=SUPABASE_HEADERS,
-            json=data
-        )
-        if resp.status_code in [200, 201, 204]:
-            saved += 1
+    # Log das métricas de retenção coletadas (para verificação)
+    if retention_data:
+        sample = retention_data[-1]  # Último dia
+        log.info(f"RETENÇÃO COLETADA (mas não salva ainda): {sample['avg_percentage']:.1f}% | CTR: {sample['ctr']:.2f}%")
 
     return saved
 
 def save_video_metrics(channel_id, rows):
-    """Salva metricas por video no Supabase (tabela atual - valores totais)"""
+    """Salva metricas por video no Supabase - SEM RETENÇÃO"""
     saved = 0
     for row in rows:
-        # Extrair métricas de retenção se existirem
-        avg_duration = float(row[6]) if len(row) > 6 else 0
-        avg_percentage = float(row[7]) if len(row) > 7 else 0
-        ctr = float(row[8]) if len(row) > 8 else 0
-        title = row[9] if len(row) > 9 else ""
+        # Extrair título (último elemento)
+        title = row[-1] if isinstance(row[-1], str) else ""
 
         data = {
             "channel_id": channel_id,
@@ -303,9 +264,6 @@ def save_video_metrics(channel_id, rows):
             "likes": int(row[3]),
             "comments": int(row[4]),
             "subscribers_gained": int(row[5]),
-            "average_view_duration": avg_duration,
-            "average_view_percentage": avg_percentage,
-            "card_click_rate": ctr,
             "title": title,
             "updated_at": datetime.now().isoformat()
         }
@@ -320,43 +278,8 @@ def save_video_metrics(channel_id, rows):
 
     return saved
 
-def save_video_daily(channel_id, rows, date):
-    """Salva historico diario por video no Supabase"""
-    saved = 0
-    for row in rows:
-        # Extrair métricas de retenção se existirem
-        avg_duration = float(row[6]) if len(row) > 6 else 0
-        avg_percentage = float(row[7]) if len(row) > 7 else 0
-        ctr = float(row[8]) if len(row) > 8 else 0
-        title = row[9] if len(row) > 9 else ""
-
-        data = {
-            "channel_id": channel_id,
-            "video_id": row[0],
-            "date": date,
-            "revenue": float(row[1]),
-            "views": int(row[2]),
-            "likes": int(row[3]),
-            "comments": int(row[4]),
-            "subscribers_gained": int(row[5]),
-            "average_view_duration": avg_duration,
-            "average_view_percentage": avg_percentage,
-            "card_click_rate": ctr,
-            "title": title
-        }
-
-        resp = requests.post(
-            f"{SUPABASE_URL}/rest/v1/yt_video_daily",
-            headers=SUPABASE_HEADERS,
-            json=data
-        )
-        if resp.status_code in [200, 201, 204]:
-            saved += 1
-
-    return saved
-
 def update_channel_info(channel_id, access_token):
-    """Atualiza info do canal (inscritos, videos)"""
+    """Atualiza info do canal"""
     headers = {"Authorization": f"Bearer {access_token}"}
 
     resp = requests.get(
@@ -386,13 +309,14 @@ def update_channel_info(channel_id, access_token):
 
 def main():
     log.info("=" * 60)
-    log.info("INICIANDO COLETA DIARIA")
+    log.info("COLETA DIARIA (TEMPORARIA - SEM RETENCAO NO BANCO)")
     log.info("=" * 60)
 
-    # Datas - Ajustado para delay do YouTube (2-3 dias)
-    # YouTube tem delay de 2-3 dias, então pedimos dados até 3 dias atrás
+    # Datas - Últimos 90 dias
     end_date = (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d")
-    start_date = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d")
+    start_date = "2025-09-01"  # Início dos canais
+
+    log.info(f"Periodo: {start_date} ate {end_date}")
 
     # Buscar canais
     channels = get_channels()
@@ -419,7 +343,7 @@ def main():
             log_collection(channel_id, "error", "Tokens nao encontrados")
             continue
 
-        # Renovar access_token usando credenciais do proxy
+        # Renovar access_token
         access_token = refresh_access_token(
             tokens["refresh_token"],
             credentials["client_id"],
@@ -439,27 +363,16 @@ def main():
             saved_daily = save_daily_metrics(channel_id, daily_rows)
             log.info(f"[{channel_name}] Metricas diarias: {saved_daily} dias salvos")
 
-            # Coletar metricas por pais (apenas do dia anterior)
-            yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
-            country_rows = collect_country_metrics(channel_id, access_token, yesterday, yesterday)
-            saved_country = save_country_metrics(channel_id, country_rows, yesterday)
-            log.info(f"[{channel_name}] Metricas por pais: {saved_country} paises salvos")
-
             # Coletar metricas por video
             video_rows = collect_video_metrics(channel_id, access_token, start_date, end_date)
             saved_video = save_video_metrics(channel_id, video_rows)
             log.info(f"[{channel_name}] Metricas por video: {saved_video} videos salvos")
 
-            # Salvar historico diario por video (snapshot de hoje)
-            today = datetime.now().strftime("%Y-%m-%d")
-            saved_video_daily = save_video_daily(channel_id, video_rows, today)
-            log.info(f"[{channel_name}] Historico diario videos: {saved_video_daily} registros")
-
             # Atualizar info do canal
             update_channel_info(channel_id, access_token)
 
             # Log de sucesso
-            log_collection(channel_id, "success", f"Coletados {saved_daily} dias, {saved_country} paises, {saved_video} videos, {saved_video_daily} hist")
+            log_collection(channel_id, "success", f"Coletados {saved_daily} dias, {saved_video} videos")
 
         except Exception as e:
             log.error(f"[{channel_name}] Erro: {str(e)}")
@@ -467,6 +380,7 @@ def main():
 
     log.info("\n" + "=" * 60)
     log.info("COLETA FINALIZADA")
+    log.info("NOTA: Retencao/CTR coletados mas NAO salvos (colunas pendentes)")
     log.info("=" * 60)
 
 if __name__ == "__main__":
