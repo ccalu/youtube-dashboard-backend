@@ -1203,8 +1203,7 @@ async def get_revenue_24h():
 @router.get("/quality-metrics")
 async def get_quality_metrics(
     start_date: str = Query(None, description="Data inicial (YYYY-MM-DD)"),
-    end_date: str = Query(None, description="Data final (YYYY-MM-DD)"),
-    db: SupabaseClient = Depends(get_database)
+    end_date: str = Query(None, description="Data final (YYYY-MM-DD)")
 ):
     """
     Retorna métricas de qualidade (retenção e CTR) agrupadas por subnicho.
