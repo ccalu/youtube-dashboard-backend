@@ -1,44 +1,28 @@
 """
-Coleta OAuth de Métricas de Monetização
-Roda automaticamente no Railway às 5 AM
-Coleta revenue REAL via YouTube Analytics API (OAuth)
+Coleta Diaria de Metricas do YouTube
+Roda via Agendador de Tarefas do Windows
 """
-import os
-import sys
 import requests
 import json
-import logging
-import asyncio
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
-
-# Fix encoding for Windows (local testing)
-if sys.platform == 'win32':
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+import logging
 
 # Configurar logging
-log_dir = os.getenv('LOG_DIR', './logs')
-os.makedirs(log_dir, exist_ok=True)
-
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
-        logging.FileHandler(f'{log_dir}/coleta_oauth.log'),
+        logging.FileHandler('D:/ContentFactory/youtube-dashboard-backend/monetization_dashboard/logs/coleta.log'),
         logging.StreamHandler()
     ]
 )
 log = logging.getLogger(__name__)
 
 # =============================================================================
-# CONFIGURAÇÕES
+# CONFIGURACOES
 # =============================================================================
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://prvkmzstyedepvlbppyo.supabase.co")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBydmttenN0eWVkZXB2bGJwcHlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQxNDY3MTQsImV4cCI6MjA1OTcyMjcxNH0.T0aspHrF0tz1G6iVOBIO3zgvs1g5vvQcb25jhGriQGo")
+SUPABASE_URL = "https://prvkmzstyedepvlbppyo.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBydmttenN0eWVkZXB2bGJwcHlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQxNDY3MTQsImV4cCI6MjA1OTcyMjcxNH0.T0aspHrF0tz1G6iVOBIO3zgvs1g5vvQcb25jhGriQGo"
 
 # Headers para Supabase
 SUPABASE_HEADERS = {
@@ -49,11 +33,11 @@ SUPABASE_HEADERS = {
 }
 
 # =============================================================================
-# FUNÇÕES AUXILIARES
+# FUNCOES AUXILIARES
 # =============================================================================
 
 def get_channels():
-    """Busca todos os canais monetizados no Supabase"""
+    """Busca todos os canais cadastrados no Supabase"""
     resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/yt_channels",
         params={"is_monetized": "eq.true"},
@@ -126,7 +110,7 @@ def log_collection(channel_id, status, message):
 # =============================================================================
 
 def collect_daily_metrics(channel_id, access_token, start_date, end_date):
-    """Coleta métricas diárias do canal"""
+    """Coleta metricas diarias do canal"""
     headers = {"Authorization": f"Bearer {access_token}"}
 
     resp = requests.get(
@@ -143,13 +127,13 @@ def collect_daily_metrics(channel_id, access_token, start_date, end_date):
     )
 
     if resp.status_code != 200:
-        log.error(f"Erro métricas diárias: {resp.status_code} - {resp.text[:200]}")
+        log.error(f"Erro metricas diarias: {resp.status_code} - {resp.text[:200]}")
         return []
 
     return resp.json().get("rows", [])
 
 def collect_country_metrics(channel_id, access_token, start_date, end_date):
-    """Coleta métricas por país"""
+    """Coleta metricas por pais"""
     headers = {"Authorization": f"Bearer {access_token}"}
 
     resp = requests.get(
@@ -167,16 +151,16 @@ def collect_country_metrics(channel_id, access_token, start_date, end_date):
     )
 
     if resp.status_code != 200:
-        log.error(f"Erro métricas país: {resp.status_code}")
+        log.error(f"Erro metricas pais: {resp.status_code}")
         return []
 
     return resp.json().get("rows", [])
 
 def collect_video_metrics(channel_id, access_token, start_date, end_date):
-    """Coleta métricas por vídeo"""
+    """Coleta metricas por video"""
     headers = {"Authorization": f"Bearer {access_token}"}
 
-    # Buscar métricas
+    # Buscar metricas
     resp = requests.get(
         "https://youtubeanalytics.googleapis.com/v2/reports",
         params={
@@ -192,13 +176,28 @@ def collect_video_metrics(channel_id, access_token, start_date, end_date):
     )
 
     if resp.status_code != 200:
-        log.error(f"Erro métricas vídeo: {resp.status_code}")
+        log.error(f"Erro metricas video: {resp.status_code}")
         return []
 
     rows = resp.json().get("rows", [])
 
-    # Títulos removidos - OAuth não deve usar YouTube Data API v3
-    # Videos serão salvos apenas com video_id e métricas
+    # Buscar titulos dos videos
+    if rows:
+        video_ids = [r[0] for r in rows[:25]]
+        resp2 = requests.get(
+            "https://www.googleapis.com/youtube/v3/videos",
+            params={"part": "snippet", "id": ",".join(video_ids)},
+            headers=headers
+        )
+
+        titles = {}
+        if resp2.status_code == 200:
+            for v in resp2.json().get("items", []):
+                titles[v["id"]] = v["snippet"]["title"]
+
+        # Adicionar titulos aos rows
+        for row in rows:
+            row.append(titles.get(row[0], ""))
 
     return rows
 
@@ -207,60 +206,23 @@ def collect_video_metrics(channel_id, access_token, start_date, end_date):
 # =============================================================================
 
 def save_daily_metrics(channel_id, rows):
-    """Salva métricas diárias no Supabase - APENAS se revenue > 0 ou views > 0"""
+    """Salva metricas diarias no Supabase"""
     saved = 0
     for row in rows:
         date = row[0]
-        revenue = float(row[1])
-        views = int(row[2])
-
-        # IMPORTANTE: YouTube tem delay de 2-3 dias para revenue
-        # Se revenue = 0 mas views > 0, provavelmente é delay da API
-        # Não salvar para não sobrescrever estimativas
-        if revenue == 0 and views == 0:
-            log.warning(f"[{date}] Sem dados (revenue=0, views=0) - ignorando")
-            continue
-
-        # Verificar se já existe dado REAL para esta data
-        check_resp = requests.get(
-            f"{SUPABASE_URL}/rest/v1/yt_daily_metrics",
-            params={
-                "channel_id": f"eq.{channel_id}",
-                "date": f"eq.{date}",
-                "is_estimate": "eq.false",
-                "select": "revenue"
-            },
-            headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
-        )
-
-        if check_resp.status_code == 200 and check_resp.json():
-            existing = check_resp.json()[0]
-            existing_revenue = existing.get("revenue", 0)
-
-            # Se já tem revenue real > 0, não sobrescrever com 0
-            if existing_revenue > 0 and revenue == 0:
-                log.info(f"[{date}] Já tem revenue real: ${existing_revenue:.2f} - mantendo")
-                continue
-
-        # Se revenue = 0 mas tem views, é provável delay da API
-        # Não marcar como "real" para não confundir
-        if revenue == 0 and views > 0:
-            log.warning(f"[{date}] Revenue=0 mas views={views} - provável delay da API")
-            # Continua e salva, mas pode ser que o frontend ignore
-
         data = {
             "channel_id": channel_id,
             "date": date,
-            "revenue": revenue,
-            "views": views,
+            "revenue": float(row[1]),
+            "views": int(row[2]),
             "likes": int(row[3]),
             "comments": int(row[4]),
             "shares": int(row[5]),
             "subscribers_gained": int(row[6]),
             "subscribers_lost": int(row[7]),
             "watch_time_minutes": int(row[8]),
-            "rpm": (revenue / views * 1000) if views > 0 else 0,
-            "is_estimate": False  # Dados do YouTube Analytics (podem ter delay)
+            "rpm": (float(row[1]) / int(row[2]) * 1000) if int(row[2]) > 0 else 0,
+            "is_estimate": False  # IMPORTANTE: Marca como dados REAIS do OAuth
         }
 
         # Usar PATCH para atualizar registros existentes
@@ -274,8 +236,7 @@ def save_daily_metrics(channel_id, rows):
 
         if update_resp.status_code in [200, 204]:
             saved += 1
-            if revenue > 0:
-                log.info(f"[{date}] Revenue real atualizado: ${revenue:.2f}")
+            log.info(f"[{date}] Atualizado com revenue real: ${float(row[1]):.2f}")
         elif update_resp.status_code == 404:
             # Se não existir, criar novo
             create_resp = requests.post(
@@ -285,17 +246,16 @@ def save_daily_metrics(channel_id, rows):
             )
             if create_resp.status_code in [200, 201, 204]:
                 saved += 1
-                if revenue > 0:
-                    log.info(f"[{date}] Revenue real criado: ${revenue:.2f}")
+                log.info(f"[{date}] Criado novo com revenue: ${float(row[1]):.2f}")
             else:
-                log.error(f"[{date}] Erro ao criar: {create_resp.status_code}")
+                log.error(f"[{date}] Erro ao criar: {create_resp.status_code} - {create_resp.text[:200]}")
         else:
             log.error(f"[{date}] Erro ao atualizar: {update_resp.status_code}")
 
     return saved
 
 def save_country_metrics(channel_id, rows, date):
-    """Salva métricas por país no Supabase"""
+    """Salva metricas por pais no Supabase"""
     saved = 0
     for row in rows:
         data = {
@@ -318,7 +278,7 @@ def save_country_metrics(channel_id, rows, date):
     return saved
 
 def save_video_metrics(channel_id, rows):
-    """Salva métricas por vídeo no Supabase (tabela atual - valores totais)"""
+    """Salva metricas por video no Supabase (tabela atual - valores totais)"""
     saved = 0
     for row in rows:
         data = {
@@ -329,7 +289,7 @@ def save_video_metrics(channel_id, rows):
             "likes": int(row[3]),
             "comments": int(row[4]),
             "subscribers_gained": int(row[5]),
-            "title": "",  # Titulo removido - OAuth nao usa Data API v3
+            "title": row[6] if len(row) > 6 else "",
             "updated_at": datetime.now().isoformat()
         }
 
@@ -344,7 +304,7 @@ def save_video_metrics(channel_id, rows):
     return saved
 
 def save_video_daily(channel_id, rows, date):
-    """Salva histórico diário por vídeo no Supabase"""
+    """Salva historico diario por video no Supabase"""
     saved = 0
     for row in rows:
         data = {
@@ -356,7 +316,7 @@ def save_video_daily(channel_id, rows, date):
             "likes": int(row[3]),
             "comments": int(row[4]),
             "subscribers_gained": int(row[5]),
-            "title": ""  # Titulo removido - OAuth nao usa Data API v3
+            "title": row[6] if len(row) > 6 else ""
         }
 
         resp = requests.post(
@@ -369,43 +329,38 @@ def save_video_daily(channel_id, rows, date):
 
     return saved
 
-# FUNÇÃO DESABILITADA - USA DATA API V3 (CONSOME QUOTA DE MINERAÇÃO)
-# def update_channel_info(channel_id, access_token):
-#     """Atualiza info do canal (inscritos, vídeos)"""
-#     headers = {"Authorization": f"Bearer {access_token}"}
-#
-#     resp = requests.get(
-#         "https://www.googleapis.com/youtube/v3/channels",
-#         params={"part": "statistics", "id": channel_id},
-#         headers=headers
-#     )
-#
-#     if resp.status_code == 200:
-#         items = resp.json().get("items", [])
-#         if items:
-#             stats = items[0]["statistics"]
-#             requests.patch(
-#                 f"{SUPABASE_URL}/rest/v1/yt_channels",
-#                 params={"channel_id": f"eq.{channel_id}"},
-#                 headers=SUPABASE_HEADERS,
-#                 json={
-#                     "total_subscribers": int(stats.get("subscriberCount", 0)),
-#                     "total_videos": int(stats.get("videoCount", 0)),
-#                     "updated_at": datetime.now().isoformat()
-#                 }
-#             )
+def update_channel_info(channel_id, access_token):
+    """Atualiza info do canal (inscritos, videos)"""
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    resp = requests.get(
+        "https://www.googleapis.com/youtube/v3/channels",
+        params={"part": "statistics", "id": channel_id},
+        headers=headers
+    )
+
+    if resp.status_code == 200:
+        items = resp.json().get("items", [])
+        if items:
+            stats = items[0]["statistics"]
+            requests.patch(
+                f"{SUPABASE_URL}/rest/v1/yt_channels",
+                params={"channel_id": f"eq.{channel_id}"},
+                headers=SUPABASE_HEADERS,
+                json={
+                    "total_subscribers": int(stats.get("subscriberCount", 0)),
+                    "total_videos": int(stats.get("videoCount", 0)),
+                    "updated_at": datetime.now().isoformat()
+                }
+            )
 
 # =============================================================================
-# MAIN - FUNÇÃO ASSÍNCRONA PARA RAILWAY
+# MAIN
 # =============================================================================
 
-async def collect_oauth_metrics():
-    """
-    Coleta métricas OAuth dos canais monetizados
-    Chamado automaticamente pelo scheduler às 5 AM
-    """
+def main():
     log.info("=" * 60)
-    log.info("INICIANDO COLETA OAUTH (REVENUE REAL)")
+    log.info("INICIANDO COLETA DIARIA")
     log.info("=" * 60)
 
     # Datas - Ajustado para delay do YouTube (2-3 dias)
@@ -415,96 +370,78 @@ async def collect_oauth_metrics():
 
     # Buscar canais
     channels = get_channels()
-    log.info(f"Canais monetizados: {len(channels)}")
-
-    success_count = 0
-    error_count = 0
+    log.info(f"Canais encontrados: {len(channels)}")
 
     for channel in channels:
         channel_id = channel["channel_id"]
         channel_name = channel.get("channel_name", channel_id)
         proxy_name = channel.get("proxy_name", "C000.1")
 
-        log.info(f"\n[{channel_name}] Iniciando coleta OAuth... (proxy: {proxy_name})")
+        log.info(f"\n[{channel_name}] Iniciando coleta... (proxy: {proxy_name})")
+
+        # Buscar credenciais do proxy
+        credentials = get_proxy_credentials(proxy_name)
+        if not credentials:
+            log.error(f"[{channel_name}] Credenciais do proxy {proxy_name} nao encontradas!")
+            log_collection(channel_id, "error", f"Credenciais proxy {proxy_name} nao encontradas")
+            continue
+
+        # Buscar tokens
+        tokens = get_tokens(channel_id)
+        if not tokens:
+            log.error(f"[{channel_name}] Sem tokens cadastrados!")
+            log_collection(channel_id, "error", "Tokens nao encontrados")
+            continue
+
+        # Renovar access_token usando credenciais do proxy
+        access_token = refresh_access_token(
+            tokens["refresh_token"],
+            credentials["client_id"],
+            credentials["client_secret"]
+        )
+        if not access_token:
+            log.error(f"[{channel_name}] Falha ao renovar token!")
+            log_collection(channel_id, "error", "Falha ao renovar token")
+            continue
+
+        # Atualizar token no banco
+        update_tokens(channel_id, access_token)
 
         try:
-            # Buscar credenciais do proxy
-            credentials = get_proxy_credentials(proxy_name)
-            if not credentials:
-                log.error(f"[{channel_name}] Credenciais do proxy {proxy_name} não encontradas!")
-                log_collection(channel_id, "error", f"Credenciais proxy {proxy_name} não encontradas")
-                error_count += 1
-                continue
-
-            # Buscar tokens
-            tokens = get_tokens(channel_id)
-            if not tokens:
-                log.error(f"[{channel_name}] Sem tokens cadastrados!")
-                log_collection(channel_id, "error", "Tokens não encontrados")
-                error_count += 1
-                continue
-
-            # Renovar access_token usando credenciais do proxy
-            access_token = refresh_access_token(
-                tokens["refresh_token"],
-                credentials["client_id"],
-                credentials["client_secret"]
-            )
-            if not access_token:
-                log.error(f"[{channel_name}] Falha ao renovar token!")
-                log_collection(channel_id, "error", "Falha ao renovar token")
-                error_count += 1
-                continue
-
-            # Atualizar token no banco
-            update_tokens(channel_id, access_token)
-
-            # Coletar métricas diárias
+            # Coletar metricas diarias
             daily_rows = collect_daily_metrics(channel_id, access_token, start_date, end_date)
             saved_daily = save_daily_metrics(channel_id, daily_rows)
-            log.info(f"[{channel_name}] Métricas diárias: {saved_daily} dias salvos")
+            log.info(f"[{channel_name}] Metricas diarias: {saved_daily} dias salvos")
 
-            # Coletar métricas por país (apenas do dia anterior)
+            # Coletar metricas por pais (apenas do dia anterior)
             yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
             country_rows = collect_country_metrics(channel_id, access_token, yesterday, yesterday)
             saved_country = save_country_metrics(channel_id, country_rows, yesterday)
-            log.info(f"[{channel_name}] Métricas por país: {saved_country} países salvos")
+            log.info(f"[{channel_name}] Metricas por pais: {saved_country} paises salvos")
 
-            # Coletar métricas por vídeo
+            # Coletar metricas por video
             video_rows = collect_video_metrics(channel_id, access_token, start_date, end_date)
             saved_video = save_video_metrics(channel_id, video_rows)
-            log.info(f"[{channel_name}] Métricas por vídeo: {saved_video} vídeos salvos")
+            log.info(f"[{channel_name}] Metricas por video: {saved_video} videos salvos")
 
-            # Salvar histórico diário por vídeo (snapshot de hoje)
+            # Salvar historico diario por video (snapshot de hoje)
             today = datetime.now().strftime("%Y-%m-%d")
             saved_video_daily = save_video_daily(channel_id, video_rows, today)
-            log.info(f"[{channel_name}] Histórico diário vídeos: {saved_video_daily} registros")
+            log.info(f"[{channel_name}] Historico diario videos: {saved_video_daily} registros")
 
-            # Atualizar info do canal - DESABILITADO (usa Data API v3)
-            # update_channel_info(channel_id, access_token)
+            # Atualizar info do canal
+            update_channel_info(channel_id, access_token)
 
             # Log de sucesso
-            log_collection(channel_id, "success", f"Coletados {saved_daily} dias, {saved_country} países, {saved_video} vídeos")
-            success_count += 1
+            log_collection(channel_id, "success", f"Coletados {saved_daily} dias, {saved_country} paises, {saved_video} videos, {saved_video_daily} hist")
 
         except Exception as e:
             log.error(f"[{channel_name}] Erro: {str(e)}")
             log_collection(channel_id, "error", str(e)[:200])
-            error_count += 1
 
     log.info("\n" + "=" * 60)
-    log.info(f"COLETA OAUTH FINALIZADA - Sucesso: {success_count} | Erros: {error_count}")
+    log.info("COLETA FINALIZADA")
     log.info("=" * 60)
-
-    return {"success": success_count, "errors": error_count}
-
-# =============================================================================
-# EXECUÇÃO LOCAL (TESTE)
-# =============================================================================
-
-def main():
-    """Função para testes locais"""
-    asyncio.run(collect_oauth_metrics())
 
 if __name__ == "__main__":
     main()

@@ -1156,10 +1156,11 @@ async def get_revenue_24h():
             for item in real_metrics.data or []:
                 real_revenue += item.get('revenue', 0) or 0
 
-        # Buscar dados estimados de hoje
+        # Buscar dados estimados de ONTEM (D-1)
+        yesterday = (today - timedelta(days=1)).isoformat()
         estimate_metrics = db.supabase.table("yt_daily_metrics")\
             .select("revenue")\
-            .eq("date", today.isoformat())\
+            .eq("date", yesterday)\
             .eq("is_estimate", True)\
             .execute()
 
@@ -1177,6 +1178,7 @@ async def get_revenue_24h():
                 real_date_formatted = last_real_date
 
         today_formatted = today.strftime("%d/%m")
+        yesterday_formatted = (today - timedelta(days=1)).strftime("%d/%m")
 
         return {
             "real": {
@@ -1186,8 +1188,8 @@ async def get_revenue_24h():
                 "badge": "real"
             },
             "estimate": {
-                "date": today.isoformat(),
-                "date_formatted": today_formatted,
+                "date": yesterday,
+                "date_formatted": yesterday_formatted,
                 "revenue": round(estimate_revenue, 2),
                 "badge": "estimate"
             }
