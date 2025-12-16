@@ -203,6 +203,129 @@ def collect_video_metrics(channel_id, access_token, start_date, end_date):
     return rows
 
 # =============================================================================
+# NOVAS FUNÇÕES DE COLETA - ANALYTICS AVANÇADO
+# =============================================================================
+
+def collect_traffic_sources(channel_id, access_token, start_date, end_date):
+    """Coleta fontes de tráfego do canal"""
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    resp = requests.get(
+        "https://youtubeanalytics.googleapis.com/v2/reports",
+        params={
+            "ids": f"channel=={channel_id}",
+            "startDate": start_date,
+            "endDate": end_date,
+            "metrics": "views,estimatedMinutesWatched",
+            "dimensions": "insightTrafficSourceType",
+            "sort": "-views"
+        },
+        headers=headers
+    )
+
+    if resp.status_code != 200:
+        log.error(f"Erro traffic sources: {resp.status_code}")
+        return []
+
+    return resp.json().get("rows", [])
+
+def collect_search_terms(channel_id, access_token, start_date, end_date):
+    """Coleta top 10 termos de busca"""
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    resp = requests.get(
+        "https://youtubeanalytics.googleapis.com/v2/reports",
+        params={
+            "ids": f"channel=={channel_id}",
+            "startDate": start_date,
+            "endDate": end_date,
+            "metrics": "views",
+            "dimensions": "insightTrafficSourceDetail",
+            "filters": "insightTrafficSourceType==YT_SEARCH",
+            "maxResults": "10",
+            "sort": "-views"
+        },
+        headers=headers
+    )
+
+    if resp.status_code != 200:
+        log.error(f"Erro search terms: {resp.status_code}")
+        return []
+
+    return resp.json().get("rows", [])
+
+def collect_suggested_videos(channel_id, access_token, start_date, end_date):
+    """Coleta top 10 vídeos que recomendam"""
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    resp = requests.get(
+        "https://youtubeanalytics.googleapis.com/v2/reports",
+        params={
+            "ids": f"channel=={channel_id}",
+            "startDate": start_date,
+            "endDate": end_date,
+            "metrics": "views",
+            "dimensions": "insightTrafficSourceDetail",
+            "filters": "insightTrafficSourceType==YT_RELATED",
+            "maxResults": "10",
+            "sort": "-views"
+        },
+        headers=headers
+    )
+
+    if resp.status_code != 200:
+        log.error(f"Erro suggested videos: {resp.status_code}")
+        return []
+
+    return resp.json().get("rows", [])
+
+def collect_demographics(channel_id, access_token, start_date, end_date):
+    """Coleta demographics (idade e gênero)"""
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    resp = requests.get(
+        "https://youtubeanalytics.googleapis.com/v2/reports",
+        params={
+            "ids": f"channel=={channel_id}",
+            "startDate": start_date,
+            "endDate": end_date,
+            "metrics": "viewerPercentage",
+            "dimensions": "ageGroup,gender",
+            "sort": "-viewerPercentage"
+        },
+        headers=headers
+    )
+
+    if resp.status_code != 200:
+        log.error(f"Erro demographics: {resp.status_code}")
+        return []
+
+    return resp.json().get("rows", [])
+
+def collect_device_metrics(channel_id, access_token, start_date, end_date):
+    """Coleta distribuição de dispositivos"""
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    resp = requests.get(
+        "https://youtubeanalytics.googleapis.com/v2/reports",
+        params={
+            "ids": f"channel=={channel_id}",
+            "startDate": start_date,
+            "endDate": end_date,
+            "metrics": "views,estimatedMinutesWatched",
+            "dimensions": "deviceType",
+            "sort": "-views"
+        },
+        headers=headers
+    )
+
+    if resp.status_code != 200:
+        log.error(f"Erro device metrics: {resp.status_code}")
+        return []
+
+    return resp.json().get("rows", [])
+
+# =============================================================================
 # SALVAR DADOS
 # =============================================================================
 
@@ -376,6 +499,168 @@ def save_video_daily(channel_id, rows, date):
 
     return saved
 
+# =============================================================================
+# SALVAR DADOS - ANALYTICS AVANÇADO
+# =============================================================================
+
+def save_traffic_sources(channel_id, date, rows):
+    """Salva fontes de tráfego"""
+    saved = 0
+    total_views = sum(int(row[1]) for row in rows) if rows else 1  # Evitar divisão por zero
+
+    for row in rows:
+        source_type = row[0]
+        views = int(row[1])
+        watch_time = int(row[2]) if len(row) > 2 else 0
+        percentage = round((views / total_views) * 100, 2) if total_views > 0 else 0
+
+        data = {
+            "channel_id": channel_id,
+            "date": date,
+            "source_type": source_type,
+            "views": views,
+            "watch_time_minutes": watch_time,
+            "percentage": percentage
+        }
+
+        resp = requests.post(
+            f"{SUPABASE_URL}/rest/v1/yt_traffic_summary",
+            headers=SUPABASE_HEADERS,
+            json=data
+        )
+
+        if resp.status_code in [200, 201]:
+            saved += 1
+
+    log.info(f"[Traffic] {saved} fontes salvas")
+    return saved
+
+def save_search_terms(channel_id, date, rows):
+    """Salva termos de busca"""
+    saved = 0
+    total_views = sum(int(row[1]) for row in rows) if rows else 1
+
+    for row in rows:
+        search_term = row[0]
+        views = int(row[1])
+        percentage = round((views / total_views) * 100, 2) if total_views > 0 else 0
+
+        data = {
+            "channel_id": channel_id,
+            "date": date,
+            "search_term": search_term,
+            "views": views,
+            "percentage_of_search": percentage
+        }
+
+        resp = requests.post(
+            f"{SUPABASE_URL}/rest/v1/yt_search_analytics",
+            headers=SUPABASE_HEADERS,
+            json=data
+        )
+
+        if resp.status_code in [200, 201]:
+            saved += 1
+
+    log.info(f"[Search] {saved} termos salvos")
+    return saved
+
+def save_suggested_videos(channel_id, date, rows):
+    """Salva vídeos que recomendam"""
+    saved = 0
+
+    for row in rows:
+        video_id = row[0]
+        views = int(row[1])
+
+        # O ID pode vir como URL completa ou só ID
+        if "watch?v=" in video_id:
+            video_id = video_id.split("watch?v=")[1].split("&")[0]
+
+        data = {
+            "channel_id": channel_id,
+            "date": date,
+            "source_video_id": video_id,
+            "source_video_title": "",  # API não retorna título
+            "source_channel_name": "",  # API não retorna canal
+            "views_generated": views
+        }
+
+        resp = requests.post(
+            f"{SUPABASE_URL}/rest/v1/yt_suggested_sources",
+            headers=SUPABASE_HEADERS,
+            json=data
+        )
+
+        if resp.status_code in [200, 201]:
+            saved += 1
+
+    log.info(f"[Suggested] {saved} vídeos salvos")
+    return saved
+
+def save_demographics(channel_id, date, rows):
+    """Salva demographics"""
+    saved = 0
+
+    for row in rows:
+        age_group = row[0]
+        gender = row[1]
+        percentage = float(row[2])
+
+        data = {
+            "channel_id": channel_id,
+            "date": date,
+            "age_group": age_group,
+            "gender": gender,
+            "views": 0,  # API retorna só percentual
+            "watch_time_minutes": 0,
+            "percentage": percentage
+        }
+
+        resp = requests.post(
+            f"{SUPABASE_URL}/rest/v1/yt_demographics",
+            headers=SUPABASE_HEADERS,
+            json=data
+        )
+
+        if resp.status_code in [200, 201]:
+            saved += 1
+
+    log.info(f"[Demographics] {saved} registros salvos")
+    return saved
+
+def save_device_metrics(channel_id, date, rows):
+    """Salva métricas de dispositivos"""
+    saved = 0
+    total_views = sum(int(row[1]) for row in rows) if rows else 1
+
+    for row in rows:
+        device_type = row[0]
+        views = int(row[1])
+        watch_time = int(row[2]) if len(row) > 2 else 0
+        percentage = round((views / total_views) * 100, 2) if total_views > 0 else 0
+
+        data = {
+            "channel_id": channel_id,
+            "date": date,
+            "device_type": device_type,
+            "views": views,
+            "watch_time_minutes": watch_time,
+            "percentage": percentage
+        }
+
+        resp = requests.post(
+            f"{SUPABASE_URL}/rest/v1/yt_device_metrics",
+            headers=SUPABASE_HEADERS,
+            json=data
+        )
+
+        if resp.status_code in [200, 201]:
+            saved += 1
+
+    log.info(f"[Devices] {saved} dispositivos salvos")
+    return saved
+
 # FUNÇÃO DESABILITADA - USA DATA API V3 (CONSOME QUOTA DE MINERAÇÃO)
 # def update_channel_info(channel_id, access_token):
 #     """Atualiza info do canal (inscritos, vídeos)"""
@@ -486,6 +771,36 @@ async def collect_oauth_metrics():
             today = datetime.now().strftime("%Y-%m-%d")
             saved_video_daily = save_video_daily(channel_id, video_rows, today)
             log.info(f"[{channel_name}] Histórico diário vídeos: {saved_video_daily} registros")
+
+            # =============================================================
+            # COLETA DE ANALYTICS AVANÇADO (NOVAS MÉTRICAS)
+            # =============================================================
+            log.info(f"[{channel_name}] Iniciando coleta de analytics avançado...")
+
+            # Coletar fontes de tráfego
+            traffic_rows = collect_traffic_sources(channel_id, access_token, yesterday, yesterday)
+            saved_traffic = save_traffic_sources(channel_id, yesterday, traffic_rows)
+            log.info(f"[{channel_name}] Fontes de tráfego: {saved_traffic} salvos")
+
+            # Coletar termos de busca
+            search_rows = collect_search_terms(channel_id, access_token, yesterday, yesterday)
+            saved_search = save_search_terms(channel_id, yesterday, search_rows)
+            log.info(f"[{channel_name}] Termos de busca: {saved_search} salvos")
+
+            # Coletar vídeos que recomendam
+            suggested_rows = collect_suggested_videos(channel_id, access_token, yesterday, yesterday)
+            saved_suggested = save_suggested_videos(channel_id, yesterday, suggested_rows)
+            log.info(f"[{channel_name}] Vídeos sugeridos: {saved_suggested} salvos")
+
+            # Coletar demographics
+            demo_rows = collect_demographics(channel_id, access_token, yesterday, yesterday)
+            saved_demo = save_demographics(channel_id, yesterday, demo_rows)
+            log.info(f"[{channel_name}] Demographics: {saved_demo} salvos")
+
+            # Coletar dispositivos
+            device_rows = collect_device_metrics(channel_id, access_token, yesterday, yesterday)
+            saved_devices = save_device_metrics(channel_id, yesterday, device_rows)
+            log.info(f"[{channel_name}] Dispositivos: {saved_devices} salvos")
 
             # Atualizar info do canal - DESABILITADO (usa Data API v3)
             # update_channel_info(channel_id, access_token)

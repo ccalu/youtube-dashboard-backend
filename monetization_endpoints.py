@@ -1429,3 +1429,298 @@ async def get_quality_metrics(
             "subnichios": [],
             "error": str(e)
         }
+
+# =============================================================================
+# ANALYTICS AVANÇADO - NOVO ENDPOINT
+# =============================================================================
+
+@router.get("/analytics-advanced")
+async def get_advanced_analytics(
+    period: str = Query("7d", regex="^(24h|3d|7d|15d|30d|total|monetizacao)$"),
+    subnicho: Optional[str] = None,
+    channel_id: Optional[str] = None,
+    lingua: Optional[str] = None
+):
+    """
+    Retorna analytics avançado com traffic sources, demographics, devices, etc.
+    Agrupa por subnicho ou retorna detalhes de canal específico.
+    """
+    try:
+        # Calcular datas baseado no período
+        end_date = datetime.now().date()
+
+        if period == "monetizacao":
+            # Período de monetização (13 a 13)
+            from dateutil.relativedelta import relativedelta
+            current_day = end_date.day
+            if current_day < 13:
+                end_date = (end_date - relativedelta(months=1)).replace(day=12)
+                start_date = (end_date - relativedelta(months=1)).replace(day=13)
+            else:
+                end_date = end_date.replace(day=12)
+                start_date = (end_date - relativedelta(months=1)).replace(day=13)
+        elif period == "24h":
+            start_date = end_date - timedelta(days=1)
+        elif period == "3d":
+            start_date = end_date - timedelta(days=3)
+        elif period == "7d":
+            start_date = end_date - timedelta(days=7)
+        elif period == "15d":
+            start_date = end_date - timedelta(days=15)
+        elif period == "30d":
+            start_date = end_date - timedelta(days=30)
+        else:  # total
+            start_date = end_date - timedelta(days=365)
+
+        start_str = start_date.isoformat()
+        end_str = end_date.isoformat()
+
+        # Se channel_id específico, retornar detalhes do canal
+        if channel_id:
+            # Traffic Sources
+            traffic_query = db.supabase.table("yt_traffic_summary")\
+                .select("*")\
+                .eq("channel_id", channel_id)\
+                .gte("date", start_str)\
+                .lte("date", end_str)\
+                .order("views", desc=True)
+            traffic_data = traffic_query.execute()
+
+            # Search Terms
+            search_query = db.supabase.table("yt_search_analytics")\
+                .select("*")\
+                .eq("channel_id", channel_id)\
+                .gte("date", start_str)\
+                .lte("date", end_str)\
+                .order("views", desc=True)\
+                .limit(10)
+            search_data = search_query.execute()
+
+            # Suggested Videos
+            suggested_query = db.supabase.table("yt_suggested_sources")\
+                .select("*")\
+                .eq("channel_id", channel_id)\
+                .gte("date", start_str)\
+                .lte("date", end_str)\
+                .order("views_generated", desc=True)\
+                .limit(10)
+            suggested_data = suggested_query.execute()
+
+            # Demographics
+            demo_query = db.supabase.table("yt_demographics")\
+                .select("*")\
+                .eq("channel_id", channel_id)\
+                .gte("date", start_str)\
+                .lte("date", end_str)\
+                .order("percentage", desc=True)
+            demo_data = demo_query.execute()
+
+            # Devices
+            device_query = db.supabase.table("yt_device_metrics")\
+                .select("*")\
+                .eq("channel_id", channel_id)\
+                .gte("date", start_str)\
+                .lte("date", end_str)\
+                .order("views", desc=True)
+            device_data = device_query.execute()
+
+            # Buscar info do canal
+            channel_info = db.supabase.table("yt_channels")\
+                .select("channel_name, performance_score")\
+                .eq("channel_id", channel_id)\
+                .single()\
+                .execute()
+
+            # Buscar subnicho da tabela canais_monitorados
+            subnicho_info = None
+            if channel_info.data:
+                subnicho_resp = db.supabase.table("canais_monitorados")\
+                    .select("subnicho")\
+                    .ilike("nome_canal", f"%{channel_info.data.get('channel_name')}%")\
+                    .limit(1)\
+                    .execute()
+                if subnicho_resp.data:
+                    subnicho_info = subnicho_resp.data[0].get("subnicho")
+
+            return {
+                "channel": {
+                    "id": channel_id,
+                    "name": channel_info.data.get("channel_name") if channel_info.data else "Unknown",
+                    "subnicho": subnicho_info,
+                    "performance_score": channel_info.data.get("performance_score") if channel_info.data else 0
+                },
+                "period": {"start": start_str, "end": end_str},
+                "traffic_sources": traffic_data.data if traffic_data else [],
+                "search_terms": search_data.data if search_data else [],
+                "suggested_videos": suggested_data.data if suggested_data else [],
+                "demographics": demo_data.data if demo_data else [],
+                "devices": device_data.data if device_data else []
+            }
+
+        # Senão, retornar agregado por subnicho
+        # Buscar canais monetizados
+        channels_query = db.supabase.table("yt_channels")\
+            .select("channel_id, channel_name")\
+            .eq("is_monetized", True)
+
+        if lingua:
+            channels_query = channels_query.eq("lingua", lingua)
+
+        channels = channels_query.execute()
+
+        if not channels.data:
+            return {
+                "period": {"start": start_str, "end": end_str},
+                "subnichos": [],
+                "message": "Nenhum canal monetizado encontrado"
+            }
+
+        # Buscar subnichos da tabela canais_monitorados
+        for channel in channels.data:
+            subnicho_resp = db.supabase.table("canais_monitorados")\
+                .select("subnicho")\
+                .ilike("nome_canal", f"%{channel['channel_name']}%")\
+                .execute()
+
+            channel['subnicho'] = subnicho_resp.data[0]['subnicho'] if subnicho_resp.data else None
+
+        # Filtrar por subnicho se especificado
+        if subnicho:
+            channels.data = [c for c in channels.data if c.get('subnicho') and subnicho.lower() in c['subnicho'].lower()]
+            if not channels.data:
+                return {
+                    "period": {"start": start_str, "end": end_str},
+                    "subnichos": [],
+                    "message": f"Nenhum canal encontrado para o subnicho '{subnicho}'"
+                }
+
+        # Agrupar por subnicho
+        subnichos_data = {}
+        for channel in channels.data:
+            subnicho_name = channel.get("subnicho") or "Sem Subnicho"
+            if subnicho_name not in subnichos_data:
+                subnichos_data[subnicho_name] = {
+                    "channels": [],
+                    "traffic_sources": {},
+                    "search_terms": {},
+                    "demographics": {},
+                    "devices": {}
+                }
+            subnichos_data[subnicho_name]["channels"].append(channel)
+
+        # Para cada subnicho, buscar dados agregados
+        result = []
+        for subnicho_name, subnicho_info in subnichos_data.items():
+            channel_ids = [c["channel_id"] for c in subnicho_info["channels"]]
+
+            # Traffic Sources agregado
+            traffic_agg = {}
+            for cid in channel_ids:
+                traffic_resp = db.supabase.table("yt_traffic_summary")\
+                    .select("source_type, views")\
+                    .eq("channel_id", cid)\
+                    .gte("date", start_str)\
+                    .lte("date", end_str)\
+                    .execute()
+
+                if traffic_resp.data:
+                    for item in traffic_resp.data:
+                        src = item["source_type"]
+                        traffic_agg[src] = traffic_agg.get(src, 0) + item["views"]
+
+            # Top 5 search terms agregado
+            search_agg = {}
+            for cid in channel_ids:
+                search_resp = db.supabase.table("yt_search_analytics")\
+                    .select("search_term, views")\
+                    .eq("channel_id", cid)\
+                    .gte("date", start_str)\
+                    .lte("date", end_str)\
+                    .execute()
+
+                if search_resp.data:
+                    for item in search_resp.data:
+                        term = item["search_term"]
+                        search_agg[term] = search_agg.get(term, 0) + item["views"]
+
+            # Top 5 search terms
+            top_search = sorted(search_agg.items(), key=lambda x: x[1], reverse=True)[:5]
+
+            # Demographics agregado
+            demo_agg = {}
+            for cid in channel_ids:
+                demo_resp = db.supabase.table("yt_demographics")\
+                    .select("age_group, gender, percentage")\
+                    .eq("channel_id", cid)\
+                    .gte("date", start_str)\
+                    .lte("date", end_str)\
+                    .execute()
+
+                if demo_resp.data:
+                    for item in demo_resp.data:
+                        key = f"{item['age_group']}_{item['gender']}"
+                        if key not in demo_agg:
+                            demo_agg[key] = []
+                        demo_agg[key].append(item["percentage"])
+
+            # Média de demographics
+            demo_avg = {}
+            for key, percentages in demo_agg.items():
+                demo_avg[key] = round(sum(percentages) / len(percentages), 2)
+
+            # Devices agregado
+            device_agg = {}
+            for cid in channel_ids:
+                device_resp = db.supabase.table("yt_device_metrics")\
+                    .select("device_type, views")\
+                    .eq("channel_id", cid)\
+                    .gte("date", start_str)\
+                    .lte("date", end_str)\
+                    .execute()
+
+                if device_resp.data:
+                    for item in device_resp.data:
+                        dev = item["device_type"]
+                        device_agg[dev] = device_agg.get(dev, 0) + item["views"]
+
+            # Calcular percentuais
+            total_traffic = sum(traffic_agg.values()) if traffic_agg else 1
+            total_devices = sum(device_agg.values()) if device_agg else 1
+
+            result.append({
+                "subnicho": subnicho_name,
+                "channel_count": len(channel_ids),
+                "traffic_sources": [
+                    {
+                        "source": src,
+                        "views": views,
+                        "percentage": round((views / total_traffic) * 100, 2)
+                    }
+                    for src, views in sorted(traffic_agg.items(), key=lambda x: x[1], reverse=True)
+                ],
+                "top_search_terms": [
+                    {"term": term, "views": views}
+                    for term, views in top_search
+                ],
+                "demographics": demo_avg,
+                "devices": [
+                    {
+                        "device": dev,
+                        "views": views,
+                        "percentage": round((views / total_devices) * 100, 2)
+                    }
+                    for dev, views in sorted(device_agg.items(), key=lambda x: x[1], reverse=True)
+                ]
+            })
+
+        return {
+            "period": {"start": start_str, "end": end_str},
+            "subnichos": result
+        }
+
+    except Exception as e:
+        logger.error(f"Erro em analytics-advanced: {str(e)}")
+        return {
+            "period": {"start": start_str, "end": end_str},
+            "error": str(e)
+        }
