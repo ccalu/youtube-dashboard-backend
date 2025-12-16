@@ -1,11 +1,25 @@
-# 🚀 PROMPT COMPLETO PARA LOVABLE - ANALYTICS AVANÇADO
+# 📊 PROMPT COMPLETO PARA LOVABLE - ANALYTICS AVANÇADO
 
-## CONTEXTO
-Adicione um botão "📊 Analytics Avançado" na aba de Monetização que abre um modal com analytics detalhado dos canais monetizados, incluindo origem do tráfego, termos de busca, demographics e dispositivos.
+## ⚠️ IMPORTANTE - LEIA COM ATENÇÃO
+Este prompt adiciona um novo botão "Analytics Avançado" na aba de Monetização do dashboard YouTube. O botão ficará ao lado dos outros 2 cards existentes (💰 Receita e 📈 Desempenho) e abrirá um modal com dados detalhados.
 
-## ENDPOINT BACKEND
+## 🎯 O QUE VOCÊ VAI FAZER
+1. Adicionar um 3º card na aba Monetização com emoji 📊 e título "Analytics Avançado"
+2. Ao clicar no card, abrir um modal com 2 tabs
+3. Tab 1: "Por Subnicho" - mostra dados agregados por subnicho
+4. Tab 2: "Canais Individuais" - lista canais com opção de ver detalhes
+
+## 📍 ONDE ADICIONAR O CARD
+Na aba de Monetização, você já tem 2 cards:
+- Card 1: 💰 Receita Total
+- Card 2: 📈 Desempenho
+
+**Adicione o Card 3 ao lado deles:**
+- Card 3: 📊 Analytics Avançado (com botão "Ver Detalhes")
+
+## 🔗 ENDPOINT BACKEND
 ```
-GET /api/monetization/analytics-advanced
+GET https://youtube-dashboard-backend-production.up.railway.app/api/monetization/analytics-advanced
 Query params:
 - period: 24h | 3d | 7d | 15d | 30d | total | monetizacao
 - subnicho: string (opcional)
@@ -13,18 +27,35 @@ Query params:
 - lingua: string (opcional)
 ```
 
-## COMPONENTES A CRIAR
+## 📦 COMPONENTES A CRIAR
 
-### 1. Botão na Aba Monetização
-Na aba de Monetização, adicionar um botão estilizado:
+### 1. Card na Aba Monetização
+Adicione este card junto aos outros 2 cards existentes (deve ficar igual aos cards de Receita e Desempenho):
 ```tsx
-<Button
-  onClick={() => setShowAnalyticsModal(true)}
-  className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 transition-all duration-200"
->
-  <BarChart3 className="w-5 h-5" />
-  📊 Analytics Avançado
-</Button>
+// Adicione no início do componente:
+const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+
+// Adicione o 3º card junto com os outros 2:
+<Card className="p-6">
+  <div className="flex items-center justify-between mb-4">
+    <div className="flex items-center gap-2">
+      <span className="text-2xl">📊</span>
+      <h3 className="text-lg font-semibold">Analytics Avançado</h3>
+    </div>
+    <BarChart3 className="w-5 h-5 text-purple-600" />
+  </div>
+
+  <p className="text-sm text-gray-600 mb-4">
+    Análise detalhada de tráfego, busca, demografia e dispositivos
+  </p>
+
+  <Button
+    onClick={() => setShowAnalyticsModal(true)}
+    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+  >
+    Ver Detalhes
+  </Button>
+</Card>
 ```
 
 ### 2. Modal Principal - AdvancedAnalyticsModal.tsx
@@ -642,11 +673,39 @@ const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
 
 Use gradientes purple-to-blue para elementos importantes.
 
+## 🎯 RESUMO PARA LOVABLE - COPIE ISSO!
+
+**TAREFA:** Adicionar Analytics Avançado na aba Monetização
+
+**O QUE FAZER:**
+1. Na aba de Monetização, adicione um 3º card chamado "📊 Analytics Avançado"
+2. O card deve ter um botão "Ver Detalhes" que abre um modal
+3. O modal tem 2 tabs:
+   - Tab 1: "Por Subnicho" - mostra dados agregados
+   - Tab 2: "Canais Individuais" - permite ver detalhes de cada canal
+
+**VISUAL:**
+- O card deve ficar igual aos outros 2 cards existentes (Receita e Desempenho)
+- Use emoji 📊 no título do card
+- Botão com gradiente purple-to-blue
+- Modal com largura max-w-7xl
+
+**DADOS:**
+- Endpoint: GET /api/monetization/analytics-advanced
+- Passar o mesmo period da aba (7d, 30d, etc)
+- Response tem: traffic_sources, search_terms, demographics, devices
+
+**IMPORTANTE:**
+- Não criar novos endpoints
+- Usar os filtros já existentes na aba (period, subnicho, lingua)
+- Modal deve ser responsivo (mobile-first)
+- Mostrar loading enquanto busca dados
+
 ## TESTE
 
 Após implementar, teste:
-1. Abrir modal com diferentes períodos
-2. Trocar entre tabs
-3. Clicar em canal individual
-4. Abrir modal de vídeos
-5. Verificar responsividade mobile
+1. Clicar no card para abrir o modal
+2. Ver dados na tab "Por Subnicho"
+3. Trocar para tab "Canais Individuais"
+4. Clicar em um canal para ver detalhes
+5. Verificar responsividade no mobile
