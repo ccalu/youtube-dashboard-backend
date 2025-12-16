@@ -1,21 +1,22 @@
 # 📊 PROMPT COMPLETO PARA LOVABLE - ANALYTICS AVANÇADO
 
 ## ⚠️ IMPORTANTE - LEIA COM ATENÇÃO
-Este prompt adiciona um novo botão "Analytics Avançado" na aba de Monetização do dashboard YouTube. O botão ficará ao lado dos outros 2 cards existentes (💰 Receita e 📈 Desempenho) e abrirá um modal com dados detalhados.
+Este prompt adiciona um novo emoji e funcionalidade no card de Analytics que JÁ EXISTE na aba de Monetização. NÃO é para criar um novo card!
 
 ## 🎯 O QUE VOCÊ VAI FAZER
-1. Adicionar um 3º card na aba Monetização com emoji 📊 e título "Analytics Avançado"
-2. Ao clicar no card, abrir um modal com 2 tabs
-3. Tab 1: "Por Subnicho" - mostra dados agregados por subnicho
-4. Tab 2: "Canais Individuais" - lista canais com opção de ver detalhes
+1. No card de Analytics existente, adicionar o emoji 📊 junto com os outros emojis
+2. Adicionar um botão ou fazer o emoji 📊 clicável
+3. Ao clicar, abrir um modal com 2 tabs de analytics avançado
+4. Tab 1: "Por Subnicho" - mostra dados agregados por subnicho
+5. Tab 2: "Canais Individuais" - lista canais com opção de ver detalhes
 
-## 📍 ONDE ADICIONAR O CARD
-Na aba de Monetização, você já tem 2 cards:
-- Card 1: 💰 Receita Total
-- Card 2: 📈 Desempenho
+## 📍 ONDE ADICIONAR O EMOJI
+Na aba de Monetização, existe um card de Analytics que já tem emojis como:
+- 🏆 Top Performers
+- 📈 Performance Score
+- **ADICIONE:** 📊 Analytics Avançado
 
-**Adicione o Card 3 ao lado deles:**
-- Card 3: 📊 Analytics Avançado (com botão "Ver Detalhes")
+**O emoji 📊 deve ser clicável e abrir o modal**
 
 ## 🔗 ENDPOINT BACKEND
 ```
@@ -27,35 +28,42 @@ Query params:
 - lingua: string (opcional)
 ```
 
-## 📦 COMPONENTES A CRIAR
+## 📦 COMPONENTES A MODIFICAR E CRIAR
 
-### 1. Card na Aba Monetização
-Adicione este card junto aos outros 2 cards existentes (deve ficar igual aos cards de Receita e Desempenho):
+### 1. Modificar Card de Analytics Existente
+No card de Analytics que já existe, adicione o emoji 📊 clicável:
 ```tsx
 // Adicione no início do componente:
 const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
 
-// Adicione o 3º card junto com os outros 2:
-<Card className="p-6">
-  <div className="flex items-center justify-between mb-4">
-    <div className="flex items-center gap-2">
-      <span className="text-2xl">📊</span>
-      <h3 className="text-lg font-semibold">Analytics Avançado</h3>
-    </div>
-    <BarChart3 className="w-5 h-5 text-purple-600" />
-  </div>
-
-  <p className="text-sm text-gray-600 mb-4">
-    Análise detalhada de tráfego, busca, demografia e dispositivos
-  </p>
-
-  <Button
-    onClick={() => setShowAnalyticsModal(true)}
-    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+// No card de Analytics existente, onde estão os outros emojis, adicione:
+<div className="flex gap-4 items-center">
+  {/* Outros emojis que já existem */}
+  <button
+    onClick={() => setShowTopPerformersModal(true)}
+    className="text-2xl hover:scale-110 transition-transform cursor-pointer"
+    title="Top Performers"
   >
-    Ver Detalhes
-  </Button>
-</Card>
+    🏆
+  </button>
+
+  <button
+    onClick={() => setShowPerformanceModal(true)}
+    className="text-2xl hover:scale-110 transition-transform cursor-pointer"
+    title="Performance Score"
+  >
+    📈
+  </button>
+
+  {/* NOVO EMOJI - ADICIONE ESTE */}
+  <button
+    onClick={() => setShowAnalyticsModal(true)}
+    className="text-2xl hover:scale-110 transition-transform cursor-pointer"
+    title="Analytics Avançado"
+  >
+    📊
+  </button>
+</div>
 ```
 
 ### 2. Modal Principal - AdvancedAnalyticsModal.tsx
@@ -675,20 +683,20 @@ Use gradientes purple-to-blue para elementos importantes.
 
 ## 🎯 RESUMO PARA LOVABLE - COPIE ISSO!
 
-**TAREFA:** Adicionar Analytics Avançado na aba Monetização
+**TAREFA:** Adicionar emoji 📊 no card de Analytics EXISTENTE na aba Monetização
 
 **O QUE FAZER:**
-1. Na aba de Monetização, adicione um 3º card chamado "📊 Analytics Avançado"
-2. O card deve ter um botão "Ver Detalhes" que abre um modal
-3. O modal tem 2 tabs:
+1. NO CARD DE ANALYTICS QUE JÁ EXISTE, adicionar emoji 📊 clicável
+2. O emoji 📊 fica ao lado dos outros emojis (🏆 e 📈)
+3. Ao clicar no emoji 📊, abre um modal com 2 tabs:
    - Tab 1: "Por Subnicho" - mostra dados agregados
    - Tab 2: "Canais Individuais" - permite ver detalhes de cada canal
 
 **VISUAL:**
-- O card deve ficar igual aos outros 2 cards existentes (Receita e Desempenho)
-- Use emoji 📊 no título do card
-- Botão com gradiente purple-to-blue
+- NÃO CRIAR NOVO CARD - usar o card de Analytics existente
+- Emoji 📊 clicável com hover effect (scale 110%)
 - Modal com largura max-w-7xl
+- Tabs com dados de tráfego, busca, demografia e dispositivos
 
 **DADOS:**
 - Endpoint: GET /api/monetization/analytics-advanced
@@ -696,7 +704,7 @@ Use gradientes purple-to-blue para elementos importantes.
 - Response tem: traffic_sources, search_terms, demographics, devices
 
 **IMPORTANTE:**
-- Não criar novos endpoints
+- NÃO criar novo card, apenas adicionar emoji no card existente
 - Usar os filtros já existentes na aba (period, subnicho, lingua)
 - Modal deve ser responsivo (mobile-first)
 - Mostrar loading enquanto busca dados
