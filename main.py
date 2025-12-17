@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -1700,21 +1700,37 @@ async def listar_lancamentos_financeiros(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/financeiro/lancamentos")
-async def criar_lancamento_financeiro(
-    categoria_id: int,
-    valor: float,
-    data: str,
-    descricao: str,
-    tipo: str,
-    recorrencia: str = None,
-    usuario: str = None
-):
+async def criar_lancamento_financeiro(request: Request):
     """Cria novo lançamento"""
     try:
+        data = await request.json()
+
+        categoria_id = data.get('categoria_id')
+        valor = data.get('valor')
+        data_lancamento = data.get('data')
+        descricao = data.get('descricao', '')
+        tipo = data.get('tipo')
+        recorrencia = data.get('recorrencia')
+        usuario = data.get('usuario', 'Usuario')
+
+        # Validações
+        if not categoria_id:
+            raise HTTPException(status_code=422, detail="categoria_id é obrigatório")
+        if not valor:
+            raise HTTPException(status_code=422, detail="valor é obrigatório")
+        if not data_lancamento:
+            raise HTTPException(status_code=422, detail="data é obrigatória")
+        if not tipo:
+            raise HTTPException(status_code=422, detail="tipo é obrigatório")
+        if tipo not in ['receita', 'despesa']:
+            raise HTTPException(status_code=422, detail="tipo deve ser 'receita' ou 'despesa'")
+
         lancamento = await financeiro.criar_lancamento(
-            categoria_id, valor, data, descricao, tipo, recorrencia, usuario
+            categoria_id, valor, data_lancamento, descricao, tipo, recorrencia, usuario
         )
         return lancamento
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Erro ao criar lançamento: {e}")
         raise HTTPException(status_code=500, detail=str(e))
