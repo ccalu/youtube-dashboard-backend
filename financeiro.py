@@ -452,18 +452,29 @@ class FinanceiroService:
     # ========== CÁLCULOS ==========
 
     async def get_receita_bruta(self, periodo: str) -> float:
-        """Calcula receita bruta total no período"""
+        """
+        Calcula receita bruta total no período
+        Combina receita YouTube (dados diários) + outras receitas manuais
+        """
         try:
+            # 1. Receita YouTube (dados diários de yt_daily_metrics)
+            receita_youtube = await self.get_youtube_revenue(periodo)
+
+            # 2. Outras receitas manuais (excluindo YouTube para evitar duplicação)
             data_inicio, data_fim = parse_periodo(periodo)
 
             response = self.supabase.table("financeiro_lancamentos")\
                 .select("valor")\
                 .eq("tipo", "receita")\
+                .not_.like("descricao", "Receita YouTube%")\
                 .gte("data", data_inicio.date())\
                 .lte("data", data_fim.date())\
                 .execute()
 
-            total = sum(float(item['valor']) for item in (response.data or []))
+            outras_receitas = sum(float(item['valor']) for item in (response.data or []))
+
+            # Total = YouTube (diário) + Outras (manuais)
+            total = receita_youtube + outras_receitas
             return round(total, 2)
         except Exception as e:
             logger.error(f"Erro ao calcular receita bruta: {e}")

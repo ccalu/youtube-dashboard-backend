@@ -1799,15 +1799,27 @@ async def listar_taxas_financeiras(ativo: bool = None):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/financeiro/taxas")
-async def criar_taxa_financeira(
-    nome: str,
-    percentual: float,
-    aplica_sobre: str = "receita_bruta"
-):
+async def criar_taxa_financeira(request: Request):
     """Cria nova taxa"""
     try:
+        data = await request.json()
+
+        nome = data.get('nome')
+        percentual = data.get('percentual')
+        aplica_sobre = data.get('aplica_sobre', 'receita_bruta')
+
+        # Validações
+        if not nome:
+            raise HTTPException(status_code=422, detail="nome é obrigatório")
+        if not percentual or percentual <= 0:
+            raise HTTPException(status_code=422, detail="percentual deve ser maior que 0")
+        if aplica_sobre not in ['receita_bruta', 'receita_liquida']:
+            raise HTTPException(status_code=422, detail="aplica_sobre deve ser 'receita_bruta' ou 'receita_liquida'")
+
         taxa = await financeiro.criar_taxa(nome, percentual, aplica_sobre)
         return taxa
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Erro ao criar taxa: {e}")
         raise HTTPException(status_code=500, detail=str(e))
