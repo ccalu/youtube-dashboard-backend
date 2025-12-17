@@ -20,6 +20,7 @@ from database import SupabaseClient
 from collector import YouTubeCollector
 from notifier import NotificationChecker
 from monetization_endpoints import router as monetization_router
+from financeiro import FinanceiroService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -58,6 +59,7 @@ class RegraNotificacaoCreate(BaseModel):
 db = SupabaseClient()
 collector = YouTubeCollector()
 notifier = NotificationChecker(db.supabase)
+financeiro = FinanceiroService(db)
 
 collection_in_progress = False
 last_collection_time = None
@@ -1629,6 +1631,334 @@ async def schedule_daily_collection():
         except Exception as e:
             logger.error(f"❌ Scheduled collection failed: {e}")
             await asyncio.sleep(3600)
+
+# ========================================
+# 💰 ENDPOINTS FINANCEIRO
+# ========================================
+
+# ========== CATEGORIAS ==========
+
+@app.get("/api/financeiro/categorias")
+async def listar_categorias_financeiras(ativo: bool = None):
+    """Lista todas as categorias financeiras"""
+    try:
+        categorias = await financeiro.listar_categorias(ativo)
+        return {"categorias": categorias}
+    except Exception as e:
+        logger.error(f"Erro ao listar categorias: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/financeiro/categorias")
+async def criar_categoria_financeira(
+    nome: str,
+    tipo: str,
+    cor: str = None,
+    icon: str = None
+):
+    """Cria nova categoria financeira"""
+    try:
+        categoria = await financeiro.criar_categoria(nome, tipo, cor, icon)
+        return categoria
+    except Exception as e:
+        logger.error(f"Erro ao criar categoria: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/api/financeiro/categorias/{categoria_id}")
+async def editar_categoria_financeira(categoria_id: int, dados: Dict[str, Any]):
+    """Edita categoria existente"""
+    try:
+        categoria = await financeiro.editar_categoria(categoria_id, dados)
+        return categoria
+    except Exception as e:
+        logger.error(f"Erro ao editar categoria: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/financeiro/categorias/{categoria_id}")
+async def deletar_categoria_financeira(categoria_id: int):
+    """Deleta categoria (soft delete)"""
+    try:
+        await financeiro.deletar_categoria(categoria_id)
+        return {"success": True, "message": "Categoria deletada"}
+    except Exception as e:
+        logger.error(f"Erro ao deletar categoria: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ========== LANÇAMENTOS ==========
+
+@app.get("/api/financeiro/lancamentos")
+async def listar_lancamentos_financeiros(
+    periodo: str = "30d",
+    tipo: str = None,
+    recorrencia: str = None
+):
+    """Lista lançamentos com filtros"""
+    try:
+        lancamentos = await financeiro.listar_lancamentos(periodo, tipo, recorrencia)
+        return {"lancamentos": lancamentos, "total": len(lancamentos)}
+    except Exception as e:
+        logger.error(f"Erro ao listar lançamentos: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/financeiro/lancamentos")
+async def criar_lancamento_financeiro(
+    categoria_id: int,
+    valor: float,
+    data: str,
+    descricao: str,
+    tipo: str,
+    recorrencia: str = None,
+    usuario: str = None
+):
+    """Cria novo lançamento"""
+    try:
+        lancamento = await financeiro.criar_lancamento(
+            categoria_id, valor, data, descricao, tipo, recorrencia, usuario
+        )
+        return lancamento
+    except Exception as e:
+        logger.error(f"Erro ao criar lançamento: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/api/financeiro/lancamentos/{lancamento_id}")
+async def editar_lancamento_financeiro(lancamento_id: int, dados: Dict[str, Any]):
+    """Edita lançamento existente"""
+    try:
+        lancamento = await financeiro.editar_lancamento(lancamento_id, dados)
+        return lancamento
+    except Exception as e:
+        logger.error(f"Erro ao editar lançamento: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/financeiro/lancamentos/{lancamento_id}")
+async def deletar_lancamento_financeiro(lancamento_id: int):
+    """Deleta lançamento"""
+    try:
+        await financeiro.deletar_lancamento(lancamento_id)
+        return {"success": True, "message": "Lançamento deletado"}
+    except Exception as e:
+        logger.error(f"Erro ao deletar lançamento: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/financeiro/lancamentos/export-csv")
+async def exportar_lancamentos_csv(periodo: str = "30d"):
+    """Exporta lançamentos em formato CSV"""
+    try:
+        lancamentos = await financeiro.listar_lancamentos(periodo)
+
+        # Gerar CSV
+        from fastapi.responses import Response
+        import io
+
+        output = io.StringIO()
+        output.write("Data,Tipo,Recorrência,Categoria,Descrição,Valor\n")
+
+        for lanc in lancamentos:
+            categoria_nome = lanc.get('financeiro_categorias', {}).get('nome', 'N/A') if lanc.get('financeiro_categorias') else 'N/A'
+            recorrencia = lanc.get('recorrencia', 'N/A') or 'N/A'
+
+            output.write(f"{lanc['data']},{lanc['tipo']},{recorrencia},{categoria_nome},{lanc.get('descricao', '')},{lanc['valor']}\n")
+
+        csv_content = output.getvalue()
+        output.close()
+
+        return Response(
+            content=csv_content.encode('utf-8-sig'),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=financeiro_{periodo}.csv"}
+        )
+    except Exception as e:
+        logger.error(f"Erro ao exportar CSV: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ========== TAXAS ==========
+
+@app.get("/api/financeiro/taxas")
+async def listar_taxas_financeiras(ativo: bool = None):
+    """Lista todas as taxas"""
+    try:
+        taxas = await financeiro.listar_taxas(ativo)
+        return {"taxas": taxas}
+    except Exception as e:
+        logger.error(f"Erro ao listar taxas: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/financeiro/taxas")
+async def criar_taxa_financeira(
+    nome: str,
+    percentual: float,
+    aplica_sobre: str = "receita_bruta"
+):
+    """Cria nova taxa"""
+    try:
+        taxa = await financeiro.criar_taxa(nome, percentual, aplica_sobre)
+        return taxa
+    except Exception as e:
+        logger.error(f"Erro ao criar taxa: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/api/financeiro/taxas/{taxa_id}")
+async def editar_taxa_financeira(taxa_id: int, dados: Dict[str, Any]):
+    """Edita taxa existente"""
+    try:
+        taxa = await financeiro.editar_taxa(taxa_id, dados)
+        return taxa
+    except Exception as e:
+        logger.error(f"Erro ao editar taxa: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/financeiro/taxas/{taxa_id}")
+async def deletar_taxa_financeira(taxa_id: int):
+    """Deleta taxa (soft delete)"""
+    try:
+        await financeiro.deletar_taxa(taxa_id)
+        return {"success": True, "message": "Taxa deletada"}
+    except Exception as e:
+        logger.error(f"Erro ao deletar taxa: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ========== METAS ==========
+
+@app.get("/api/financeiro/metas")
+async def listar_metas_financeiras(ativo: bool = None):
+    """Lista todas as metas"""
+    try:
+        metas = await financeiro.listar_metas(ativo)
+        return {"metas": metas}
+    except Exception as e:
+        logger.error(f"Erro ao listar metas: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/financeiro/metas/progresso")
+async def progresso_metas_financeiras():
+    """Calcula progresso de todas as metas ativas"""
+    try:
+        progresso = await financeiro.calcular_progresso_metas()
+        return {"metas": progresso}
+    except Exception as e:
+        logger.error(f"Erro ao calcular progresso metas: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/financeiro/metas")
+async def criar_meta_financeira(
+    nome: str,
+    tipo: str,
+    valor_objetivo: float,
+    periodo_inicio: str,
+    periodo_fim: str
+):
+    """Cria nova meta"""
+    try:
+        meta = await financeiro.criar_meta(nome, tipo, valor_objetivo, periodo_inicio, periodo_fim)
+        return meta
+    except Exception as e:
+        logger.error(f"Erro ao criar meta: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/api/financeiro/metas/{meta_id}")
+async def editar_meta_financeira(meta_id: int, dados: Dict[str, Any]):
+    """Edita meta existente"""
+    try:
+        meta = await financeiro.editar_meta(meta_id, dados)
+        return meta
+    except Exception as e:
+        logger.error(f"Erro ao editar meta: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/financeiro/metas/{meta_id}")
+async def deletar_meta_financeira(meta_id: int):
+    """Deleta meta (soft delete)"""
+    try:
+        await financeiro.deletar_meta(meta_id)
+        return {"success": True, "message": "Meta deletada"}
+    except Exception as e:
+        logger.error(f"Erro ao deletar meta: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ========== OVERVIEW / DASHBOARD ==========
+
+@app.get("/api/financeiro/overview")
+async def overview_financeiro(periodo: str = "30d"):
+    """
+    Retorna overview completo:
+    - Receita bruta
+    - Despesas (total + breakdown fixas/únicas)
+    - Taxas totais
+    - Lucro líquido
+    - Comparação com período anterior
+    """
+    try:
+        overview = await financeiro.get_overview(periodo)
+        return overview
+    except Exception as e:
+        logger.error(f"Erro ao gerar overview: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/financeiro/taxa-cambio")
+async def taxa_cambio_atual():
+    """
+    Retorna taxa de câmbio USD-BRL atual
+    Exemplo: {"taxa": 5.52, "atualizado_em": "2025-12-17 15:35:03"}
+    """
+    try:
+        from financeiro import get_usd_brl_rate
+        taxa = await get_usd_brl_rate()
+        return taxa
+    except Exception as e:
+        logger.error(f"Erro ao buscar taxa de câmbio: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/financeiro/graficos/receita-despesas")
+async def grafico_receita_despesas(periodo: str = "30d"):
+    """
+    Dados para gráfico de linha: receita vs despesas vs lucro
+    """
+    try:
+        dados = await financeiro.get_grafico_receita_despesas(periodo)
+        return {"dados": dados}
+    except Exception as e:
+        logger.error(f"Erro ao gerar gráfico receita/despesas: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/financeiro/graficos/despesas-breakdown")
+async def grafico_despesas_breakdown(periodo: str = "30d"):
+    """
+    Dados para gráfico pizza/barras: breakdown de despesas
+    - Por categoria
+    - Fixas vs Únicas
+    """
+    try:
+        dados = await financeiro.get_grafico_despesas_breakdown(periodo)
+        return dados
+    except Exception as e:
+        logger.error(f"Erro ao gerar gráfico breakdown: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ========== INTEGRAÇÃO YOUTUBE ==========
+
+@app.get("/api/financeiro/youtube-revenue")
+async def youtube_revenue_financeiro(periodo: str = "30d"):
+    """Consulta receita YouTube do período"""
+    try:
+        revenue = await financeiro.get_youtube_revenue(periodo)
+        return {"receita_youtube": revenue, "periodo": periodo}
+    except Exception as e:
+        logger.error(f"Erro ao consultar receita YouTube: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/financeiro/sync-youtube")
+async def sync_youtube_financeiro(periodo: str = "90d"):
+    """
+    Sincroniza receita YouTube:
+    - Consulta yt_daily_metrics
+    - Agrupa por mês
+    - Cria lançamentos automáticos
+    """
+    try:
+        resultado = await financeiro.sync_youtube_revenue(periodo)
+        return resultado
+    except Exception as e:
+        logger.error(f"Erro ao sincronizar YouTube: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
