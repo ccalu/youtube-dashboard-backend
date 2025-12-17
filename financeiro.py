@@ -837,3 +837,146 @@ class FinanceiroService:
         except Exception as e:
             logger.error(f"Erro ao sincronizar receita YouTube: {e}")
             raise
+
+    async def get_projecao_mes(self) -> Dict:
+        """
+        Calcula projeção de receita para o mês atual
+        Baseado na média diária de revenue até agora
+        """
+        try:
+            from datetime import date
+
+            # Data atual
+            hoje = datetime.now(timezone.utc).date()
+
+            # Primeiro e último dia do mês atual
+            primeiro_dia = date(hoje.year, hoje.month, 1)
+
+            # Último dia do mês
+            if hoje.month == 12:
+                ultimo_dia = date(hoje.year + 1, 1, 1) - timedelta(days=1)
+            else:
+                ultimo_dia = date(hoje.year, hoje.month + 1, 1) - timedelta(days=1)
+
+            # Dias do mês
+            dias_total_mes = ultimo_dia.day
+            dias_decorridos = hoje.day
+            dias_restantes = dias_total_mes - dias_decorridos
+
+            # Buscar revenue do mês até hoje (em USD)
+            response = self.supabase.table("yt_daily_metrics")\
+                .select("revenue")\
+                .eq("is_estimate", False)\
+                .gte("date", primeiro_dia)\
+                .lte("date", hoje)\
+                .execute()
+
+            total_usd = sum(float(item['revenue'] or 0) for item in (response.data or []))
+
+            # Taxa de câmbio atual
+            taxa_cambio = await get_usd_brl_rate()
+            taxa = taxa_cambio['taxa']
+
+            # Converter para BRL
+            total_brl = total_usd * taxa
+
+            # Média diária
+            media_diaria = total_brl / dias_decorridos if dias_decorridos > 0 else 0
+
+            # Projeção até fim do mês
+            projecao = media_diaria * dias_total_mes
+
+            return {
+                "mes": hoje.strftime("%Y-%m"),
+                "mes_nome": hoje.strftime("%B %Y"),
+                "total_ate_hoje": round(total_brl, 2),
+                "projecao_mes": round(projecao, 2),
+                "media_diaria": round(media_diaria, 2),
+                "dias_decorridos": dias_decorridos,
+                "dias_restantes": dias_restantes,
+                "dias_total": dias_total_mes,
+                "taxa_cambio": taxa
+            }
+
+        except Exception as e:
+            logger.error(f"Erro ao calcular projeção: {e}")
+            raise
+
+    async def get_comparacao_mensal(self, meses: int = 6) -> List[Dict]:
+        """
+        Retorna comparação mês a mês dos últimos N meses
+        Para exibir em tabela
+        """
+        try:
+            # Data atual
+            hoje = datetime.now(timezone.utc)
+
+            # Taxa de câmbio atual
+            taxa_cambio = await get_usd_brl_rate()
+            taxa = taxa_cambio['taxa']
+
+            resultados = []
+
+            for i in range(meses):
+                # Calcular mês
+                mes_offset = hoje - timedelta(days=30 * i)
+                ano = mes_offset.year
+                mes = mes_offset.month
+
+                # Primeiro e último dia do mês
+                primeiro_dia = datetime(ano, mes, 1, tzinfo=timezone.utc).date()
+
+                if mes == 12:
+                    ultimo_dia = datetime(ano + 1, 1, 1, tzinfo=timezone.utc).date() - timedelta(days=1)
+                else:
+                    ultimo_dia = datetime(ano, mes + 1, 1, tzinfo=timezone.utc).date() - timedelta(days=1)
+
+                # Revenue do mês (em USD)
+                response_revenue = self.supabase.table("yt_daily_metrics")\
+                    .select("revenue")\
+                    .eq("is_estimate", False)\
+                    .gte("date", primeiro_dia)\
+                    .lte("date", ultimo_dia)\
+                    .execute()
+
+                revenue_usd = sum(float(item['revenue'] or 0) for item in (response_revenue.data or []))
+                revenue_brl = revenue_usd * taxa
+
+                # Despesas do mês
+                response_despesas = self.supabase.table("financeiro_lancamentos")\
+                    .select("valor")\
+                    .eq("tipo", "despesa")\
+                    .gte("data", primeiro_dia)\
+                    .lte("data", ultimo_dia)\
+                    .execute()
+
+                despesas = sum(float(item['valor'] or 0) for item in (response_despesas.data or []))
+
+                # Taxas (3% da receita)
+                taxas = revenue_brl * 0.03
+
+                # Lucro líquido
+                lucro = revenue_brl - despesas - taxas
+
+                # Variação vs mês anterior (se houver)
+                variacao = 0
+                if i < meses - 1 and len(resultados) > 0:
+                    mes_anterior = resultados[-1]
+                    if mes_anterior['receita'] > 0:
+                        variacao = ((revenue_brl - mes_anterior['receita']) / mes_anterior['receita']) * 100
+
+                resultados.insert(0, {
+                    "mes": f"{ano}-{mes:02d}",
+                    "mes_nome": primeiro_dia.strftime("%b/%Y"),
+                    "receita": round(revenue_brl, 2),
+                    "despesas": round(despesas, 2),
+                    "taxas": round(taxas, 2),
+                    "lucro": round(lucro, 2),
+                    "variacao": round(variacao, 1) if i < meses - 1 else None
+                })
+
+            return resultados
+
+        except Exception as e:
+            logger.error(f"Erro ao gerar comparação mensal: {e}")
+            raise

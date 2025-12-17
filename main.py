@@ -1855,17 +1855,35 @@ async def progresso_metas_financeiras():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/financeiro/metas")
-async def criar_meta_financeira(
-    nome: str,
-    tipo: str,
-    valor_objetivo: float,
-    periodo_inicio: str,
-    periodo_fim: str
-):
+async def criar_meta_financeira(request: Request):
     """Cria nova meta"""
     try:
+        data = await request.json()
+
+        nome = data.get('nome')
+        tipo = data.get('tipo')
+        valor_objetivo = data.get('valor_objetivo')
+        periodo_inicio = data.get('periodo_inicio')
+        periodo_fim = data.get('periodo_fim')
+
+        # Validações
+        if not nome:
+            raise HTTPException(status_code=422, detail="nome é obrigatório")
+        if not tipo:
+            raise HTTPException(status_code=422, detail="tipo é obrigatório")
+        if tipo not in ['receita', 'lucro_liquido']:
+            raise HTTPException(status_code=422, detail="tipo deve ser 'receita' ou 'lucro_liquido'")
+        if not valor_objetivo or valor_objetivo <= 0:
+            raise HTTPException(status_code=422, detail="valor_objetivo deve ser maior que 0")
+        if not periodo_inicio:
+            raise HTTPException(status_code=422, detail="periodo_inicio é obrigatório")
+        if not periodo_fim:
+            raise HTTPException(status_code=422, detail="periodo_fim é obrigatório")
+
         meta = await financeiro.criar_meta(nome, tipo, valor_objetivo, periodo_inicio, periodo_fim)
         return meta
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Erro ao criar meta: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -1957,6 +1975,26 @@ async def youtube_revenue_financeiro(periodo: str = "30d"):
     try:
         revenue = await financeiro.get_youtube_revenue(periodo)
         return {"receita_youtube": revenue, "periodo": periodo}
+    except Exception as e:
+        logger.error(f"Erro ao consultar receita YouTube: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/financeiro/projecao-mes")
+async def projecao_mes_financeiro():
+    """Retorna projeção de receita para o mês atual"""
+    try:
+        projecao = await financeiro.get_projecao_mes()
+        return projecao
+    except Exception as e:
+        logger.error(f"Erro ao calcular projeção: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/financeiro/comparacao-mensal")
+async def comparacao_mensal_financeiro(meses: int = 6):
+    """Retorna comparação mês a mês dos últimos N meses"""
+    try:
+        comparacao = await financeiro.get_comparacao_mensal(meses)
+        return {"meses": comparacao}
     except Exception as e:
         logger.error(f"Erro ao consultar receita YouTube: {e}")
         raise HTTPException(status_code=500, detail=str(e))

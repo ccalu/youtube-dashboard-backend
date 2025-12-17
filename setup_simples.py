@@ -20,15 +20,11 @@ async def setup():
     db = SupabaseClient()
     financeiro = FinanceiroService(db)
 
-    # 1. Criar categorias padrao
+    # 1. Criar categorias padrao (apenas despesas)
     print("\n1. Criando categorias padrao...")
     categorias_padrao = [
-        {"nome": "YouTube AdSense", "tipo": "receita", "cor": "#00FF00", "icon": "youtube"},
-        {"nome": "Patrocinios", "tipo": "receita", "cor": "#00CC00", "icon": "handshake"},
-        {"nome": "Outros", "tipo": "receita", "cor": "#00AA00", "icon": "dollar"},
         {"nome": "Ferramentas/Software", "tipo": "despesa", "cor": "#FF0000", "icon": "tools"},
         {"nome": "Salarios", "tipo": "despesa", "cor": "#CC0000", "icon": "users"},
-        {"nome": "Marketing", "tipo": "despesa", "cor": "#FF4444", "icon": "bullhorn"},
         {"nome": "Infraestrutura", "tipo": "despesa", "cor": "#DD0000", "icon": "server"},
         {"nome": "Contabilidade", "tipo": "despesa", "cor": "#AA0000", "icon": "calculator"},
     ]
