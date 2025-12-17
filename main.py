@@ -587,24 +587,41 @@ async def update_canal(
 
 async def can_start_collection() -> tuple[bool, str]:
     global collection_in_progress, last_collection_time
-    
+
+    # LOCK NO BANCO: Verificar se já há coleta ativa (fonte da verdade)
+    try:
+        active_collections = db.supabase.table("coletas_historico")\
+            .select("id, data_inicio")\
+            .eq("status", "em_progresso")\
+            .execute()
+
+        if active_collections.data:
+            collection_id = active_collections.data[0]["id"]
+            started_at = active_collections.data[0]["data_inicio"]
+            return False, f"Collection #{collection_id} already in progress (started: {started_at})"
+    except Exception as e:
+        logger.error(f"Error checking active collections in DB: {e}")
+
+    # Verificar variável em memória (proteção secundária)
     if collection_in_progress:
-        return False, "Collection already in progress"
-    
+        return False, "Collection already in progress (in-memory lock)"
+
+    # Verificar cooldown de 1 minuto
     if last_collection_time:
         time_since_last = datetime.now(timezone.utc) - last_collection_time
         cooldown = timedelta(minutes=1)
-        
+
         if time_since_last < cooldown:
             remaining = cooldown - time_since_last
             seconds = int(remaining.total_seconds())
             return False, f"Cooldown: aguarde {seconds}s"
-    
+
+    # Limpar coletas travadas (> 2h)
     try:
         await db.cleanup_stuck_collections()
     except Exception as e:
         logger.error(f"Error cleaning stuck collections: {e}")
-    
+
     return True, "OK"
 
 @app.post("/api/collect-data")
@@ -1549,21 +1566,30 @@ async def startup_event():
     logger.info("=" * 80)
     logger.info("🚀 YOUTUBE DASHBOARD API STARTING")
     logger.info("=" * 80)
-    
+
     try:
         await db.test_connection()
         logger.info("✅ Database connected")
     except Exception as e:
         logger.error(f"❌ Database failed: {e}")
-    
+
     try:
         await db.cleanup_stuck_collections()
     except Exception as e:
         logger.error(f"Error cleaning stuck collections: {e}")
-    
-    logger.info("📅 Scheduling daily collection (NO startup collection)")
-    asyncio.create_task(schedule_daily_collection())
-    asyncio.create_task(weekly_report_scheduler())
+
+    # PROTEÇÃO: Só iniciar schedulers no Railway
+    is_railway = os.environ.get("RAILWAY_ENVIRONMENT") is not None
+
+    if is_railway:
+        logger.info("📅 Scheduling daily collection (NO startup collection)")
+        asyncio.create_task(schedule_daily_collection())
+        asyncio.create_task(weekly_report_scheduler())
+        logger.info("✅ Schedulers started (Railway environment)")
+    else:
+        logger.warning("⚠️ LOCAL ENVIRONMENT - Schedulers DISABLED")
+        logger.warning("⚠️ Use /api/collect-data endpoint for manual collection")
+
     logger.info("=" * 80)
 
 async def schedule_daily_collection():
