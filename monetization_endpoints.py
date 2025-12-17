@@ -1542,6 +1542,136 @@ async def get_advanced_analytics(
                 if subnicho_resp.data:
                     subnicho_info = subnicho_resp.data[0].get("subnicho")
 
+            # ===================================================================
+            # AGREGAR DADOS (múltiplos dias → valores únicos com média/soma)
+            # ===================================================================
+
+            # 1. DEMOGRAPHICS - Calcular MÉDIA dos percentuais por age_group/gender
+            demo_agg = {}
+            for item in (demo_data.data or []):
+                key = f"{item['age_group']}_{item['gender']}"
+                if key not in demo_agg:
+                    demo_agg[key] = []
+                demo_agg[key].append(item['percentage'])
+
+            # Calcular médias
+            demographics_detailed = [
+                {
+                    "age_group": key.split('_')[0],
+                    "gender": key.split('_')[1],
+                    "percentage": round(sum(percentages) / len(percentages), 2)
+                }
+                for key, percentages in demo_agg.items()
+            ]
+
+            # Agrupar POR IDADE (somar masculino + feminino)
+            by_age = {}
+            for item in demographics_detailed:
+                age = item['age_group']
+                by_age[age] = by_age.get(age, 0) + item['percentage']
+
+            demographics_by_age = [
+                {"age_group": age, "percentage": round(percentage, 2)}
+                for age, percentage in sorted(by_age.items(), key=lambda x: x[1], reverse=True)
+            ]
+
+            # Agrupar POR GÊNERO (somar todas as idades)
+            by_gender = {}
+            for item in demographics_detailed:
+                gender = item['gender']
+                by_gender[gender] = by_gender.get(gender, 0) + item['percentage']
+
+            demographics_by_gender = [
+                {"gender": gender, "percentage": round(percentage, 2)}
+                for gender, percentage in sorted(by_gender.items(), key=lambda x: x[1], reverse=True)
+            ]
+
+            demographics_aggregated = {
+                "by_age": demographics_by_age,
+                "by_gender": demographics_by_gender
+            }
+
+            # 2. TRAFFIC SOURCES - Somar views e recalcular percentuais
+            traffic_agg = {}
+            for item in (traffic_data.data or []):
+                src = item['source_type']
+                traffic_agg[src] = traffic_agg.get(src, 0) + item['views']
+
+            # Mapeamento de nomes (tradução)
+            SOURCE_NAMES = {
+                "SUBSCRIBER": "Recomendados",
+                "RELATED_VIDEO": "Vídeos Relacionados",
+                "YT_SEARCH": "Busca YouTube",
+                "NO_LINK_OTHER": "Outros",
+                "YT_CHANNEL": "Página do Canal",
+                "YT_OTHER_PAGE": "Outras Páginas",
+                "EXT_URL": "Links Externos",
+                "PLAYLIST": "Playlists",
+                "END_SCREEN": "Tela Final",
+                "NOTIFICATION": "Notificações",
+                "HASHTAGS": "Hashtags"
+            }
+
+            total_traffic_views = sum(traffic_agg.values()) if traffic_agg else 1
+            traffic_aggregated = [
+                {
+                    "source_type": SOURCE_NAMES.get(src, src),
+                    "views": views,
+                    "percentage": round((views / total_traffic_views) * 100, 2)
+                }
+                for src, views in sorted(traffic_agg.items(), key=lambda x: x[1], reverse=True)
+            ]
+
+            # 3. DEVICE METRICS - Somar views e recalcular percentuais
+            device_agg = {}
+            for item in (device_data.data or []):
+                dev = item['device_type']
+                device_agg[dev] = device_agg.get(dev, 0) + item['views']
+
+            total_device_views = sum(device_agg.values()) if device_agg else 1
+            devices_aggregated = [
+                {
+                    "device_type": dev,
+                    "views": views,
+                    "percentage": round((views / total_device_views) * 100, 2)
+                }
+                for dev, views in sorted(device_agg.items(), key=lambda x: x[1], reverse=True)
+            ]
+
+            # 4. SEARCH TERMS - Somar views por termo (top 10)
+            search_agg = {}
+            for item in (search_data.data or []):
+                term = item['search_term']
+                search_agg[term] = search_agg.get(term, 0) + item['views']
+
+            search_aggregated = [
+                {
+                    "search_term": term,
+                    "views": views
+                }
+                for term, views in sorted(search_agg.items(), key=lambda x: x[1], reverse=True)[:10]
+            ]
+
+            # 5. SUGGESTED VIDEOS - Somar views por vídeo (top 10)
+            suggested_agg = {}
+            for item in (suggested_data.data or []):
+                vid_id = item['source_video_id']
+                if vid_id not in suggested_agg:
+                    suggested_agg[vid_id] = {
+                        'title': item.get('source_video_title', 'Unknown'),
+                        'views': 0
+                    }
+                suggested_agg[vid_id]['views'] += item['views_generated']
+
+            suggested_aggregated = [
+                {
+                    "source_video_id": vid_id,
+                    "source_video_title": data['title'],
+                    "views_generated": data['views']
+                }
+                for vid_id, data in sorted(suggested_agg.items(), key=lambda x: x[1]['views'], reverse=True)[:10]
+            ]
+
             return {
                 "channel": {
                     "id": channel_id,
@@ -1550,11 +1680,11 @@ async def get_advanced_analytics(
                     "performance_score": channel_info.data.get("performance_score") if channel_info.data else 0
                 },
                 "period": {"start": start_str, "end": end_str},
-                "traffic_sources": traffic_data.data if traffic_data else [],
-                "search_terms": search_data.data if search_data else [],
-                "suggested_videos": suggested_data.data if suggested_data else [],
-                "demographics": demo_data.data if demo_data else [],
-                "devices": device_data.data if device_data else []
+                "traffic_sources": traffic_aggregated,
+                "search_terms": search_aggregated,
+                "suggested_videos": suggested_aggregated,
+                "demographics": demographics_aggregated,
+                "devices": devices_aggregated
             }
 
         # Senão, retornar agregado por subnicho
