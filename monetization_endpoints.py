@@ -117,8 +117,10 @@ def get_growth_rate(channel_id: str, days: int = 7) -> float:
 
 @router.get("/summary")
 async def get_monetization_summary(
-    period: str = Query("total", regex="^(24h|3d|7d|15d|30d|total|monetizacao)$"),
+    period: str = Query("total", regex="^(24h|3d|7d|15d|30d|total|monetizacao|custom)$"),
     month: Optional[str] = Query(None, regex="^\\d{4}-\\d{2}$"),  # Formato YYYY-MM
+    start_date: Optional[str] = Query(None, description="Data inicial (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="Data final (YYYY-MM-DD)"),
     type_filter: str = Query("real_estimate", regex="^(real_estimate|real_only)$")
 ):
     """
@@ -132,7 +134,7 @@ async def get_monetization_summary(
         # Determinar período
         today = datetime.now().date()
 
-        # Se month foi fornecido, usar lógica específica para mês
+        # Prioridade: month > custom dates > period
         if month:
             year, month_num = map(int, month.split('-'))
             # Primeiro dia do mês
@@ -149,6 +151,9 @@ async def get_monetization_summary(
 
             start_date = month_start.isoformat()
             end_date = month_end.isoformat()
+        elif start_date and end_date:
+            # Usar período customizado (já no formato correto)
+            pass
         else:
             # Lógica original baseada em period
             if period == "monetizacao":
@@ -200,11 +205,11 @@ async def get_monetization_summary(
         rpm_avg = round((total_revenue_real / total_views_real) * 1000, 2) if total_views_real > 0 else 0.0
 
         # Calcular média diária
-        if month:
-            # Para mês específico, calcular dias no período
-            month_start = date.fromisoformat(start_date)
-            month_end = date.fromisoformat(end_date)
-            days_count = (month_end - month_start).days + 1
+        if month or (start_date and end_date and period == "custom"):
+            # Para mês específico ou período customizado, calcular dias no período
+            period_start = date.fromisoformat(start_date)
+            period_end = date.fromisoformat(end_date)
+            days_count = (period_end - period_start).days + 1
         elif period == "total":
             days_count = (today - date.fromisoformat("2025-10-26")).days + 1
         elif period == "24h":
@@ -269,8 +274,10 @@ async def get_monetization_summary(
 
 @router.get("/channels")
 async def get_monetization_channels(
-    period: str = Query("total", regex="^(24h|3d|7d|15d|30d|total|monetizacao)$"),
+    period: str = Query("total", regex="^(24h|3d|7d|15d|30d|total|monetizacao|custom)$"),
     month: Optional[str] = Query(None, regex="^\\d{4}-\\d{2}$"),  # Formato YYYY-MM
+    start_date: Optional[str] = Query(None, description="Data inicial (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="Data final (YYYY-MM-DD)"),
     language: Optional[str] = None,
     subnicho: Optional[str] = None,
     type_filter: str = Query("real_estimate", regex="^(real_estimate|real_only)$")
@@ -319,7 +326,7 @@ async def get_monetization_channels(
             # Calcular start_date e end_date
             today = datetime.now().date()
 
-            # Se month foi fornecido, usar lógica específica para mês
+            # Prioridade: month > custom dates > period
             if month:
                 year, month_num = map(int, month.split('-'))
                 month_start = date(year, month_num, 1)
@@ -333,6 +340,9 @@ async def get_monetization_channels(
 
                 start_date = month_start.isoformat()
                 end_date = month_end.isoformat()
+            elif start_date and end_date:
+                # Usar período customizado (já no formato correto)
+                pass
             else:
                 # Lógica original baseada em period
                 if period == "monetizacao":
@@ -525,8 +535,10 @@ async def get_channel_history(channel_id: str):
 
 @router.get("/analytics")
 async def get_monetization_analytics(
-    period: str = Query("7d", regex="^(24h|3d|7d|15d|30d|total|monetizacao)$"),
+    period: str = Query("7d", regex="^(24h|3d|7d|15d|30d|total|monetizacao|custom)$"),
     month: Optional[str] = Query(None, regex="^\\d{4}-\\d{2}$"),  # Formato YYYY-MM
+    start_date: Optional[str] = Query(None, description="Data inicial (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="Data final (YYYY-MM-DD)"),
     language: Optional[str] = None,
     subnicho: Optional[str] = None
 ):
@@ -540,7 +552,7 @@ async def get_monetization_analytics(
     try:
         today = datetime.now().date()
 
-        # Se month foi fornecido, usar lógica específica para mês
+        # Prioridade: month > custom dates > period
         if month:
             year, month_num = map(int, month.split('-'))
             # Primeiro dia do mês
@@ -569,6 +581,22 @@ async def get_monetization_analytics(
 
             comparison_start = prev_month_start.isoformat()
             comparison_end = prev_month_end.isoformat()
+
+        elif start_date and end_date:
+            # Usar período customizado
+            cutoff_date = start_date
+            end_date = end_date
+
+            # Calcular período de comparação (mesmo número de dias, período anterior)
+            period_start = date.fromisoformat(start_date)
+            period_end = date.fromisoformat(end_date)
+            days_diff = (period_end - period_start).days
+
+            comparison_end_date = period_start - timedelta(days=1)
+            comparison_start_date = comparison_end_date - timedelta(days=days_diff)
+
+            comparison_start = comparison_start_date.isoformat()
+            comparison_end = comparison_end_date.isoformat()
 
         else:
             # Lógica original baseada em period
@@ -806,8 +834,10 @@ def analyze_best_worst_days(cutoff_date: str, language: Optional[str] = None, su
 
 @router.get("/top-performers")
 async def get_top_performers(
-    period: str = Query("7d", regex="^(24h|3d|7d|15d|30d|total|monetizacao)$"),
-    month: Optional[str] = Query(None, regex="^\\d{4}-\\d{2}$")  # Formato YYYY-MM
+    period: str = Query("7d", regex="^(24h|3d|7d|15d|30d|total|monetizacao|custom)$"),
+    month: Optional[str] = Query(None, regex="^\\d{4}-\\d{2}$"),  # Formato YYYY-MM
+    start_date: Optional[str] = Query(None, description="Data inicial (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="Data final (YYYY-MM-DD)")
 ):
     """
     Retorna Top 3 canais por RPM e Revenue
@@ -816,7 +846,7 @@ async def get_top_performers(
         # Calcular data de início baseado no período
         today = datetime.now().date()
 
-        # Se month foi fornecido, usar lógica específica para mês
+        # Prioridade: month > custom dates > period
         if month:
             year, month_num = map(int, month.split('-'))
             month_start = date(year, month_num, 1)
@@ -830,6 +860,10 @@ async def get_top_performers(
 
             cutoff_date = month_start.isoformat()
             end_date = month_end.isoformat()
+        elif start_date and end_date:
+            # Usar período customizado
+            cutoff_date = start_date
+            # end_date já está definido
         else:
             # Lógica original baseada em period
             if period == "monetizacao":
@@ -922,7 +956,9 @@ async def get_top_performers(
 
 @router.get("/by-language")
 async def get_monetization_by_language(
-    period: str = Query("7d", regex="^(24h|3d|7d|15d|30d|total|monetizacao)$")
+    period: str = Query("7d", regex="^(24h|3d|7d|15d|30d|total|monetizacao|custom)$"),
+    start_date: Optional[str] = Query(None, description="Data inicial (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="Data final (YYYY-MM-DD)")
 ):
     """
     Análise por língua: RPM, Views, Revenue
@@ -931,18 +967,28 @@ async def get_monetization_by_language(
         # Calcular data de início baseado no período
         today = datetime.now().date()
 
-        if period == "total":
+        if start_date and end_date:
+            # Usar período customizado
+            cutoff_date = start_date
+            # end_date já está definido
+        elif period == "total":
             cutoff_date = "2025-10-26"
+            end_date = today.isoformat()
         elif period == "24h":
             cutoff_date = (today - timedelta(days=1)).isoformat()
+            end_date = today.isoformat()
         elif period == "3d":
             cutoff_date = (today - timedelta(days=3)).isoformat()
+            end_date = today.isoformat()
         elif period == "7d":
             cutoff_date = (today - timedelta(days=7)).isoformat()
+            end_date = today.isoformat()
         elif period == "15d":
             cutoff_date = (today - timedelta(days=15)).isoformat()
+            end_date = today.isoformat()
         else:  # 30d
             cutoff_date = (today - timedelta(days=30)).isoformat()
+            end_date = today.isoformat()
 
         # Buscar todos os canais monetizados com língua
         channels = db.supabase.table("yt_channels")\
@@ -976,6 +1022,7 @@ async def get_monetization_by_language(
                 .select("revenue, views")\
                 .eq("channel_id", channel_id)\
                 .gte("date", cutoff_date)\
+                .lte("date", end_date)\
                 .execute()
 
             data = metrics.data or []
@@ -1019,7 +1066,9 @@ async def get_monetization_by_language(
 
 @router.get("/by-subnicho")
 async def get_monetization_by_subnicho(
-    period: str = Query("7d", regex="^(24h|3d|7d|15d|30d|total|monetizacao)$")
+    period: str = Query("7d", regex="^(24h|3d|7d|15d|30d|total|monetizacao|custom)$"),
+    start_date: Optional[str] = Query(None, description="Data inicial (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="Data final (YYYY-MM-DD)")
 ):
     """
     Análise por subnicho: RPM, Views, Revenue
@@ -1028,18 +1077,28 @@ async def get_monetization_by_subnicho(
         # Calcular data de início baseado no período
         today = datetime.now().date()
 
-        if period == "total":
+        if start_date and end_date:
+            # Usar período customizado
+            cutoff_date = start_date
+            # end_date já está definido
+        elif period == "total":
             cutoff_date = "2025-10-26"
+            end_date = today.isoformat()
         elif period == "24h":
             cutoff_date = (today - timedelta(days=1)).isoformat()
+            end_date = today.isoformat()
         elif period == "3d":
             cutoff_date = (today - timedelta(days=3)).isoformat()
+            end_date = today.isoformat()
         elif period == "7d":
             cutoff_date = (today - timedelta(days=7)).isoformat()
+            end_date = today.isoformat()
         elif period == "15d":
             cutoff_date = (today - timedelta(days=15)).isoformat()
+            end_date = today.isoformat()
         else:  # 30d
             cutoff_date = (today - timedelta(days=30)).isoformat()
+            end_date = today.isoformat()
 
         # Similar ao by-language, mas agrupa por subnicho
         channels = db.supabase.table("yt_channels")\
@@ -1072,6 +1131,7 @@ async def get_monetization_by_subnicho(
                 .select("revenue, views")\
                 .eq("channel_id", channel_id)\
                 .gte("date", cutoff_date)\
+                .lte("date", end_date)\
                 .execute()
 
             data = metrics.data or []
