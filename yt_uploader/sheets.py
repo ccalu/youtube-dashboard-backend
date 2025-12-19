@@ -60,8 +60,8 @@ def update_upload_status_in_sheet(spreadsheet_id: str, row: int, status: str):
         # Abre a planilha
         spreadsheet = client.open_by_key(spreadsheet_id)
 
-        # Abre a aba "Página 1"
-        worksheet = spreadsheet.worksheet('Página 1')
+        # Abre a aba "Página1" (sem espaço)
+        worksheet = spreadsheet.worksheet('Página1')
 
         # Atualiza célula O{row} (coluna 15)
         worksheet.update_cell(row, 15, status)
