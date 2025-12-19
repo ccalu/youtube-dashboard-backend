@@ -46,12 +46,19 @@ class OAuthManager:
         if credentials.expired and credentials.refresh_token:
             credentials.refresh(Request())
 
+            # Calcula expiry real do token (se disponível)
+            if credentials.expiry:
+                token_expiry = credentials.expiry.isoformat()
+            else:
+                # Fallback: +3600 segundos (1 hora)
+                token_expiry = (datetime.now() + timedelta(seconds=3600)).isoformat()
+
             # Salva novo token no banco
             update_oauth_tokens(
                 channel_id=channel_id,
                 access_token=credentials.token,
                 refresh_token=credentials.refresh_token,
-                token_expiry=(datetime.now() + timedelta(seconds=3600)).isoformat()
+                token_expiry=token_expiry
             )
 
         return credentials

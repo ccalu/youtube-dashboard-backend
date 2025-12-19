@@ -2,9 +2,12 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from googleapiclient.errors import HttpError
 import httpx
+import httplib2
+import socks
 import os
 import logging
 from typing import Dict
+from urllib.parse import urlparse
 from .oauth_manager import OAuthManager
 from .database import get_channel
 
@@ -75,15 +78,27 @@ class YouTubeUploader:
         if not channel:
             raise ValueError(f"Canal {channel_id} não encontrado")
 
-        # 2. Configura HTTP client com PROXY SOCKS5
+        # 2. Configura HTTP client com PROXY SOCKS5 (httplib2)
         if channel.get('proxy_url'):
-            http_client = httpx.Client(
-                proxies={'all://': channel['proxy_url']},
-                timeout=300
+            # Parse: socks5://user:pass@host:port
+            parsed = urlparse(channel['proxy_url'])
+
+            # Extrai credenciais do proxy
+            proxy_user = parsed.username if parsed.username else None
+            proxy_pass = parsed.password if parsed.password else None
+
+            # Configura proxy para httplib2
+            proxy_info = httplib2.ProxyInfo(
+                proxy_type=socks.PROXY_TYPE_SOCKS5,
+                proxy_host=parsed.hostname,
+                proxy_port=parsed.port,
+                proxy_user=proxy_user,
+                proxy_pass=proxy_pass
             )
-            logger.info(f"🔒 Usando proxy: {channel['proxy_url'].split('@')[0]}@***")
+            http = httplib2.Http(proxy_info=proxy_info, timeout=300)
+            logger.info(f"🔒 Usando proxy SOCKS5: {parsed.hostname}:{parsed.port}")
         else:
-            http_client = httpx.Client(timeout=300)
+            http = httplib2.Http(timeout=300)
             logger.warning("⚠️  UPLOAD SEM PROXY - CUIDADO COM CONTINGÊNCIA!")
 
         # 3. Obtém credenciais OAuth válidas
@@ -92,8 +107,8 @@ class YouTubeUploader:
         except Exception as e:
             raise ValueError(f"Erro OAuth: {str(e)}")
 
-        # 4. Cria serviço YouTube API
-        youtube = build('youtube', 'v3', credentials=credentials)
+        # 4. Cria serviço YouTube API COM PROXY
+        youtube = build('youtube', 'v3', credentials=credentials, http=http)
 
         # 5. Prepara metadata do upload
         body = {
@@ -143,9 +158,6 @@ class YouTubeUploader:
         except HttpError as e:
             logger.error(f"❌ Erro no upload YouTube: {e}")
             raise
-
-        finally:
-            http_client.close()
 
     def cleanup(self, file_path: str):
         """Remove arquivo temporário após upload"""
