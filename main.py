@@ -22,6 +22,15 @@ from notifier import NotificationChecker
 from monetization_endpoints import router as monetization_router
 from financeiro import FinanceiroService
 
+# YouTube Uploader
+from yt_uploader.uploader import YouTubeUploader
+from yt_uploader.database import (
+    create_upload,
+    update_upload_status,
+    get_upload_by_id,
+    supabase
+)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -60,6 +69,7 @@ db = SupabaseClient()
 collector = YouTubeCollector()
 notifier = NotificationChecker(db.supabase)
 financeiro = FinanceiroService(db)
+uploader = YouTubeUploader()
 
 collection_in_progress = False
 last_collection_time = None
@@ -2025,6 +2035,161 @@ async def sync_youtube_financeiro(periodo: str = "90d"):
     except Exception as e:
         logger.error(f"Erro ao sincronizar YouTube: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# ========================================
+# 📤 YOUTUBE UPLOAD AUTOMATION
+# ========================================
+
+class WebhookUploadRequest(BaseModel):
+    """Request do webhook da planilha Google Sheets"""
+    video_url: str
+    titulo: str
+    descricao: str  # COM hashtags
+    channel_id: str
+    subnicho: str
+    lingua: Optional[str] = None
+    nome_canal: Optional[str] = None
+    sheets_row: int
+
+async def process_upload_task(upload_id: int):
+    """
+    Processa um upload em background.
+    Fluxo: pending → downloading → uploading → completed/failed
+    """
+    try:
+        # Busca dados do upload
+        upload = get_upload_by_id(upload_id)
+
+        if not upload:
+            logger.error(f"Upload {upload_id} não encontrado")
+            return
+
+        logger.info(f"🎬 Processando: {upload['titulo'][:50]}...")
+
+        # FASE 1: Download
+        update_upload_status(upload_id, 'downloading')
+        video_path = uploader.download_video(upload['video_url'])
+
+        # FASE 2: Upload
+        update_upload_status(upload_id, 'uploading')
+        result = uploader.upload_to_youtube(
+            channel_id=upload['channel_id'],
+            video_path=video_path,
+            metadata={
+                'titulo': upload['titulo'],
+                'descricao': upload['descricao']  # COM #hashtags
+            }
+        )
+
+        # FASE 3: Sucesso
+        update_upload_status(
+            upload_id,
+            'completed',
+            youtube_video_id=result['video_id']
+        )
+
+        # FASE 4: Cleanup
+        uploader.cleanup(video_path)
+
+        logger.info(f"✅ Upload {upload_id} concluído: {result['video_id']}")
+
+    except Exception as e:
+        logger.error(f"❌ Erro no upload {upload_id}: {str(e)}")
+
+        # Marca como falha
+        update_upload_status(
+            upload_id,
+            'failed',
+            error_message=str(e)
+        )
+
+@app.post("/api/yt-upload/webhook")
+async def webhook_new_video(
+    request: WebhookUploadRequest,
+    background_tasks: BackgroundTasks
+):
+    """
+    Recebe webhook da planilha Google Sheets quando adiciona novo vídeo.
+    Adiciona na fila e inicia processamento em background.
+    """
+    try:
+        logger.info(f"📩 Webhook recebido: {request.titulo[:50]}...")
+
+        # Cria upload na fila
+        upload = create_upload(
+            channel_id=request.channel_id,
+            video_url=request.video_url,
+            titulo=request.titulo,  # EXATO da planilha
+            descricao=request.descricao,  # EXATO da planilha (COM #hashtags)
+            subnicho=request.subnicho,
+            sheets_row=request.sheets_row
+        )
+
+        # Agenda processamento em background
+        background_tasks.add_task(process_upload_task, upload['id'])
+
+        return {
+            'success': True,
+            'upload_id': upload['id'],
+            'message': 'Upload adicionado na fila'
+        }
+
+    except Exception as e:
+        logger.error(f"Erro webhook: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/yt-upload/status/{upload_id}")
+async def get_upload_status(upload_id: int):
+    """Consulta status de um upload específico"""
+    upload = get_upload_by_id(upload_id)
+
+    if not upload:
+        raise HTTPException(status_code=404, detail="Upload não encontrado")
+
+    return upload
+
+@app.get("/api/yt-upload/recent")
+async def get_recent_uploads(limit: int = 50):
+    """Lista uploads recentes (para dashboard)"""
+    result = supabase.table('yt_upload_queue')\
+        .select('*')\
+        .order('created_at', desc=True)\
+        .limit(limit)\
+        .execute()
+
+    return result.data
+
+@app.get("/api/yt-upload/queue")
+async def get_queue_status():
+    """Status geral da fila de uploads"""
+
+    # Conta por status
+    pending = supabase.table('yt_upload_queue')\
+        .select('*', count='exact')\
+        .eq('status', 'pending')\
+        .execute()
+
+    processing = supabase.table('yt_upload_queue')\
+        .select('*', count='exact')\
+        .in_('status', ['downloading', 'uploading'])\
+        .execute()
+
+    completed = supabase.table('yt_upload_queue')\
+        .select('*', count='exact')\
+        .eq('status', 'completed')\
+        .execute()
+
+    failed = supabase.table('yt_upload_queue')\
+        .select('*', count='exact')\
+        .eq('status', 'failed')\
+        .execute()
+
+    return {
+        'pending': pending.count or 0,
+        'processing': processing.count or 0,
+        'completed': completed.count or 0,
+        'failed': failed.count or 0
+    }
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
