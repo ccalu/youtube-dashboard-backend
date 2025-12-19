@@ -107,8 +107,11 @@ class YouTubeUploader:
         except Exception as e:
             raise ValueError(f"Erro OAuth: {str(e)}")
 
-        # 4. Cria serviço YouTube API COM PROXY
-        youtube = build('youtube', 'v3', credentials=credentials, http=http)
+        # 4. Autoriza o http com as credentials (necessário para usar proxy + OAuth)
+        authorized_http = credentials.authorize(http)
+
+        # 5. Cria serviço YouTube API COM PROXY
+        youtube = build('youtube', 'v3', http=authorized_http)
 
         # 5. Prepara metadata do upload
         body = {
