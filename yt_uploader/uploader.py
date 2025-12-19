@@ -90,7 +90,9 @@ class YouTubeUploader:
             'snippet': {
                 'title': metadata['titulo'],  # EXATO da planilha
                 'description': metadata['descricao'],  # EXATO da planilha (COM #hashtags)
-                'categoryId': '24'  # Entertainment
+                'categoryId': '24',  # Entertainment
+                'defaultLanguage': channel.get('lingua', 'en'),  # Idioma do título/descrição
+                'defaultAudioLanguage': channel.get('lingua', 'en')  # Idioma do áudio
             },
             'status': {
                 'privacyStatus': 'private',  # ← RASCUNHO!!!
