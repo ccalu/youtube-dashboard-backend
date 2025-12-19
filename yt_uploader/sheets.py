@@ -14,12 +14,14 @@ logger = logging.getLogger(__name__)
 def get_sheets_client():
     """
     Cria cliente gspread autenticado via Service Account.
-    Credenciais vêm da variável de ambiente GOOGLE_SHEETS_CREDENTIALS (JSON).
+    Credenciais vêm da variável de ambiente GOOGLE_SHEETS_CREDENTIALS_2 (JSON).
     """
-    credentials_json = os.getenv('GOOGLE_SHEETS_CREDENTIALS')
+    # Tenta GOOGLE_SHEETS_CREDENTIALS_2 primeiro (upload YouTube)
+    # Se não tiver, usa GOOGLE_SHEETS_CREDENTIALS (dashboard mineração - fallback)
+    credentials_json = os.getenv('GOOGLE_SHEETS_CREDENTIALS_2') or os.getenv('GOOGLE_SHEETS_CREDENTIALS')
 
     if not credentials_json:
-        raise ValueError("Variável GOOGLE_SHEETS_CREDENTIALS não configurada no Railway")
+        raise ValueError("Variável GOOGLE_SHEETS_CREDENTIALS_2 não configurada no Railway")
 
     # Parse JSON das credenciais
     credentials_dict = json.loads(credentials_json)
