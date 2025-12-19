@@ -26,15 +26,6 @@ def get_oauth_tokens(channel_id: str) -> Optional[Dict]:
         .execute()
     return result.data if result.data else None
 
-def get_proxy_credentials(proxy_name: str) -> Optional[Dict]:
-    """Busca credentials OAuth do proxy (Client ID/Secret)"""
-    result = supabase.table('yt_proxy_credentials')\
-        .select('*')\
-        .eq('proxy_name', proxy_name)\
-        .single()\
-        .execute()
-    return result.data if result.data else None
-
 def create_upload(channel_id: str, video_url: str, titulo: str,
                   descricao: str, subnicho: str,
                   sheets_row: int) -> Dict:

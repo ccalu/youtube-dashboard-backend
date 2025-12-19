@@ -1,10 +1,10 @@
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from datetime import datetime, timedelta, timezone
+import os
 from .database import (
     get_channel,
     get_oauth_tokens,
-    get_proxy_credentials,
     update_oauth_tokens
 )
 
@@ -28,18 +28,20 @@ class OAuthManager:
         if not oauth or not oauth.get('refresh_token'):
             raise ValueError(f"Canal {channel_id} sem OAuth configurado")
 
-        # 3. Busca Client ID/Secret do proxy
-        proxy_creds = get_proxy_credentials(channel.get('proxy_name'))
-        if not proxy_creds:
-            raise ValueError(f"Proxy {channel.get('proxy_name')} sem credentials OAuth")
+        # 3. Busca Client ID/Secret das variáveis de ambiente
+        client_id = os.getenv('YOUTUBE_OAUTH_CLIENT_ID')
+        client_secret = os.getenv('YOUTUBE_OAUTH_CLIENT_SECRET')
+
+        if not client_id or not client_secret:
+            raise ValueError("Variáveis YOUTUBE_OAUTH_CLIENT_ID/SECRET não configuradas")
 
         # 4. Cria objeto Credentials
         credentials = Credentials(
             token=oauth.get('access_token'),
             refresh_token=oauth.get('refresh_token'),
             token_uri="https://oauth2.googleapis.com/token",
-            client_id=proxy_creds['client_id'],
-            client_secret=proxy_creds['client_secret']
+            client_id=client_id,
+            client_secret=client_secret
         )
 
         # 5. Renova se expirado

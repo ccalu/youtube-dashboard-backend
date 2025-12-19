@@ -1,14 +1,10 @@
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from googleapiclient.errors import HttpError
-from google_auth_httplib2 import AuthorizedHttp
 import httpx
-import httplib2
-import socks
 import os
 import logging
 from typing import Dict
-from urllib.parse import urlparse
 from .oauth_manager import OAuthManager
 from .database import get_channel
 
@@ -61,8 +57,8 @@ class YouTubeUploader:
 
         IMPORTANTE:
         - Título e descrição são usados EXATAMENTE como vem (sem alteração)
-        - Upload passa pelo proxy SOCKS5 do grupo
         - Vídeo fica PRIVATE (rascunho) - nunca publicado automaticamente
+        - Upload direto via YouTube Data API (sem proxy)
 
         Args:
             channel_id: ID do canal YouTube (UCxxxxxxxxx)
@@ -79,42 +75,17 @@ class YouTubeUploader:
         if not channel:
             raise ValueError(f"Canal {channel_id} não encontrado")
 
-        # 2. Configura HTTP client com PROXY SOCKS5 (httplib2)
-        if channel.get('proxy_url'):
-            # Parse: socks5://user:pass@host:port
-            parsed = urlparse(channel['proxy_url'])
-
-            # Extrai credenciais do proxy
-            proxy_user = parsed.username if parsed.username else None
-            proxy_pass = parsed.password if parsed.password else None
-
-            # Configura proxy para httplib2
-            proxy_info = httplib2.ProxyInfo(
-                proxy_type=socks.PROXY_TYPE_SOCKS5,
-                proxy_host=parsed.hostname,
-                proxy_port=parsed.port,
-                proxy_user=proxy_user,
-                proxy_pass=proxy_pass
-            )
-            http = httplib2.Http(proxy_info=proxy_info, timeout=300)
-            logger.info(f"🔒 Usando proxy SOCKS5: {parsed.hostname}:{parsed.port}")
-        else:
-            http = httplib2.Http(timeout=300)
-            logger.warning("⚠️  UPLOAD SEM PROXY - CUIDADO COM CONTINGÊNCIA!")
-
-        # 3. Obtém credenciais OAuth válidas
+        # 2. Obtém credenciais OAuth válidas
         try:
             credentials = OAuthManager.get_valid_credentials(channel_id)
         except Exception as e:
             raise ValueError(f"Erro OAuth: {str(e)}")
 
-        # 4. Autoriza o http com as credentials usando AuthorizedHttp
-        authorized_http = AuthorizedHttp(credentials, http=http)
+        # 3. Cria serviço YouTube API (direto, sem proxy)
+        youtube = build('youtube', 'v3', credentials=credentials)
+        logger.info(f"✅ Conectado à YouTube API - Canal: {channel.get('channel_name')}")
 
-        # 5. Cria serviço YouTube API COM PROXY
-        youtube = build('youtube', 'v3', http=authorized_http)
-
-        # 5. Prepara metadata do upload
+        # 4. Prepara metadata do upload
         body = {
             'snippet': {
                 'title': metadata['titulo'],  # EXATO da planilha
@@ -127,7 +98,7 @@ class YouTubeUploader:
             }
         }
 
-        # 6. Prepara arquivo para upload
+        # 5. Prepara arquivo para upload
         media = MediaFileUpload(
             video_path,
             chunksize=1024*1024*5,  # 5MB chunks (resumable)
@@ -135,7 +106,7 @@ class YouTubeUploader:
         )
 
         try:
-            # 7. Executa upload com progress tracking
+            # 6. Executa upload com progress tracking
             request = youtube.videos().insert(
                 part='snippet,status',
                 body=body,
@@ -149,7 +120,7 @@ class YouTubeUploader:
                     progress = int(status.progress() * 100)
                     logger.info(f"⬆️  Upload: {progress}%")
 
-            # 8. Upload concluído
+            # 7. Upload concluído
             video_id = response['id']
 
             logger.info(f"✅ Upload concluído! Video ID: {video_id}")
