@@ -28,7 +28,7 @@ def get_oauth_tokens(channel_id: str) -> Optional[Dict]:
 
 def create_upload(channel_id: str, video_url: str, titulo: str,
                   descricao: str, subnicho: str,
-                  sheets_row: int) -> Dict:
+                  sheets_row: int, spreadsheet_id: str) -> Dict:
     """Adiciona upload na fila"""
 
     channel = get_channel(channel_id)
@@ -41,6 +41,7 @@ def create_upload(channel_id: str, video_url: str, titulo: str,
         'subnicho': subnicho,
         'lingua': channel.get('lingua') if channel else None,
         'sheets_row_number': sheets_row,
+        'spreadsheet_id': spreadsheet_id,
         'status': 'pending'
     }
 

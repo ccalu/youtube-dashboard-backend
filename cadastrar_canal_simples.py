@@ -31,6 +31,7 @@ channel_name = input("Nome do Canal: ").strip()
 proxy_name = input("Proxy Name (ex: proxy_c0008_1) [identificador]: ").strip()
 lingua = input("Língua (pt, en, es, fr, etc): ").strip()
 subnicho = input("Subnicho: ").strip()
+default_playlist_id = input("Playlist ID padrão (PLxxxxxxx) [opcional, Enter para pular]: ").strip()
 
 # Validação básica
 if not channel_id or not channel_id.startswith('UC'):
@@ -48,6 +49,7 @@ canal_data = {
     'proxy_name': proxy_name if proxy_name else None,  # Opcional
     'lingua': lingua,
     'subnicho': subnicho,
+    'default_playlist_id': default_playlist_id if default_playlist_id else None,  # Opcional
     'is_active': True
 }
 
@@ -58,7 +60,8 @@ print(f"\n📌 Canal: {canal_data['channel_name']}")
 print(f"📌 Channel ID: {canal_data['channel_id']}")
 print(f"📌 Proxy: {canal_data['proxy_name'] or '(sem grupo)'}")
 print(f"📌 Língua: {canal_data['lingua']}")
-print(f"📌 Subnicho: {canal_data['subnicho']}\n")
+print(f"📌 Subnicho: {canal_data['subnicho']}")
+print(f"📌 Playlist padrão: {canal_data['default_playlist_id'] or '(não configurada)'}\n")
 
 confirma = input("Confirma cadastro? (s/n): ").strip().lower()
 

@@ -30,6 +30,7 @@ from yt_uploader.database import (
     get_upload_by_id,
     supabase
 )
+from yt_uploader.sheets import update_upload_status_in_sheet
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -2050,6 +2051,7 @@ class WebhookUploadRequest(BaseModel):
     lingua: Optional[str] = None
     nome_canal: Optional[str] = None
     sheets_row: int
+    spreadsheet_id: str
 
 async def process_upload_task(upload_id: int):
     """
@@ -2088,7 +2090,14 @@ async def process_upload_task(upload_id: int):
             youtube_video_id=result['video_id']
         )
 
-        # FASE 4: Cleanup
+        # FASE 4: Atualiza planilha Google Sheets
+        update_upload_status_in_sheet(
+            spreadsheet_id=upload['spreadsheet_id'],
+            row=upload['sheets_row_number'],
+            status='done'
+        )
+
+        # FASE 5: Cleanup
         uploader.cleanup(video_path)
 
         logger.info(f"✅ Upload {upload_id} concluído: {result['video_id']}")
@@ -2096,12 +2105,23 @@ async def process_upload_task(upload_id: int):
     except Exception as e:
         logger.error(f"❌ Erro no upload {upload_id}: {str(e)}")
 
-        # Marca como falha
+        # Marca como falha no banco
         update_upload_status(
             upload_id,
             'failed',
             error_message=str(e)
         )
+
+        # Atualiza planilha com erro (se tiver dados disponíveis)
+        try:
+            if upload and upload.get('spreadsheet_id') and upload.get('sheets_row_number'):
+                update_upload_status_in_sheet(
+                    spreadsheet_id=upload['spreadsheet_id'],
+                    row=upload['sheets_row_number'],
+                    status=f'❌ Erro'
+                )
+        except:
+            pass  # Ignora erro de atualização da planilha
 
 @app.post("/api/yt-upload/webhook")
 async def webhook_new_video(
@@ -2122,7 +2142,8 @@ async def webhook_new_video(
             titulo=request.titulo,  # EXATO da planilha
             descricao=request.descricao,  # EXATO da planilha (COM #hashtags)
             subnicho=request.subnicho,
-            sheets_row=request.sheets_row
+            sheets_row=request.sheets_row,
+            spreadsheet_id=request.spreadsheet_id
         )
 
         # Agenda processamento em background

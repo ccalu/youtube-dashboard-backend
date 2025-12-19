@@ -94,7 +94,8 @@ class YouTubeUploader:
             },
             'status': {
                 'privacyStatus': 'private',  # ← RASCUNHO!!!
-                'selfDeclaredMadeForKids': False
+                'selfDeclaredMadeForKids': False,
+                'containsSyntheticMedia': True  # ← MARCA COMO CONTEÚDO ALTERADO/IA
             }
         }
 
@@ -124,6 +125,26 @@ class YouTubeUploader:
             video_id = response['id']
 
             logger.info(f"✅ Upload concluído! Video ID: {video_id}")
+
+            # 8. Adiciona a playlist (se configurado)
+            if channel.get('default_playlist_id'):
+                try:
+                    youtube.playlistItems().insert(
+                        part='snippet',
+                        body={
+                            'snippet': {
+                                'playlistId': channel['default_playlist_id'],
+                                'resourceId': {
+                                    'kind': 'youtube#video',
+                                    'videoId': video_id
+                                }
+                            }
+                        }
+                    ).execute()
+                    logger.info(f"✅ Vídeo adicionado à playlist: {channel['default_playlist_id']}")
+                except Exception as e:
+                    logger.warning(f"⚠️  Erro ao adicionar a playlist: {str(e)}")
+                    # Não falha upload se playlist der erro
 
             return {
                 'success': True,
