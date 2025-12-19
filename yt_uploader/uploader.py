@@ -1,6 +1,7 @@
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from googleapiclient.errors import HttpError
+from google_auth_httplib2 import AuthorizedHttp
 import httpx
 import httplib2
 import socks
@@ -107,8 +108,8 @@ class YouTubeUploader:
         except Exception as e:
             raise ValueError(f"Erro OAuth: {str(e)}")
 
-        # 4. Autoriza o http com as credentials (necessário para usar proxy + OAuth)
-        authorized_http = credentials.authorize(http)
+        # 4. Autoriza o http com as credentials usando AuthorizedHttp
+        authorized_http = AuthorizedHttp(credentials, http=http)
 
         # 5. Cria serviço YouTube API COM PROXY
         youtube = build('youtube', 'v3', http=authorized_http)

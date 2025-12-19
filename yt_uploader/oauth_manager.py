@@ -1,6 +1,6 @@
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from .database import (
     get_channel,
     get_oauth_tokens,
@@ -50,8 +50,8 @@ class OAuthManager:
             if credentials.expiry:
                 token_expiry = credentials.expiry.isoformat()
             else:
-                # Fallback: +3600 segundos (1 hora)
-                token_expiry = (datetime.now() + timedelta(seconds=3600)).isoformat()
+                # Fallback: +3600 segundos (1 hora) com timezone UTC
+                token_expiry = (datetime.now(timezone.utc) + timedelta(seconds=3600)).isoformat()
 
             # Salva novo token no banco
             update_oauth_tokens(
