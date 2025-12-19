@@ -66,6 +66,18 @@ def update_upload_status_in_sheet(spreadsheet_id: str, row: int, status: str):
         # Atualiza célula O{row} (coluna 15)
         worksheet.update_cell(row, 15, status)
 
+        # Formata célula com fonte PRETA (para ficar visível)
+        worksheet.format(f'O{row}', {
+            "textFormat": {
+                "foregroundColor": {
+                    "red": 0.0,
+                    "green": 0.0,
+                    "blue": 0.0
+                },
+                "bold": False
+            }
+        })
+
         logger.info(f"✅ Planilha atualizada - Row {row}: {status}")
 
     except Exception as e:

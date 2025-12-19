@@ -2094,7 +2094,7 @@ async def process_upload_task(upload_id: int):
         update_upload_status_in_sheet(
             spreadsheet_id=upload['spreadsheet_id'],
             row=upload['sheets_row_number'],
-            status='done'
+            status='✅ done'
         )
 
         # FASE 5: Cleanup
