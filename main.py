@@ -46,6 +46,12 @@ app.add_middleware(
 )
 
 # ========================================
+# 🔒 UPLOAD CONCURRENCY CONTROL
+# ========================================
+# Semáforo: máximo 3 uploads simultâneos (protege Railway de overload)
+upload_semaphore = asyncio.Semaphore(3)
+
+# ========================================
 # 💰 MONETIZATION ROUTER
 # ========================================
 app.include_router(monetization_router)
@@ -2105,79 +2111,120 @@ class WebhookUploadRequest(BaseModel):
     sheets_row: int
     spreadsheet_id: str
 
-async def process_upload_task(upload_id: int):
+async def process_upload_task(upload_id: int, max_retries=3):
     """
-    Processa um upload em background.
-    Fluxo: pending → downloading → uploading → completed/failed
+    Processa upload com retry automático e controle de concorrência.
+
+    - Máximo 3 uploads simultâneos (semaphore)
+    - Até 3 tentativas em caso de falha
+    - Aguarda: 15s entre tentativa 1→2, 30s entre tentativa 2→3
     """
-    try:
-        # Busca dados do upload
-        upload = get_upload_by_id(upload_id)
 
-        if not upload:
-            logger.error(f"Upload {upload_id} não encontrado")
-            return
+    # Aguarda se já tiver 3 uploads rodando (controle de concorrência)
+    async with upload_semaphore:
 
-        channel_id = upload['channel_id']
-        logger.info(f"[{channel_id}] 📤 Webhook recebido (título: {upload['titulo'][:50]}...)")
+        for attempt in range(1, max_retries + 1):
+            try:
+                # Busca dados do upload
+                upload = get_upload_by_id(upload_id)
 
-        # FASE 1: Download
-        update_upload_status(upload_id, 'downloading')
-        video_path = uploader.download_video(upload['video_url'], channel_id=channel_id)
+                if not upload:
+                    logger.error(f"Upload {upload_id} não encontrado no banco")
+                    return
 
-        # FASE 2: Upload
-        update_upload_status(upload_id, 'uploading')
-        result = uploader.upload_to_youtube(
-            channel_id=upload['channel_id'],
-            video_path=video_path,
-            metadata={
-                'titulo': upload['titulo'],
-                'descricao': upload['descricao']  # COM #hashtags
-            }
-        )
+                channel_id = upload['channel_id']
+                logger.info(f"[{channel_id}] 📤 Tentativa {attempt}/{max_retries} (upload_id: {upload_id})")
 
-        # FASE 3: Sucesso
-        update_upload_status(
-            upload_id,
-            'completed',
-            youtube_video_id=result['video_id']
-        )
+                # Atualiza retry_count se retry
+                if attempt > 1:
+                    supabase.table('yt_upload_queue')\
+                        .update({
+                            'retry_count': attempt,
+                            'last_retry_at': datetime.now(timezone.utc).isoformat()
+                        })\
+                        .eq('id', upload_id)\
+                        .execute()
+                    logger.info(f"[{channel_id}] 🔄 Retry #{attempt} após falha anterior")
 
-        # FASE 4: Atualiza planilha Google Sheets
-        logger.info(f"[{channel_id}] 📊 Atualizando planilha (row {upload['sheets_row_number']})")
-        update_upload_status_in_sheet(
-            spreadsheet_id=upload['spreadsheet_id'],
-            row=upload['sheets_row_number'],
-            status='✅ done'
-        )
-        logger.info(f"[{channel_id}] ✅ Planilha atualizada: ✅ done")
+                # FASE 1: Download
+                update_upload_status(upload_id, 'downloading')
+                logger.info(f"[{channel_id}] 📥 Baixando vídeo do Drive...")
+                video_path = uploader.download_video(upload['video_url'], channel_id=channel_id)
 
-        # FASE 5: Cleanup
-        uploader.cleanup(video_path)
+                # FASE 2: Upload
+                update_upload_status(upload_id, 'uploading')
+                logger.info(f"[{channel_id}] ⬆️  Fazendo upload para YouTube...")
 
-        logger.info(f"[{channel_id}] ✅ Processo completo (video_id: {result['video_id']})")
+                result = uploader.upload_to_youtube(
+                    channel_id=upload['channel_id'],
+                    video_path=video_path,
+                    metadata={
+                        'titulo': upload['titulo'],
+                        'descricao': upload['descricao']  # COM #hashtags
+                    }
+                )
 
-    except Exception as e:
-        logger.error(f"[{channel_id}] ❌ Erro: {str(e)}")
+                # FASE 3: Sucesso
+                update_upload_status(
+                    upload_id,
+                    'completed',
+                    youtube_video_id=result['video_id']
+                )
 
-        # Marca como falha no banco
-        update_upload_status(
-            upload_id,
-            'failed',
-            error_message=str(e)
-        )
-
-        # Atualiza planilha com erro (se tiver dados disponíveis)
-        try:
-            if upload and upload.get('spreadsheet_id') and upload.get('sheets_row_number'):
-                logger.info(f"[{channel_id}] 📊 Planilha atualizada: ❌ Erro")
+                # FASE 4: Atualiza planilha Google Sheets
+                logger.info(f"[{channel_id}] 📊 Atualizando planilha (row {upload['sheets_row_number']})")
                 update_upload_status_in_sheet(
                     spreadsheet_id=upload['spreadsheet_id'],
                     row=upload['sheets_row_number'],
-                    status=f'❌ Erro'
+                    status='✅ done'
                 )
-        except:
-            pass  # Ignora erro de atualização da planilha
+                logger.info(f"[{channel_id}] ✅ Planilha atualizada: ✅ done")
+
+                # FASE 5: Cleanup
+                uploader.cleanup(video_path)
+
+                logger.info(f"[{channel_id}] ✅ Upload completo na tentativa {attempt} (video_id: {result['video_id']})")
+                return  # Sucesso - sai do loop
+
+            except Exception as e:
+                logger.error(f"[{channel_id}] ❌ Erro na tentativa {attempt}/{max_retries}: {e}")
+
+                # Se última tentativa, marca como failed
+                if attempt == max_retries:
+                    error_msg = f"Falhou após {max_retries} tentativas: {str(e)}"
+                    logger.error(f"[{channel_id}] 💔 {error_msg}")
+
+                    update_upload_status(
+                        upload_id,
+                        'failed',
+                        error_message=error_msg,
+                        retry_count=attempt
+                    )
+
+                    # Atualiza planilha com erro
+                    try:
+                        if upload and upload.get('spreadsheet_id') and upload.get('sheets_row_number'):
+                            logger.info(f"[{channel_id}] 📊 Planilha atualizada: ❌ Erro")
+                            update_upload_status_in_sheet(
+                                spreadsheet_id=upload['spreadsheet_id'],
+                                row=upload['sheets_row_number'],
+                                status='❌ Erro'
+                            )
+                    except Exception as sheet_error:
+                        logger.error(f"[{channel_id}] ⚠️ Erro ao atualizar planilha: {sheet_error}")
+
+                    # Cleanup se arquivo existe
+                    try:
+                        if 'video_path' in locals():
+                            uploader.cleanup(video_path)
+                    except:
+                        pass
+
+                else:
+                    # Não é última tentativa - aguarda antes do retry
+                    wait_time = 15 if attempt == 1 else 30  # 15s entre 1→2, 30s entre 2→3
+                    logger.info(f"[{channel_id}] ⏳ Aguardando {wait_time}s antes do retry #{attempt+1}...")
+                    await asyncio.sleep(wait_time)
 
 @app.post("/api/yt-upload/webhook")
 async def webhook_new_video(
