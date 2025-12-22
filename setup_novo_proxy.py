@@ -417,32 +417,70 @@ def main():
             break
 
         # Lingua
-        print(f"\nLinguas disponiveis: {', '.join(linguas_disponiveis)}")
+        print(f"\nLinguas disponiveis:")
+        for i, lang in enumerate(linguas_disponiveis):
+            print(f"[{i+1}] {lang}")
+        print(f"[{len(linguas_disponiveis)+1}] Outro (digitar manualmente)")
+
         while True:
-            lingua = input("Lingua (ex: pt): ").strip().lower()
-            if not lingua:
-                print("[ERRO] Lingua e obrigatoria!")
-                continue
-            if lingua not in linguas_disponiveis:
-                print(f"[AVISO] Lingua '{lingua}' nao existe no banco, sera adicionada")
-                confirma = input("Confirma? (s/n): ").strip().lower()
-                if confirma != 's':
+            try:
+                escolha = input(f"\nEscolha a lingua (1-{len(linguas_disponiveis)+1}): ").strip()
+                escolha_num = int(escolha)
+
+                if escolha_num < 1 or escolha_num > len(linguas_disponiveis) + 1:
+                    print(f"[ERRO] Digite um numero entre 1 e {len(linguas_disponiveis)+1}")
                     continue
-            break
+
+                if escolha_num == len(linguas_disponiveis) + 1:
+                    # Opcao "Outro"
+                    lingua = input("Digite a lingua manualmente (ex: pt): ").strip().lower()
+                    if not lingua:
+                        print("[ERRO] Lingua e obrigatoria!")
+                        continue
+                    print(f"[AVISO] Lingua '{lingua}' nao existe no banco, sera adicionada")
+                    confirma = input("Confirma? (s/n): ").strip().lower()
+                    if confirma != 's':
+                        continue
+                else:
+                    lingua = linguas_disponiveis[escolha_num - 1]
+
+                break
+            except ValueError:
+                print("[ERRO] Digite um numero valido!")
+                continue
 
         # Subnicho
-        print(f"\nSubnichos disponiveis: {', '.join(subnichos_disponiveis)}")
+        print(f"\nSubnichos disponiveis:")
+        for i, sub in enumerate(subnichos_disponiveis):
+            print(f"[{i+1}] {sub}")
+        print(f"[{len(subnichos_disponiveis)+1}] Outro (digitar manualmente)")
+
         while True:
-            subnicho = input("Subnicho (ex: terror): ").strip().lower()
-            if not subnicho:
-                print("[ERRO] Subnicho e obrigatorio!")
-                continue
-            if subnicho not in subnichos_disponiveis:
-                print(f"[AVISO] Subnicho '{subnicho}' nao existe no banco, sera adicionado")
-                confirma = input("Confirma? (s/n): ").strip().lower()
-                if confirma != 's':
+            try:
+                escolha = input(f"\nEscolha o subnicho (1-{len(subnichos_disponiveis)+1}): ").strip()
+                escolha_num = int(escolha)
+
+                if escolha_num < 1 or escolha_num > len(subnichos_disponiveis) + 1:
+                    print(f"[ERRO] Digite um numero entre 1 e {len(subnichos_disponiveis)+1}")
                     continue
-            break
+
+                if escolha_num == len(subnichos_disponiveis) + 1:
+                    # Opcao "Outro"
+                    subnicho = input("Digite o subnicho manualmente (ex: terror): ").strip().lower()
+                    if not subnicho:
+                        print("[ERRO] Subnicho e obrigatorio!")
+                        continue
+                    print(f"[AVISO] Subnicho '{subnicho}' nao existe no banco, sera adicionado")
+                    confirma = input("Confirma? (s/n): ").strip().lower()
+                    if confirma != 's':
+                        continue
+                else:
+                    subnicho = subnichos_disponiveis[escolha_num - 1]
+
+                break
+            except ValueError:
+                print("[ERRO] Digite um numero valido!")
+                continue
 
         # Playlist ID (opcional)
         while True:
