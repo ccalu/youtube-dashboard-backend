@@ -1,0 +1,430 @@
+====================================================================================================
+INVESTIGACAO DETALHADA - 9 CANAIS QUE PARARAM DE COLETAR
+====================================================================================================
+
+====================================================================================================
+CANAL #1 - ID: 837
+====================================================================================================
+Nome: Alan Watts Way
+URL: https://www.youtube.com/@alanwattsway
+Status: ativo
+Tipo: minerado
+Ultima tentativa de coleta: 2025-12-18T08:03:36.068733
+
+HISTORICO DE COLETAS (ultimos 30 dias):
+  Total de coletas bem-sucedidas: 2
+
+  Ultimas 5 coletas:
+  [1] 2025-12-17
+      Views 30d: 46,475
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 62,700
+  [2] 2025-12-16
+      Views 30d: 838,351
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 62,400
+
+VIDEOS COLETADOS (ultimos 30 dias): 4
+
+ANALISE:
+  - Ultima coleta BEM-SUCEDIDA: 2025-12-17 (1 dias atras)
+  - Views na ultima coleta: 30d=46,475
+  [!] Parou de coletar ha 1 dias
+  [?] Possivel problema:
+      - Canal mudou de URL
+      - Canal foi suspenso
+      - Problema persistente com este canal especifico
+
+ANALISE DA URL:
+  [OK] URL com handle: https://www.youtube.com/@alanwattsway
+
+
+====================================================================================================
+CANAL #2 - ID: 376
+====================================================================================================
+Nome: The Exploring Mind
+URL: https://www.youtube.com/channel/UCDPpru_Zh7WWtLnOKS7NRIg
+Status: ativo
+Tipo: minerado
+Ultima tentativa de coleta: 2025-12-18T08:03:59.503756
+
+HISTORICO DE COLETAS (ultimos 30 dias):
+  Total de coletas bem-sucedidas: 24
+
+  Ultimas 5 coletas:
+  [1] 2025-12-11
+      Views 30d: 3,513
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 2,740
+  [2] 2025-12-10
+      Views 30d: 3,513
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 2,740
+  [3] 2025-12-09
+      Views 30d: 3,513
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 2,740
+  [4] 2025-12-08
+      Views 30d: 3,814
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 2,740
+  [5] 2025-12-07
+      Views 30d: 3,814
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 2,740
+
+VIDEOS COLETADOS (ultimos 30 dias): 66
+
+ANALISE:
+  - Ultima coleta BEM-SUCEDIDA: 2025-12-11 (7 dias atras)
+  - Views na ultima coleta: 30d=3,513
+  [!!] NAO coleta ha 7 dias!
+  [?] Problema CRONICO - verificar:
+      - URL pode estar incorreta
+      - Canal pode ter sido deletado
+      - Canal pode estar privado permanentemente
+
+ANALISE DA URL:
+  [OK] URL com channel ID: https://www.youtube.com/channel/UCDPpru_Zh7WWtLnOKS7NRIg
+
+
+====================================================================================================
+CANAL #3 - ID: 167
+====================================================================================================
+Nome: Letters Never Sent
+URL: https://www.youtube.com/channel/UC-HUF3P94Z9ySLIfq3nndwg
+Status: ativo
+Tipo: minerado
+Ultima tentativa de coleta: 2025-12-18T08:05:28.285631
+
+HISTORICO DE COLETAS (ultimos 30 dias):
+  Total de coletas bem-sucedidas: 24
+
+  Ultimas 5 coletas:
+  [1] 2025-12-11
+      Views 30d: 1,799
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 5,470
+  [2] 2025-12-10
+      Views 30d: 1,795
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 5,470
+  [3] 2025-12-09
+      Views 30d: 1,792
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 5,470
+  [4] 2025-12-08
+      Views 30d: 1,789
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 5,470
+  [5] 2025-12-07
+      Views 30d: 1,778
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 5,470
+
+VIDEOS COLETADOS (ultimos 30 dias): 170
+
+ANALISE:
+  - Ultima coleta BEM-SUCEDIDA: 2025-12-11 (7 dias atras)
+  - Views na ultima coleta: 30d=1,799
+  [!!] NAO coleta ha 7 dias!
+  [?] Problema CRONICO - verificar:
+      - URL pode estar incorreta
+      - Canal pode ter sido deletado
+      - Canal pode estar privado permanentemente
+
+ANALISE DA URL:
+  [OK] URL com channel ID: https://www.youtube.com/channel/UC-HUF3P94Z9ySLIfq3nndwg
+
+
+====================================================================================================
+CANAL #4 - ID: 416
+====================================================================================================
+Nome: Abandoned History
+URL: https://www.youtube.com/@AbandonedHistoryy
+Status: ativo
+Tipo: minerado
+Ultima tentativa de coleta: 2025-12-18T08:05:48.705017
+
+HISTORICO DE COLETAS (ultimos 30 dias):
+  Total de coletas bem-sucedidas: 28
+
+  Ultimas 5 coletas:
+  [1] 2025-12-15
+      Views 30d: 42,368
+      Views 15d: 1,071
+      Views 7d: 299
+      Inscritos: 473
+  [2] 2025-12-14
+      Views 30d: 33,849
+      Views 15d: 1,186
+      Views 7d: 255
+      Inscritos: 450
+  [3] 2025-12-13
+      Views 30d: 25,830
+      Views 15d: 1,110
+      Views 7d: 461
+      Inscritos: 421
+  [4] 2025-12-12
+      Views 30d: 22,128
+      Views 15d: 1,050
+      Views 7d: 396
+      Inscritos: 412
+  [5] 2025-12-11
+      Views 30d: 20,313
+      Views 15d: 993
+      Views 7d: 351
+      Inscritos: 410
+
+VIDEOS COLETADOS (ultimos 30 dias): 735
+
+ANALISE:
+  - Ultima coleta BEM-SUCEDIDA: 2025-12-15 (3 dias atras)
+  - Views na ultima coleta: 30d=42,368
+  [!] Parou de coletar ha 3 dias
+  [?] Possivel problema:
+      - Canal mudou de URL
+      - Canal foi suspenso
+      - Problema persistente com este canal especifico
+
+ANALISE DA URL:
+  [OK] URL com handle: https://www.youtube.com/@AbandonedHistoryy
+
+
+====================================================================================================
+CANAL #5 - ID: 222
+====================================================================================================
+Nome: Legacy of Rome
+URL: https://www.youtube.com/channel/UCPFsHREvRqWUgrcOCL1sHhg
+Status: ativo
+Tipo: minerado
+Ultima tentativa de coleta: 2025-12-18T08:09:44.348012
+
+HISTORICO DE COLETAS (ultimos 30 dias):
+  Total de coletas bem-sucedidas: 23
+
+  Ultimas 5 coletas:
+  [1] 2025-12-10
+      Views 30d: 603
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 6,550
+  [2] 2025-12-09
+      Views 30d: 1,274
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 6,550
+  [3] 2025-12-08
+      Views 30d: 1,236
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 6,540
+  [4] 2025-12-07
+      Views 30d: 1,170
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 6,540
+  [5] 2025-12-06
+      Views 30d: 1,121
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 6,530
+
+VIDEOS COLETADOS (ultimos 30 dias): 67
+
+ANALISE:
+  - Ultima coleta BEM-SUCEDIDA: 2025-12-10 (8 dias atras)
+  - Views na ultima coleta: 30d=603
+  [!!] NAO coleta ha 8 dias!
+  [?] Problema CRONICO - verificar:
+      - URL pode estar incorreta
+      - Canal pode ter sido deletado
+      - Canal pode estar privado permanentemente
+
+ANALISE DA URL:
+  [OK] URL com channel ID: https://www.youtube.com/channel/UCPFsHREvRqWUgrcOCL1sHhg
+
+
+====================================================================================================
+CANAL #6 - ID: 16
+====================================================================================================
+Nome: The Medieval Scroll 
+URL: https://www.youtube.com/channel/UCX3YyEUofyj5_Hmv3-JhgJQ
+Status: ativo
+Tipo: minerado
+Ultima tentativa de coleta: 2025-12-18T08:14:53.026688
+
+HISTORICO DE COLETAS (ultimos 30 dias):
+  Total de coletas bem-sucedidas: 9
+
+  Ultimas 5 coletas:
+  [1] 2025-12-14
+      Views 30d: 90
+      Views 15d: 90
+      Views 7d: 33
+      Inscritos: 4,660
+  [2] 2025-12-13
+      Views 30d: 90
+      Views 15d: 90
+      Views 7d: 90
+      Inscritos: 4,660
+  [3] 2025-12-12
+      Views 30d: 88
+      Views 15d: 88
+      Views 7d: 88
+      Inscritos: 4,660
+  [4] 2025-12-11
+      Views 30d: 88
+      Views 15d: 88
+      Views 7d: 88
+      Inscritos: 4,660
+  [5] 2025-12-10
+      Views 30d: 88
+      Views 15d: 88
+      Views 7d: 88
+      Inscritos: 4,660
+
+VIDEOS COLETADOS (ultimos 30 dias): 31
+
+ANALISE:
+  - Ultima coleta BEM-SUCEDIDA: 2025-12-14 (4 dias atras)
+  - Views na ultima coleta: 30d=90
+  [!!] NAO coleta ha 4 dias!
+  [?] Problema CRONICO - verificar:
+      - URL pode estar incorreta
+      - Canal pode ter sido deletado
+      - Canal pode estar privado permanentemente
+
+ANALISE DA URL:
+  [OK] URL com channel ID: https://www.youtube.com/channel/UCX3YyEUofyj5_Hmv3-JhgJQ
+
+
+====================================================================================================
+CANAL #7 - ID: 711
+====================================================================================================
+Nome: The Sharpline
+URL: https://www.youtube.com/channel/UCBUHz55XNkm2PKwF_QdMCJQ
+Status: ativo
+Tipo: minerado
+Ultima tentativa de coleta: 2025-12-18T08:17:01.181629
+
+HISTORICO DE COLETAS (ultimos 30 dias):
+  Total de coletas bem-sucedidas: 9
+
+  Ultimas 5 coletas:
+  [1] 2025-12-17
+      Views 30d: 1,526,977
+      Views 15d: 308,954
+      Views 7d: 35,214
+      Inscritos: 32,600
+  [2] 2025-12-16
+      Views 30d: 1,475,153
+      Views 15d: 672,413
+      Views 7d: 40,467
+      Inscritos: 31,900
+  [3] 2025-12-15
+      Views 30d: 1,405,496
+      Views 15d: 634,488
+      Views 7d: 92,546
+      Inscritos: 30,800
+  [4] 2025-12-14
+      Views 30d: 1,317,457
+      Views 15d: 583,566
+      Views 7d: 77,501
+      Inscritos: 29,200
+  [5] 2025-12-13
+      Views 30d: 1,240,880
+      Views 15d: 537,689
+      Views 7d: 65,080
+      Inscritos: 27,900
+
+VIDEOS COLETADOS (ultimos 30 dias): 112
+
+ANALISE:
+  - Ultima coleta BEM-SUCEDIDA: 2025-12-17 (1 dias atras)
+  - Views na ultima coleta: 30d=1,526,977
+  [!] Parou de coletar ha 1 dias
+  [?] Possivel problema:
+      - Canal mudou de URL
+      - Canal foi suspenso
+      - Problema persistente com este canal especifico
+
+ANALISE DA URL:
+  [OK] URL com channel ID: https://www.youtube.com/channel/UCBUHz55XNkm2PKwF_QdMCJQ
+
+
+====================================================================================================
+CANAL #8 - ID: 715
+====================================================================================================
+Nome: Legado de Lujo
+URL: https://www.youtube.com/@LegadoLujo/featured
+Status: ativo
+Tipo: minerado
+Ultima tentativa de coleta: 2025-12-18T08:17:20.506655
+
+HISTORICO DE COLETAS (ultimos 30 dias):
+  Total de coletas bem-sucedidas: 4
+
+  Ultimas 5 coletas:
+  [1] 2025-12-12
+      Views 30d: 462
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 13,000
+  [2] 2025-12-11
+      Views 30d: 460
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 12,900
+  [3] 2025-12-10
+      Views 30d: 456
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 12,900
+  [4] 2025-12-09
+      Views 30d: 456
+      Views 15d: 0
+      Views 7d: 0
+      Inscritos: 12,900
+
+VIDEOS COLETADOS (ultimos 30 dias): 4
+
+ANALISE:
+  - Ultima coleta BEM-SUCEDIDA: 2025-12-12 (6 dias atras)
+  - Views na ultima coleta: 30d=462
+  [!!] NAO coleta ha 6 dias!
+  [?] Problema CRONICO - verificar:
+      - URL pode estar incorreta
+      - Canal pode ter sido deletado
+      - Canal pode estar privado permanentemente
+
+ANALISE DA URL:
+  [OK] URL com handle: https://www.youtube.com/@LegadoLujo/featured
+
+
+====================================================================================================
+ANALISE GERAL DOS 9 CANAIS:
+====================================================================================================
+
+Total de canais investigados: 8
+
+PROXIMOS PASSOS:
+1. Verificar manualmente cada URL no YouTube
+2. Atualizar URLs que estiverem incorretas
+3. Marcar como 'inativo' canais deletados/privados
+4. Retentar coleta manual dos canais ativos
+5. Implementar retry automatico para erros temporarios
+
+====================================================================================================

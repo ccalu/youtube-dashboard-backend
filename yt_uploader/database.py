@@ -1,6 +1,9 @@
 from supabase import create_client, Client
 from typing import Optional, Dict, List
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 supabase: Client = create_client(
     os.getenv("SUPABASE_URL"),
@@ -100,3 +103,25 @@ def get_upload_by_id(upload_id: int) -> Optional[Dict]:
         .single()\
         .execute()
     return result.data if result.data else None
+
+def get_proxy_credentials(proxy_name: str) -> Optional[Dict]:
+    """
+    Busca credenciais OAuth do proxy no Supabase.
+
+    Args:
+        proxy_name: Nome do proxy (ex: proxy_c0008_1)
+
+    Returns:
+        Dict com client_id e client_secret ou None
+    """
+    try:
+        result = supabase.table('yt_proxy_credentials')\
+            .select('client_id, client_secret')\
+            .eq('proxy_name', proxy_name)\
+            .single()\
+            .execute()
+
+        return result.data if result.data else None
+    except Exception as e:
+        logger.error(f"Erro ao buscar credenciais do proxy {proxy_name}: {e}")
+        return None

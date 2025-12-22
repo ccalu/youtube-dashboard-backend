@@ -18,12 +18,13 @@ class YouTubeUploader:
         self.temp_path = os.getenv('TEMP_VIDEO_PATH', '/tmp/videos')
         os.makedirs(self.temp_path, exist_ok=True)
 
-    def download_video(self, video_url: str) -> str:
+    def download_video(self, video_url: str, channel_id: str = None) -> str:
         """
         Baixa vídeo do Google Drive.
         Aceita URLs: drive.google.com/file/d/FILE_ID ou ?id=FILE_ID
         """
-        logger.info(f"📥 Baixando vídeo: {video_url[:50]}...")
+        prefix = f"[{channel_id}] " if channel_id else ""
+        logger.info(f"{prefix}📥 Download iniciado (Google Drive)")
 
         # Extrai file_id da URL
         if '/file/d/' in video_url:
@@ -46,7 +47,7 @@ class YouTubeUploader:
             f.write(response.content)
 
         file_size_mb = len(response.content) / (1024 * 1024)
-        logger.info(f"✅ Vídeo baixado: {file_size_mb:.1f}MB → {file_path}")
+        logger.info(f"{prefix}✅ Download concluído ({file_size_mb:.1f} MB)")
 
         return file_path
 
@@ -68,7 +69,7 @@ class YouTubeUploader:
         Returns:
             {success: bool, video_id: str}
         """
-        logger.info(f"🎬 Iniciando upload: {metadata['titulo'][:50]}...")
+        logger.info(f"[{channel_id}] 🎬 Título: {metadata['titulo'][:60]}...")
 
         # 1. Busca configuração do canal
         channel = get_channel(channel_id)
@@ -76,14 +77,15 @@ class YouTubeUploader:
             raise ValueError(f"Canal {channel_id} não encontrado")
 
         # 2. Obtém credenciais OAuth válidas
+        logger.info(f"[{channel_id}] 🔑 Buscando credenciais OAuth...")
         try:
             credentials = OAuthManager.get_valid_credentials(channel_id)
         except Exception as e:
             raise ValueError(f"Erro OAuth: {str(e)}")
 
         # 3. Cria serviço YouTube API (direto, sem proxy)
+        logger.info(f"[{channel_id}] 📹 Upload iniciado para YouTube")
         youtube = build('youtube', 'v3', credentials=credentials)
-        logger.info(f"✅ Conectado à YouTube API - Canal: {channel.get('channel_name')}")
 
         # 4. Prepara metadata do upload
         body = {
@@ -126,16 +128,18 @@ class YouTubeUploader:
             # 7. Upload concluído
             video_id = response['id']
 
-            logger.info(f"✅ Upload concluído! Video ID: {video_id}")
+            logger.info(f"[{channel_id}] ✅ Vídeo enviado com sucesso (ID: {video_id})")
 
             # 8. Adiciona a playlist (se configurado)
             if channel.get('default_playlist_id'):
+                playlist_id = channel['default_playlist_id']
+                logger.info(f"[{channel_id}] 📋 Adicionando à playlist {playlist_id}")
                 try:
                     youtube.playlistItems().insert(
                         part='snippet',
                         body={
                             'snippet': {
-                                'playlistId': channel['default_playlist_id'],
+                                'playlistId': playlist_id,
                                 'resourceId': {
                                     'kind': 'youtube#video',
                                     'videoId': video_id
@@ -143,9 +147,9 @@ class YouTubeUploader:
                             }
                         }
                     ).execute()
-                    logger.info(f"✅ Vídeo adicionado à playlist: {channel['default_playlist_id']}")
+                    logger.info(f"[{channel_id}] ✅ Vídeo adicionado à playlist")
                 except Exception as e:
-                    logger.warning(f"⚠️  Erro ao adicionar a playlist: {str(e)}")
+                    logger.warning(f"[{channel_id}] ⚠️ Erro ao adicionar à playlist: {str(e)}")
                     # Não falha upload se playlist der erro
 
             return {
@@ -154,7 +158,7 @@ class YouTubeUploader:
             }
 
         except HttpError as e:
-            logger.error(f"❌ Erro no upload YouTube: {e}")
+            logger.error(f"[{channel_id}] ❌ Erro no upload YouTube: {e}")
             raise
 
     def cleanup(self, file_path: str):

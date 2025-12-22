@@ -497,6 +497,58 @@ async def get_canais_tabela():
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.patch("/api/canais/{channel_id}/monetizacao")
+async def toggle_monetizacao(channel_id: str, body: dict):
+    """
+    Ativa/desativa coleta de monetização para um canal.
+
+    Body: {"is_monetized": true/false}
+
+    Se ativar (true):
+      - Próxima coleta diária (5 AM) já coleta revenue
+      - Para histórico: rodar script coleta_historico_completo.py
+
+    Se desativar (false):
+      - Para de coletar revenue nas próximas coletas
+      - Dados históricos permanecem no banco
+    """
+    try:
+        is_monetized = body.get('is_monetized')
+
+        if is_monetized is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Campo 'is_monetized' obrigatório (true/false)"
+            )
+
+        # Atualiza no Supabase
+        result = supabase.table('yt_channels')\
+            .update({'is_monetized': is_monetized})\
+            .eq('channel_id', channel_id)\
+            .execute()
+
+        if not result.data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Canal {channel_id} não encontrado"
+            )
+
+        status = "ativada" if is_monetized else "desativada"
+        logger.info(f"Monetização {status} para canal {channel_id}")
+
+        return {
+            "success": True,
+            "channel_id": channel_id,
+            "is_monetized": is_monetized,
+            "message": f"Monetização {status} com sucesso"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao toggle monetização: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/videos")
 async def get_videos(
     nicho: Optional[str] = None,
@@ -2066,11 +2118,12 @@ async def process_upload_task(upload_id: int):
             logger.error(f"Upload {upload_id} não encontrado")
             return
 
-        logger.info(f"🎬 Processando: {upload['titulo'][:50]}...")
+        channel_id = upload['channel_id']
+        logger.info(f"[{channel_id}] 📤 Webhook recebido (título: {upload['titulo'][:50]}...)")
 
         # FASE 1: Download
         update_upload_status(upload_id, 'downloading')
-        video_path = uploader.download_video(upload['video_url'])
+        video_path = uploader.download_video(upload['video_url'], channel_id=channel_id)
 
         # FASE 2: Upload
         update_upload_status(upload_id, 'uploading')
@@ -2091,19 +2144,21 @@ async def process_upload_task(upload_id: int):
         )
 
         # FASE 4: Atualiza planilha Google Sheets
+        logger.info(f"[{channel_id}] 📊 Atualizando planilha (row {upload['sheets_row_number']})")
         update_upload_status_in_sheet(
             spreadsheet_id=upload['spreadsheet_id'],
             row=upload['sheets_row_number'],
             status='✅ done'
         )
+        logger.info(f"[{channel_id}] ✅ Planilha atualizada: ✅ done")
 
         # FASE 5: Cleanup
         uploader.cleanup(video_path)
 
-        logger.info(f"✅ Upload {upload_id} concluído: {result['video_id']}")
+        logger.info(f"[{channel_id}] ✅ Processo completo (video_id: {result['video_id']})")
 
     except Exception as e:
-        logger.error(f"❌ Erro no upload {upload_id}: {str(e)}")
+        logger.error(f"[{channel_id}] ❌ Erro: {str(e)}")
 
         # Marca como falha no banco
         update_upload_status(
@@ -2115,6 +2170,7 @@ async def process_upload_task(upload_id: int):
         # Atualiza planilha com erro (se tiver dados disponíveis)
         try:
             if upload and upload.get('spreadsheet_id') and upload.get('sheets_row_number'):
+                logger.info(f"[{channel_id}] 📊 Planilha atualizada: ❌ Erro")
                 update_upload_status_in_sheet(
                     spreadsheet_id=upload['spreadsheet_id'],
                     row=upload['sheets_row_number'],
