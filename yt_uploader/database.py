@@ -106,7 +106,10 @@ def get_upload_by_id(upload_id: int) -> Optional[Dict]:
 
 def get_proxy_credentials(proxy_name: str) -> Optional[Dict]:
     """
-    Busca credenciais OAuth do proxy no Supabase.
+    [DEPRECATED] Busca credenciais OAuth do proxy no Supabase.
+
+    ATENÇÃO: Esta função está deprecated. Use get_channel_credentials() para
+    arquitetura com credenciais isoladas por canal.
 
     Args:
         proxy_name: Nome do proxy (ex: proxy_c0008_1)
@@ -125,3 +128,78 @@ def get_proxy_credentials(proxy_name: str) -> Optional[Dict]:
     except Exception as e:
         logger.error(f"Erro ao buscar credenciais do proxy {proxy_name}: {e}")
         return None
+
+def get_channel_credentials(channel_id: str) -> Optional[Dict]:
+    """
+    Busca credenciais OAuth específicas de um canal no Supabase.
+
+    NOVA ARQUITETURA: 1 canal = 1 Client ID/Secret único
+    Garante isolamento total e contingência máxima.
+
+    Args:
+        channel_id: ID do canal YouTube (ex: UCbB1WtTqBWYdSk3JE6iRNRw)
+
+    Returns:
+        Dict com client_id e client_secret ou None
+
+    Exemplo:
+        >>> creds = get_channel_credentials('UCbB1WtTqBWYdSk3JE6iRNRw')
+        >>> print(creds['client_id'])
+        '123456789-abc.apps.googleusercontent.com'
+    """
+    try:
+        result = supabase.table('yt_channel_credentials')\
+            .select('client_id, client_secret')\
+            .eq('channel_id', channel_id)\
+            .single()\
+            .execute()
+
+        if result.data:
+            logger.debug(f"Credenciais encontradas para canal {channel_id}")
+            return result.data
+        else:
+            logger.warning(f"Nenhuma credencial encontrada para canal {channel_id}")
+            return None
+
+    except Exception as e:
+        logger.error(f"Erro ao buscar credenciais do canal {channel_id}: {e}")
+        return None
+
+def save_channel_credentials(channel_id: str, client_id: str, client_secret: str) -> bool:
+    """
+    Salva ou atualiza credenciais OAuth de um canal.
+
+    Args:
+        channel_id: ID do canal YouTube
+        client_id: Client ID do projeto Google Cloud
+        client_secret: Client Secret do projeto Google Cloud
+
+    Returns:
+        True se salvo com sucesso, False caso contrário
+
+    Exemplo:
+        >>> save_channel_credentials(
+        ...     'UCbB1WtTqBWYdSk3JE6iRNRw',
+        ...     '123-abc.apps.googleusercontent.com',
+        ...     'GOCSPX-xxx'
+        ... )
+        True
+    """
+    try:
+        data = {
+            'channel_id': channel_id,
+            'client_id': client_id,
+            'client_secret': client_secret
+        }
+
+        # Upsert: insere ou atualiza se já existir
+        result = supabase.table('yt_channel_credentials')\
+            .upsert(data, on_conflict='channel_id')\
+            .execute()
+
+        logger.info(f"Credenciais salvas para canal {channel_id}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Erro ao salvar credenciais do canal {channel_id}: {e}")
+        return False

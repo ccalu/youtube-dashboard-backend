@@ -50,6 +50,22 @@ def validar_oauth_code(code):
         return False
     return True
 
+def validar_client_id(client_id):
+    """Valida formato Google Cloud Client ID"""
+    pattern = r'^\d+-[a-zA-Z0-9]+\.apps\.googleusercontent\.com$'
+    if not re.match(pattern, client_id):
+        print(f"[ERRO] Client ID invalido! Formato esperado: 123456789-abc.apps.googleusercontent.com")
+        return False
+    return True
+
+def validar_client_secret(client_secret):
+    """Valida formato Google Cloud Client Secret"""
+    pattern = r'^GOCSPX-[a-zA-Z0-9_-]+$'
+    if not re.match(pattern, client_secret):
+        print(f"[ERRO] Client Secret invalido! Formato esperado: GOCSPX-xxxxxxxxx")
+        return False
+    return True
+
 # ============================================================
 # FUNCOES AUXILIARES
 # ============================================================
@@ -267,68 +283,19 @@ def validar_token(access_token):
 
 def main():
     print("=" * 80)
-    print("WIZARD: ADICIONAR 1 CANAL EM PROXY EXISTENTE")
+    print("WIZARD: ADICIONAR NOVO CANAL (ARQUITETURA V2)")
     print("=" * 80)
     print()
-
-    # ============================================================
-    # PARTE 1: SELECIONAR PROXY
-    # ============================================================
-    print("[1/4] SELECIONAR PROXY")
-    print("-" * 80)
-
-    print("\n[...] Buscando proxies cadastrados...")
-    proxies = listar_proxies()
-
-    if not proxies:
-        print("[ERRO] Nenhum proxy cadastrado!")
-        print("Execute 'setup_novo_proxy.py' primeiro para criar um proxy.")
-        return
-
-    print(f"\n[OK] {len(proxies)} proxies encontrados:\n")
-
-    for i, p in enumerate(proxies):
-        status = "[LOTADO]" if p['qtd_canais'] >= 4 else ""
-        print(f"[{i+1}] {p['proxy_name']} ({p['qtd_canais']} canais) {status}")
-
+    print("IMPORTANTE:")
+    print("- 1 canal = 1 projeto Google Cloud = 1 Client ID/Secret unico")
+    print("- Isolamento total entre canais (contingencia maxima)")
+    print("- Proxy identifica apenas maquina fisica (AdsPower, VPS, etc)")
     print()
 
-    while True:
-        try:
-            escolha = int(input(f"Escolha o proxy (1-{len(proxies)}): ").strip())
-            if escolha < 1 or escolha > len(proxies):
-                print(f"[ERRO] Digite um numero entre 1 e {len(proxies)}")
-                continue
-            break
-        except ValueError:
-            print("[ERRO] Digite um numero valido!")
-
-    proxy_selecionado = proxies[escolha - 1]
-    proxy_name = proxy_selecionado['proxy_name']
-    qtd_canais = proxy_selecionado['qtd_canais']
-
-    print(f"\n[OK] Proxy selecionado: {proxy_name}")
-
-    if qtd_canais >= 4:
-        print(f"[AVISO] Este proxy ja tem {qtd_canais} canais (limite recomendado: 4)")
-        confirma = input("Deseja continuar mesmo assim? (s/n): ").strip().lower()
-        if confirma != 's':
-            print("[CANCELADO] Operacao cancelada pelo usuario")
-            return
-
-    # Busca credenciais
-    creds = buscar_proxy_credentials(proxy_name)
-    if not creds:
-        print(f"[ERRO] Credenciais do proxy {proxy_name} nao encontradas!")
-        return
-
-    client_id = creds['client_id']
-    client_secret = creds['client_secret']
-
     # ============================================================
-    # PARTE 2: DADOS DO CANAL
+    # PARTE 1: DADOS DO CANAL
     # ============================================================
-    print(f"\n[2/4] DADOS DO CANAL")
+    print("[1/5] DADOS DO CANAL")
     print("-" * 80)
 
     # Channel ID
@@ -433,9 +400,65 @@ def main():
         break
 
     # ============================================================
-    # PARTE 3: ADICIONAR CANAL NO SUPABASE
+    # PARTE 2: CREDENCIAIS GOOGLE CLOUD (OAUTH)
     # ============================================================
-    print(f"\n[3/4] ADICIONANDO CANAL NO SUPABASE")
+    print(f"\n[2/5] CREDENCIAIS DO PROJETO GOOGLE CLOUD")
+    print("-" * 80)
+    print()
+    print("IMPORTANTE: Cada canal deve ter seu proprio projeto Google Cloud!")
+    print("Criado no navegador do proxy (AdsPower, VPS, etc)")
+    print()
+
+    # Client ID
+    while True:
+        client_id = input("Client ID: ").strip()
+        if not client_id:
+            print("[ERRO] Client ID e obrigatorio!")
+            continue
+        if not validar_client_id(client_id):
+            continue
+        break
+
+    # Client Secret
+    while True:
+        client_secret = input("Client Secret: ").strip()
+        if not client_secret:
+            print("[ERRO] Client Secret e obrigatorio!")
+            continue
+        if not validar_client_secret(client_secret):
+            continue
+        break
+
+    print(f"\n[OK] Credenciais validadas!")
+
+    # ============================================================
+    # PARTE 3: IDENTIFICACAO DO PROXY
+    # ============================================================
+    print(f"\n[3/5] IDENTIFICACAO DO PROXY (MAQUINA FISICA)")
+    print("-" * 80)
+    print()
+    print("Proxy = Maquina fisica onde canal sera autorizado")
+    print("Exemplo: proxy_c0008_1 (perfil AdsPower C0008.1)")
+    print()
+
+    # Proxy Name
+    while True:
+        proxy_name = input("Proxy name (ex: proxy_c0008_1): ").strip().lower()
+        if not proxy_name:
+            print("[ERRO] Proxy name e obrigatorio!")
+            continue
+        # Validacao basica de formato
+        if not proxy_name.startswith('proxy_'):
+            print("[ERRO] Proxy name deve comecar com 'proxy_' (ex: proxy_c0008_1)")
+            continue
+        break
+
+    print(f"\n[OK] Proxy identificado: {proxy_name}")
+
+    # ============================================================
+    # PARTE 4: ADICIONAR CANAL NO SUPABASE
+    # ============================================================
+    print(f"\n[4/5] ADICIONANDO CANAL NO SUPABASE")
     print("-" * 80)
 
     print(f"\n[...] Adicionando {channel_name} ao proxy {proxy_name}...")
@@ -450,10 +473,23 @@ def main():
         print("[ERRO] Falha ao adicionar canal! Abortando...")
         return
 
+    # Salvar credenciais OAuth do canal
+    print(f"[...] Salvando credenciais OAuth do canal...")
+    try:
+        from yt_uploader.database import save_channel_credentials
+        if not save_channel_credentials(channel_id, client_id, client_secret):
+            print("[ERRO] Falha ao salvar credenciais OAuth!")
+            print("Canal foi adicionado, mas sem credenciais.")
+            return
+        print("[OK] Credenciais OAuth salvas com sucesso!")
+    except Exception as e:
+        print(f"[ERRO] Falha ao salvar credenciais: {e}")
+        return
+
     # ============================================================
-    # PARTE 4: OAUTH
+    # PARTE 5: OAUTH
     # ============================================================
-    print(f"\n[4/4] AUTORIZACAO OAUTH")
+    print(f"\n[5/5] AUTORIZACAO OAUTH")
     print("-" * 80)
     print("\nIMPORTANTE:")
     print("- Abra a URL no NAVEGADOR DO PROXY (conta Google do canal)")
