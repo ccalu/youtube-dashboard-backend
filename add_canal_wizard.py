@@ -10,6 +10,7 @@ import requests
 from supabase import create_client
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlparse, parse_qs
 
 # Carrega variaveis
 load_dotenv()
@@ -19,6 +20,25 @@ supabase = create_client(
     os.getenv("SUPABASE_URL"),
     os.getenv("SUPABASE_KEY")
 )
+
+# ============================================================
+# MAPEAMENTO DE IDIOMAS (Nome → Código ISO 639-1)
+# ============================================================
+IDIOMAS_MAP = {
+    'Alemão': 'de',
+    'Árabe': 'ar',
+    'Coreano': 'ko',
+    'Espanhol': 'es',
+    'Francês': 'fr',
+    'Hindi': 'hi',
+    'Inglês': 'en',
+    'Italiano': 'it',
+    'Japonês': 'ja',
+    'Polonês': 'pl',
+    'Português': 'pt',
+    'Russo': 'ru',
+    'Turco': 'tr'
+}
 
 # ============================================================
 # VALIDADORES (mesmos do setup_novo_proxy.py)
@@ -102,26 +122,14 @@ def listar_proxies():
         return []
 
 def buscar_linguas_disponiveis():
-    """Busca linguas distintas no banco"""
-    try:
-        result = supabase.table('yt_channels')\
-            .select('lingua')\
-            .not_.is_('lingua', 'null')\
-            .execute()
-
-        linguas = set()
-        for row in result.data:
-            if row.get('lingua'):
-                linguas.add(row['lingua'])
-
-        return sorted(list(linguas))
-    except:
-        return ['pt', 'en', 'es', 'fr', 'de', 'it']
+    """Retorna lista de nomes de idiomas (exibição no menu)"""
+    # Sempre retorna os idiomas mapeados (ordem alfabética)
+    return sorted(IDIOMAS_MAP.keys())
 
 def buscar_subnichos_disponiveis():
-    """Busca subnichos distintos no banco"""
+    """Busca subnichos distintos do dashboard"""
     try:
-        result = supabase.table('yt_channels')\
+        result = supabase.table('canais_monitorados')\
             .select('subnicho')\
             .not_.is_('subnicho', 'null')\
             .execute()
@@ -133,7 +141,7 @@ def buscar_subnichos_disponiveis():
 
         return sorted(list(subnichos))
     except:
-        return ['terror', 'suspense', 'misterio', 'true_crime']
+        return ['terror', 'suspense', 'misterio', 'true_crime', 'mentalidade_masculina_financas']
 
 def canal_existe(channel_id):
     """Verifica se canal ja existe"""
@@ -188,6 +196,19 @@ def adicionar_canal(channel_id, channel_name, proxy_name, lingua, subnicho, play
         print(f"[ERRO] Falha ao adicionar canal: {e}")
         return False
 
+def extrair_codigo_da_url(url_completa):
+    """Extrai codigo OAuth de uma URL de redirect (http://localhost:8080/?code=...)"""
+    try:
+        parsed = urlparse(url_completa)
+        params = parse_qs(parsed.query)
+
+        if 'code' in params:
+            return params['code'][0]
+        else:
+            return None
+    except:
+        return None
+
 def gerar_url_oauth(channel_id, client_id):
     """Gera URL de autorizacao OAuth"""
     scopes = [
@@ -198,7 +219,7 @@ def gerar_url_oauth(channel_id, client_id):
 
     params = {
         'client_id': client_id,
-        'redirect_uri': 'urn:ietf:wg:oauth:2.0:oob',
+        'redirect_uri': 'http://localhost:8080',
         'scope': ' '.join(scopes),
         'response_type': 'code',
         'access_type': 'offline',
@@ -216,7 +237,7 @@ def trocar_codigo_por_tokens(code, client_id, client_secret):
             'code': code,
             'client_id': client_id,
             'client_secret': client_secret,
-            'redirect_uri': 'urn:ietf:wg:oauth:2.0:oob',
+            'redirect_uri': 'http://localhost:8080',
             'grant_type': 'authorization_code'
         }
 
@@ -289,13 +310,12 @@ def main():
     print("IMPORTANTE:")
     print("- 1 canal = 1 projeto Google Cloud = 1 Client ID/Secret unico")
     print("- Isolamento total entre canais (contingencia maxima)")
-    print("- Proxy identifica apenas maquina fisica (AdsPower, VPS, etc)")
     print()
 
     # ============================================================
     # PARTE 1: DADOS DO CANAL
     # ============================================================
-    print("[1/5] DADOS DO CANAL")
+    print("[1/4] DADOS DO CANAL")
     print("-" * 80)
 
     # Channel ID
@@ -341,16 +361,22 @@ def main():
 
             if escolha_num == len(linguas_disponiveis) + 1:
                 # Opcao "Outro"
-                lingua = input("Digite a lingua manualmente (ex: pt): ").strip().lower()
+                lingua = input("Digite o codigo ISO da lingua (ex: pt, es, fr): ").strip().lower()
                 if not lingua:
                     print("[ERRO] Lingua e obrigatoria!")
                     continue
-                print(f"[AVISO] Lingua '{lingua}' nao existe no banco, sera adicionada")
+                if len(lingua) != 2:
+                    print("[ERRO] Codigo ISO deve ter 2 letras (ex: pt, es, fr)")
+                    continue
+                print(f"[AVISO] Lingua '{lingua}' nao existe na lista padrao, sera adicionada")
                 confirma = input("Confirma? (s/n): ").strip().lower()
                 if confirma != 's':
                     continue
             else:
-                lingua = linguas_disponiveis[escolha_num - 1]
+                # Pega nome escolhido e converte para codigo ISO
+                lingua_nome = linguas_disponiveis[escolha_num - 1]
+                lingua = IDIOMAS_MAP[lingua_nome]
+                print(f"[OK] Lingua selecionada: {lingua_nome} (codigo: {lingua})")
 
             break
         except ValueError:
@@ -402,7 +428,7 @@ def main():
     # ============================================================
     # PARTE 2: CREDENCIAIS GOOGLE CLOUD (OAUTH)
     # ============================================================
-    print(f"\n[2/5] CREDENCIAIS DO PROJETO GOOGLE CLOUD")
+    print(f"\n[2/4] CREDENCIAIS DO PROJETO GOOGLE CLOUD")
     print("-" * 80)
     print()
     print("IMPORTANTE: Cada canal deve ter seu proprio projeto Google Cloud!")
@@ -432,40 +458,16 @@ def main():
     print(f"\n[OK] Credenciais validadas!")
 
     # ============================================================
-    # PARTE 3: IDENTIFICACAO DO PROXY
+    # PARTE 3: ADICIONAR CANAL NO SUPABASE
     # ============================================================
-    print(f"\n[3/5] IDENTIFICACAO DO PROXY (MAQUINA FISICA)")
-    print("-" * 80)
-    print()
-    print("Proxy = Maquina fisica onde canal sera autorizado")
-    print("Exemplo: proxy_c0008_1 (perfil AdsPower C0008.1)")
-    print()
-
-    # Proxy Name
-    while True:
-        proxy_name = input("Proxy name (ex: proxy_c0008_1): ").strip().lower()
-        if not proxy_name:
-            print("[ERRO] Proxy name e obrigatorio!")
-            continue
-        # Validacao basica de formato
-        if not proxy_name.startswith('proxy_'):
-            print("[ERRO] Proxy name deve comecar com 'proxy_' (ex: proxy_c0008_1)")
-            continue
-        break
-
-    print(f"\n[OK] Proxy identificado: {proxy_name}")
-
-    # ============================================================
-    # PARTE 4: ADICIONAR CANAL NO SUPABASE
-    # ============================================================
-    print(f"\n[4/5] ADICIONANDO CANAL NO SUPABASE")
+    print(f"\n[3/4] ADICIONANDO CANAL NO SUPABASE")
     print("-" * 80)
 
-    print(f"\n[...] Adicionando {channel_name} ao proxy {proxy_name}...")
+    print(f"\n[...] Adicionando canal {channel_name}...")
     if not adicionar_canal(
         channel_id=channel_id,
         channel_name=channel_name,
-        proxy_name=proxy_name,
+        proxy_name=None,  # V2.0: proxy_name não é necessário
         lingua=lingua,
         subnicho=subnicho,
         playlist_id=playlist_id if playlist_id else None
@@ -487,14 +489,16 @@ def main():
         return
 
     # ============================================================
-    # PARTE 5: OAUTH
+    # PARTE 4: OAUTH
     # ============================================================
-    print(f"\n[5/5] AUTORIZACAO OAUTH")
+    print(f"\n[4/4] AUTORIZACAO OAUTH")
     print("-" * 80)
     print("\nIMPORTANTE:")
     print("- Abra a URL no NAVEGADOR DO PROXY (conta Google do canal)")
     print("- Autorize o acesso")
-    print("- Copie o CODIGO que aparece na tela")
+    print("- Google vai redirecionar para http://localhost:8080")
+    print("- Vai dar ERRO 'pagina nao encontrada' - ISSO E NORMAL!")
+    print("- COPIE A URL COMPLETA da barra de endereco")
     print("- Cole aqui quando solicitado")
     print()
 
@@ -505,13 +509,31 @@ def main():
 
     input("Pressione ENTER quando tiver aberto a URL...")
 
-    # Aguarda codigo
+    # Aguarda URL completa
+    print("\n[2] Cole a URL completa (ou so o codigo) e pressione ENTER:")
+    print("    Exemplo: http://localhost:8080/?code=4/0ATX...")
+    print()
+
     while True:
-        code = input("\n[2] Cole o codigo de autorizacao aqui: ").strip()
-        if not code:
-            print("[ERRO] Codigo e obrigatorio!")
+        try:
+            url_ou_codigo = input("> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n[ERRO] Operacao cancelada")
+            return
+
+        if not url_ou_codigo:
+            print("[ERRO] URL ou codigo e obrigatorio!")
             continue
+
+        # Tentar extrair codigo da URL
+        code = extrair_codigo_da_url(url_ou_codigo)
+
+        # Se nao conseguiu, assumir que usuario colou so o codigo
+        if not code:
+            code = url_ou_codigo
+
         if not validar_oauth_code(code):
+            print("[ERRO] Codigo invalido! Tente novamente.")
             continue
         break
 
@@ -547,7 +569,8 @@ def main():
     print(f"{'='*80}")
     print()
     print(f"Canal: {channel_name} ({channel_id})")
-    print(f"Proxy: {proxy_name}")
+    print(f"Lingua: {lingua}")
+    print(f"Subnicho: {subnicho}")
     print(f"OAuth: {'[OK] Autorizado' if token_ok else '[ERRO] Falhou'}")
     print()
 

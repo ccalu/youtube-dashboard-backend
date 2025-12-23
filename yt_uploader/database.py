@@ -2,8 +2,12 @@ from supabase import create_client, Client
 from typing import Optional, Dict, List
 import os
 import logging
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
+
+# Carrega .env se ainda não foi carregado
+load_dotenv()
 
 supabase: Client = create_client(
     os.getenv("SUPABASE_URL"),

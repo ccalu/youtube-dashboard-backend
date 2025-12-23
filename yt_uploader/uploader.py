@@ -5,6 +5,7 @@ import httpx
 import os
 import logging
 from typing import Dict
+import gdown
 from .oauth_manager import OAuthManager
 from .database import get_channel
 
@@ -20,8 +21,10 @@ class YouTubeUploader:
 
     def download_video(self, video_url: str, channel_id: str = None) -> str:
         """
-        Baixa vídeo do Google Drive.
+        Baixa vídeo do Google Drive usando gdown.
         Aceita URLs: drive.google.com/file/d/FILE_ID ou ?id=FILE_ID
+
+        Bypass automático de "virus scan warning" para arquivos grandes.
         """
         prefix = f"[{channel_id}] " if channel_id else ""
         logger.info(f"{prefix}📥 Download iniciado (Google Drive)")
@@ -34,19 +37,34 @@ class YouTubeUploader:
         else:
             raise ValueError(f"URL do Drive inválida: {video_url}")
 
-        # URL de download direto
-        download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
-
-        # Download
-        response = httpx.get(download_url, follow_redirects=True, timeout=300)
-        response.raise_for_status()
-
-        # Salva localmente
+        # Caminho de destino
         file_path = os.path.join(self.temp_path, f"{file_id}.mp4")
-        with open(file_path, 'wb') as f:
-            f.write(response.content)
 
-        file_size_mb = len(response.content) / (1024 * 1024)
+        # Download usando gdown (lida automaticamente com virus scan warning)
+        # quiet=False mostra progress bar
+        download_url = f"https://drive.google.com/uc?id={file_id}"
+
+        try:
+            gdown.download(download_url, file_path, quiet=False, fuzzy=True)
+        except Exception as e:
+            raise ValueError(
+                f"Erro ao baixar do Google Drive: {str(e)}. "
+                f"Verifique se o arquivo está compartilhado publicamente (Anyone with the link)."
+            )
+
+        # Verifica se arquivo foi baixado e não está vazio
+        if not os.path.exists(file_path):
+            raise ValueError("Download falhou - arquivo não foi criado")
+
+        file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+
+        if file_size_mb < 0.1:  # < 100KB
+            os.remove(file_path)
+            raise ValueError(
+                f"Arquivo muito pequeno ({file_size_mb:.2f} MB). "
+                f"Verifique permissões de compartilhamento no Google Drive."
+            )
+
         logger.info(f"{prefix}✅ Download concluído ({file_size_mb:.1f} MB)")
 
         return file_path
