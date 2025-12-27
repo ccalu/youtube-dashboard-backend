@@ -156,7 +156,7 @@ class SpreadsheetScanner:
 
                 # Pausa entre batches (rate limiting - Google Sheets quota: 60 req/min)
                 if i + self.batch_size < len(channels):
-                    await asyncio.sleep(5)  # 5s para respeitar limite de 60 req/min
+                    await asyncio.sleep(10)  # 10s para garantir margem de segurança contra erro 429
 
             # 3. Sucesso - reseta contador de erros
             self.error_count = 0

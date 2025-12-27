@@ -1642,7 +1642,7 @@ async def schedule_spreadsheet_scanner():
     from yt_uploader.spreadsheet_scanner import SpreadsheetScanner
 
     # Configurações
-    interval_minutes = int(os.getenv("SCANNER_INTERVAL_MINUTES", "5"))
+    interval_minutes = int(os.getenv("SCANNER_INTERVAL_MINUTES", "10"))  # 10 min para evitar erro 429
     enabled = os.getenv("SCANNER_ENABLED", "true").lower() == "true"
 
     if not enabled:
