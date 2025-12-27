@@ -90,6 +90,8 @@ class YouTubeUploader:
         """
         # Sanitiza título UTF-8 (fix para caracteres especiais alemães, franceses, etc)
         titulo_original = metadata['titulo']
+        logger.info(f"[{channel_id}] 🔧 UTF-8 SANITIZATION V2 ACTIVE")  # Log para confirmar codigo novo
+
         titulo_sanitized = unicodedata.normalize('NFC', titulo_original)
         titulo_sanitized = titulo_sanitized.encode('utf-8', errors='ignore').decode('utf-8', errors='ignore')
 
