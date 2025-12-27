@@ -99,9 +99,17 @@ class YouTubeUploader:
         titulo_sanitized = titulo_sanitized.replace('\ufffd', 'O')  # � → O
         titulo_sanitized = titulo_sanitized.replace('�', 'O')       # Fallback
         titulo_sanitized = titulo_sanitized.strip()
+
+        # YouTube limite = 100 caracteres
+        if len(titulo_sanitized) > 100:
+            logger.info(f"[{channel_id}] ⚠️  Título muito longo ({len(titulo_sanitized)} chars) - truncando para 100")
+            titulo_sanitized = titulo_sanitized[:97] + "..."
+
         titulo_sanitized = titulo_sanitized or "Video"  # Fallback se vazio
 
         logger.info(f"[{channel_id}] 🎬 Título: {titulo_sanitized[:60]}...")
+        logger.info(f"[{channel_id}] 📏 Tamanho: {len(titulo_sanitized)} chars")
+        logger.info(f"[{channel_id}] 🔤 Repr: {repr(titulo_sanitized[:80])}")
         if titulo_original != titulo_sanitized:
             logger.info(f"[{channel_id}] 🔧 UTF-8 fix aplicado (original: {len(titulo_original)} chars → sanitized: {len(titulo_sanitized)} chars)")
 
