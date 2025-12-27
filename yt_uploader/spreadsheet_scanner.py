@@ -36,7 +36,7 @@ class SpreadsheetScanner:
         """Inicializa scanner com configurações"""
 
         # Configurações (via env vars ou padrão)
-        self.batch_size = int(os.getenv("SCANNER_BATCH_SIZE", "5"))
+        self.batch_size = int(os.getenv("SCANNER_BATCH_SIZE", "3"))  # Reduzido para respeitar Google quota
         self.timeout_per_sheet = int(os.getenv("SCANNER_TIMEOUT_SECONDS", "15"))
         self.max_errors = int(os.getenv("SCANNER_MAX_ERRORS", "3"))
 
@@ -150,9 +150,9 @@ class SpreadsheetScanner:
                         logger.error(f"   ❌ Erro no batch: {result}")
                         total_errors += 1
 
-                # Pausa entre batches (rate limiting)
+                # Pausa entre batches (rate limiting - Google Sheets quota: 60 req/min)
                 if i + self.batch_size < len(channels):
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(5)  # 5s para respeitar limite de 60 req/min
 
             # 3. Sucesso - reseta contador de erros
             self.error_count = 0
