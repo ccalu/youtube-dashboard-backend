@@ -1632,6 +1632,37 @@ async def weekly_report_scheduler():
             await asyncio.sleep(3600)
 
 
+async def schedule_spreadsheet_scanner():
+    """
+    Background task para varredura de planilhas Google Sheets.
+
+    Roda a cada X minutos (configurável via SCANNER_INTERVAL_MINUTES).
+    Detecta vídeos prontos para upload e adiciona na fila automaticamente.
+    """
+    from yt_uploader.spreadsheet_scanner import SpreadsheetScanner
+
+    # Configurações
+    interval_minutes = int(os.getenv("SCANNER_INTERVAL_MINUTES", "5"))
+    enabled = os.getenv("SCANNER_ENABLED", "true").lower() == "true"
+
+    if not enabled:
+        logger.info("📊 Scanner de planilhas DESABILITADO (SCANNER_ENABLED=false)")
+        return
+
+    logger.info(f"📊 Scanner de planilhas AGENDADO (a cada {interval_minutes} min)")
+
+    scanner = SpreadsheetScanner()
+
+    while True:
+        try:
+            await scanner.scan_all_spreadsheets()
+        except Exception as e:
+            logger.error(f"❌ Scanner error: {e}", exc_info=True)
+
+        # Aguarda próxima execução
+        await asyncio.sleep(interval_minutes * 60)
+
+
 @app.on_event("startup")
 async def startup_event():
     logger.info("=" * 80)
@@ -1656,7 +1687,8 @@ async def startup_event():
         logger.info("📅 Scheduling daily collection (NO startup collection)")
         asyncio.create_task(schedule_daily_collection())
         asyncio.create_task(weekly_report_scheduler())
-        logger.info("✅ Schedulers started (Railway environment)")
+        asyncio.create_task(schedule_spreadsheet_scanner())
+        logger.info("✅ Schedulers started (Railway environment + Scanner)")
     else:
         logger.warning("⚠️ LOCAL ENVIRONMENT - Schedulers DISABLED")
         logger.warning("⚠️ Use /api/collect-data endpoint for manual collection")
