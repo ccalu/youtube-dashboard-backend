@@ -6,6 +6,7 @@ import os
 import logging
 from typing import Dict
 import gdown
+import unicodedata
 from .oauth_manager import OAuthManager
 from .database import get_channel
 
@@ -87,7 +88,15 @@ class YouTubeUploader:
         Returns:
             {success: bool, video_id: str}
         """
-        logger.info(f"[{channel_id}] 🎬 Título: {metadata['titulo'][:60]}...")
+        # Sanitiza título UTF-8 (fix para caracteres especiais alemães, franceses, etc)
+        titulo_original = metadata['titulo']
+        titulo_sanitized = unicodedata.normalize('NFC', titulo_original)
+        titulo_sanitized = titulo_sanitized.encode('utf-8', errors='ignore').decode('utf-8', errors='ignore').strip()
+        titulo_sanitized = titulo_sanitized or "Video"  # Fallback se vazio
+
+        logger.info(f"[{channel_id}] 🎬 Título: {titulo_sanitized[:60]}...")
+        if titulo_original != titulo_sanitized:
+            logger.info(f"[{channel_id}] 🔧 UTF-8 fix aplicado (original: {len(titulo_original)} chars → sanitized: {len(titulo_sanitized)} chars)")
 
         # 1. Busca configuração do canal
         channel = get_channel(channel_id)
@@ -108,7 +117,7 @@ class YouTubeUploader:
         # 4. Prepara metadata do upload
         body = {
             'snippet': {
-                'title': metadata['titulo'],  # EXATO da planilha
+                'title': titulo_sanitized,  # UTF-8 sanitizado
                 'description': metadata['descricao'],  # EXATO da planilha (COM #hashtags)
                 'categoryId': '24',  # Entertainment
                 'defaultLanguage': channel.get('lingua', 'en'),  # Idioma do título/descrição
