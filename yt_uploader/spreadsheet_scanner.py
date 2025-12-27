@@ -115,6 +115,8 @@ class SpreadsheetScanner:
         total_videos_added = 0
         total_videos_skipped = 0
         total_errors = 0
+        total_sheets_success = 0
+        total_sheets_failed = 0
 
         try:
             # 1. Busca canais ativos
@@ -146,9 +148,11 @@ class SpreadsheetScanner:
                         total_videos_found += result['found']
                         total_videos_added += result['added']
                         total_videos_skipped += result['skipped']
+                        total_sheets_success += 1  # Planilha processada com sucesso
                     elif isinstance(result, Exception):
                         logger.error(f"   ❌ Erro no batch: {result}")
                         total_errors += 1
+                        total_sheets_failed += 1  # Planilha falhou
 
                 # Pausa entre batches (rate limiting - Google Sheets quota: 60 req/min)
                 if i + self.batch_size < len(channels):
@@ -171,10 +175,14 @@ class SpreadsheetScanner:
 
         # 4. Logs finais
         elapsed = (datetime.now() - start_time).total_seconds()
+        total_sheets = total_sheets_success + total_sheets_failed
 
         logger.info("=" * 80)
         logger.info("✅ SCANNER CONCLUÍDO")
         logger.info(f"⏱️  Tempo total: {elapsed:.1f}s")
+        logger.info(f"📊 Planilhas processadas: {total_sheets_success}/{total_sheets} ({(total_sheets_success/total_sheets*100) if total_sheets > 0 else 0:.0f}%)")
+        if total_sheets_failed > 0:
+            logger.warning(f"   ⚠️  Falhas: {total_sheets_failed} planilhas com erro")
         logger.info(f"📹 Vídeos encontrados: {total_videos_found}")
         logger.info(f"✅ Vídeos adicionados: {total_videos_added}")
         logger.info(f"⏭️  Vídeos skipados: {total_videos_skipped}")
