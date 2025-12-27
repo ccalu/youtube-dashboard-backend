@@ -36,7 +36,7 @@ class SpreadsheetScanner:
         """Inicializa scanner com configurações"""
 
         # Configurações (via env vars ou padrão)
-        self.batch_size = int(os.getenv("SCANNER_BATCH_SIZE", "3"))  # Reduzido para respeitar Google quota
+        self.batch_size = int(os.getenv("SCANNER_BATCH_SIZE", "2"))  # 2 para suporte 70+ canais
         self.timeout_per_sheet = int(os.getenv("SCANNER_TIMEOUT_SECONDS", "15"))
         self.max_errors = int(os.getenv("SCANNER_MAX_ERRORS", "3"))
 
@@ -156,7 +156,7 @@ class SpreadsheetScanner:
 
                 # Pausa entre batches (rate limiting - Google Sheets quota: 60 req/min)
                 if i + self.batch_size < len(channels):
-                    await asyncio.sleep(10)  # 10s para garantir margem de segurança contra erro 429
+                    await asyncio.sleep(15)  # 15s para margem de 87% (suporte 70+ canais)
 
             # 3. Sucesso - reseta contador de erros
             self.error_count = 0
@@ -446,8 +446,8 @@ class SpreadsheetScanner:
             upload_id = result.data[0]['id']
             logger.info(f"        ✅ Row {row_number}: \"{titulo[:40]}...\" → Fila (ID {upload_id})")
 
-            # 3. Marca planilha como "processing"
-            await self._update_sheet_status(spreadsheet_id, row_number, "⏳ processing...")
+            # 3. Marca planilha como "processing" (DESABILITADO - economiza 1 req/vídeo)
+            # await self._update_sheet_status(spreadsheet_id, row_number, "⏳ processing...")
 
             return True
 
