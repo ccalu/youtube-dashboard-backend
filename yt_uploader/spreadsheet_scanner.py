@@ -226,7 +226,12 @@ class SpreadsheetScanner:
             async with asyncio.timeout(self.timeout_per_sheet):
                 result = await self._scan_spreadsheet(channel)
 
-                logger.info(f"     ✅ Linhas lidas: {result['rows_read']}")
+                # Mostra linhas lidas vs processadas (otimização de últimas 15)
+                if result['rows_read'] > result.get('rows_processed', 0):
+                    logger.info(f"     ✅ Linhas lidas: {result['rows_read']} (processadas: {result.get('rows_processed', 0)})")
+                else:
+                    logger.info(f"     ✅ Linhas lidas: {result['rows_read']}")
+
                 logger.info(f"     📹 Vídeos encontrados: {result['found']}")
 
                 if result['added'] > 0:
@@ -239,11 +244,11 @@ class SpreadsheetScanner:
 
         except asyncio.TimeoutError:
             logger.warning(f"     ⏰ Timeout ({self.timeout_per_sheet}s) - skipando")
-            return {'found': 0, 'added': 0, 'skipped': 0, 'rows_read': 0}
+            return {'found': 0, 'added': 0, 'skipped': 0, 'rows_read': 0, 'rows_processed': 0}
 
         except Exception as e:
             logger.error(f"     ❌ Erro: {e}", exc_info=True)
-            return {'found': 0, 'added': 0, 'skipped': 0, 'rows_read': 0}
+            return {'found': 0, 'added': 0, 'skipped': 0, 'rows_read': 0, 'rows_processed': 0}
 
     async def _scan_spreadsheet(self, channel: Dict) -> Dict:
         """
@@ -280,14 +285,26 @@ class SpreadsheetScanner:
         all_values = await loop.run_in_executor(None, _read_sheet)
 
         if not all_values or len(all_values) < 2:
-            return {'found': 0, 'added': 0, 'skipped': 0, 'rows_read': 0}
+            return {'found': 0, 'added': 0, 'skipped': 0, 'rows_read': 0, 'rows_processed': 0}
 
-        # 2. Processa linhas (ignora header row 1)
+        # 2. Otimização: Processa apenas últimas 15 linhas (vídeos prontos são sequenciais)
+        total_rows = len(all_values) - 1  # -1 para excluir header
+        rows_limit = 15
+
+        # Pega últimas N linhas (ou todas se < N)
+        if total_rows > rows_limit:
+            rows_to_process = all_values[-rows_limit:]
+            start_row_number = len(all_values) - rows_limit + 1  # +1 porque row 1 = header
+        else:
+            rows_to_process = all_values[1:]  # Pula header
+            start_row_number = 2  # Primeira linha de dados
+
         found = 0
         added = 0
         skipped = 0
 
-        for row_idx, row_data in enumerate(all_values[1:], start=2):  # Start=2 (row 1 = header)
+        for offset, row_data in enumerate(rows_to_process):
+            row_idx = start_row_number + offset  # Número real da linha na planilha
 
             # Valida se linha está pronta para upload
             if self._is_video_ready(row_data):
@@ -312,7 +329,8 @@ class SpreadsheetScanner:
             'found': found,
             'added': added,
             'skipped': skipped,
-            'rows_read': len(all_values) - 1
+            'rows_read': total_rows,
+            'rows_processed': len(rows_to_process)
         }
 
     def _is_video_ready(self, row_data: List[str]) -> bool:
