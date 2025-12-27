@@ -91,7 +91,12 @@ class YouTubeUploader:
         # Sanitiza título UTF-8 (fix para caracteres especiais alemães, franceses, etc)
         titulo_original = metadata['titulo']
         titulo_sanitized = unicodedata.normalize('NFC', titulo_original)
-        titulo_sanitized = titulo_sanitized.encode('utf-8', errors='ignore').decode('utf-8', errors='ignore').strip()
+        titulo_sanitized = titulo_sanitized.encode('utf-8', errors='ignore').decode('utf-8', errors='ignore')
+
+        # Remove caracteres de replacement (�) que YouTube rejeita
+        titulo_sanitized = titulo_sanitized.replace('\ufffd', 'O')  # � → O
+        titulo_sanitized = titulo_sanitized.replace('�', 'O')       # Fallback
+        titulo_sanitized = titulo_sanitized.strip()
         titulo_sanitized = titulo_sanitized or "Video"  # Fallback se vazio
 
         logger.info(f"[{channel_id}] 🎬 Título: {titulo_sanitized[:60]}...")
