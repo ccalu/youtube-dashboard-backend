@@ -1688,7 +1688,16 @@ async def startup_event():
         asyncio.create_task(schedule_daily_collection())
         asyncio.create_task(weekly_report_scheduler())
         asyncio.create_task(schedule_spreadsheet_scanner())
-        logger.info("✅ Schedulers started (Railway environment + Scanner)")
+
+        # Upload Queue Worker (isolado - falha não afeta main app)
+        try:
+            from yt_uploader.queue_worker import start_queue_worker
+            asyncio.create_task(start_queue_worker())
+            logger.info("✅ Upload queue worker scheduled")
+        except Exception as e:
+            logger.warning(f"⚠️ Upload worker disabled: {e}")
+
+        logger.info("✅ Schedulers started (Railway environment + Scanner + Upload Worker)")
     else:
         logger.warning("⚠️ LOCAL ENVIRONMENT - Schedulers DISABLED")
         logger.warning("⚠️ Use /api/collect-data endpoint for manual collection")
