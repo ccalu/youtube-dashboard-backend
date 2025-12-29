@@ -28,7 +28,6 @@ from yt_uploader.database import (
     create_upload,
     update_upload_status,
     get_upload_by_id,
-    get_pending_uploads,
     supabase
 )
 from yt_uploader.sheets import update_upload_status_in_sheet
@@ -1664,55 +1663,6 @@ async def schedule_spreadsheet_scanner():
         await asyncio.sleep(interval_minutes * 60)
 
 
-async def process_upload_queue_worker():
-    """
-    Background worker que processa automaticamente a fila de uploads.
-
-    Roda a cada 2 minutos, busca vídeos com status='pending' e dispara
-    o processamento automático. Garante que todos os vídeos adicionados
-    pelo scanner sejam processados sem intervenção manual.
-    """
-    interval_seconds = int(os.getenv("UPLOAD_WORKER_INTERVAL_SECONDS", "120"))  # 2 minutos padrão
-    enabled = os.getenv("UPLOAD_WORKER_ENABLED", "true").lower() == "true"
-
-    if not enabled:
-        logger.info("📤 Upload queue worker DESABILITADO (UPLOAD_WORKER_ENABLED=false)")
-        return
-
-    logger.info(f"📤 Upload queue worker INICIADO (verifica a cada {interval_seconds}s)")
-
-    while True:
-        try:
-            # Busca vídeos pendentes (máximo 10 por vez para não sobrecarregar)
-            pending_uploads = get_pending_uploads(limit=10)
-
-            if pending_uploads:
-                logger.info(f"📤 Encontrados {len(pending_uploads)} vídeos pendentes na fila")
-
-                # Processa cada upload (semaphore limita a 3 simultâneos)
-                tasks = []
-                for upload in pending_uploads:
-                    upload_id = upload['id']
-                    titulo_preview = upload['titulo'][:50] if upload.get('titulo') else 'Sem título'
-                    logger.info(f"   🎬 Disparando upload_id={upload_id}: {titulo_preview}...")
-
-                    # Cria task assíncrona (respeita semaphore automaticamente)
-                    task = asyncio.create_task(process_upload_task(upload_id))
-                    tasks.append(task)
-
-                # Aguarda todos os uploads iniciarem (não aguarda completarem)
-                # O semaphore garante que só 3 rodem simultaneamente
-                logger.info(f"📤 {len(tasks)} uploads disparados (máx 3 simultâneos)")
-
-            # Aguarda próxima verificação
-            await asyncio.sleep(interval_seconds)
-
-        except Exception as e:
-            logger.error(f"❌ Upload worker error: {e}", exc_info=True)
-            # Em caso de erro, aguarda 60s antes de tentar novamente
-            await asyncio.sleep(60)
-
-
 @app.on_event("startup")
 async def startup_event():
     logger.info("=" * 80)
@@ -1738,8 +1688,7 @@ async def startup_event():
         asyncio.create_task(schedule_daily_collection())
         asyncio.create_task(weekly_report_scheduler())
         asyncio.create_task(schedule_spreadsheet_scanner())
-        asyncio.create_task(process_upload_queue_worker())
-        logger.info("✅ Schedulers started (Railway environment + Scanner + Upload Worker)")
+        logger.info("✅ Schedulers started (Railway environment + Scanner)")
     else:
         logger.warning("⚠️ LOCAL ENVIRONMENT - Schedulers DISABLED")
         logger.warning("⚠️ Use /api/collect-data endpoint for manual collection")
