@@ -369,8 +369,17 @@ class SpreadsheetScanner:
         if post and post.strip():
             return False  # Já tem data de publicação
 
+        # Aceita vazio OU "❌ Erro" (para retry)
+        # Ignora se = "✅" (sucesso) ou "❌ Erro Final" (limite de 3 tentativas)
         if upload and upload.strip():
-            return False  # Já tem status de upload
+            # Permite retry apenas se tiver exatamente "❌ Erro" (sem "Final")
+            upload_clean = upload.strip()
+            if upload_clean in ["❌ Erro", "❌ erro", "erro", "Erro"]:
+                # Permite retry (não retorna False)
+                pass
+            else:
+                # Qualquer outro valor = ignora (sucesso, erro final, etc)
+                return False
 
         if not name or not name.strip():
             return False  # Sem título
@@ -410,16 +419,30 @@ class SpreadsheetScanner:
         descricao = row_data[1].strip() if len(row_data) > 1 else ''
         video_url = row_data[12].strip() if len(row_data) > 12 else ''
 
-        # 1. Verifica duplicata no banco
+        # 1. Verifica duplicata no banco + controle de retry
         try:
-            existing = self.supabase_client.table('yt_upload_queue').select('id, status').match({
+            # Busca registro existente (qualquer status)
+            existing = self.supabase_client.table('yt_upload_queue').select('id, status, retry_count').match({
                 'spreadsheet_id': spreadsheet_id,
                 'sheets_row_number': row_number
-            }).in_('status', ['pending', 'downloading', 'uploading']).execute()
+            }).execute()
 
             if existing.data:
-                logger.info(f"        ⏭️  Row {row_number}: Já em processamento (ID {existing.data[0]['id']})")
-                return False
+                record = existing.data[0]
+
+                # Se já está em processamento, skip
+                if record['status'] in ['pending', 'downloading', 'uploading']:
+                    logger.info(f"        ⏭️  Row {row_number}: Já em processamento (ID {record['id']})")
+                    return False
+
+                # Se já tentou 3 vezes, skip
+                retry_count = record.get('retry_count', 0)
+                if retry_count >= 3:
+                    logger.info(f"        ⏭️  Row {row_number}: Limite de 3 tentativas atingido (ID {record['id']})")
+                    return False
+
+                # Se status = 'failed' e retry_count < 3, permite retry
+                # (scanner vai re-adicionar vídeo na fila)
 
         except Exception as e:
             logger.error(f"        ❌ Erro ao verificar duplicata: {e}")

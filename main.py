@@ -2235,22 +2235,36 @@ async def process_upload_task(upload_id: int, max_retries=3):
                     error_msg = f"Falhou após {max_retries} tentativas: {str(e)}"
                     logger.error(f"[{channel_id}] 💔 {error_msg}")
 
+                    # Busca retry_count atual do banco (TOTAL de tentativas incluindo scanner retries)
+                    current_upload = get_upload_by_id(upload_id)
+                    total_retry_count = current_upload.get('retry_count', 0) if current_upload else 0
+
                     update_upload_status(
                         upload_id,
                         'failed',
                         error_message=error_msg,
-                        retry_count=attempt
+                        retry_count=total_retry_count + 1  # Incrementa contador total
                     )
 
                     # Atualiza planilha com erro
+                    # Se já tentou 3 vezes TOTAL (incluindo retries do scanner), marca "❌ Erro Final"
                     try:
                         if upload and upload.get('spreadsheet_id') and upload.get('sheets_row_number'):
-                            logger.info(f"[{channel_id}] 📊 Planilha atualizada: ❌ Erro")
-                            update_upload_status_in_sheet(
-                                spreadsheet_id=upload['spreadsheet_id'],
-                                row=upload['sheets_row_number'],
-                                status='❌ Erro'
-                            )
+                            # 0 = primeira falha (permite 2 retries), 1 = segunda falha (permite 1 retry), 2 = terceira falha (FINAL)
+                            if total_retry_count >= 2:
+                                logger.info(f"[{channel_id}] 📊 Planilha atualizada: ❌ Erro Final (3 tentativas esgotadas)")
+                                update_upload_status_in_sheet(
+                                    spreadsheet_id=upload['spreadsheet_id'],
+                                    row=upload['sheets_row_number'],
+                                    status='❌ Erro Final'
+                                )
+                            else:
+                                logger.info(f"[{channel_id}] 📊 Planilha atualizada: ❌ Erro (retry {total_retry_count + 1}/3)")
+                                update_upload_status_in_sheet(
+                                    spreadsheet_id=upload['spreadsheet_id'],
+                                    row=upload['sheets_row_number'],
+                                    status='❌ Erro'
+                                )
                     except Exception as sheet_error:
                         logger.error(f"[{channel_id}] ⚠️ Erro ao atualizar planilha: {sheet_error}")
 
