@@ -181,9 +181,13 @@ async def get_monetization_summary(
 
         total_monetized_channels = len(channels_response.data) if channels_response.data else 0
 
-        # Buscar métricas do período
+        # Extrair channel_ids para filtrar métricas (18 canais: 15 ativos + 3 desmonetizados)
+        monetized_channel_ids = [c['channel_id'] for c in (channels_response.data or [])]
+
+        # Buscar métricas do período APENAS dos 18 canais visíveis
         query = db.supabase.table("yt_daily_metrics")\
             .select("revenue, views, channel_id, is_estimate")\
+            .in_("channel_id", monetized_channel_ids)\
             .gte("date", start_date)\
             .lte("date", end_date)
 
@@ -229,18 +233,20 @@ async def get_monetization_summary(
         growth_rate = 0.0
 
         if period in ["7d", "15d", "30d", "total"]:
-            # Período atual (últimos 7 dias)
+            # Período atual (últimos 7 dias) - APENAS dos 18 canais visíveis
             current_start = (today - timedelta(days=7)).isoformat()
             current_metrics = db.supabase.table("yt_daily_metrics")\
                 .select("revenue")\
+                .in_("channel_id", monetized_channel_ids)\
                 .gte("date", current_start)\
                 .execute()
 
-            # Período anterior (7 dias antes)
+            # Período anterior (7 dias antes) - APENAS dos 18 canais visíveis
             previous_start = (today - timedelta(days=14)).isoformat()
             previous_end = current_start
             previous_metrics = db.supabase.table("yt_daily_metrics")\
                 .select("revenue")\
+                .in_("channel_id", monetized_channel_ids)\
                 .gte("date", previous_start)\
                 .lt("date", previous_end)\
                 .execute()
