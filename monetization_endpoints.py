@@ -284,97 +284,117 @@ async def get_monetization_channels(
 ):
     """
     Retorna lista de canais agrupados por subnicho
-    Mostra últimos 3 dias para cada canal
+    OTIMIZADO: Usa 2 queries ao invés de N×2 queries
     """
     try:
-        # Buscar canais monetizados
-        channels_query = db.supabase.table("yt_channels")\
-            .select("channel_id, channel_name")\
-            .eq("show_monetization_history", True)
+        # Calcular start_date e end_date
+        today = datetime.now().date()
 
-        channels_response = channels_query.execute()
+        # Prioridade: month > custom dates > period
+        if month:
+            year, month_num = map(int, month.split('-'))
+            month_start = date(year, month_num, 1)
+            if month_num == 12:
+                month_end = date(year + 1, 1, 1) - timedelta(days=1)
+            else:
+                month_end = date(year, month_num + 1, 1) - timedelta(days=1)
+
+            if month_end > today:
+                month_end = today
+
+            start_date = month_start.isoformat()
+            end_date = month_end.isoformat()
+        elif start_date and end_date:
+            # Usar período customizado (já no formato correto)
+            pass
+        else:
+            # Lógica original baseada em period
+            if period == "monetizacao":
+                start_date, end_date = calculate_monetization_period()
+            elif period == "total":
+                start_date = "2025-10-26"
+            elif period == "24h":
+                start_date = (today - timedelta(days=1)).isoformat()
+            elif period == "3d":
+                start_date = (today - timedelta(days=3)).isoformat()
+            elif period == "7d":
+                start_date = (today - timedelta(days=7)).isoformat()
+            elif period == "15d":
+                start_date = (today - timedelta(days=15)).isoformat()
+            else:  # 30d
+                start_date = (today - timedelta(days=30)).isoformat()
+
+            end_date = today.isoformat()
+
+        # QUERY 1: Buscar canais com subnicho/lingua (18 canais)
+        # Busca yt_channels + LEFT JOIN com canais_monitorados via nome
+        channels_response = db.supabase.table("yt_channels")\
+            .select("channel_id, channel_name, is_monetized")\
+            .eq("show_monetization_history", True)\
+            .execute()
+
         channels = channels_response.data or []
 
-        # Para cada canal, buscar dados dos últimos 3 dias + subnicho/língua
+        # Criar mapa de channel_name -> subnicho/lingua
+        # (buscamos todos os canais_monitorados de uma vez)
+        monitored_response = db.supabase.table("canais_monitorados")\
+            .select("nome_canal, subnicho, lingua")\
+            .eq("tipo", "nosso")\
+            .execute()
+
+        # Criar dicionário de lookup
+        monitored_map = {}
+        for canal in (monitored_response.data or []):
+            nome = canal['nome_canal'].lower()
+            monitored_map[nome] = {
+                'subnicho': canal.get('subnicho', 'Outros'),
+                'lingua': canal.get('lingua', 'N/A')
+            }
+
+        # QUERY 2: Buscar TODAS as métricas do período de uma vez
+        metrics_query = db.supabase.table("yt_daily_metrics")\
+            .select("channel_id, date, revenue, views, is_estimate")\
+            .gte("date", start_date)\
+            .lte("date", end_date)\
+            .order("date", desc=True)
+
+        if type_filter == "real_only":
+            metrics_query = metrics_query.eq("is_estimate", False)
+
+        metrics_response = metrics_query.execute()
+        all_metrics = metrics_response.data or []
+
+        # Agrupar métricas por channel_id
+        metrics_by_channel = {}
+        for metric in all_metrics:
+            ch_id = metric['channel_id']
+            if ch_id not in metrics_by_channel:
+                metrics_by_channel[ch_id] = []
+            metrics_by_channel[ch_id].append(metric)
+
+        # Processar cada canal (agora sem queries adicionais!)
         result_by_subnicho = {}
 
         for channel in channels:
             channel_id = channel['channel_id']
             channel_name = channel['channel_name']
 
-            # Buscar subnicho/língua em canais_monitorados
-            canal_info_response = db.supabase.table("canais_monitorados")\
-                .select("subnicho, lingua")\
-                .ilike("nome_canal", f"%{channel_name}%")\
-                .limit(1)\
-                .execute()
+            # Buscar subnicho/língua no mapa
+            nome_lower = channel_name.lower()
+            canal_info = monitored_map.get(nome_lower, {'subnicho': 'Outros', 'lingua': 'N/A'})
 
-            if not canal_info_response.data:
-                continue
+            canal_subnicho = canal_info['subnicho']
+            canal_lingua = canal_info['lingua']
 
-            canal_info = canal_info_response.data[0]
-            canal_subnicho = canal_info.get('subnicho', 'Outros')
-            canal_lingua = canal_info.get('lingua', 'N/A')
-
-            # Filtros
+            # Aplicar filtros
             if language and canal_lingua.lower() != language.lower():
                 continue
 
             if subnicho and canal_subnicho.lower() != subnicho.lower():
                 continue
 
-            # Calcular start_date e end_date
-            today = datetime.now().date()
-
-            # Prioridade: month > custom dates > period
-            if month:
-                year, month_num = map(int, month.split('-'))
-                month_start = date(year, month_num, 1)
-                if month_num == 12:
-                    month_end = date(year + 1, 1, 1) - timedelta(days=1)
-                else:
-                    month_end = date(year, month_num + 1, 1) - timedelta(days=1)
-
-                if month_end > today:
-                    month_end = today
-
-                start_date = month_start.isoformat()
-                end_date = month_end.isoformat()
-            elif start_date and end_date:
-                # Usar período customizado (já no formato correto)
-                pass
-            else:
-                # Lógica original baseada em period
-                if period == "monetizacao":
-                    start_date, end_date = calculate_monetization_period()
-                elif period == "total":
-                    start_date = "2025-10-26"
-                elif period == "24h":
-                    start_date = (today - timedelta(days=1)).isoformat()
-                elif period == "3d":
-                    start_date = (today - timedelta(days=3)).isoformat()
-                elif period == "7d":
-                    start_date = (today - timedelta(days=7)).isoformat()
-                elif period == "15d":
-                    start_date = (today - timedelta(days=15)).isoformat()
-                else:  # 30d
-                    start_date = (today - timedelta(days=30)).isoformat()
-
-                end_date = today.isoformat()
-
-            # Buscar todas as metricas do periodo
-            metrics_query = db.supabase.table("yt_daily_metrics")\
-                .select("date, revenue, views, is_estimate")\
-                .eq("channel_id", channel_id)\
-                .gte("date", start_date)\
-                .lte("date", end_date)\
-                .order("date", desc=True)
-
-            if type_filter == "real_only":
-                metrics_query = metrics_query.eq("is_estimate", False)
-
-            metrics_response = metrics_query.execute()
-            period_data = metrics_response.data or []
+            # Buscar métricas do canal no mapa
+            period_data = metrics_by_channel.get(channel_id, [])
 
             # Agregar totais do periodo
             total_revenue = 0
