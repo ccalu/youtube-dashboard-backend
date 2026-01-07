@@ -940,24 +940,45 @@ async def get_monetization_analytics(
 def analyze_best_worst_days(cutoff_date: str, language: Optional[str] = None, subnicho: Optional[str] = None):
     """Analisa melhor e pior dia especifico do periodo com revenue total"""
     try:
-        # Buscar metricas do periodo filtrado
-        query = db.supabase.table("yt_daily_metrics")\
-            .select("date, revenue, channel_id")\
-            .gte("date", cutoff_date)
+        # Buscar IDs dos 18 canais monetizados
+        channels_response = db.supabase.table("yt_channels")\
+            .select("channel_id, channel_name")\
+            .eq("show_monetization_history", True)\
+            .execute()
 
-        metrics = query.execute()
-        data = metrics.data or []
+        monetized_channel_ids = [c['channel_id'] for c in (channels_response.data or [])]
+
+        # Buscar metricas do periodo filtrado (COM PAGINAÇÃO)
+        data = []
+        page_size = 1000
+        offset = 0
+
+        while True:
+            page_response = db.supabase.table("yt_daily_metrics")\
+                .select("date, revenue, channel_id")\
+                .in_("channel_id", monetized_channel_ids)\
+                .gte("date", cutoff_date)\
+                .range(offset, offset + page_size - 1)\
+                .execute()
+
+            page_data = page_response.data or []
+
+            if not page_data:
+                break
+
+            data.extend(page_data)
+
+            if len(page_data) < page_size:
+                break
+
+            offset += page_size
 
         if not data:
             return {"date": "N/A", "revenue": 0}, {"date": "N/A", "revenue": 0}
 
         # Se houver filtros de lingua/subnicho, precisamos filtrar canais
         if language or subnicho:
-            channels_query = db.supabase.table("yt_channels")\
-                .select("channel_id, channel_name")\
-                .eq("show_monetization_history", True)
-
-            channels = channels_query.execute().data or []
+            channels = channels_response.data or []
             filtered_channel_ids = []
 
             for ch in channels:
