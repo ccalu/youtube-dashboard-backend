@@ -176,7 +176,7 @@ async def get_monetization_summary(
         # Buscar canais monetizados
         channels_response = db.supabase.table("yt_channels")\
             .select("channel_id")\
-            .eq("is_monetized", True)\
+            .eq("show_monetization_history", True)\
             .execute()
 
         total_monetized_channels = len(channels_response.data) if channels_response.data else 0
@@ -290,7 +290,7 @@ async def get_monetization_channels(
         # Buscar canais monetizados
         channels_query = db.supabase.table("yt_channels")\
             .select("channel_id, channel_name")\
-            .eq("is_monetized", True)
+            .eq("show_monetization_history", True)
 
         channels_response = channels_query.execute()
         channels = channels_response.data or []
@@ -771,7 +771,7 @@ def analyze_best_worst_days(cutoff_date: str, language: Optional[str] = None, su
         if language or subnicho:
             channels_query = db.supabase.table("yt_channels")\
                 .select("channel_id, channel_name")\
-                .eq("is_monetized", True)
+                .eq("show_monetization_history", True)
 
             channels = channels_query.execute().data or []
             filtered_channel_ids = []
@@ -886,7 +886,7 @@ async def get_top_performers(
         # Buscar canais monetizados
         channels = db.supabase.table("yt_channels")\
             .select("channel_id, channel_name")\
-            .eq("is_monetized", True)\
+            .eq("show_monetization_history", True)\
             .execute()
 
         channels_data = channels.data or []
@@ -993,7 +993,7 @@ async def get_monetization_by_language(
         # Buscar todos os canais monetizados com língua
         channels = db.supabase.table("yt_channels")\
             .select("channel_id, channel_name")\
-            .eq("is_monetized", True)\
+            .eq("show_monetization_history", True)\
             .execute()
 
         channels_data = channels.data or []
@@ -1103,7 +1103,7 @@ async def get_monetization_by_subnicho(
         # Similar ao by-language, mas agrupa por subnicho
         channels = db.supabase.table("yt_channels")\
             .select("channel_id, channel_name")\
-            .eq("is_monetized", True)\
+            .eq("show_monetization_history", True)\
             .execute()
 
         channels_data = channels.data or []
@@ -1183,7 +1183,7 @@ async def get_monetization_config():
         # Buscar canais monetizados
         channels = db.supabase.table("yt_channels")\
             .select("channel_id, channel_name, monetization_start_date, is_monetized")\
-            .eq("is_monetized", True)\
+            .eq("show_monetization_history", True)\
             .execute()
 
         channels_data = channels.data or []
@@ -1363,7 +1363,7 @@ async def get_quality_metrics(
         # Buscar canais monetizados (sem subnicho que não existe em yt_channels)
         channels_resp = db.supabase.table("yt_channels")\
             .select("channel_id,channel_name")\
-            .eq("is_monetized", True)\
+            .eq("show_monetization_history", True)\
             .execute()
 
         if not channels_resp.data:
@@ -1751,7 +1751,7 @@ async def get_advanced_analytics(
         # Buscar canais monetizados
         channels_query = db.supabase.table("yt_channels")\
             .select("channel_id, channel_name")\
-            .eq("is_monetized", True)
+            .eq("show_monetization_history", True)
 
         if lingua:
             channels_query = channels_query.eq("lingua", lingua)
