@@ -400,18 +400,37 @@ async def get_monetization_channels(
                 'lingua': canal.get('lingua', 'N/A')
             }
 
-        # QUERY 2: Buscar TODAS as métricas do período de uma vez
-        metrics_query = db.supabase.table("yt_daily_metrics")\
-            .select("channel_id, date, revenue, views, is_estimate")\
-            .gte("date", start_date)\
-            .lte("date", end_date)\
-            .order("date", desc=True)
+        # QUERY 2: Buscar TODAS as métricas do período dos 18 canais (com paginação)
+        monetized_channel_ids = [c['channel_id'] for c in channels]
 
-        if type_filter == "real_only":
-            metrics_query = metrics_query.eq("is_estimate", False)
+        all_metrics = []
+        page_size = 1000
+        offset = 0
 
-        metrics_response = metrics_query.execute()
-        all_metrics = metrics_response.data or []
+        while True:
+            metrics_query = db.supabase.table("yt_daily_metrics")\
+                .select("channel_id, date, revenue, views, is_estimate")\
+                .in_("channel_id", monetized_channel_ids)\
+                .gte("date", start_date)\
+                .lte("date", end_date)\
+                .order("date", desc=True)\
+                .range(offset, offset + page_size - 1)
+
+            if type_filter == "real_only":
+                metrics_query = metrics_query.eq("is_estimate", False)
+
+            page_response = metrics_query.execute()
+            page_data = page_response.data or []
+
+            if not page_data:
+                break
+
+            all_metrics.extend(page_data)
+
+            if len(page_data) < page_size:
+                break
+
+            offset += page_size
 
         # Agrupar métricas por channel_id
         metrics_by_channel = {}
@@ -554,15 +573,31 @@ async def get_channel_history(channel_id: str):
         channel_name = channel_info['channel_name']
         monetization_start = channel_info.get('monetization_start_date', '2025-10-26')
 
-        # Buscar histórico completo (só dados reais)
-        history_response = db.supabase.table("yt_daily_metrics")\
-            .select("date, revenue, views, rpm")\
-            .eq("channel_id", channel_id)\
-            .eq("is_estimate", False)\
-            .order("date", desc=True)\
-            .execute()
+        # Buscar histórico completo (só dados reais) com paginação
+        history = []
+        page_size = 1000
+        offset = 0
 
-        history = history_response.data or []
+        while True:
+            page_response = db.supabase.table("yt_daily_metrics")\
+                .select("date, revenue, views, rpm")\
+                .eq("channel_id", channel_id)\
+                .eq("is_estimate", False)\
+                .order("date", desc=True)\
+                .range(offset, offset + page_size - 1)\
+                .execute()
+
+            page_data = page_response.data or []
+
+            if not page_data:
+                break
+
+            history.extend(page_data)
+
+            if len(page_data) < page_size:
+                break
+
+            offset += page_size
 
         # Calcular totais
         total_revenue_real = sum(h.get('revenue', 0) or 0 for h in history)
@@ -619,6 +654,14 @@ async def get_monetization_analytics(
     - Retencao, tempo medio, CTR
     """
     try:
+        # Buscar IDs dos 18 canais monetizados
+        channels_response = db.supabase.table("yt_channels")\
+            .select("channel_id")\
+            .eq("show_monetization_history", True)\
+            .execute()
+
+        monetized_channel_ids = [c['channel_id'] for c in (channels_response.data or [])]
+
         today = datetime.now().date()
 
         # Prioridade: month > custom dates > period
@@ -703,14 +746,23 @@ async def get_monetization_analytics(
                 comparison_start = (today - timedelta(days=60)).isoformat()
                 comparison_end = (today - timedelta(days=30)).isoformat()
 
-        # Métricas do período atual
-        current_metrics = db.supabase.table("yt_daily_metrics")\
-            .select("revenue, views, avg_retention_pct, avg_view_duration_sec, ctr_approx")\
-            .gte("date", cutoff_date)\
-            .lte("date", end_date)\
-            .execute()
-
-        current_data = current_metrics.data or []
+        # Métricas do período atual (com paginação)
+        current_data = []
+        offset = 0
+        while True:
+            page = db.supabase.table("yt_daily_metrics")\
+                .select("revenue, views, avg_retention_pct, avg_view_duration_sec, ctr_approx")\
+                .in_("channel_id", monetized_channel_ids)\
+                .gte("date", cutoff_date)\
+                .lte("date", end_date)\
+                .range(offset, offset + 999)\
+                .execute()
+            if not page.data:
+                break
+            current_data.extend(page.data)
+            if len(page.data) < 1000:
+                break
+            offset += 1000
         current_revenue = sum(m.get('revenue', 0) or 0 for m in current_data)
 
         # Métricas do período de comparação (se aplicável)
@@ -718,13 +770,22 @@ async def get_monetization_analytics(
         growth_pct = 0.0
 
         if comparison_start and comparison_end:
-            previous_metrics = db.supabase.table("yt_daily_metrics")\
-                .select("revenue")\
-                .gte("date", comparison_start)\
-                .lte("date", comparison_end)\
-                .execute()
-
-            previous_data = previous_metrics.data or []
+            previous_data = []
+            offset = 0
+            while True:
+                page = db.supabase.table("yt_daily_metrics")\
+                    .select("revenue")\
+                    .in_("channel_id", monetized_channel_ids)\
+                    .gte("date", comparison_start)\
+                    .lte("date", comparison_end)\
+                    .range(offset, offset + 999)\
+                    .execute()
+                if not page.data:
+                    break
+                previous_data.extend(page.data)
+                if len(page.data) < 1000:
+                    break
+                offset += 1000
             previous_revenue = sum(m.get('revenue', 0) or 0 for m in previous_data)
 
             # Calcular crescimento
@@ -735,18 +796,40 @@ async def get_monetization_analytics(
         seven_days_ago = (today - timedelta(days=7)).isoformat()
         fourteen_days_ago = (today - timedelta(days=14)).isoformat()
 
-        seven_day_metrics = db.supabase.table("yt_daily_metrics")\
-            .select("revenue")\
-            .gte("date", seven_days_ago)\
-            .execute()
-        seven_day_revenue = sum(m.get('revenue', 0) or 0 for m in (seven_day_metrics.data or []))
+        seven_day_data = []
+        offset = 0
+        while True:
+            page = db.supabase.table("yt_daily_metrics")\
+                .select("revenue")\
+                .in_("channel_id", monetized_channel_ids)\
+                .gte("date", seven_days_ago)\
+                .range(offset, offset + 999)\
+                .execute()
+            if not page.data:
+                break
+            seven_day_data.extend(page.data)
+            if len(page.data) < 1000:
+                break
+            offset += 1000
+        seven_day_revenue = sum(m.get('revenue', 0) or 0 for m in seven_day_data)
 
-        seven_day_prev_metrics = db.supabase.table("yt_daily_metrics")\
-            .select("revenue")\
-            .gte("date", fourteen_days_ago)\
-            .lt("date", seven_days_ago)\
-            .execute()
-        seven_day_prev_revenue = sum(m.get('revenue', 0) or 0 for m in (seven_day_prev_metrics.data or []))
+        seven_day_prev_data = []
+        offset = 0
+        while True:
+            page = db.supabase.table("yt_daily_metrics")\
+                .select("revenue")\
+                .in_("channel_id", monetized_channel_ids)\
+                .gte("date", fourteen_days_ago)\
+                .lt("date", seven_days_ago)\
+                .range(offset, offset + 999)\
+                .execute()
+            if not page.data:
+                break
+            seven_day_prev_data.extend(page.data)
+            if len(page.data) < 1000:
+                break
+            offset += 1000
+        seven_day_prev_revenue = sum(m.get('revenue', 0) or 0 for m in seven_day_prev_data)
 
         seven_day_growth = round(((seven_day_revenue - seven_day_prev_revenue) / seven_day_prev_revenue) * 100, 1) if seven_day_prev_revenue > 0 else 0.0
 
@@ -766,25 +849,45 @@ async def get_monetization_analytics(
 
         # Calcular crescimento mensal
         thirty_days_ago = (today - timedelta(days=30)).isoformat()
-        last_month_metrics = db.supabase.table("yt_daily_metrics")\
-            .select("revenue")\
-            .gte("date", thirty_days_ago)\
-            .execute()
+        last_month_data = []
+        offset = 0
+        while True:
+            page = db.supabase.table("yt_daily_metrics")\
+                .select("revenue")\
+                .in_("channel_id", monetized_channel_ids)\
+                .gte("date", thirty_days_ago)\
+                .range(offset, offset + 999)\
+                .execute()
+            if not page.data:
+                break
+            last_month_data.extend(page.data)
+            if len(page.data) < 1000:
+                break
+            offset += 1000
 
-        last_month_revenue = sum(m.get('revenue', 0) or 0 for m in (last_month_metrics.data or []))
+        last_month_revenue = sum(m.get('revenue', 0) or 0 for m in last_month_data)
         growth_vs_last_month = round(((projection_monthly - last_month_revenue) / last_month_revenue) * 100, 1) if last_month_revenue > 0 else 0.0
 
         # Melhor/pior dia especifico baseado no periodo e filtros
         best_day, worst_day = analyze_best_worst_days(cutoff_date, language, subnicho)
 
         # Métricas de analytics (média do período selecionado)
-        analytics_metrics = db.supabase.table("yt_daily_metrics")\
-            .select("avg_retention_pct, avg_view_duration_sec, ctr_approx")\
-            .gte("date", cutoff_date)\
-            .lte("date", end_date)\
-            .execute()
-
-        analytics_data = analytics_metrics.data or []
+        analytics_data = []
+        offset = 0
+        while True:
+            page = db.supabase.table("yt_daily_metrics")\
+                .select("avg_retention_pct, avg_view_duration_sec, ctr_approx")\
+                .in_("channel_id", monetized_channel_ids)\
+                .gte("date", cutoff_date)\
+                .lte("date", end_date)\
+                .range(offset, offset + 999)\
+                .execute()
+            if not page.data:
+                break
+            analytics_data.extend(page.data)
+            if len(page.data) < 1000:
+                break
+            offset += 1000
 
         # Filtrar valores não nulos e calcular médias
         retention_values = [m['avg_retention_pct'] for m in analytics_data if m.get('avg_retention_pct')]
@@ -967,16 +1070,24 @@ async def get_top_performers(
             channel_id = channel['channel_id']
             channel_name = channel['channel_name']
 
-            # Métricas do período
-            metrics = db.supabase.table("yt_daily_metrics")\
-                .select("revenue, views")\
-                .eq("channel_id", channel_id)\
-                .eq("is_estimate", False)\
-                .gte("date", cutoff_date)\
-                .lte("date", end_date)\
-                .execute()
-
-            data = metrics.data or []
+            # Métricas do período (com paginação)
+            data = []
+            offset = 0
+            while True:
+                page = db.supabase.table("yt_daily_metrics")\
+                    .select("revenue, views")\
+                    .eq("channel_id", channel_id)\
+                    .eq("is_estimate", False)\
+                    .gte("date", cutoff_date)\
+                    .lte("date", end_date)\
+                    .range(offset, offset + 999)\
+                    .execute()
+                if not page.data:
+                    break
+                data.extend(page.data)
+                if len(page.data) < 1000:
+                    break
+                offset += 1000
 
             total_revenue = sum(m.get('revenue', 0) or 0 for m in data)
             total_views = sum(m.get('views', 0) or 0 for m in data)
@@ -1086,15 +1197,23 @@ async def get_monetization_by_language(
 
             lingua = canal_info.data[0].get('lingua', 'N/A')
 
-            # Buscar métricas
-            metrics = db.supabase.table("yt_daily_metrics")\
-                .select("revenue, views")\
-                .eq("channel_id", channel_id)\
-                .gte("date", cutoff_date)\
-                .lte("date", end_date)\
-                .execute()
-
-            data = metrics.data or []
+            # Buscar métricas (com paginação)
+            data = []
+            offset = 0
+            while True:
+                page = db.supabase.table("yt_daily_metrics")\
+                    .select("revenue, views")\
+                    .eq("channel_id", channel_id)\
+                    .gte("date", cutoff_date)\
+                    .lte("date", end_date)\
+                    .range(offset, offset + 999)\
+                    .execute()
+                if not page.data:
+                    break
+                data.extend(page.data)
+                if len(page.data) < 1000:
+                    break
+                offset += 1000
 
             revenue = sum(m.get('revenue', 0) or 0 for m in data)
             views = sum(m.get('views', 0) or 0 for m in data)
@@ -1195,15 +1314,23 @@ async def get_monetization_by_subnicho(
 
             subnicho = canal_info.data[0].get('subnicho', 'Outros')
 
-            # Buscar métricas
-            metrics = db.supabase.table("yt_daily_metrics")\
-                .select("revenue, views")\
-                .eq("channel_id", channel_id)\
-                .gte("date", cutoff_date)\
-                .lte("date", end_date)\
-                .execute()
-
-            data = metrics.data or []
+            # Buscar métricas (com paginação)
+            data = []
+            offset = 0
+            while True:
+                page = db.supabase.table("yt_daily_metrics")\
+                    .select("revenue, views")\
+                    .eq("channel_id", channel_id)\
+                    .gte("date", cutoff_date)\
+                    .lte("date", end_date)\
+                    .range(offset, offset + 999)\
+                    .execute()
+                if not page.data:
+                    break
+                data.extend(page.data)
+                if len(page.data) < 1000:
+                    break
+                offset += 1000
 
             revenue = sum(m.get('revenue', 0) or 0 for m in data)
             views = sum(m.get('views', 0) or 0 for m in data)
@@ -1297,6 +1424,14 @@ async def get_revenue_24h():
     - estimate: estimativa do dia atual
     """
     try:
+        # Buscar IDs dos 18 canais monetizados
+        channels_response = db.supabase.table("yt_channels")\
+            .select("channel_id")\
+            .eq("show_monetization_history", True)\
+            .execute()
+
+        monetized_channel_ids = [c['channel_id'] for c in (channels_response.data or [])]
+
         today = datetime.now().date()
 
         # Buscar ultima data com dados reais (is_estimate=false)
@@ -1311,29 +1446,45 @@ async def get_revenue_24h():
         if last_real_query.data:
             last_real_date = last_real_query.data[0]['date']
 
-        # Revenue real (ultima coleta)
+        # Revenue real (ultima coleta) com paginação
         real_revenue = 0
         if last_real_date:
-            real_metrics = db.supabase.table("yt_daily_metrics")\
-                .select("revenue")\
-                .eq("date", last_real_date)\
-                .eq("is_estimate", False)\
-                .execute()
+            offset = 0
+            while True:
+                page = db.supabase.table("yt_daily_metrics")\
+                    .select("revenue")\
+                    .in_("channel_id", monetized_channel_ids)\
+                    .eq("date", last_real_date)\
+                    .eq("is_estimate", False)\
+                    .range(offset, offset + 999)\
+                    .execute()
+                if not page.data:
+                    break
+                for item in page.data:
+                    real_revenue += item.get('revenue', 0) or 0
+                if len(page.data) < 1000:
+                    break
+                offset += 1000
 
-            for item in real_metrics.data or []:
-                real_revenue += item.get('revenue', 0) or 0
-
-        # Buscar dados estimados de ONTEM (D-1)
+        # Buscar dados estimados de ONTEM (D-1) com paginação
         yesterday = (today - timedelta(days=1)).isoformat()
-        estimate_metrics = db.supabase.table("yt_daily_metrics")\
-            .select("revenue")\
-            .eq("date", yesterday)\
-            .eq("is_estimate", True)\
-            .execute()
-
         estimate_revenue = 0
-        for item in estimate_metrics.data or []:
-            estimate_revenue += item.get('revenue', 0) or 0
+        offset = 0
+        while True:
+            page = db.supabase.table("yt_daily_metrics")\
+                .select("revenue")\
+                .in_("channel_id", monetized_channel_ids)\
+                .eq("date", yesterday)\
+                .eq("is_estimate", True)\
+                .range(offset, offset + 999)\
+                .execute()
+            if not page.data:
+                break
+            for item in page.data:
+                estimate_revenue += item.get('revenue', 0) or 0
+            if len(page.data) < 1000:
+                break
+            offset += 1000
 
         # Formatar datas
         real_date_formatted = "N/A"
@@ -1465,25 +1616,35 @@ async def get_quality_metrics(
 
             for channel in channels:
                 try:
-                    # Buscar métricas REAIS do período incluindo retenção
-                    metrics_resp = db.supabase.table("yt_daily_metrics")\
-                        .select("views,revenue,avg_retention_pct,avg_view_duration_sec")\
-                        .eq("channel_id", channel["channel_id"])\
-                        .gte("date", start_date)\
-                        .lte("date", end_date)\
-                        .execute()
+                    # Buscar métricas REAIS do período incluindo retenção (com paginação)
+                    metrics_data_all = []
+                    offset = 0
+                    while True:
+                        page = db.supabase.table("yt_daily_metrics")\
+                            .select("views,revenue,avg_retention_pct,avg_view_duration_sec")\
+                            .eq("channel_id", channel["channel_id"])\
+                            .gte("date", start_date)\
+                            .lte("date", end_date)\
+                            .range(offset, offset + 999)\
+                            .execute()
+                        if not page.data:
+                            break
+                        metrics_data_all.extend(page.data)
+                        if len(page.data) < 1000:
+                            break
+                        offset += 1000
 
-                    if metrics_resp.data and len(metrics_resp.data) > 0:
+                    if metrics_data_all and len(metrics_data_all) > 0:
                         # Calcular médias ponderadas pelos views
-                        total_views = sum(m.get("views", 0) for m in metrics_resp.data)
-                        total_revenue = sum(m.get("revenue", 0) for m in metrics_resp.data)
+                        total_views = sum(m.get("views", 0) for m in metrics_data_all)
+                        total_revenue = sum(m.get("revenue", 0) for m in metrics_data_all)
 
                         # Coletar métricas de retenção (ponderar por views)
                         weighted_retention = 0
                         weighted_duration = 0
                         valid_retention_count = 0
 
-                        for metric in metrics_resp.data:
+                        for metric in metrics_data_all:
                             views = metric.get("views", 0)
                             if views > 0:
                                 # Retenção
@@ -1606,52 +1767,105 @@ async def get_advanced_analytics(
 
         # Se channel_id específico, retornar detalhes do canal
         if channel_id:
-            # Traffic Sources
-            traffic_query = db.supabase.table("yt_traffic_summary")\
-                .select("*")\
-                .eq("channel_id", channel_id)\
-                .gte("date", start_str)\
-                .lte("date", end_str)\
-                .order("views", desc=True)
-            traffic_data = traffic_query.execute()
+            # Traffic Sources (com paginação)
+            traffic_all = []
+            offset = 0
+            while True:
+                page = db.supabase.table("yt_traffic_summary")\
+                    .select("*")\
+                    .eq("channel_id", channel_id)\
+                    .gte("date", start_str)\
+                    .lte("date", end_str)\
+                    .order("views", desc=True)\
+                    .range(offset, offset + 999)\
+                    .execute()
+                if not page.data:
+                    break
+                traffic_all.extend(page.data)
+                if len(page.data) < 1000:
+                    break
+                offset += 1000
+            traffic_data = type('obj', (object,), {'data': traffic_all})()
 
-            # Search Terms
-            search_query = db.supabase.table("yt_search_analytics")\
-                .select("*")\
-                .eq("channel_id", channel_id)\
-                .gte("date", start_str)\
-                .lte("date", end_str)\
-                .order("views", desc=True)\
-                .limit(10)
-            search_data = search_query.execute()
+            # Search Terms (com paginação)
+            search_all = []
+            offset = 0
+            while True:
+                page = db.supabase.table("yt_search_analytics")\
+                    .select("*")\
+                    .eq("channel_id", channel_id)\
+                    .gte("date", start_str)\
+                    .lte("date", end_str)\
+                    .order("views", desc=True)\
+                    .range(offset, offset + 999)\
+                    .execute()
+                if not page.data:
+                    break
+                search_all.extend(page.data)
+                if len(page.data) < 1000:
+                    break
+                offset += 1000
+            search_data = type('obj', (object,), {'data': search_all})()
 
-            # Suggested Videos
-            suggested_query = db.supabase.table("yt_suggested_sources")\
-                .select("*")\
-                .eq("channel_id", channel_id)\
-                .gte("date", start_str)\
-                .lte("date", end_str)\
-                .order("views_generated", desc=True)\
-                .limit(10)
-            suggested_data = suggested_query.execute()
+            # Suggested Videos (com paginação)
+            suggested_all = []
+            offset = 0
+            while True:
+                page = db.supabase.table("yt_suggested_sources")\
+                    .select("*")\
+                    .eq("channel_id", channel_id)\
+                    .gte("date", start_str)\
+                    .lte("date", end_str)\
+                    .order("views_generated", desc=True)\
+                    .range(offset, offset + 999)\
+                    .execute()
+                if not page.data:
+                    break
+                suggested_all.extend(page.data)
+                if len(page.data) < 1000:
+                    break
+                offset += 1000
+            suggested_data = type('obj', (object,), {'data': suggested_all})()
 
-            # Demographics
-            demo_query = db.supabase.table("yt_demographics")\
-                .select("*")\
-                .eq("channel_id", channel_id)\
-                .gte("date", start_str)\
-                .lte("date", end_str)\
-                .order("percentage", desc=True)
-            demo_data = demo_query.execute()
+            # Demographics (com paginação)
+            demo_all = []
+            offset = 0
+            while True:
+                page = db.supabase.table("yt_demographics")\
+                    .select("*")\
+                    .eq("channel_id", channel_id)\
+                    .gte("date", start_str)\
+                    .lte("date", end_str)\
+                    .order("percentage", desc=True)\
+                    .range(offset, offset + 999)\
+                    .execute()
+                if not page.data:
+                    break
+                demo_all.extend(page.data)
+                if len(page.data) < 1000:
+                    break
+                offset += 1000
+            demo_data = type('obj', (object,), {'data': demo_all})()
 
-            # Devices
-            device_query = db.supabase.table("yt_device_metrics")\
-                .select("*")\
-                .eq("channel_id", channel_id)\
-                .gte("date", start_str)\
-                .lte("date", end_str)\
-                .order("views", desc=True)
-            device_data = device_query.execute()
+            # Devices (com paginação)
+            device_all = []
+            offset = 0
+            while True:
+                page = db.supabase.table("yt_device_metrics")\
+                    .select("*")\
+                    .eq("channel_id", channel_id)\
+                    .gte("date", start_str)\
+                    .lte("date", end_str)\
+                    .order("views", desc=True)\
+                    .range(offset, offset + 999)\
+                    .execute()
+                if not page.data:
+                    break
+                device_all.extend(page.data)
+                if len(page.data) < 1000:
+                    break
+                offset += 1000
+            device_data = type('obj', (object,), {'data': device_all})()
 
             # Buscar info do canal
             channel_info = db.supabase.table("yt_channels")\
