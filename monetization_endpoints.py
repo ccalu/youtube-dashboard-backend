@@ -185,17 +185,34 @@ async def get_monetization_summary(
         monetized_channel_ids = [c['channel_id'] for c in (channels_response.data or [])]
 
         # Buscar métricas do período APENAS dos 18 canais visíveis
-        query = db.supabase.table("yt_daily_metrics")\
-            .select("revenue, views, channel_id, is_estimate")\
-            .in_("channel_id", monetized_channel_ids)\
-            .gte("date", start_date)\
-            .lte("date", end_date)
+        # Supabase tem limit de 1000 registros, então usamos paginação
+        metrics = []
+        page_size = 1000
+        offset = 0
 
-        if type_filter == "real_only":
-            query = query.eq("is_estimate", False)
+        while True:
+            query = db.supabase.table("yt_daily_metrics")\
+                .select("revenue, views, channel_id, is_estimate")\
+                .in_("channel_id", monetized_channel_ids)\
+                .gte("date", start_date)\
+                .lte("date", end_date)\
+                .range(offset, offset + page_size - 1)
 
-        metrics_response = query.execute()
-        metrics = metrics_response.data or []
+            if type_filter == "real_only":
+                query = query.eq("is_estimate", False)
+
+            page_response = query.execute()
+            page_data = page_response.data or []
+
+            if not page_data:
+                break
+
+            metrics.extend(page_data)
+
+            if len(page_data) < page_size:
+                break
+
+            offset += page_size
 
         # Calcular totais
         total_revenue = sum(m.get('revenue', 0) or 0 for m in metrics)
@@ -235,24 +252,50 @@ async def get_monetization_summary(
         if period in ["7d", "15d", "30d", "total"]:
             # Período atual (últimos 7 dias) - APENAS dos 18 canais visíveis
             current_start = (today - timedelta(days=7)).isoformat()
-            current_metrics = db.supabase.table("yt_daily_metrics")\
-                .select("revenue")\
-                .in_("channel_id", monetized_channel_ids)\
-                .gte("date", current_start)\
-                .execute()
+
+            # Buscar com paginação
+            current_data = []
+            offset = 0
+            while True:
+                result = db.supabase.table("yt_daily_metrics")\
+                    .select("revenue")\
+                    .in_("channel_id", monetized_channel_ids)\
+                    .gte("date", current_start)\
+                    .range(offset, offset + 999)\
+                    .execute()
+
+                if not result.data:
+                    break
+                current_data.extend(result.data)
+                if len(result.data) < 1000:
+                    break
+                offset += 1000
 
             # Período anterior (7 dias antes) - APENAS dos 18 canais visíveis
             previous_start = (today - timedelta(days=14)).isoformat()
             previous_end = current_start
-            previous_metrics = db.supabase.table("yt_daily_metrics")\
-                .select("revenue")\
-                .in_("channel_id", monetized_channel_ids)\
-                .gte("date", previous_start)\
-                .lt("date", previous_end)\
-                .execute()
 
-            current_revenue = sum(m.get('revenue', 0) or 0 for m in (current_metrics.data or []))
-            previous_revenue = sum(m.get('revenue', 0) or 0 for m in (previous_metrics.data or []))
+            # Buscar com paginação
+            previous_data = []
+            offset = 0
+            while True:
+                result = db.supabase.table("yt_daily_metrics")\
+                    .select("revenue")\
+                    .in_("channel_id", monetized_channel_ids)\
+                    .gte("date", previous_start)\
+                    .lt("date", previous_end)\
+                    .range(offset, offset + 999)\
+                    .execute()
+
+                if not result.data:
+                    break
+                previous_data.extend(result.data)
+                if len(result.data) < 1000:
+                    break
+                offset += 1000
+
+            current_revenue = sum(m.get('revenue', 0) or 0 for m in current_data)
+            previous_revenue = sum(m.get('revenue', 0) or 0 for m in previous_data)
 
             if previous_revenue > 0:
                 growth_rate = round(((current_revenue - previous_revenue) / previous_revenue) * 100, 1)
