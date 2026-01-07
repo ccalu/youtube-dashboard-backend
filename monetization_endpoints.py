@@ -571,7 +571,7 @@ async def get_channel_history(channel_id: str):
 
         channel_info = channel_response.data[0]
         channel_name = channel_info['channel_name']
-        monetization_start = channel_info.get('monetization_start_date', '2025-10-26')
+        monetization_start_raw = channel_info.get('monetization_start_date', '2025-10-26')
 
         # Buscar histórico completo (só dados reais) com paginação
         history = []
@@ -605,7 +605,19 @@ async def get_channel_history(channel_id: str):
 
         # Calcular dias monetizados
         today = datetime.now().date()
-        start_date = date.fromisoformat(monetization_start)
+
+        # Garantir que monetization_start é uma string válida
+        if isinstance(monetization_start_raw, date):
+            start_date = monetization_start_raw
+            monetization_start = monetization_start_raw.isoformat()
+        elif isinstance(monetization_start_raw, str) and monetization_start_raw:
+            start_date = date.fromisoformat(monetization_start_raw)
+            monetization_start = monetization_start_raw
+        else:
+            # Fallback para data padrão
+            monetization_start = '2025-10-26'
+            start_date = date.fromisoformat(monetization_start)
+
         days_monetized = (today - start_date).days + 1
 
         return {
