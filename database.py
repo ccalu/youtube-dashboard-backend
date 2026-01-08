@@ -12,12 +12,22 @@ class SupabaseClient:
     def __init__(self):
         url = os.environ.get("SUPABASE_URL")
         key = os.environ.get("SUPABASE_KEY")
-        
+        service_role_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+
         if not url or not key:
             raise ValueError("SUPABASE_URL and SUPABASE_KEY environment variables are required")
-        
+
+        # Client principal (anon key) - para tabelas normais
         self.supabase: Client = create_client(url, key)
-        logger.info("Supabase client initialized")
+
+        # Client service_role (OPCIONAL) - para tabelas OAuth protegidas com RLS
+        # Usado para acessar: yt_oauth_tokens, yt_proxy_credentials, yt_channel_credentials
+        if service_role_key:
+            self.supabase_service: Client = create_client(url, service_role_key)
+            logger.info("Supabase clients initialized (anon + service_role)")
+        else:
+            self.supabase_service = None
+            logger.info("Supabase client initialized (anon only - service_role not configured)")
 
     async def test_connection(self):
         try:
