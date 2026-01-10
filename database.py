@@ -327,18 +327,18 @@ class SupabaseClient:
                         # Dados mais recentes (hoje)
                         h_hoje = historico_por_canal[item["id"]][datas_disponiveis[0]]
 
-                        canal["views_30d"] = h_hoje.get("views_30d", 0)
-                        canal["views_15d"] = h_hoje.get("views_15d", 0)
-                        canal["views_7d"] = h_hoje.get("views_7d", 0)
-                        canal["inscritos"] = h_hoje.get("inscritos", 0)
-                        canal["engagement_rate"] = h_hoje.get("engagement_rate", 0.0)
-                        canal["videos_publicados_7d"] = h_hoje.get("videos_publicados_7d", 0)
+                        canal["views_30d"] = h_hoje.get("views_30d") or 0
+                        canal["views_15d"] = h_hoje.get("views_15d") or 0
+                        canal["views_7d"] = h_hoje.get("views_7d") or 0
+                        canal["inscritos"] = h_hoje.get("inscritos") or 0
+                        canal["engagement_rate"] = h_hoje.get("engagement_rate") or 0.0
+                        canal["videos_publicados_7d"] = h_hoje.get("videos_publicados_7d") or 0
 
                         # 🆕 Calcular diferença de inscritos (hoje vs ontem)
                         if len(datas_disponiveis) >= 2:
                             h_ontem = historico_por_canal[item["id"]][datas_disponiveis[1]]
-                            inscritos_hoje = h_hoje.get("inscritos", 0)
-                            inscritos_ontem = h_ontem.get("inscritos", 0)
+                            inscritos_hoje = h_hoje.get("inscritos") or 0
+                            inscritos_ontem = h_ontem.get("inscritos") or 0
                             canal["inscritos_diff"] = inscritos_hoje - inscritos_ontem
                     
                     # Calcular score
