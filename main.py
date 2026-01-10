@@ -465,7 +465,7 @@ async def get_canais_tabela():
         # Ordem secundária: maior número de inscritos (tiebreaker)
         def sort_key(canal):
             diff = canal['inscritos_diff']
-            inscritos = canal['inscritos']
+            inscritos = canal['inscritos'] or 0  # FIX: None → 0
 
             # Estratégia de ordenação:
             # 1. null por último (categoria 3)
