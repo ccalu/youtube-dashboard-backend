@@ -27,6 +27,11 @@ if ! git rev-parse --git-dir > /dev/null 2>&1; then
     exit 1
 fi
 
+# Mostrar informacao da ultima sincronizacao
+echo "[INFO] Ultima sincronizacao:"
+git log -1 --pretty=format:"       %s%n       📅 %ad%n       🔗 %h - %ar%n"
+echo ""
+
 echo "[1/5] Verificando status local..."
 git status --short
 
@@ -52,7 +57,7 @@ if git diff-index --quiet HEAD --; then
     echo "         Nenhuma mudanca para commitar."
 else
     TIMESTAMP=$(date "+%Y-%m-%d %H:%M:%S")
-    git commit -m "docs: Update documentation - $TIMESTAMP"
+    git commit -m "sync: deu boa - Mac Casa [$TIMESTAMP]"
 fi
 
 echo ""

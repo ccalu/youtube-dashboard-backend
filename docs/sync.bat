@@ -28,6 +28,13 @@ if %ERRORLEVEL% NEQ 0 (
     exit /b 1
 )
 
+REM Mostrar informacao da ultima sincronizacao
+echo [INFO] Ultima sincronizacao:
+for /f "tokens=*" %%a in ('git log -1 --pretty^=format:"       %%s"') do echo %%a
+for /f "tokens=*" %%b in ('git log -1 --pretty^=format:"       %%ad"') do echo        📅 %%b
+for /f "tokens=*" %%c in ('git log -1 --pretty^=format:"%%h - %%ar"') do echo        🔗 %%c
+echo.
+
 echo [1/5] Verificando status local...
 git status --short
 
@@ -54,7 +61,7 @@ git diff-index --quiet HEAD --
 if %ERRORLEVEL% EQU 0 (
     echo         Nenhuma mudanca para commitar.
 ) else (
-    git commit -m "docs: Update documentation - %date% %time%"
+    git commit -m "sync: deu boa - PC Escritorio [%date% %time%]"
 )
 
 echo.
