@@ -1,0 +1,18 @@
+🧪 TESTE DE SYNC - lucca homonideo
+
+Este arquivo foi criado para testar a sincronização entre PCs!
+
+📍 Criado em: PC Escritório
+📅 Data/Hora: 13/01/2026 - 18:30
+🎯 Objetivo: Verificar se sync.bat funciona corretamente
+
+✅ Se você está vendo este arquivo no Mac, significa que:
+   1. O sync.bat funcionou perfeitamente ✅
+   2. GitHub recebeu o commit ✅
+   3. O pull trouxe o arquivo novo ✅
+   4. Sistema de sync está 100% operacional! 🚀
+
+🔥 Mensagem especial: lucca homonideo está no comando!
+
+---
+Teste realizado com sucesso via Claude Code
