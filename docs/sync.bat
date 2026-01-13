@@ -45,9 +45,7 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo.
 echo [3/5] Adicionando mudancas locais...
-git add docs/
-git add README.md
-git add sync.bat
+git add .
 
 echo.
 echo [4/5] Criando commit com suas mudancas...

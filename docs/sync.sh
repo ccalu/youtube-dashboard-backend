@@ -43,10 +43,7 @@ fi
 
 echo ""
 echo "[3/5] Adicionando mudancas locais..."
-git add docs/
-git add README.md
-git add sync.bat
-git add sync.sh
+git add .
 
 echo ""
 echo "[4/5] Criando commit com suas mudancas..."

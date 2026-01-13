@@ -51,3 +51,28 @@ client_secret*.json
 # docs/ local git (quando copiada independentemente)
 docs/.git/
 docs/.gitignore
+
+# Pastas de arquivos temporários e testes
+scripts-temp/
+backups/
+debug/
+monetization_dashboard/
+
+# Padrões de arquivos temporários (caso fiquem fora das pastas)
+test_*.py
+check_*.py
+validar_*.py
+verificar_*.py
+verify_*.py
+investigar_*.py
+diagnostico_*.py
+diagnosticar_*.py
+*_backup*.json
+oauth_backup_*.json
+*investigation*.json
+*analysis*.json
+delete_*.py
+fix_*.py
+execute_*.py
+limpar_*.py
+identificar_*.py

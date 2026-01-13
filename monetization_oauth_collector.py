@@ -39,11 +39,15 @@ log = logging.getLogger(__name__)
 # =============================================================================
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://prvkmzstyedepvlbppyo.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBydmttenN0eWVkZXB2bGJwcHlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQxNDY3MTQsImV4cCI6MjA1OTcyMjcxNH0.T0aspHrF0tz1G6iVOBIO3zgvs1g5vvQcb25jhGriQGo")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
-# Headers para Supabase
+# Usar service_role_key para acessar tabelas OAuth protegidas com RLS
+AUTH_KEY = SUPABASE_SERVICE_ROLE_KEY if SUPABASE_SERVICE_ROLE_KEY else SUPABASE_KEY
+
+# Headers para Supabase (usar AUTH_KEY para bypass RLS)
 SUPABASE_HEADERS = {
-    "apikey": SUPABASE_KEY,
-    "Authorization": f"Bearer {SUPABASE_KEY}",
+    "apikey": AUTH_KEY,
+    "Authorization": f"Bearer {AUTH_KEY}",
     "Content-Type": "application/json",
     "Prefer": "resolution=merge-duplicates,return=minimal"
 }
@@ -57,7 +61,7 @@ def get_channels():
     resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/yt_channels",
         params={"is_monetized": "eq.true"},
-        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+        headers={"apikey": AUTH_KEY, "Authorization": f"Bearer {AUTH_KEY}"}
     )
     if resp.status_code == 200:
         return resp.json()
@@ -69,7 +73,7 @@ def get_tokens(channel_id):
     resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/yt_oauth_tokens",
         params={"channel_id": f"eq.{channel_id}"},
-        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+        headers={"apikey": AUTH_KEY, "Authorization": f"Bearer {AUTH_KEY}"}
     )
     if resp.status_code == 200 and resp.json():
         return resp.json()[0]
@@ -80,11 +84,23 @@ def get_proxy_credentials(proxy_name):
     resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/yt_proxy_credentials",
         params={"proxy_name": f"eq.{proxy_name}"},
-        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+        headers={"apikey": AUTH_KEY, "Authorization": f"Bearer {AUTH_KEY}"}
     )
     if resp.status_code == 200 and resp.json():
         return resp.json()[0]
     log.error(f"Credenciais nao encontradas para proxy {proxy_name}")
+    return None
+
+def get_channel_credentials(channel_id):
+    """Busca credenciais OAuth isoladas do canal"""
+    resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/yt_channel_credentials",
+        params={"channel_id": f"eq.{channel_id}"},
+        headers={"apikey": AUTH_KEY, "Authorization": f"Bearer {AUTH_KEY}"}
+    )
+    if resp.status_code == 200 and resp.json():
+        return resp.json()[0]
+    log.error(f"Credenciais isoladas nao encontradas para canal {channel_id}")
     return None
 
 def refresh_access_token(refresh_token, client_id, client_secret):
@@ -715,18 +731,29 @@ async def collect_oauth_metrics():
     for channel in channels:
         channel_id = channel["channel_id"]
         channel_name = channel.get("channel_name", channel_id)
-        proxy_name = channel.get("proxy_name", "C000.1")
+        proxy_name = channel.get("proxy_name")
 
-        log.info(f"\n[{channel_name}] Iniciando coleta OAuth... (proxy: {proxy_name})")
+        if proxy_name:
+            log.info(f"\n[{channel_name}] Iniciando coleta OAuth... (proxy: {proxy_name})")
+        else:
+            log.info(f"\n[{channel_name}] Iniciando coleta OAuth... (credenciais isoladas)")
 
         try:
-            # Buscar credenciais do proxy
-            credentials = get_proxy_credentials(proxy_name)
-            if not credentials:
-                log.error(f"[{channel_name}] Credenciais do proxy {proxy_name} não encontradas!")
-                log_collection(channel_id, "error", f"Credenciais proxy {proxy_name} não encontradas")
-                error_count += 1
-                continue
+            # Buscar credenciais (proxy ou isoladas)
+            if proxy_name:
+                credentials = get_proxy_credentials(proxy_name)
+                if not credentials:
+                    log.error(f"[{channel_name}] Credenciais do proxy {proxy_name} não encontradas!")
+                    log_collection(channel_id, "error", f"Credenciais proxy {proxy_name} não encontradas")
+                    error_count += 1
+                    continue
+            else:
+                credentials = get_channel_credentials(channel_id)
+                if not credentials:
+                    log.error(f"[{channel_name}] Credenciais isoladas não encontradas!")
+                    log_collection(channel_id, "error", "Credenciais isoladas não encontradas")
+                    error_count += 1
+                    continue
 
             # Buscar tokens
             tokens = get_tokens(channel_id)

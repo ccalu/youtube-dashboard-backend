@@ -64,6 +64,54 @@ Arthur/Cellibs/Micha (usuários)
 
 ---
 
+## 🗂️ Organização de Arquivos
+
+O repositório está organizado de forma limpa e profissional:
+
+### **Pastas Principais:**
+```
+youtube-dashboard-backend/
+├── docs/                   ← Documentação completa (600+ KB, 15.5k linhas)
+├── yt_uploader/            ← Sistema de upload automático
+├── monetization_dashboard/ ← Dashboard de monetização
+├── migrations/             ← Migrações de database
+│
+├── scripts-temp/           ← Scripts de teste (NÃO vão pro Git)
+├── backups/                ← Backups OAuth (NÃO vão pro Git)
+├── debug/                  ← Arquivos debug (NÃO vão pro Git)
+│
+└── (arquivos principais na raiz)
+```
+
+### **Arquivos Principais (Raiz):**
+- `main.py` - FastAPI app + endpoints (1122 linhas)
+- `collector.py` - Coletor YouTube (792 linhas)
+- `database.py` - Conexão Supabase
+- `notifier.py` - Sistema de notificações (449 linhas)
+- `monetization_collector.py` - Coleta de receita (311 linhas)
+- `monetization_endpoints.py` - Endpoints OAuth (2233 linhas)
+- `financeiro.py` - Sistema financeiro
+- `requirements.txt` - Dependências Python
+
+### **O Que Vai/Não Vai para o Git:**
+
+✅ **VAI (sincroniza entre PCs):**
+- Código Python principal (main.py, collector.py, etc)
+- Documentação completa (docs/)
+- Configurações (.gitignore, requirements.txt)
+- Pastas de código (yt_uploader/, monetization_dashboard/, migrations/)
+
+❌ **NÃO VAI (ignorado pelo .gitignore):**
+- Scripts de teste (scripts-temp/)
+- Backups de OAuth (backups/)
+- Arquivos de debug/investigação (debug/)
+- Credenciais (.env, tokens*.json)
+- Arquivos temporários (*.tmp, *.log)
+
+**Resultado:** Repositório limpo, só com o essencial! 🎯
+
+---
+
 ## 📚 DOCUMENTAÇÃO COMPLETA
 
 **Toda a documentação está em [`docs/`](./docs/)**
@@ -84,6 +132,10 @@ open docs/DASHBOARD_DOCUMENTATION.html
 2. **[01_CONTENT_FACTORY_VISAO_GERAL.md](./docs/documentacao-completa/01_CONTENT_FACTORY_VISAO_GERAL.md)** - Contexto de negócio
 3. **[03_DASHBOARD_PROPOSTA_VALOR.md](./docs/documentacao-completa/03_DASHBOARD_PROPOSTA_VALOR.md)** - Por que este sistema existe
 4. **[FRONTEND_COMPLETO.md](./docs/FRONTEND_COMPLETO.md)** - Frontend: 6 abas do dashboard (Lovable)
+
+**Setup e Sincronização:**
+- **[SETUP_NOVO_PC.md](./docs/SETUP_NOVO_PC.md)** - Configurar em novo PC (casa, trabalho, etc)
+- **[CONVERT_TO_FULL_CLONE.md](./docs/CONVERT_TO_FULL_CLONE.md)** - Converter Mac de sparse para completo
 
 ---
 
@@ -358,11 +410,21 @@ sync.bat
 ```
 
 **O que faz:**
-- ✅ Puxa atualizações do GitHub (git pull)
-- ✅ Adiciona suas mudanças (git add)
+- ✅ Puxa atualizações do GitHub (git pull) - **TODOS os arquivos**
+- ✅ Adiciona suas mudanças (git add .) - **TUDO** (código, docs, qualquer arquivo)
 - ✅ Cria commit automático (git commit)
-- ✅ Envia para GitHub (git push)
+- ✅ Envia para GitHub (git push) - **Sincronização completa!**
 - ✅ Auto-deploy Railway quando push em main
+
+**💡 IMPORTANTE:** O sync agora sincroniza **TUDO** (não só docs/):
+- Código Python (main.py, collector.py, etc)
+- Documentação (docs/)
+- Qualquer arquivo novo/editado/deletado
+
+**Arquivos ignorados automaticamente (.gitignore):**
+- scripts-temp/ (scripts de teste)
+- backups/ (backups OAuth)
+- debug/ (arquivos de investigação)
 
 ### **Manual:**
 
