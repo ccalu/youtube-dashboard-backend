@@ -1,0 +1,2161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Factory - Dashboard de Mineracao YouTube | PRD Completo</title>
+    <style>
+        :root {
+            --primary: #ff0000;
+            --primary-dark: #cc0000;
+            --secondary: #1a1a2e;
+            --accent: #16213e;
+            --bg-dark: #0f0f1a;
+            --bg-card: #1a1a2e;
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0b0;
+            --success: #00c853;
+            --warning: #ffc107;
+            --error: #ff5252;
+            --border: #2d2d44;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--secondary) 0%, var(--accent) 100%);
+            padding: 30px 40px;
+            border-bottom: 3px solid var(--primary);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            margin-bottom: 5px;
+        }
+
+        .header h1 span {
+            color: var(--primary);
+        }
+
+        .header .subtitle {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        .header-meta {
+            display: flex;
+            gap: 30px;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+
+        .header-meta span {
+            color: var(--text-secondary);
+        }
+
+        .header-meta strong {
+            color: var(--success);
+        }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            background: var(--secondary);
+            padding: 0 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 120px;
+            z-index: 99;
+        }
+
+        .nav-tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            border: none;
+            background: transparent;
+            font-size: 0.95rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+
+        .nav-tab:hover {
+            color: var(--text-primary);
+            background: rgba(255,255,255,0.05);
+        }
+
+        .nav-tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            background: rgba(255,0,0,0.1);
+        }
+
+        /* Content Sections */
+        .content {
+            padding: 40px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .section-title {
+            font-size: 1.8rem;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .section-title .icon {
+            font-size: 2rem;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid var(--border);
+        }
+
+        .card h3 {
+            color: var(--primary);
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .card h4 {
+            color: var(--text-primary);
+            margin: 20px 0 10px;
+            font-size: 1.1rem;
+        }
+
+        .card p {
+            color: var(--text-secondary);
+            margin-bottom: 15px;
+        }
+
+        /* Grid Layout */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 25px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+        }
+
+        .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        /* Metric Cards */
+        .metric-card {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--secondary) 100%);
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .metric-card .value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .metric-card .label {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-top: 5px;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: var(--accent);
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: rgba(255,255,255,0.02);
+        }
+
+        /* Code Blocks */
+        pre, code {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background: var(--bg-dark);
+            border-radius: 6px;
+        }
+
+        pre {
+            padding: 20px;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            margin: 15px 0;
+        }
+
+        code {
+            padding: 2px 6px;
+            color: var(--success);
+        }
+
+        /* Lists */
+        ul, ol {
+            margin: 15px 0;
+            padding-left: 25px;
+        }
+
+        li {
+            margin: 8px 0;
+            color: var(--text-secondary);
+        }
+
+        li strong {
+            color: var(--text-primary);
+        }
+
+        /* Status Badges */
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background: rgba(0,200,83,0.2);
+            color: var(--success);
+        }
+
+        .badge-warning {
+            background: rgba(255,193,7,0.2);
+            color: var(--warning);
+        }
+
+        .badge-error {
+            background: rgba(255,82,82,0.2);
+            color: var(--error);
+        }
+
+        .badge-info {
+            background: rgba(33,150,243,0.2);
+            color: #2196f3;
+        }
+
+        /* Endpoint Cards */
+        .endpoint {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .endpoint-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .method {
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.85rem;
+        }
+
+        .method-get { background: #1e88e5; }
+        .method-post { background: #43a047; }
+        .method-put { background: #fb8c00; }
+        .method-patch { background: #8e24aa; }
+        .method-delete { background: #e53935; }
+
+        .endpoint-path {
+            font-family: monospace;
+            font-size: 1rem;
+            color: var(--text-primary);
+        }
+
+        /* Accordion */
+        .accordion {
+            margin: 15px 0;
+        }
+
+        .accordion-header {
+            background: var(--accent);
+            padding: 15px 20px;
+            cursor: pointer;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.3s;
+        }
+
+        .accordion-header:hover {
+            background: var(--secondary);
+        }
+
+        .accordion-header.active {
+            border-radius: 8px 8px 0 0;
+        }
+
+        .accordion-content {
+            display: none;
+            padding: 20px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+        }
+
+        .accordion-content.active {
+            display: block;
+        }
+
+        /* Flow Diagram */
+        .flow-step {
+            display: flex;
+            align-items: flex-start;
+            margin: 20px 0;
+        }
+
+        .flow-number {
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 20px;
+            flex-shrink: 0;
+        }
+
+        .flow-content {
+            flex: 1;
+        }
+
+        .flow-content h4 {
+            margin-bottom: 5px;
+        }
+
+        /* Highlight Box */
+        .highlight-box {
+            background: linear-gradient(135deg, rgba(255,0,0,0.1) 0%, rgba(255,0,0,0.05) 100%);
+            border-left: 4px solid var(--primary);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .highlight-box h4 {
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        /* TOC */
+        .toc {
+            background: var(--accent);
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+
+        .toc h3 {
+            margin-bottom: 15px;
+            color: var(--primary);
+        }
+
+        .toc ul {
+            columns: 2;
+        }
+
+        .toc a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .toc a:hover {
+            color: var(--primary);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .nav-tabs {
+                padding: 10px;
+            }
+
+            .nav-tab {
+                padding: 10px 15px;
+                font-size: 0.85rem;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .grid-2, .grid-3, .grid-4 {
+                grid-template-columns: 1fr;
+            }
+
+            .toc ul {
+                columns: 1;
+            }
+        }
+
+        /* Print Styles */
+        @media print {
+            .nav-tabs {
+                display: none;
+            }
+
+            .section {
+                display: block !important;
+                page-break-before: always;
+            }
+
+            .header {
+                position: relative;
+            }
+
+            body {
+                background: white;
+                color: black;
+            }
+
+            .card {
+                background: #f5f5f5;
+                border: 1px solid #ddd;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <h1><span>Content Factory</span> - Dashboard de Mineracao YouTube</h1>
+        <p class="subtitle">Documentacao Tecnica Completa para PRD | Sistema de Inteligencia de Mercado e Monetizacao</p>
+        <div class="header-meta">
+            <span>Versao: <strong>2.0</strong></span>
+            <span>Ultima Atualizacao: <strong>13/01/2026</strong></span>
+            <span>Autor: <strong>Cellibs (Marcelo)</strong></span>
+            <span>Status: <strong>Producao</strong></span>
+        </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="nav-tabs">
+        <button class="nav-tab active" data-tab="overview">Visao Geral</button>
+        <button class="nav-tab" data-tab="context">Contexto Negocio</button>
+        <button class="nav-tab" data-tab="architecture">Arquitetura</button>
+        <button class="nav-tab" data-tab="database">Database</button>
+        <button class="nav-tab" data-tab="api">API Endpoints</button>
+        <button class="nav-tab" data-tab="frontend">Frontend</button>
+        <button class="nav-tab" data-tab="notifications">Notificacoes</button>
+        <button class="nav-tab" data-tab="monetization">Monetizacao</button>
+        <button class="nav-tab" data-tab="pipeline">Pipeline Producao</button>
+        <button class="nav-tab" data-tab="operations">Operacoes</button>
+    </nav>
+
+    <!-- Content -->
+    <main class="content">
+
+        <!-- VISAO GERAL -->
+        <section id="overview" class="section active">
+            <h2 class="section-title"><span class="icon">&#128202;</span> Visao Geral do Sistema</h2>
+
+            <div class="grid-4">
+                <div class="metric-card">
+                    <div class="value">263</div>
+                    <div class="label">Canais Monitorados</div>
+                </div>
+                <div class="metric-card">
+                    <div class="value">54</div>
+                    <div class="label">Canais Nossos</div>
+                </div>
+                <div class="metric-card">
+                    <div class="value">500k+</div>
+                    <div class="label">Videos Coletados</div>
+                </div>
+                <div class="metric-card">
+                    <div class="value">20</div>
+                    <div class="label">API Keys Ativas</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>O Que E o Dashboard de Mineracao</h3>
+                <p>Sistema de inteligencia de mercado para operacao de canais YouTube da Content Factory. Permite:</p>
+                <ul>
+                    <li><strong>Mineracao:</strong> Monitorar canais concorrentes e identificar oportunidades de conteudo</li>
+                    <li><strong>Notificacoes:</strong> Alertas automaticos quando videos atingem marcos (10k, 50k, 100k views)</li>
+                    <li><strong>Monetizacao:</strong> Acompanhar receita diaria de todos os canais monetizados</li>
+                    <li><strong>Financeiro:</strong> Gestao de receitas/despesas com conversao USD-BRL automatica</li>
+                    <li><strong>Producao:</strong> Integracao com pipeline de 100-130 videos/dia</li>
+                </ul>
+            </div>
+
+            <div class="highlight-box">
+                <h4>Stack Tecnologico</h4>
+                <div class="grid-3">
+                    <div>
+                        <strong>Backend:</strong>
+                        <ul>
+                            <li>Python + FastAPI</li>
+                            <li>Supabase PostgreSQL</li>
+                            <li>Railway (Deploy)</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <strong>Frontend:</strong>
+                        <ul>
+                            <li>React + TypeScript</li>
+                            <li>React Query</li>
+                            <li>Recharts + shadcn/ui</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <strong>APIs:</strong>
+                        <ul>
+                            <li>YouTube Data API v3</li>
+                            <li>YouTube Analytics API</li>
+                            <li>AwesomeAPI (Cambio)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Usuarios do Sistema</h3>
+                <table>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Papel</th>
+                        <th>Funcoes Principais</th>
+                    </tr>
+                    <tr>
+                        <td><strong>Arthur</strong></td>
+                        <td>Pesquisador de Mercado</td>
+                        <td>Mineracao, analise de notificacoes, identificar oportunidades</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Cellibs</strong></td>
+                        <td>Desenvolvedor/Arquiteto</td>
+                        <td>Desenvolvimento, manutencao, documentacao, deploy</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Equipe</strong></td>
+                        <td>Producao</td>
+                        <td>Acompanhar metricas, verificar performance dos canais</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>URLs do Sistema</h3>
+                <table>
+                    <tr>
+                        <th>Ambiente</th>
+                        <th>URL</th>
+                        <th>Descricao</th>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-success">Producao</span></td>
+                        <td><code>https://youtube-dashboard-backend-production.up.railway.app</code></td>
+                        <td>Backend API (Railway)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-success">Producao</span></td>
+                        <td><code>https://lovable.dev/projects/[ID]</code></td>
+                        <td>Frontend (Lovable)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-info">Local</span></td>
+                        <td><code>http://localhost:8000</code></td>
+                        <td>Backend Local</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge badge-info">M5 Server</span></td>
+                        <td><code>https://transcription.2growai.com.br</code></td>
+                        <td>Servidor de Transcricoes</td>
+                    </tr>
+                </table>
+            </div>
+        </section>
+
+        <!-- CONTEXTO NEGOCIO -->
+        <section id="context" class="section">
+            <h2 class="section-title"><span class="icon">&#127919;</span> Contexto de Negocio</h2>
+
+            <div class="card">
+                <h3>Content Factory - Visao Geral</h3>
+                <p>Operacao de YouTube que produz e monetiza canais de conteudo educacional/entretenimento usando automacao com IA.</p>
+
+                <h4>Modelo de Negocio</h4>
+                <ul>
+                    <li><strong>Producao:</strong> 100-130 videos/dia via pipeline automatizado (5 maquinas)</li>
+                    <li><strong>Canais:</strong> 54 canais proprios ativos em 10+ idiomas</li>
+                    <li><strong>Nichos:</strong> Historia, Terror, Biografias, Guerras, etc.</li>
+                    <li><strong>Monetizacao:</strong> YouTube AdSense (receita principal)</li>
+                    <li><strong>Escala:</strong> Capacidade para 130 canais com 1 video/dia</li>
+                </ul>
+
+                <h4>Metricas Alvo</h4>
+                <div class="grid-3">
+                    <div class="metric-card">
+                        <div class="value">100-130</div>
+                        <div class="label">Videos/Dia</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="value">R$50k+</div>
+                        <div class="label">Meta Mensal</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="value">&lt;5%</div>
+                        <div class="label">Taxa Deteccao</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Proposta de Valor do Dashboard</h3>
+
+                <div class="grid-2">
+                    <div>
+                        <h4>Para Mineracao (Arthur)</h4>
+                        <ul>
+                            <li>Identificar videos virais de concorrentes</li>
+                            <li>Analisar tendencias por subnicho</li>
+                            <li>Encontrar novos canais para monitorar</li>
+                            <li>Receber alertas de oportunidades</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4>Para Operacao (Equipe)</h4>
+                        <ul>
+                            <li>Acompanhar receita diaria em tempo real</li>
+                            <li>Monitorar crescimento de inscritos</li>
+                            <li>Gerenciar financeiro (despesas/receitas)</li>
+                            <li>Verificar status de uploads</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Estrategia de Diversificacao</h3>
+                <p>Reducao de risco atraves de diversificacao em multiplas dimensoes:</p>
+
+                <table>
+                    <tr>
+                        <th>Dimensao</th>
+                        <th>Estrategia</th>
+                        <th>Status</th>
+                    </tr>
+                    <tr>
+                        <td>Nichos</td>
+                        <td>8+ subnichos diferentes (Terror, Historia, Biografias...)</td>
+                        <td><span class="badge badge-success">Ativo</span></td>
+                    </tr>
+                    <tr>
+                        <td>Idiomas</td>
+                        <td>10+ linguas (PT, EN, ES, FR, DE, AR, KO...)</td>
+                        <td><span class="badge badge-success">Ativo</span></td>
+                    </tr>
+                    <tr>
+                        <td>Formatos</td>
+                        <td>AI Images + Avatares HeyGen (em desenvolvimento)</td>
+                        <td><span class="badge badge-warning">Parcial</span></td>
+                    </tr>
+                    <tr>
+                        <td>Contas</td>
+                        <td>Multiplas contas Google (isolamento)</td>
+                        <td><span class="badge badge-success">Ativo</span></td>
+                    </tr>
+                </table>
+            </div>
+        </section>
+
+        <!-- ARQUITETURA -->
+        <section id="architecture" class="section">
+            <h2 class="section-title"><span class="icon">&#128421;</span> Arquitetura do Sistema</h2>
+
+            <div class="card">
+                <h3>Diagrama de Componentes</h3>
+                <pre>
++-------------------+     +-------------------+     +-------------------+
+|    FRONTEND       |     |    BACKEND        |     |    DATABASE       |
+|    (Lovable)      |&lt;---&gt;|    (Railway)      |&lt;---&gt;|    (Supabase)     |
++-------------------+     +-------------------+     +-------------------+
+| React + TS        |     | FastAPI (Python)  |     | PostgreSQL 15+    |
+| React Query       |     | collector.py      |     | 27 tabelas        |
+| Recharts          |     | notifier.py       |     | RLS Security      |
+| shadcn/ui         |     | database.py       |     +-------------------+
++-------------------+     +-------------------+
+                                  |
+                    +-------------+-------------+
+                    |             |             |
+            +-------v----+ +------v------+ +----v------+
+            | YouTube    | | YouTube     | | AwesomeAPI|
+            | Data API   | | Analytics   | | (Cambio)  |
+            +------------+ +-------------+ +-----------+
+            | 20 API Keys| | OAuth 2.0   | | USD-BRL   |
+            | Rotacao    | | Per Channel | | Real-time |
+            +------------+ +-------------+ +-----------+
+                </pre>
+            </div>
+
+            <div class="card">
+                <h3>Fluxos Principais</h3>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <span><strong>1. Fluxo de Coleta de Dados</strong></span>
+                        <span>+</span>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="flow-step">
+                            <div class="flow-number">1</div>
+                            <div class="flow-content">
+                                <h4>APScheduler Dispara (5 AM UTC)</h4>
+                                <p>Cron job automatico inicia coleta diaria</p>
+                            </div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">2</div>
+                            <div class="flow-content">
+                                <h4>Collector Busca Canais</h4>
+                                <p>Lista canais ativos ordenados por ultima_coleta ASC</p>
+                            </div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">3</div>
+                            <div class="flow-content">
+                                <h4>Rotacao de API Keys</h4>
+                                <p>20 keys rotacionadas automaticamente quando quota esgota</p>
+                            </div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">4</div>
+                            <div class="flow-content">
+                                <h4>Salvar Dados</h4>
+                                <p>Insere em dados_canais_historico e videos_historico</p>
+                            </div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">5</div>
+                            <div class="flow-content">
+                                <h4>Executar Notifier</h4>
+                                <p>Verifica marcos e cria notificacoes automaticamente</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <span><strong>2. Fluxo de Monetizacao OAuth</strong></span>
+                        <span>+</span>
+                    </div>
+                    <div class="accordion-content">
+                        <div class="flow-step">
+                            <div class="flow-number">1</div>
+                            <div class="flow-content">
+                                <h4>Autorizar Canal</h4>
+                                <p>GET /api/youtube-oauth/authorize?channel_id=UCxxx</p>
+                            </div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">2</div>
+                            <div class="flow-content">
+                                <h4>Google OAuth Redirect</h4>
+                                <p>Usuario aceita permissoes no Google</p>
+                            </div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">3</div>
+                            <div class="flow-content">
+                                <h4>Callback com Code</h4>
+                                <p>Backend troca code por tokens</p>
+                            </div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">4</div>
+                            <div class="flow-content">
+                                <h4>Salvar Tokens (RLS)</h4>
+                                <p>Armazena em yt_oauth_tokens com Row Level Security</p>
+                            </div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">5</div>
+                            <div class="flow-content">
+                                <h4>Coleta Automatica</h4>
+                                <p>Scheduler coleta receita diariamente via YouTube Analytics API</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Arquivos do Backend</h3>
+                <table>
+                    <tr>
+                        <th>Arquivo</th>
+                        <th>Linhas</th>
+                        <th>Responsabilidade</th>
+                    </tr>
+                    <tr>
+                        <td><code>main.py</code></td>
+                        <td>1122</td>
+                        <td>FastAPI app, endpoints, scheduler</td>
+                    </tr>
+                    <tr>
+                        <td><code>collector.py</code></td>
+                        <td>727</td>
+                        <td>YouTube Data API, rotacao de keys</td>
+                    </tr>
+                    <tr>
+                        <td><code>notifier.py</code></td>
+                        <td>449</td>
+                        <td>Sistema de notificacoes inteligentes</td>
+                    </tr>
+                    <tr>
+                        <td><code>database.py</code></td>
+                        <td>~400</td>
+                        <td>Cliente Supabase, queries</td>
+                    </tr>
+                    <tr>
+                        <td><code>requirements.txt</code></td>
+                        <td>~30</td>
+                        <td>Dependencias Python</td>
+                    </tr>
+                </table>
+            </div>
+        </section>
+
+        <!-- DATABASE -->
+        <section id="database" class="section">
+            <h2 class="section-title"><span class="icon">&#128451;</span> Database Schema</h2>
+
+            <div class="card">
+                <h3>Visao Geral</h3>
+                <div class="grid-3">
+                    <div class="metric-card">
+                        <div class="value">27</div>
+                        <div class="label">Tabelas</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="value">5-10 GB</div>
+                        <div class="label">Tamanho</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="value">PostgreSQL 15+</div>
+                        <div class="label">Engine</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Tabelas por Modulo</h3>
+
+                <h4>1. Sistema de Mineracao (6 tabelas)</h4>
+                <table>
+                    <tr>
+                        <th>Tabela</th>
+                        <th>Registros</th>
+                        <th>Descricao</th>
+                    </tr>
+                    <tr>
+                        <td><code>canais_monitorados</code></td>
+                        <td>~263</td>
+                        <td>Canais ativos (minerados + nossos)</td>
+                    </tr>
+                    <tr>
+                        <td><code>dados_canais_historico</code></td>
+                        <td>~78k</td>
+                        <td>Historico diario de metricas</td>
+                    </tr>
+                    <tr>
+                        <td><code>videos_historico</code></td>
+                        <td>~500k</td>
+                        <td>Videos coletados (30 dias)</td>
+                    </tr>
+                    <tr>
+                        <td><code>coletas_historico</code></td>
+                        <td>~1.2k</td>
+                        <td>Logs de coleta</td>
+                    </tr>
+                    <tr>
+                        <td><code>favoritos</code></td>
+                        <td>~50</td>
+                        <td>Canais/videos favoritos</td>
+                    </tr>
+                    <tr>
+                        <td><code>transcriptions</code></td>
+                        <td>~200</td>
+                        <td>Cache de transcricoes</td>
+                    </tr>
+                </table>
+
+                <h4>2. Sistema de Notificacoes (2 tabelas)</h4>
+                <table>
+                    <tr>
+                        <th>Tabela</th>
+                        <th>Descricao</th>
+                    </tr>
+                    <tr>
+                        <td><code>notificacoes</code></td>
+                        <td>Alertas de videos virais</td>
+                    </tr>
+                    <tr>
+                        <td><code>regras_notificacoes</code></td>
+                        <td>Configuracao de marcos (10k, 50k, 100k)</td>
+                    </tr>
+                </table>
+
+                <h4>3. Sistema de Monetizacao (14 tabelas)</h4>
+                <table>
+                    <tr>
+                        <th>Tabela</th>
+                        <th>Descricao</th>
+                    </tr>
+                    <tr>
+                        <td><code>yt_channels</code></td>
+                        <td>Canais monetizados (16 canais)</td>
+                    </tr>
+                    <tr>
+                        <td><code>yt_oauth_tokens</code></td>
+                        <td>Access/refresh tokens (RLS)</td>
+                    </tr>
+                    <tr>
+                        <td><code>yt_proxy_credentials</code></td>
+                        <td>Client ID/secret proxy (RLS)</td>
+                    </tr>
+                    <tr>
+                        <td><code>yt_channel_credentials</code></td>
+                        <td>Client ID/secret isolado (RLS)</td>
+                    </tr>
+                    <tr>
+                        <td><code>yt_daily_metrics</code></td>
+                        <td>Revenue diario (~5k registros)</td>
+                    </tr>
+                    <tr>
+                        <td><code>yt_country_metrics</code></td>
+                        <td>Revenue por pais</td>
+                    </tr>
+                    <tr>
+                        <td><code>yt_video_metrics</code></td>
+                        <td>Revenue por video</td>
+                    </tr>
+                    <tr>
+                        <td><code>yt_video_daily</code></td>
+                        <td>Historico diario por video</td>
+                    </tr>
+                    <tr>
+                        <td><code>yt_traffic_summary</code></td>
+                        <td>Fontes de trafego</td>
+                    </tr>
+                    <tr>
+                        <td><code>yt_demographics</code></td>
+                        <td>Idade e genero</td>
+                    </tr>
+                    <tr>
+                        <td><code>yt_device_metrics</code></td>
+                        <td>Dispositivos</td>
+                    </tr>
+                    <tr>
+                        <td><code>yt_collection_logs</code></td>
+                        <td>Logs coleta OAuth</td>
+                    </tr>
+                </table>
+
+                <h4>4. Sistema Financeiro (4 tabelas)</h4>
+                <table>
+                    <tr>
+                        <th>Tabela</th>
+                        <th>Descricao</th>
+                    </tr>
+                    <tr>
+                        <td><code>financeiro_categorias</code></td>
+                        <td>Categorias de lancamentos</td>
+                    </tr>
+                    <tr>
+                        <td><code>financeiro_lancamentos</code></td>
+                        <td>Receitas e despesas</td>
+                    </tr>
+                    <tr>
+                        <td><code>financeiro_taxas</code></td>
+                        <td>Historico de cambio USD-BRL</td>
+                    </tr>
+                    <tr>
+                        <td><code>financeiro_metas</code></td>
+                        <td>Metas mensais</td>
+                    </tr>
+                </table>
+
+                <h4>5. Sistema de Upload (1 tabela)</h4>
+                <table>
+                    <tr>
+                        <th>Tabela</th>
+                        <th>Descricao</th>
+                    </tr>
+                    <tr>
+                        <td><code>yt_upload_queue</code></td>
+                        <td>Fila de uploads automaticos</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>Schema Principal: canais_monitorados</h3>
+                <pre>
+CREATE TABLE canais_monitorados (
+    id SERIAL PRIMARY KEY,
+    nome_canal VARCHAR(200) NOT NULL,
+    url_canal TEXT NOT NULL UNIQUE,
+    nicho VARCHAR(100) DEFAULT '',
+    subnicho VARCHAR(100) NOT NULL,
+    lingua VARCHAR(50) DEFAULT 'English',
+    tipo VARCHAR(20) DEFAULT 'minerado',  -- 'minerado' ou 'nosso'
+    status VARCHAR(20) DEFAULT 'ativo',   -- 'ativo' ou 'inativo'
+    ultima_coleta TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX idx_canais_status ON canais_monitorados(status);
+CREATE INDEX idx_canais_tipo ON canais_monitorados(tipo);
+CREATE INDEX idx_canais_subnicho ON canais_monitorados(subnicho);
+                </pre>
+            </div>
+
+            <div class="card">
+                <h3>Schema: yt_daily_metrics (Monetizacao)</h3>
+                <pre>
+CREATE TABLE yt_daily_metrics (
+    id SERIAL PRIMARY KEY,
+    channel_id VARCHAR(24) NOT NULL REFERENCES yt_channels(channel_id),
+    date DATE NOT NULL,
+    revenue DECIMAL(10,2) DEFAULT 0.00,  -- USD
+    views INTEGER DEFAULT 0,
+    likes INTEGER DEFAULT 0,
+    comments INTEGER DEFAULT 0,
+    subscribers_gained INTEGER DEFAULT 0,
+    subscribers_lost INTEGER DEFAULT 0,
+    watch_time_minutes INTEGER DEFAULT 0,
+    rpm DECIMAL(10,2) DEFAULT 0.00,
+    is_estimate BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE(channel_id, date)
+);
+                </pre>
+            </div>
+        </section>
+
+        <!-- API ENDPOINTS -->
+        <section id="api" class="section">
+            <h2 class="section-title"><span class="icon">&#128279;</span> API Endpoints</h2>
+
+            <div class="card">
+                <h3>Canais</h3>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method method-get">GET</span>
+                        <span class="endpoint-path">/api/canais</span>
+                    </div>
+                    <p>Lista canais minerados com filtros avancados</p>
+                    <h4>Query Parameters:</h4>
+                    <table>
+                        <tr><th>Param</th><th>Tipo</th><th>Descricao</th></tr>
+                        <tr><td>tipo</td><td>string</td><td>"minerado" | "nosso" | "favorito"</td></tr>
+                        <tr><td>subnicho</td><td>string</td><td>Filtro por subnicho</td></tr>
+                        <tr><td>limit</td><td>int</td><td>Maximo resultados (default: 50)</td></tr>
+                        <tr><td>offset</td><td>int</td><td>Paginacao</td></tr>
+                        <tr><td>search</td><td>string</td><td>Busca por nome</td></tr>
+                    </table>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method method-get">GET</span>
+                        <span class="endpoint-path">/api/canais-tabela</span>
+                    </div>
+                    <p>Retorna nossos canais agrupados por subnicho (aba Tabela)</p>
+                    <p><strong>Ordenacao:</strong> positivos &rarr; negativos &rarr; zero &rarr; null</p>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method method-post">POST</span>
+                        <span class="endpoint-path">/api/add-canal</span>
+                    </div>
+                    <p>Adiciona novo canal para mineracao</p>
+                    <pre>
+{
+  "url_canal": "https://youtube.com/@exemplo",
+  "tipo": "minerado",
+  "subnicho": "Guerras Mundiais"
+}
+                    </pre>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Videos</h3>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method method-get">GET</span>
+                        <span class="endpoint-path">/api/videos</span>
+                    </div>
+                    <p>Lista videos minerados com filtros</p>
+                    <table>
+                        <tr><th>Param</th><th>Tipo</th><th>Descricao</th></tr>
+                        <tr><td>canal_id</td><td>int</td><td>Filtro por canal</td></tr>
+                        <tr><td>min_views</td><td>int</td><td>Views minimas</td></tr>
+                        <tr><td>dias</td><td>int</td><td>Ultimos N dias (default: 7)</td></tr>
+                        <tr><td>subnicho</td><td>string</td><td>Filtro por subnicho</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Notificacoes</h3>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method method-get">GET</span>
+                        <span class="endpoint-path">/api/notificacoes</span>
+                    </div>
+                    <p>Lista notificacoes nao vistas</p>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method method-post">POST</span>
+                        <span class="endpoint-path">/api/force-notifier</span>
+                    </div>
+                    <p>Forca execucao manual do sistema de notificacoes</p>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method method-patch">PATCH</span>
+                        <span class="endpoint-path">/api/notificacoes/{id}/marcar-vista</span>
+                    </div>
+                    <p>Marca notificacao como vista</p>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method method-post">POST</span>
+                        <span class="endpoint-path">/api/notificacoes/marcar-todas-vistas</span>
+                    </div>
+                    <p>Marca todas as notificacoes como vistas</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Financeiro</h3>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method method-get">GET</span>
+                        <span class="endpoint-path">/api/financeiro/overview</span>
+                    </div>
+                    <p>Overview financeiro completo</p>
+                    <pre>
+Response:
+{
+  "receita_bruta": 15432.50,
+  "despesas_totais": 4200.00,
+  "lucro_liquido": 10769.52,
+  "periodo": "30d"
+}
+                    </pre>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method method-get">GET</span>
+                        <span class="endpoint-path">/api/financeiro/youtube-revenue</span>
+                    </div>
+                    <p>Receita YouTube no periodo (apenas dados reais)</p>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method method-post">POST</span>
+                        <span class="endpoint-path">/api/financeiro/sync-youtube</span>
+                    </div>
+                    <p>Sincroniza receita YouTube criando lancamentos automaticos</p>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method method-get">GET</span>
+                        <span class="endpoint-path">/api/financeiro/projecao-mes</span>
+                    </div>
+                    <p>Projecao de receita para o mes atual</p>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method method-get">GET</span>
+                        <span class="endpoint-path">/api/financeiro/taxa-cambio</span>
+                    </div>
+                    <p>Taxa de cambio USD-BRL atualizada (AwesomeAPI)</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Sistema</h3>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method method-get">GET</span>
+                        <span class="endpoint-path">/api/system-stats</span>
+                    </div>
+                    <p>Estatisticas gerais do sistema</p>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method method-get">GET</span>
+                        <span class="endpoint-path">/api/stats</span>
+                    </div>
+                    <p>Estatisticas do collector em tempo real</p>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method method-post">POST</span>
+                        <span class="endpoint-path">/api/collect-data</span>
+                    </div>
+                    <p>Inicia coleta manual de dados</p>
+                </div>
+
+                <div class="endpoint">
+                    <div class="endpoint-header">
+                        <span class="method method-get">GET</span>
+                        <span class="endpoint-path">/health</span>
+                    </div>
+                    <p>Health check do sistema</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- FRONTEND -->
+        <section id="frontend" class="section">
+            <h2 class="section-title"><span class="icon">&#128187;</span> Frontend - Abas e Componentes</h2>
+
+            <div class="card">
+                <h3>Stack Frontend</h3>
+                <div class="grid-4">
+                    <div class="metric-card">
+                        <div class="value">React 18</div>
+                        <div class="label">Framework</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="value">TypeScript</div>
+                        <div class="label">Linguagem</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="value">React Query</div>
+                        <div class="label">Data Fetching</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="value">shadcn/ui</div>
+                        <div class="label">UI Components</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>6 Abas do Dashboard</h3>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <span><strong>1. Tabela (Nossos Canais)</strong> - TabelaCanais.tsx</span>
+                        <span>+</span>
+                    </div>
+                    <div class="accordion-content">
+                        <p><strong>Proposito:</strong> Visao agrupada dos nossos canais por subnicho</p>
+                        <h4>Funcionalidades:</h4>
+                        <ul>
+                            <li>Agrupamento por subnicho com accordions</li>
+                            <li>Ordenacao inteligente: positivos &rarr; negativos &rarr; zero &rarr; null</li>
+                            <li>Exibicao de inscritos_diff (ganho/perda do dia)</li>
+                            <li>Design mobile-first responsivo</li>
+                        </ul>
+                        <h4>Endpoint:</h4>
+                        <code>GET /api/canais-tabela</code>
+                    </div>
+                </div>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <span><strong>2. Nossos Canais</strong> - NossosCanais.tsx</span>
+                        <span>+</span>
+                    </div>
+                    <div class="accordion-content">
+                        <p><strong>Proposito:</strong> Gestao detalhada dos canais proprios</p>
+                        <h4>Funcionalidades:</h4>
+                        <ul>
+                            <li>Cards individuais por canal</li>
+                            <li>Graficos de evolucao (inscritos, views)</li>
+                            <li>Filtros por subnicho e lingua</li>
+                            <li>Links diretos para YouTube Studio</li>
+                        </ul>
+                        <h4>Endpoint:</h4>
+                        <code>GET /api/canais?tipo=nosso</code>
+                    </div>
+                </div>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <span><strong>3. Canais Minerados</strong> - CanaisMinerados.tsx</span>
+                        <span>+</span>
+                    </div>
+                    <div class="accordion-content">
+                        <p><strong>Proposito:</strong> Analise de canais concorrentes</p>
+                        <h4>Funcionalidades:</h4>
+                        <ul>
+                            <li>Lista de canais monitorados (209 canais)</li>
+                            <li>Metricas: inscritos, views 30d, engagement</li>
+                            <li>Filtros avancados (subnicho, lingua, views)</li>
+                            <li>Adicionar novos canais para monitorar</li>
+                        </ul>
+                        <h4>Endpoints:</h4>
+                        <code>GET /api/canais?tipo=minerado</code><br>
+                        <code>POST /api/add-canal</code>
+                    </div>
+                </div>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <span><strong>4. Notificacoes</strong> - Notificacoes.tsx</span>
+                        <span>+</span>
+                    </div>
+                    <div class="accordion-content">
+                        <p><strong>Proposito:</strong> Alertas de videos virais</p>
+                        <h4>Funcionalidades:</h4>
+                        <ul>
+                            <li>Lista de videos que atingiram marcos</li>
+                            <li>Filtros por tipo de canal e subnicho</li>
+                            <li>Marcar como vista individualmente</li>
+                            <li>Marcar todas como vistas</li>
+                            <li>Link direto para video no YouTube</li>
+                        </ul>
+                        <h4>Endpoints:</h4>
+                        <code>GET /api/notificacoes</code><br>
+                        <code>PATCH /api/notificacoes/{id}/marcar-vista</code>
+                    </div>
+                </div>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <span><strong>5. Monetizacao</strong> - Monetizacao.tsx</span>
+                        <span>+</span>
+                    </div>
+                    <div class="accordion-content">
+                        <p><strong>Proposito:</strong> Receita e analytics dos canais monetizados</p>
+                        <h4>Funcionalidades:</h4>
+                        <ul>
+                            <li>Revenue diario/semanal/mensal por canal</li>
+                            <li>Graficos de evolucao de receita (Recharts)</li>
+                            <li>RPM medio por canal</li>
+                            <li>Top videos por receita</li>
+                            <li>Distribuicao por pais</li>
+                        </ul>
+                        <h4>Endpoints:</h4>
+                        <code>GET /api/monetization/channels</code><br>
+                        <code>GET /api/monetization/daily</code>
+                    </div>
+                </div>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <span><strong>6. Financeiro</strong> - Financeiro.tsx</span>
+                        <span>+</span>
+                    </div>
+                    <div class="accordion-content">
+                        <p><strong>Proposito:</strong> Gestao financeira completa</p>
+                        <h4>Funcionalidades:</h4>
+                        <ul>
+                            <li>Overview: receita bruta, despesas, lucro liquido</li>
+                            <li>Lancamentos manuais (receitas/despesas)</li>
+                            <li>Categorias customizaveis</li>
+                            <li>Conversao automatica USD-BRL</li>
+                            <li>Projecao mensal</li>
+                            <li>Sincronizacao com YouTube AdSense</li>
+                        </ul>
+                        <h4>Endpoints:</h4>
+                        <code>GET /api/financeiro/overview</code><br>
+                        <code>POST /api/financeiro/lancamentos</code><br>
+                        <code>POST /api/financeiro/sync-youtube</code>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Componentes Reutilizaveis</h3>
+                <table>
+                    <tr>
+                        <th>Componente</th>
+                        <th>Uso</th>
+                    </tr>
+                    <tr>
+                        <td><code>CanalCard</code></td>
+                        <td>Card de canal com metricas</td>
+                    </tr>
+                    <tr>
+                        <td><code>VideoCard</code></td>
+                        <td>Card de video com thumbnail</td>
+                    </tr>
+                    <tr>
+                        <td><code>NotificacaoItem</code></td>
+                        <td>Item de notificacao na lista</td>
+                    </tr>
+                    <tr>
+                        <td><code>ChartContainer</code></td>
+                        <td>Container para graficos Recharts</td>
+                    </tr>
+                    <tr>
+                        <td><code>FilterBar</code></td>
+                        <td>Barra de filtros reutilizavel</td>
+                    </tr>
+                    <tr>
+                        <td><code>LoadingSpinner</code></td>
+                        <td>Indicador de carregamento</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>Design System</h3>
+                <div class="grid-2">
+                    <div>
+                        <h4>Cores</h4>
+                        <ul>
+                            <li><strong>Primary:</strong> #ff0000 (YouTube Red)</li>
+                            <li><strong>Background:</strong> #0f0f1a (Dark)</li>
+                            <li><strong>Card:</strong> #1a1a2e</li>
+                            <li><strong>Success:</strong> #00c853</li>
+                            <li><strong>Warning:</strong> #ffc107</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4>Tipografia</h4>
+                        <ul>
+                            <li><strong>Font:</strong> Segoe UI, system</li>
+                            <li><strong>Heading:</strong> 600 weight</li>
+                            <li><strong>Body:</strong> 400 weight</li>
+                            <li><strong>Code:</strong> Consolas, Monaco</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- NOTIFICACOES -->
+        <section id="notifications" class="section">
+            <h2 class="section-title"><span class="icon">&#128276;</span> Sistema de Notificacoes Inteligentes</h2>
+
+            <div class="card">
+                <h3>Visao Geral</h3>
+                <p>Sistema anti-duplicacao que notifica videos que atingiram marcos de views (10k/24h, 50k/7d, etc).</p>
+
+                <div class="highlight-box">
+                    <h4>Problema que Resolve</h4>
+                    <p><strong>Antes:</strong> Arthur tinha que revisar TODOS os videos manualmente</p>
+                    <p><strong>Depois:</strong> Sistema notifica apenas videos que atingiram marcos, sem duplicacoes</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Logica de Notificacao</h3>
+                <pre>
+1. Buscar regras ativas (ex: 10k/24h, 50k/7d)
+2. Para cada regra:
+   a. Buscar videos que atingiram o marco
+   b. Verificar se ja existe notificacao nao vista
+   c. Se existe:
+      - Nova regra maior? -> ATUALIZAR notificacao
+      - Senao? -> PULAR
+   d. Se nao existe:
+      - Ja foi visto em marco maior/igual? -> PULAR
+      - Senao? -> CRIAR notificacao
+                </pre>
+            </div>
+
+            <div class="card">
+                <h3>Sistema Anti-Duplicacao</h3>
+
+                <h4>Exemplo Pratico:</h4>
+                <table>
+                    <tr>
+                        <th>Dia</th>
+                        <th>Evento</th>
+                        <th>Acao</th>
+                    </tr>
+                    <tr>
+                        <td>1</td>
+                        <td>Video X atinge 10,000 views</td>
+                        <td><span class="badge badge-success">CRIAR</span> notificacao "10k/24h"</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>Video X atinge 50,000 views</td>
+                        <td><span class="badge badge-warning">ATUALIZAR</span> para "50k/7d" (nao duplica)</td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td>Arthur marca como vista</td>
+                        <td>Status: vista = true</td>
+                    </tr>
+                    <tr>
+                        <td>4</td>
+                        <td>Video X atinge 100,000 views</td>
+                        <td><span class="badge badge-success">CRIAR</span> nova "100k/30d" (ja viu 50k)</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>Regras de Notificacao</h3>
+                <table>
+                    <tr>
+                        <th>Regra</th>
+                        <th>Views Minimas</th>
+                        <th>Periodo</th>
+                        <th>Tipo Canal</th>
+                    </tr>
+                    <tr>
+                        <td>10k em 24 horas</td>
+                        <td>10,000</td>
+                        <td>1 dia</td>
+                        <td>Ambos</td>
+                    </tr>
+                    <tr>
+                        <td>50k em 7 dias</td>
+                        <td>50,000</td>
+                        <td>7 dias</td>
+                        <td>Ambos</td>
+                    </tr>
+                    <tr>
+                        <td>100k em 30 dias</td>
+                        <td>100,000</td>
+                        <td>30 dias</td>
+                        <td>Ambos</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>Workflow do Arthur</h3>
+                <div class="flow-step">
+                    <div class="flow-number">1</div>
+                    <div class="flow-content">
+                        <h4>Acessa Dashboard</h4>
+                        <p>GET /api/notificacoes - Lista todas nao vistas</p>
+                    </div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-number">2</div>
+                    <div class="flow-content">
+                        <h4>Analisa Video</h4>
+                        <p>Verifica titulo, thumbnail, canal, views</p>
+                    </div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-number">3</div>
+                    <div class="flow-content">
+                        <h4>Decide</h4>
+                        <p>Adaptar para nossos canais? Anotar ideia?</p>
+                    </div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-number">4</div>
+                    <div class="flow-content">
+                        <h4>Marca como Vista</h4>
+                        <p>PATCH /api/notificacoes/{id}/marcar-vista</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MONETIZACAO -->
+        <section id="monetization" class="section">
+            <h2 class="section-title"><span class="icon">&#128176;</span> Sistema de Monetizacao</h2>
+
+            <div class="card">
+                <h3>Visao Geral</h3>
+                <p>Coleta automatica de receita via YouTube Analytics API usando OAuth 2.0 por canal.</p>
+
+                <div class="grid-3">
+                    <div class="metric-card">
+                        <div class="value">16</div>
+                        <div class="label">Canais Monetizados</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="value">OAuth 2.0</div>
+                        <div class="label">Autenticacao</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="value">RLS</div>
+                        <div class="label">Seguranca Tokens</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Fluxo de Autorizacao OAuth</h3>
+                <div class="flow-step">
+                    <div class="flow-number">1</div>
+                    <div class="flow-content">
+                        <h4>Iniciar Autorizacao</h4>
+                        <code>GET /api/youtube-oauth/authorize?channel_id=UCxxx</code>
+                    </div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-number">2</div>
+                    <div class="flow-content">
+                        <h4>Redirect para Google</h4>
+                        <p>Usuario aceita permissoes (youtube.readonly, analytics-monetary.readonly)</p>
+                    </div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-number">3</div>
+                    <div class="flow-content">
+                        <h4>Callback com Code</h4>
+                        <code>GET /api/youtube-oauth/callback?code=xxx&state=UCxxx</code>
+                    </div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-number">4</div>
+                    <div class="flow-content">
+                        <h4>Troca Code por Tokens</h4>
+                        <p>Backend salva access_token e refresh_token</p>
+                    </div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-number">5</div>
+                    <div class="flow-content">
+                        <h4>Coleta Automatica</h4>
+                        <p>Scheduler coleta diariamente via YouTube Analytics API</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Seguranca: Row Level Security (RLS)</h3>
+                <pre>
+-- Tabelas com RLS ativo:
+-- yt_oauth_tokens
+-- yt_proxy_credentials
+-- yt_channel_credentials
+
+ALTER TABLE yt_oauth_tokens ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Service role only" ON yt_oauth_tokens
+    FOR ALL USING (auth.role() = 'service_role');
+
+-- Apenas service_role_key pode acessar tokens
+-- Anon key nao tem permissao
+                </pre>
+            </div>
+
+            <div class="card">
+                <h3>Dados Coletados</h3>
+                <table>
+                    <tr>
+                        <th>Metrica</th>
+                        <th>Tabela</th>
+                        <th>Frequencia</th>
+                    </tr>
+                    <tr>
+                        <td>Revenue diario (USD)</td>
+                        <td>yt_daily_metrics</td>
+                        <td>Diaria</td>
+                    </tr>
+                    <tr>
+                        <td>Views, likes, comments</td>
+                        <td>yt_daily_metrics</td>
+                        <td>Diaria</td>
+                    </tr>
+                    <tr>
+                        <td>RPM (Revenue per mille)</td>
+                        <td>yt_daily_metrics</td>
+                        <td>Diaria</td>
+                    </tr>
+                    <tr>
+                        <td>Revenue por pais</td>
+                        <td>yt_country_metrics</td>
+                        <td>Diaria</td>
+                    </tr>
+                    <tr>
+                        <td>Revenue por video</td>
+                        <td>yt_video_metrics</td>
+                        <td>Diaria</td>
+                    </tr>
+                    <tr>
+                        <td>Fontes de trafego</td>
+                        <td>yt_traffic_summary</td>
+                        <td>Diaria</td>
+                    </tr>
+                    <tr>
+                        <td>Demographics</td>
+                        <td>yt_demographics</td>
+                        <td>Semanal</td>
+                    </tr>
+                </table>
+            </div>
+        </section>
+
+        <!-- PIPELINE -->
+        <section id="pipeline" class="section">
+            <h2 class="section-title"><span class="icon">&#127916;</span> Pipeline de Producao</h2>
+
+            <div class="card">
+                <h3>Visao Geral</h3>
+                <p>Sistema totalmente automatizado que transforma ideia em video publicado no YouTube sem intervencao humana.</p>
+
+                <div class="grid-4">
+                    <div class="metric-card">
+                        <div class="value">17</div>
+                        <div class="label">Passos Automatizados</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="value">8</div>
+                        <div class="label">Agentes AI</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="value">5</div>
+                        <div class="label">Maquinas (M1-M5)</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="value">15-30min</div>
+                        <div class="label">Tempo/Video</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Os 17 Passos do Pipeline</h3>
+
+                <h4>Fase 1: Ideacao e Roteiro (1-3)</h4>
+                <table>
+                    <tr><th>#</th><th>Passo</th><th>Tecnologia</th></tr>
+                    <tr><td>1</td><td>Topic Generator Agent</td><td>Claude/GPT</td></tr>
+                    <tr><td>2</td><td>Script Writer Agent</td><td>Claude/GPT</td></tr>
+                    <tr><td>3</td><td>Screenplay Agent</td><td>Claude/GPT</td></tr>
+                </table>
+
+                <h4>Fase 2: Assets Visuais (4-6)</h4>
+                <table>
+                    <tr><th>#</th><th>Passo</th><th>Tecnologia</th></tr>
+                    <tr><td>4</td><td>Prompt Generator Agent</td><td>Claude/GPT</td></tr>
+                    <tr><td>5</td><td>Image Generation</td><td>Google Gemini / ComfyUI</td></tr>
+                    <tr><td>6</td><td>Image Processing</td><td>Pillow/OpenCV</td></tr>
+                </table>
+
+                <h4>Fase 3: Assets de Audio (7-9)</h4>
+                <table>
+                    <tr><th>#</th><th>Passo</th><th>Tecnologia</th></tr>
+                    <tr><td>7</td><td>TTS Polish Agent</td><td>Claude/GPT</td></tr>
+                    <tr><td>8</td><td>Text-to-Speech</td><td>AllTalk (local)</td></tr>
+                    <tr><td>9</td><td>Transcription</td><td>WhisperX (local)</td></tr>
+                </table>
+
+                <h4>Fase 4: Edicao de Video (10-13)</h4>
+                <table>
+                    <tr><th>#</th><th>Passo</th><th>Tecnologia</th></tr>
+                    <tr><td>10</td><td>Ken Burns Animations</td><td>MoviePy</td></tr>
+                    <tr><td>11</td><td>FFmpeg Transitions</td><td>FFmpeg</td></tr>
+                    <tr><td>12</td><td>Subtitle Overlay</td><td>FFmpeg + SRT</td></tr>
+                    <tr><td>13</td><td>Add Music</td><td>FFmpeg amix</td></tr>
+                </table>
+
+                <h4>Fase 5: Polish e Extras (14-17)</h4>
+                <table>
+                    <tr><th>#</th><th>Passo</th><th>Tecnologia</th></tr>
+                    <tr><td>14</td><td>Add Overlay</td><td>FFmpeg</td></tr>
+                    <tr><td>15</td><td>Sound Effects</td><td>Em desenvolvimento</td></tr>
+                    <tr><td>16</td><td>HeyGen Avatar</td><td>HeyGen API</td></tr>
+                    <tr><td>17</td><td>Export & Quality Check</td><td>FFmpeg H.264</td></tr>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>Infraestrutura: 5 Maquinas</h3>
+                <table>
+                    <tr>
+                        <th>Maquina</th>
+                        <th>Funcao</th>
+                        <th>Capacidade</th>
+                    </tr>
+                    <tr>
+                        <td>M1</td>
+                        <td>Producao</td>
+                        <td>20-26 videos/dia</td>
+                    </tr>
+                    <tr>
+                        <td>M2</td>
+                        <td>Producao</td>
+                        <td>20-26 videos/dia</td>
+                    </tr>
+                    <tr>
+                        <td>M3</td>
+                        <td>Producao</td>
+                        <td>20-26 videos/dia</td>
+                    </tr>
+                    <tr>
+                        <td>M4</td>
+                        <td>Producao + Dev</td>
+                        <td>20-26 videos/dia</td>
+                    </tr>
+                    <tr>
+                        <td>M5</td>
+                        <td>Producao + Transcricoes</td>
+                        <td>20-26 videos/dia</td>
+                    </tr>
+                </table>
+                <p><strong>Total:</strong> 100-130 videos/dia</p>
+            </div>
+
+            <div class="card">
+                <h3>Sistema de Rotacao (Anti-Deteccao)</h3>
+                <p>YouTube detecta padroes de producao em massa. Rotacionamos elementos para parecer unico:</p>
+                <table>
+                    <tr>
+                        <th>Elemento</th>
+                        <th>Quantidade</th>
+                        <th>Status</th>
+                    </tr>
+                    <tr>
+                        <td>Musica de fundo</td>
+                        <td>25-38 tracks/conta</td>
+                        <td><span class="badge badge-success">OK</span></td>
+                    </tr>
+                    <tr>
+                        <td>Overlays</td>
+                        <td>8/conta</td>
+                        <td><span class="badge badge-warning">Expandir</span></td>
+                    </tr>
+                    <tr>
+                        <td>Animacoes Ken Burns</td>
+                        <td>10 templates</td>
+                        <td><span class="badge badge-warning">Melhorar</span></td>
+                    </tr>
+                    <tr>
+                        <td>Estilos de legenda</td>
+                        <td>10 estilos</td>
+                        <td><span class="badge badge-warning">Variar mais</span></td>
+                    </tr>
+                    <tr>
+                        <td>Transicoes FFmpeg</td>
+                        <td>Poucos</td>
+                        <td><span class="badge badge-error">Implementar</span></td>
+                    </tr>
+                    <tr>
+                        <td>Sound Effects</td>
+                        <td>0</td>
+                        <td><span class="badge badge-error">Implementar</span></td>
+                    </tr>
+                </table>
+            </div>
+        </section>
+
+        <!-- OPERACOES -->
+        <section id="operations" class="section">
+            <h2 class="section-title"><span class="icon">&#9881;</span> Operacoes e Deploy</h2>
+
+            <div class="card">
+                <h3>Deploy Railway</h3>
+                <table>
+                    <tr>
+                        <th>Item</th>
+                        <th>Valor</th>
+                    </tr>
+                    <tr>
+                        <td>URL</td>
+                        <td><code>https://youtube-dashboard-backend-production.up.railway.app</code></td>
+                    </tr>
+                    <tr>
+                        <td>Branch</td>
+                        <td>main</td>
+                    </tr>
+                    <tr>
+                        <td>Build</td>
+                        <td>Nixpacks (auto-detect Python)</td>
+                    </tr>
+                    <tr>
+                        <td>Start Command</td>
+                        <td><code>python main.py</code></td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>Variaveis de Ambiente (Railway)</h3>
+                <table>
+                    <tr>
+                        <th>Variavel</th>
+                        <th>Descricao</th>
+                    </tr>
+                    <tr>
+                        <td><code>SUPABASE_URL</code></td>
+                        <td>URL do projeto Supabase</td>
+                    </tr>
+                    <tr>
+                        <td><code>SUPABASE_KEY</code></td>
+                        <td>Service role key (nao anon)</td>
+                    </tr>
+                    <tr>
+                        <td><code>YOUTUBE_API_KEY_3..32</code></td>
+                        <td>20 API keys do YouTube</td>
+                    </tr>
+                    <tr>
+                        <td><code>PORT</code></td>
+                        <td>Porta do servidor (auto)</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>Sistema de Sync (docs)</h3>
+                <p>Scripts para sincronizar documentacao entre Mac e Windows:</p>
+
+                <h4>Mac (sync.sh)</h4>
+                <pre>./sync.sh                    # Sync padrao
+./sync.sh "minha mensagem"   # Sync com commit personalizado</pre>
+
+                <h4>Windows (sync.bat)</h4>
+                <pre>sync.bat                     # Sync padrao
+sync.bat "minha mensagem"    # Sync com commit personalizado</pre>
+
+                <h4>Recursos:</h4>
+                <ul>
+                    <li>Logs detalhados com cores</li>
+                    <li>Rastreamento de erros</li>
+                    <li>Resumo do ultimo commit (hash, mensagem, autor, data)</li>
+                    <li>Status final (branch, remote, erros)</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3>Troubleshooting Comum</h3>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <span>Quota Esgotada</span>
+                        <span>+</span>
+                    </div>
+                    <div class="accordion-content">
+                        <p><strong>Sintoma:</strong> Erro 403 quota exceeded</p>
+                        <p><strong>Causa:</strong> Todas as 20 API keys excederam limite diario</p>
+                        <p><strong>Solucao:</strong></p>
+                        <ul>
+                            <li>Aguardar reset (meia-noite PST)</li>
+                            <li>Adicionar mais API keys</li>
+                            <li>Verificar GET /api/stats para ver uso</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <span>OAuth Token Expirado</span>
+                        <span>+</span>
+                    </div>
+                    <div class="accordion-content">
+                        <p><strong>Sintoma:</strong> Erro 401 invalid_token</p>
+                        <p><strong>Solucao:</strong></p>
+                        <ul>
+                            <li>Sistema tenta refresh automatico</li>
+                            <li>Se falhar: re-autorizar canal</li>
+                            <li><code>GET /api/youtube-oauth/authorize?channel_id=UCxxx</code></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <span>Notificacoes Duplicadas</span>
+                        <span>+</span>
+                    </div>
+                    <div class="accordion-content">
+                        <p><strong>Sintoma:</strong> Mesmo video aparece multiplas vezes</p>
+                        <p><strong>Solucao:</strong></p>
+                        <pre>
+-- Limpar manualmente:
+DELETE FROM notificacoes
+WHERE id IN (
+    SELECT id FROM (
+        SELECT id, ROW_NUMBER() OVER (
+            PARTITION BY video_id, vista
+            ORDER BY created_at DESC
+        ) as rn
+        FROM notificacoes
+    ) t WHERE rn > 1 AND vista = false
+);
+
+-- Ou forcar notifier:
+POST /api/force-notifier</pre>
+                    </div>
+                </div>
+
+                <div class="accordion">
+                    <div class="accordion-header" onclick="toggleAccordion(this)">
+                        <span>Deploy Travado</span>
+                        <span>+</span>
+                    </div>
+                    <div class="accordion-content">
+                        <p><strong>Sintoma:</strong> Railway nao atualiza apos push</p>
+                        <p><strong>Solucao:</strong></p>
+                        <ul>
+                            <li>Verificar logs de build no Railway</li>
+                            <li>Trigger manual: Railway Dashboard > Deployments > Redeploy</li>
+                            <li>Verificar requirements.txt (dependencias)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Contatos e Recursos</h3>
+                <table>
+                    <tr>
+                        <th>Recurso</th>
+                        <th>Link/Info</th>
+                    </tr>
+                    <tr>
+                        <td>GitHub Repo</td>
+                        <td><code>github.com/ccalu/youtube-dashboard-backend</code></td>
+                    </tr>
+                    <tr>
+                        <td>Railway Dashboard</td>
+                        <td><code>railway.app/project/[ID]</code></td>
+                    </tr>
+                    <tr>
+                        <td>Supabase Dashboard</td>
+                        <td><code>supabase.com/dashboard/project/[ID]</code></td>
+                    </tr>
+                    <tr>
+                        <td>Lovable Frontend</td>
+                        <td><code>lovable.dev/projects/[ID]</code></td>
+                    </tr>
+                    <tr>
+                        <td>Desenvolvedor</td>
+                        <td>Cellibs (Marcelo)</td>
+                    </tr>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer style="background: var(--secondary); padding: 30px; text-align: center; margin-top: 50px; border-top: 1px solid var(--border);">
+        <p style="color: var(--text-secondary);">Content Factory - Dashboard de Mineracao YouTube</p>
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 10px;">Documentacao PRD Completa | Versao 2.0 | Janeiro 2026</p>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 5px;">Gerado automaticamente via Claude Code</p>
+    </footer>
+
+    <script>
+        // Tab Navigation
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remove active from all tabs
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+
+                // Add active to clicked tab
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Accordion Toggle
+        function toggleAccordion(header) {
+            header.classList.toggle('active');
+            const content = header.nextElementSibling;
+            content.classList.toggle('active');
+        }
+
+        // Smooth scroll for TOC links
+        document.querySelectorAll('.toc a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const target = document.querySelector(link.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
