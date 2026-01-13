@@ -47,3 +47,7 @@ client_secret*.json
 *.temp
 *_temp.py
 *_backup.py
+
+# docs/ local git (quando copiada independentemente)
+docs/.git/
+docs/.gitignore
