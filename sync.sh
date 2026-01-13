@@ -208,7 +208,7 @@ LAST_HASH=$(git log -1 --format="%h")
 LAST_MSG=$(git log -1 --format="%s")
 LAST_AUTHOR=$(git log -1 --format="%an")
 LAST_DATE=$(git log -1 --format="%cd" --date=format:"%d/%m/%Y %H:%M:%S")
-LAST_MACHINE=$(echo "$LAST_MSG" | grep -oP '(?<=sync: )[^[]+' | tr -d ' ' || echo "$LAST_AUTHOR")
+LAST_MACHINE=$(echo "$LAST_MSG" | sed -n 's/.*sync: \([^[]*\).*/\1/p' | tr -d ' ')
 
 echo -e "${CYAN}│${NC} Hash:     ${GREEN}$LAST_HASH${NC}"
 echo -e "${CYAN}│${NC} Mensagem: $LAST_MSG"
