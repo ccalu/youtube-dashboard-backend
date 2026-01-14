@@ -1,0 +1,1689 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNA CELLIBS - Sistemas & Inteligencia de Dados | Content Factory</title>
+    <style>
+        :root {
+            --primary: #1a1a2e;
+            --secondary: #16213e;
+            --accent: #00d9ff;
+            --accent-light: #4de8ff;
+            --text: #eaeaea;
+            --text-muted: #a0a0a0;
+            --bg: #0f0f1a;
+            --card-bg: #1a1a2e;
+            --border: #2a2a4a;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            font-size: 17px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 60px 40px;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            padding: 80px 40px;
+            background: linear-gradient(135deg, var(--primary) 0%, #0a192f 100%);
+            border-bottom: 3px solid var(--accent);
+        }
+
+        header h1 {
+            font-size: 3.2em;
+            font-weight: 700;
+            letter-spacing: -1px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        header .subtitle {
+            font-size: 1.3em;
+            color: var(--text-muted);
+            font-weight: 300;
+        }
+
+        header .badge {
+            display: inline-block;
+            margin-top: 25px;
+            padding: 8px 20px;
+            background: var(--accent);
+            color: #0a0a0a;
+            border-radius: 30px;
+            font-size: 0.85em;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* Navigation */
+        nav {
+            background: var(--secondary);
+            padding: 20px 40px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            border-bottom: 1px solid var(--border);
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        nav a {
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            transition: all 0.2s;
+        }
+
+        nav a:hover {
+            color: var(--text);
+            background: rgba(0, 217, 255, 0.2);
+        }
+
+        /* Blocos */
+        .bloco {
+            margin-bottom: 80px;
+        }
+
+        .bloco-header {
+            background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%);
+            padding: 40px;
+            border-radius: 12px 12px 0 0;
+            border-left: 4px solid var(--accent);
+        }
+
+        .bloco-number {
+            display: inline-block;
+            background: var(--accent);
+            color: #0a0a0a;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .bloco-header h2 {
+            font-size: 2em;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .bloco-content {
+            background: var(--card-bg);
+            padding: 40px;
+            border-radius: 0 0 12px 12px;
+            border: 1px solid var(--border);
+            border-top: none;
+        }
+
+        /* Sections */
+        h3 {
+            font-size: 1.5em;
+            color: var(--accent-light);
+            margin: 40px 0 20px 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        h3:first-child {
+            margin-top: 0;
+        }
+
+        h4 {
+            font-size: 1.15em;
+            color: var(--text);
+            margin: 30px 0 15px 0;
+        }
+
+        p {
+            margin-bottom: 18px;
+            color: var(--text);
+        }
+
+        strong {
+            color: var(--accent-light);
+            font-weight: 600;
+        }
+
+        /* Lists */
+        ul, ol {
+            margin: 15px 0 20px 25px;
+        }
+
+        li {
+            margin-bottom: 10px;
+            color: var(--text);
+        }
+
+        li strong {
+            color: var(--text);
+        }
+
+        /* Quotes */
+        .highlight-quote {
+            background: linear-gradient(135deg, rgba(0, 217, 255, 0.15) 0%, rgba(0, 217, 255, 0.05) 100%);
+            border-left: 4px solid var(--accent);
+            padding: 25px 30px;
+            margin: 30px 0;
+            border-radius: 0 8px 8px 0;
+            font-size: 1.1em;
+            font-style: italic;
+            color: var(--text);
+        }
+
+        /* Code blocks */
+        .code-block {
+            background: #0d0d15;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 25px;
+            margin: 25px 0;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9em;
+            line-height: 1.6;
+            color: var(--text-muted);
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 25px 0;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th {
+            background: var(--secondary);
+            color: var(--accent-light);
+            padding: 15px 20px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        td {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:hover td {
+            background: rgba(0, 217, 255, 0.05);
+        }
+
+        /* Info boxes */
+        .info-box {
+            background: rgba(0, 217, 255, 0.1);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            padding: 20px 25px;
+            margin: 25px 0;
+        }
+
+        .info-box-title {
+            color: var(--accent-light);
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Automation opportunity */
+        .automation-box {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+            border: 1px solid #10b981;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+
+        .automation-box h4 {
+            color: #10b981;
+            margin-top: 0;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .automation-box h4::before {
+            content: "⚡";
+        }
+
+        /* Tech stack box */
+        .tech-box {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(139, 92, 246, 0.05) 100%);
+            border: 1px solid #8b5cf6;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+
+        .tech-box h4 {
+            color: #a78bfa;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        .tech-box h4::before {
+            content: "🔧 ";
+        }
+
+        /* Separator */
+        hr {
+            border: none;
+            height: 1px;
+            background: var(--border);
+            margin: 40px 0;
+        }
+
+        /* Responsibility tag */
+        .responsibility {
+            display: inline-block;
+            background: var(--secondary);
+            border: 1px solid var(--border);
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            color: var(--text-muted);
+            margin: 5px 0;
+        }
+
+        .responsibility strong {
+            color: var(--accent-light);
+        }
+
+        /* Principles list */
+        .principles-list {
+            list-style: none;
+            margin-left: 0;
+            counter-reset: principle;
+        }
+
+        .principles-list li {
+            counter-increment: principle;
+            padding: 15px 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            border-left: 3px solid var(--accent);
+        }
+
+        .principles-list li::before {
+            content: counter(principle) ".";
+            color: var(--accent);
+            font-weight: 700;
+            margin-right: 10px;
+        }
+
+        /* Stats grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 25px 0;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: var(--text-muted);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 60px 40px;
+            background: var(--secondary);
+            border-top: 1px solid var(--border);
+        }
+
+        footer p {
+            color: var(--text-muted);
+            font-size: 0.95em;
+        }
+
+        footer .version {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        /* Diagram box */
+        .diagram {
+            background: #0d0d15;
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            padding: 30px;
+            margin: 25px 0;
+            text-align: center;
+        }
+
+        .diagram pre {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85em;
+            line-height: 1.5;
+            color: var(--text);
+            text-align: left;
+            display: inline-block;
+        }
+
+        /* Two column layout */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 25px 0;
+        }
+
+        .col-box {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .col-box h5 {
+            color: var(--accent-light);
+            margin-bottom: 15px;
+            font-size: 1em;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 30px 20px;
+            }
+
+            header {
+                padding: 50px 20px;
+            }
+
+            header h1 {
+                font-size: 2.2em;
+            }
+
+            .bloco-header, .bloco-content {
+                padding: 25px;
+            }
+
+            nav ul {
+                gap: 5px;
+            }
+
+            nav a {
+                padding: 6px 12px;
+                font-size: 0.8em;
+            }
+
+            .two-col {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>DNA CELLIBS</h1>
+    <p class="subtitle">Sistemas & Inteligencia de Dados | Content Factory</p>
+    <span class="badge">Wild Card - Documento Fundacional</span>
+</header>
+
+<nav>
+    <ul>
+        <li><a href="#bloco1">Identidade</a></li>
+        <li><a href="#bloco2">Dashboard</a></li>
+        <li><a href="#bloco3">Supabase</a></li>
+        <li><a href="#bloco4">Notificacoes</a></li>
+        <li><a href="#bloco5">Concorrencia</a></li>
+        <li><a href="#bloco6">Claude</a></li>
+        <li><a href="#bloco7">Metricas</a></li>
+        <li><a href="#bloco8">Futuro</a></li>
+    </ul>
+</nav>
+
+<div class="container">
+
+    <!-- BLOCO 1 -->
+    <section class="bloco" id="bloco1">
+        <div class="bloco-header">
+            <span class="bloco-number">BLOCO 1</span>
+            <h2>Identidade e Proposito</h2>
+        </div>
+        <div class="bloco-content">
+
+            <h3>Quem Sou na Empresa</h3>
+
+            <p>Na estrutura da Content Factory, ocupo a posicao de <strong>Wild Card</strong> — o socio responsavel pelos sistemas, dados e automacoes que sustentam toda a operacao. Enquanto outros socios focam em conteudo (Micha) ou producao (Lucca), meu trabalho e garantir que a <strong>infraestrutura de inteligencia</strong> funcione perfeitamente.</p>
+
+            <p>Uma descricao superficial seria "o cara que cuida do dashboard". Mas essa definicao nao captura a essencia. O que realmente faco e construir e manter o <strong>sistema nervoso digital</strong> da operacao — a infraestrutura que transforma dados brutos em decisoes estrategicas.</p>
+
+            <div class="highlight-quote">
+                Nao construo dashboards. Construo a capacidade da empresa de enxergar o mercado em tempo real e reagir antes dos concorrentes.
+            </div>
+
+            <p>O Dashboard de Mineracao que desenvolvi nao e apenas uma ferramenta de visualizacao. E um sistema completo de inteligencia competitiva que monitora mais de 300 canais concorrentes, detecta tendencias emergentes, e dispara alertas quando oportunidades surgem.</p>
+
+            <hr>
+
+            <h3>O Papel de Wild Card</h3>
+
+            <p>O termo "Wild Card" nao e aleatorio. Significa que minha funcao transcende uma especializacao unica. Dependendo da necessidade, atuo em:</p>
+
+            <ul>
+                <li><strong>Desenvolvimento Backend:</strong> APIs em Python/FastAPI que alimentam toda a operacao</li>
+                <li><strong>Arquitetura de Dados:</strong> Modelagem Supabase, queries otimizadas, integridade referencial</li>
+                <li><strong>Automacao:</strong> Scripts que eliminam trabalho manual repetitivo</li>
+                <li><strong>Integracao:</strong> Conexoes entre sistemas (YouTube API, Google Sheets, Claude)</li>
+                <li><strong>Analise:</strong> Transformar dados em insights acionaveis</li>
+            </ul>
+
+            <p>Essa versatilidade e intencional. Em uma operacao que escala rapidamente, surgem constantemente necessidades novas que nao se encaixam em especializacoes tradicionais. O Wild Card preenche essas lacunas.</p>
+
+            <hr>
+
+            <h3>Filosofia de Construcao</h3>
+
+            <p>Todo sistema que construo segue um principio fundamental: <strong>automatizar o tedioso, amplificar o estrategico</strong>.</p>
+
+            <p>O tempo dos socios e o recurso mais escasso da empresa. Cada minuto que gastam coletando dados manualmente, processando informacoes repetitivas, ou esperando relatorios e um minuto roubado de decisoes estrategicas.</p>
+
+            <p>Minha missao e construir sistemas que:</p>
+            <ol>
+                <li>Coletam dados automaticamente (sem intervencao humana)</li>
+                <li>Processam e filtram o que e relevante (separando sinal de ruido)</li>
+                <li>Apresentam insights de forma acionavel (dashboards claros)</li>
+                <li>Alertam proativamente quando algo importante acontece (notificacoes)</li>
+            </ol>
+
+            <div class="highlight-quote">
+                A medida de sucesso nao e quantos sistemas construo. E quanto tempo estrategico libero para os outros socios.
+            </div>
+
+            <hr>
+
+            <h3>A Relacao com Claude</h3>
+
+            <p>Uma parte significativa do meu trabalho acontece em colaboracao direta com Claude. Nao como ferramenta passiva, mas como <strong>parceiro de desenvolvimento</strong>.</p>
+
+            <p>Claude me ajuda a:</p>
+            <ul>
+                <li>Debugar codigo complexo rapidamente</li>
+                <li>Explorar solucoes arquiteturais antes de implementar</li>
+                <li>Documentar sistemas de forma clara e completa</li>
+                <li>Automatizar tarefas de analise que seriam impossiveis manualmente</li>
+            </ul>
+
+            <p>Essa simbiose entre humano e IA e central no meu workflow. O codigo que escrevo e frequentemente refinado em conversas iterativas. Os sistemas que desenho sao validados antes de uma linha ser escrita. A documentacao e criada enquanto o conhecimento ainda esta fresco.</p>
+
+            <hr>
+
+            <div class="highlight-quote">
+                <strong>Meu papel e ser a ponte entre a visao estrategica dos socios e a execucao tecnica que a torna possivel. Cada sistema que construo multiplica a capacidade da empresa de agir com velocidade e precisao.</strong>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- BLOCO 2 -->
+    <section class="bloco" id="bloco2">
+        <div class="bloco-header">
+            <span class="bloco-number">BLOCO 2</span>
+            <h2>Dashboard de Mineracao</h2>
+        </div>
+        <div class="bloco-content">
+
+            <h3>O Cerebro da Operacao</h3>
+
+            <p>O Dashboard de Mineracao e o sistema central de inteligencia competitiva da Content Factory. Ele monitora continuamente o ecossistema YouTube nos subnichos onde operamos, detectando o que funciona antes que vire conhecimento comum.</p>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">344</div>
+                    <div class="stat-label">Canais Monitorados</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">~400K</div>
+                    <div class="stat-label">Videos Coletados</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">20</div>
+                    <div class="stat-label">API Keys Rotativas</div>
+                </div>
+            </div>
+
+            <p>O sistema nao e apenas um agregador de dados. E uma <strong>maquina de deteccao de oportunidades</strong>. Cada coleta de dados alimenta algoritmos que identificam padroes — videos que estao crescendo mais rapido que o normal, temas que estao emergindo, estruturas de titulo que estao performando.</p>
+
+            <hr>
+
+            <h3>Arquitetura do Sistema</h3>
+
+            <div class="diagram">
+<pre>
+┌─────────────────────────────────────────────────────────────────────┐
+│                      DASHBOARD DE MINERACAO                         │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐          │
+│  │   YouTube    │    │   FastAPI    │    │   Supabase   │          │
+│  │     API      │───▶│   Backend    │───▶│  PostgreSQL  │          │
+│  │  (20 keys)   │    │   (Railway)  │    │   (Cloud)    │          │
+│  └──────────────┘    └──────────────┘    └──────────────┘          │
+│         │                   │                   │                   │
+│         │                   ▼                   │                   │
+│         │           ┌──────────────┐            │                   │
+│         │           │  Notifier    │            │                   │
+│         │           │   System     │◀───────────┘                   │
+│         │           └──────────────┘                                │
+│         │                   │                                       │
+│         ▼                   ▼                                       │
+│  ┌──────────────┐    ┌──────────────┐                              │
+│  │  Collector   │    │   Frontend   │                              │
+│  │   (Python)   │    │   (React)    │                              │
+│  └──────────────┘    └──────────────┘                              │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+</pre>
+            </div>
+
+            <h4>Componentes Principais:</h4>
+
+            <ul>
+                <li><strong>Collector (collector.py):</strong> Motor de coleta que rotaciona 20 API keys automaticamente, respeitando rate limits do YouTube</li>
+                <li><strong>Backend (main.py):</strong> API FastAPI com 50+ endpoints para consultas, filtros e aggregacoes</li>
+                <li><strong>Database (database.py):</strong> Camada de acesso ao Supabase com queries otimizadas</li>
+                <li><strong>Notifier (notifier.py):</strong> Sistema de alertas inteligentes baseado em thresholds configurados</li>
+                <li><strong>Frontend:</strong> Interface React hospedada no Lovable para visualizacao</li>
+            </ul>
+
+            <hr>
+
+            <h3>Fluxo de Dados</h3>
+
+            <p>O sistema opera em ciclos continuos de coleta:</p>
+
+            <ol>
+                <li><strong>Coleta Programada:</strong> A cada hora, o collector percorre todos os canais monitorados</li>
+                <li><strong>Extracao de Dados:</strong> Para cada canal, coleta videos recentes, views, likes, comentarios</li>
+                <li><strong>Armazenamento:</strong> Dados sao inseridos no Supabase com timestamps para analise temporal</li>
+                <li><strong>Processamento:</strong> Notifier analisa dados e dispara alertas quando thresholds sao atingidos</li>
+                <li><strong>Visualizacao:</strong> Frontend exibe dados processados em dashboards interativos</li>
+            </ol>
+
+            <hr>
+
+            <h3>Tipos de Canais Monitorados</h3>
+
+            <div class="two-col">
+                <div class="col-box">
+                    <h5>Canais "Nosso" (51 canais)</h5>
+                    <p>Nossos proprios canais da Content Factory. Monitoramos para:</p>
+                    <ul>
+                        <li>Acompanhar crescimento de inscritos</li>
+                        <li>Detectar videos que estao performando</li>
+                        <li>Comparar performance entre idiomas</li>
+                        <li>Identificar padroes de sucesso</li>
+                    </ul>
+                </div>
+                <div class="col-box">
+                    <h5>Canais "Minerado" (293 canais)</h5>
+                    <p>Concorrentes diretos nos nossos subnichos. Monitoramos para:</p>
+                    <ul>
+                        <li>Detectar videos viralizando</li>
+                        <li>Identificar micronichos emergentes</li>
+                        <li>Analisar estruturas de titulo</li>
+                        <li>Mapear movimentos de mercado</li>
+                    </ul>
+                </div>
+            </div>
+
+            <hr>
+
+            <h3>Distribuicao por SubNicho</h3>
+
+            <table>
+                <tr>
+                    <th>SubNicho</th>
+                    <th>Canais</th>
+                    <th>Descricao</th>
+                </tr>
+                <tr>
+                    <td>Relatos de Guerra</td>
+                    <td>102</td>
+                    <td>Narrativas de conflitos militares e experiencias humanas</td>
+                </tr>
+                <tr>
+                    <td>Terror</td>
+                    <td>60</td>
+                    <td>Historias de medo, eventos sobrenaturais e misteriosos</td>
+                </tr>
+                <tr>
+                    <td>Reis Perversos</td>
+                    <td>53</td>
+                    <td>Figuras historicas de poder e crueldade</td>
+                </tr>
+                <tr>
+                    <td>Historias Sombrias</td>
+                    <td>44</td>
+                    <td>Narrativas obscuras da historia humana</td>
+                </tr>
+                <tr>
+                    <td>Guerras e Civilizacoes</td>
+                    <td>36</td>
+                    <td>Conflitos historicos e ascensao/queda de imperios</td>
+                </tr>
+                <tr>
+                    <td>Outros</td>
+                    <td>49</td>
+                    <td>Misterios, Crime, Profecias, etc.</td>
+                </tr>
+            </table>
+
+            <hr>
+
+            <div class="tech-box">
+                <h4>Stack Tecnica do Dashboard</h4>
+                <ul>
+                    <li><strong>Backend:</strong> Python 3.11 + FastAPI</li>
+                    <li><strong>Database:</strong> PostgreSQL 15 (Supabase)</li>
+                    <li><strong>Frontend:</strong> React + TypeScript (Lovable)</li>
+                    <li><strong>Deploy:</strong> Railway (backend) + Lovable (frontend)</li>
+                    <li><strong>APIs:</strong> YouTube Data API v3 (20 keys rotativas)</li>
+                    <li><strong>Automacao:</strong> Cron jobs + Background tasks</li>
+                </ul>
+            </div>
+
+            <div class="highlight-quote">
+                <strong>O Dashboard nao e um projeto terminado. E um organismo vivo que evolui constantemente conforme novas necessidades surgem e novos padroes sao descobertos.</strong>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- BLOCO 3 -->
+    <section class="bloco" id="bloco3">
+        <div class="bloco-header">
+            <span class="bloco-number">BLOCO 3</span>
+            <h2>Supabase - O Cerebro de Dados</h2>
+        </div>
+        <div class="bloco-content">
+
+            <h3>Por Que Supabase?</h3>
+
+            <p>A escolha do Supabase como banco de dados central nao foi acidental. Entre dezenas de opcoes, Supabase oferece a combinacao perfeita de:</p>
+
+            <ul>
+                <li><strong>PostgreSQL Real:</strong> Nao e um banco NoSQL disfarado. E PostgreSQL 15 completo com todas as features</li>
+                <li><strong>API Automatica:</strong> Cada tabela ganha endpoints REST automaticamente</li>
+                <li><strong>Realtime:</strong> Subscriptions para mudancas em tempo real</li>
+                <li><strong>RLS (Row Level Security):</strong> Seguranca granular por linha</li>
+                <li><strong>Dashboard Visual:</strong> Interface para explorar dados sem SQL</li>
+                <li><strong>Free Tier Generoso:</strong> Perfeito para validar antes de escalar</li>
+            </ul>
+
+            <hr>
+
+            <h3>Arquitetura de Tabelas</h3>
+
+            <p>O schema do Supabase foi desenhado para suportar dois sistemas distintos:</p>
+
+            <div class="two-col">
+                <div class="col-box">
+                    <h5>Sistema de Mineracao</h5>
+                    <p>Tabelas para monitoramento de concorrentes:</p>
+                    <ul>
+                        <li><code>canais_monitorados</code> - 344 canais</li>
+                        <li><code>videos</code> - ~400K registros</li>
+                        <li><code>video_metrics_history</code> - Historico</li>
+                        <li><code>notificacoes</code> - Alertas</li>
+                        <li><code>coleta_status</code> - Logs de coleta</li>
+                    </ul>
+                </div>
+                <div class="col-box">
+                    <h5>Sistema de Monetizacao</h5>
+                    <p>Tabelas para nossos canais monetizados:</p>
+                    <ul>
+                        <li><code>yt_channels</code> - 52 canais</li>
+                        <li><code>yt_videos</code> - Videos publicados</li>
+                        <li><code>yt_revenue_daily</code> - Receita diaria</li>
+                        <li><code>yt_oauth_tokens</code> - Autenticacao</li>
+                        <li><code>financial_reports</code> - Relatorios</li>
+                    </ul>
+                </div>
+            </div>
+
+            <hr>
+
+            <h3>Tabela Principal: canais_monitorados</h3>
+
+            <div class="code-block">
+<pre>CREATE TABLE canais_monitorados (
+    id SERIAL PRIMARY KEY,
+    channel_id VARCHAR(50) UNIQUE NOT NULL,  -- UC...
+    nome VARCHAR(255),
+    tipo VARCHAR(20) DEFAULT 'minerado',      -- 'nosso' ou 'minerado'
+    subnicho VARCHAR(100),
+    idioma VARCHAR(50),
+    inscritos INTEGER,
+    total_videos INTEGER,
+    ultima_coleta TIMESTAMP,
+    ativo BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT now()
+);</pre>
+            </div>
+
+            <p><strong>Campos-chave:</strong></p>
+            <ul>
+                <li><code>tipo</code>: Diferencia nossos canais (51) dos concorrentes (293)</li>
+                <li><code>subnicho</code>: Classificacao tematica do canal</li>
+                <li><code>idioma</code>: 11 idiomas monitorados (Ingles, Espanhol, Portugues...)</li>
+                <li><code>inscritos</code>: Atualizado a cada coleta para tracking de crescimento</li>
+            </ul>
+
+            <hr>
+
+            <h3>Tabela de Videos</h3>
+
+            <div class="code-block">
+<pre>CREATE TABLE videos (
+    id SERIAL PRIMARY KEY,
+    video_id VARCHAR(50) UNIQUE NOT NULL,
+    channel_id VARCHAR(50) REFERENCES canais_monitorados(channel_id),
+    titulo TEXT,
+    views INTEGER,
+    likes INTEGER,
+    comments INTEGER,
+    duracao VARCHAR(20),
+    publicado_em TIMESTAMP,
+    coletado_em TIMESTAMP DEFAULT now(),
+    thumbnail_url TEXT
+);</pre>
+            </div>
+
+            <p>Esta tabela armazena cerca de 400.000 videos. Cada coleta atualiza as metricas (views, likes, comments) dos videos existentes e adiciona novos.</p>
+
+            <hr>
+
+            <h3>Tabela de Notificacoes</h3>
+
+            <div class="code-block">
+<pre>CREATE TABLE notificacoes (
+    id SERIAL PRIMARY KEY,
+    video_id VARCHAR(50),
+    channel_id VARCHAR(50),
+    tipo VARCHAR(50),           -- 'viral_3d', 'viral_7d', 'viral_14d'
+    views_atual INTEGER,
+    views_anterior INTEGER,
+    crescimento_percentual FLOAT,
+    mensagem TEXT,
+    vista BOOLEAN DEFAULT false,
+    created_at TIMESTAMP DEFAULT now()
+);</pre>
+            </div>
+
+            <p>Sistema de alertas que detecta videos em crescimento acelerado baseado em thresholds configurados.</p>
+
+            <hr>
+
+            <h3>Queries Frequentes</h3>
+
+            <div class="code-block">
+<pre># Canais nossos por subnicho
+SELECT subnicho, COUNT(*) as total
+FROM canais_monitorados
+WHERE tipo = 'nosso'
+GROUP BY subnicho
+ORDER BY total DESC;
+
+# Videos viralizando (ultimas 72h)
+SELECT v.titulo, v.views, c.nome as canal, c.subnicho
+FROM videos v
+JOIN canais_monitorados c ON v.channel_id = c.channel_id
+WHERE v.publicado_em > NOW() - INTERVAL '72 hours'
+  AND v.views > 15000
+ORDER BY v.views DESC
+LIMIT 50;
+
+# Crescimento de inscritos (nossos canais)
+SELECT nome, inscritos,
+       inscritos - LAG(inscritos) OVER (PARTITION BY channel_id ORDER BY ultima_coleta) as ganho
+FROM canais_monitorados
+WHERE tipo = 'nosso'
+ORDER BY ganho DESC NULLS LAST;</pre>
+            </div>
+
+            <hr>
+
+            <div class="automation-box">
+                <h4>Oportunidade de Automacao: Views Materializadas</h4>
+
+                <p>Atualmente, algumas queries agregadas sao computadas on-demand. Para escalar, podemos implementar:</p>
+
+                <ul>
+                    <li><strong>Materialized Views:</strong> Pre-computar agregacoes pesadas</li>
+                    <li><strong>Refresh Programado:</strong> Atualizar apos cada ciclo de coleta</li>
+                    <li><strong>Indices Parciais:</strong> Otimizar queries por tipo/subnicho</li>
+                </ul>
+
+                <p>Isso reduziria latencia de dashboards de segundos para milisegundos em consultas complexas.</p>
+            </div>
+
+            <div class="highlight-quote">
+                <strong>O Supabase nao e apenas armazenamento. E a fundacao que permite transformar milhoes de data points em inteligencia acionavel em tempo real.</strong>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- BLOCO 4 -->
+    <section class="bloco" id="bloco4">
+        <div class="bloco-header">
+            <span class="bloco-number">BLOCO 4</span>
+            <h2>Sistema de Notificacoes</h2>
+        </div>
+        <div class="bloco-content">
+
+            <h3>Deteccao Automatica de Oportunidades</h3>
+
+            <p>O sistema de notificacoes e o componente mais estrategico do Dashboard. Ele transforma o volume massivo de dados em alertas acionaveis — destacando exatamente o que merece atencao humana.</p>
+
+            <div class="highlight-quote">
+                A diferenca entre dados e inteligencia esta no filtro. Sem filtro, 400.000 videos sao ruido. Com filtro inteligente, sao oportunidades claras.
+            </div>
+
+            <hr>
+
+            <h3>Thresholds Configurados</h3>
+
+            <p>O Notifier dispara alertas quando videos de concorrentes atingem velocidades de crescimento especificas:</p>
+
+            <table>
+                <tr>
+                    <th>Tipo</th>
+                    <th>Threshold</th>
+                    <th>Janela</th>
+                    <th>Significado</th>
+                </tr>
+                <tr>
+                    <td>viral_3d</td>
+                    <td>15.000 views</td>
+                    <td>3 dias</td>
+                    <td>Video com tracao inicial forte — vale monitorar</td>
+                </tr>
+                <tr>
+                    <td>viral_7d</td>
+                    <td>50.000 views</td>
+                    <td>7 dias</td>
+                    <td>Crescimento sustentado confirmado</td>
+                </tr>
+                <tr>
+                    <td>viral_14d</td>
+                    <td>150.000 views</td>
+                    <td>14 dias</td>
+                    <td>Video confirmado como viral no nicho</td>
+                </tr>
+            </table>
+
+            <p>Esses thresholds foram calibrados empiricamente. Valores muito baixos geram ruido excessivo. Valores muito altos perdem oportunidades. O sweet spot foi encontrado atraves de iteracoes.</p>
+
+            <hr>
+
+            <h3>Logica do Notifier</h3>
+
+            <div class="code-block">
+<pre>def should_notify(video, threshold_type):
+    """
+    Decide se um video merece notificacao.
+
+    Criterios:
+    1. Video atingiu o threshold de views
+    2. Video foi publicado dentro da janela de tempo
+    3. Nao existe notificacao anterior para esse video/threshold
+    4. Canal esta ativo e e do tipo 'minerado'
+    """
+
+    thresholds = {
+        'viral_3d':  {'views': 15000,  'days': 3},
+        'viral_7d':  {'views': 50000,  'days': 7},
+        'viral_14d': {'views': 150000, 'days': 14}
+    }
+
+    config = thresholds[threshold_type]
+
+    if video.views < config['views']:
+        return False
+
+    age_days = (now() - video.published_at).days
+    if age_days > config['days']:
+        return False
+
+    # Permite re-notificacao para thresholds maiores
+    existing = get_notifications(video.id, threshold_type)
+    if existing:
+        return False
+
+    return True</pre>
+            </div>
+
+            <hr>
+
+            <h3>Workflow Diario</h3>
+
+            <p>O sistema de notificacoes integra-se ao workflow do Micha da seguinte forma:</p>
+
+            <ol>
+                <li><strong>Coleta Automatica:</strong> Dados sao atualizados a cada hora</li>
+                <li><strong>Processamento:</strong> Notifier analisa novos dados e dispara alertas</li>
+                <li><strong>Visualizacao:</strong> Micha acessa dashboard e ve notificacoes pendentes</li>
+                <li><strong>Analise:</strong> Avalia quais videos sao relevantes para nossos canais</li>
+                <li><strong>Acao:</strong> Decide criar conteudo baseado nas oportunidades</li>
+                <li><strong>Marcacao:</strong> Notificacoes analisadas sao marcadas como "vistas"</li>
+            </ol>
+
+            <hr>
+
+            <h3>Filtros Disponiveis</h3>
+
+            <p>O frontend permite filtrar notificacoes por:</p>
+
+            <ul>
+                <li><strong>SubNicho:</strong> Ver apenas alertas de Relatos de Guerra, Terror, etc.</li>
+                <li><strong>Idioma:</strong> Filtrar por Ingles, Espanhol, Portugues, etc.</li>
+                <li><strong>Tipo:</strong> Separar viral_3d, viral_7d, viral_14d</li>
+                <li><strong>Status:</strong> Pendentes vs. Ja vistas</li>
+                <li><strong>Data:</strong> Ultimas 24h, 7 dias, 30 dias</li>
+            </ul>
+
+            <p>Essa granularidade permite que Micha foque exatamente no que e relevante para o trabalho do dia — sem precisar processar todo o volume de dados.</p>
+
+            <hr>
+
+            <div class="automation-box">
+                <h4>Evolucao Futura: Notificacoes Inteligentes</h4>
+
+                <p>O sistema atual detecta oportunidades. A proxima evolucao seria recomendar acoes:</p>
+
+                <p><strong>Fase 1 - Contextualizacao:</strong></p>
+                <ul>
+                    <li>Mostrar historico de performance do micronicho no nosso canal</li>
+                    <li>Indicar se ja temos videos similares</li>
+                    <li>Calcular score de relevancia baseado em dados internos</li>
+                </ul>
+
+                <p><strong>Fase 2 - Recomendacao:</strong></p>
+                <ul>
+                    <li>Sugerir estruturas de titulo que funcionam para nos</li>
+                    <li>Indicar idiomas onde o tema tem maior probabilidade de sucesso</li>
+                    <li>Priorizar automaticamente por potencial estimado</li>
+                </ul>
+
+                <p>O objetivo e transformar "aqui esta um video viral" em "aqui esta uma oportunidade com X% de probabilidade de funcionar para voce, sugerimos Y estrutura de titulo".</p>
+            </div>
+
+            <div class="highlight-quote">
+                <strong>Notificacoes nao sao interupcoes. Sao oportunidades embaladas — quanto mais relevantes e contextualizadas, maior o valor gerado.</strong>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- BLOCO 5 -->
+    <section class="bloco" id="bloco5">
+        <div class="bloco-header">
+            <span class="bloco-number">BLOCO 5</span>
+            <h2>Analise de Concorrencia</h2>
+        </div>
+        <div class="bloco-content">
+
+            <h3>Inteligencia Competitiva Sistematizada</h3>
+
+            <p>Monitorar 293 canais concorrentes nao e exercicio passivo. E sistema ativo de inteligencia que responde perguntas estrategicas continuamente:</p>
+
+            <ul>
+                <li>Quais micronichos estao ganhando tracao?</li>
+                <li>Quais estruturas de titulo estao performando?</li>
+                <li>Quem sao os concorrentes que mais crescem?</li>
+                <li>Existem gaps no mercado que nao estamos explorando?</li>
+            </ul>
+
+            <p>Essas respostas nao vem de intuicao. Vem de dados estruturados e atualizados diariamente.</p>
+
+            <hr>
+
+            <h3>Metricas de Monitoramento</h3>
+
+            <p>Para cada canal concorrente, coletamos:</p>
+
+            <table>
+                <tr>
+                    <th>Metrica</th>
+                    <th>Frequencia</th>
+                    <th>Uso Estrategico</th>
+                </tr>
+                <tr>
+                    <td>Inscritos</td>
+                    <td>Diaria</td>
+                    <td>Identificar canais em crescimento acelerado</td>
+                </tr>
+                <tr>
+                    <td>Videos novos</td>
+                    <td>Horaria</td>
+                    <td>Detectar temas sendo explorados</td>
+                </tr>
+                <tr>
+                    <td>Views por video</td>
+                    <td>Horaria</td>
+                    <td>Identificar videos viralizando</td>
+                </tr>
+                <tr>
+                    <td>Engagement (likes/comments)</td>
+                    <td>Horaria</td>
+                    <td>Medir qualidade da audiencia</td>
+                </tr>
+                <tr>
+                    <td>Frequencia de postagem</td>
+                    <td>Semanal</td>
+                    <td>Entender estrategia de volume</td>
+                </tr>
+            </table>
+
+            <hr>
+
+            <h3>Analise de Titulos</h3>
+
+            <p>Uma dimensao critica da analise competitiva e a estrutura de titulos. Padroes identificados:</p>
+
+            <div class="two-col">
+                <div class="col-box">
+                    <h5>Estruturas que Funcionam</h5>
+                    <ul>
+                        <li>"O que [X] fez com [Y] foi pior que..."</li>
+                        <li>"A verdade sobre [EVENTO] finalmente revelada"</li>
+                        <li>"Por que [PAIS] nunca fala sobre [TEMA]"</li>
+                        <li>"Os ultimos [TEMPO] de [PESSOA] - historia proibida"</li>
+                    </ul>
+                </div>
+                <div class="col-box">
+                    <h5>Estruturas Saturadas</h5>
+                    <ul>
+                        <li>Titulos genericos sem gancho emocional</li>
+                        <li>Clickbait exagerado sem entrega</li>
+                        <li>Formulas ja muito exploradas</li>
+                        <li>Titulos longos demais (+100 chars)</li>
+                    </ul>
+                </div>
+            </div>
+
+            <hr>
+
+            <h3>Deteccao de Tendencias</h3>
+
+            <p>O sistema identifica tendencias emergentes atraves de:</p>
+
+            <ol>
+                <li><strong>Clustering Temporal:</strong> Multiplos concorrentes postando sobre mesmo tema = tendencia</li>
+                <li><strong>Velocidade de Views:</strong> Videos com crescimento acima da media = tema quente</li>
+                <li><strong>Novos Entrantes:</strong> Canais novos crescendo rapido = nicho com oportunidade</li>
+                <li><strong>Padroes de Titulo:</strong> Estruturas repetidas com sucesso = formula validada</li>
+            </ol>
+
+            <hr>
+
+            <h3>Mapeamento por Idioma</h3>
+
+            <p>A dinamica competitiva varia drasticamente por idioma:</p>
+
+            <table>
+                <tr>
+                    <th>Idioma</th>
+                    <th>Nivel de Competicao</th>
+                    <th>Caracteristicas</th>
+                </tr>
+                <tr>
+                    <td>Ingles</td>
+                    <td>Alto</td>
+                    <td>Mercado saturado, exige diferenciacao forte</td>
+                </tr>
+                <tr>
+                    <td>Espanhol</td>
+                    <td>Medio-Alto</td>
+                    <td>Crescendo rapidamente, boas oportunidades</td>
+                </tr>
+                <tr>
+                    <td>Portugues</td>
+                    <td>Medio</td>
+                    <td>Nicho estabelecido, espaco para crescer</td>
+                </tr>
+                <tr>
+                    <td>Arabe</td>
+                    <td>Baixo</td>
+                    <td>Pouca competicao, alto potencial</td>
+                </tr>
+                <tr>
+                    <td>Coreano</td>
+                    <td>Baixo</td>
+                    <td>Mercado inexplorado, first-mover advantage</td>
+                </tr>
+            </table>
+
+            <hr>
+
+            <div class="automation-box">
+                <h4>Oportunidade de Automacao: Competitive Intelligence Reports</h4>
+
+                <p>Atualmente, a analise competitiva e feita ad-hoc. A evolucao seria gerar relatorios automaticos:</p>
+
+                <p><strong>Relatorio Semanal Automatico:</strong></p>
+                <ul>
+                    <li>Top 10 videos viralizados da semana por subnicho</li>
+                    <li>Canais que mais cresceram (inscritos)</li>
+                    <li>Estruturas de titulo emergentes</li>
+                    <li>Gaps identificados (temas sem cobertura)</li>
+                    <li>Recomendacoes de acao priorizadas</li>
+                </ul>
+
+                <p>Esse relatorio seria enviado automaticamente toda segunda-feira, permitindo planejamento estrategico informado.</p>
+            </div>
+
+            <div class="highlight-quote">
+                <strong>Competir sem inteligencia competitiva e navegar sem mapa. O Dashboard transforma o mercado opaco em territorio mapeado.</strong>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- BLOCO 6 -->
+    <section class="bloco" id="bloco6">
+        <div class="bloco-header">
+            <span class="bloco-number">BLOCO 6</span>
+            <h2>Automacao com Claude</h2>
+        </div>
+        <div class="bloco-content">
+
+            <h3>Claude como Parceiro de Desenvolvimento</h3>
+
+            <p>A relacao com Claude transcende o uso de uma ferramenta. E uma <strong>parceria de desenvolvimento</strong> onde cada parte contribui com suas forcas:</p>
+
+            <div class="two-col">
+                <div class="col-box">
+                    <h5>O que eu trago:</h5>
+                    <ul>
+                        <li>Contexto do negocio e objetivos</li>
+                        <li>Conhecimento do dominio (YouTube, Content)</li>
+                        <li>Decisoes estrategicas e prioridades</li>
+                        <li>Validacao de qualidade e relevancia</li>
+                    </ul>
+                </div>
+                <div class="col-box">
+                    <h5>O que Claude traz:</h5>
+                    <ul>
+                        <li>Velocidade de execucao e iteracao</li>
+                        <li>Conhecimento tecnico profundo</li>
+                        <li>Capacidade de processar grandes volumes</li>
+                        <li>Documentacao e organizacao</li>
+                    </ul>
+                </div>
+            </div>
+
+            <hr>
+
+            <h3>Workflows Estabelecidos</h3>
+
+            <h4>1. Desenvolvimento de Features</h4>
+            <p>Quando preciso adicionar funcionalidade ao Dashboard:</p>
+            <ol>
+                <li>Descrevo o objetivo e contexto para Claude</li>
+                <li>Exploramos arquitetura juntos (trade-offs, opcoes)</li>
+                <li>Claude gera codigo inicial baseado no contexto</li>
+                <li>Iteramos ate a implementacao estar solida</li>
+                <li>Documento e integro ao sistema</li>
+            </ol>
+
+            <h4>2. Debug e Troubleshooting</h4>
+            <p>Quando algo nao funciona como esperado:</p>
+            <ol>
+                <li>Copio logs/erros relevantes</li>
+                <li>Claude analisa e identifica causa raiz</li>
+                <li>Discutimos solucoes possiveis</li>
+                <li>Implemento a correcao validada</li>
+            </ol>
+
+            <h4>3. Documentacao</h4>
+            <p>Para manter conhecimento organizado:</p>
+            <ol>
+                <li>Explico contexto e objetivos do documento</li>
+                <li>Claude estrutura e formata o conteudo</li>
+                <li>Reviso e ajusto para precisao</li>
+                <li>Documento vive e evolui com o projeto</li>
+            </ol>
+
+            <hr>
+
+            <h3>Exemplos de Colaboracoes</h3>
+
+            <div class="info-box">
+                <div class="info-box-title">Caso: Sistema de Notificacoes</div>
+                <p>O Notifier passou por 3 iteracoes significativas, todas desenvolvidas em parceria com Claude:</p>
+                <ul>
+                    <li><strong>v1:</strong> Logica basica de thresholds</li>
+                    <li><strong>v2:</strong> Adicao de filtros por subnicho/idioma</li>
+                    <li><strong>v3:</strong> Otimizacao de queries e deduplicacao</li>
+                </ul>
+                <p>Cada iteracao levou horas em vez de dias gracas a velocidade de prototipagem com Claude.</p>
+            </div>
+
+            <div class="info-box">
+                <div class="info-box-title">Caso: Documentacao Supabase</div>
+                <p>A documentacao completa do Supabase (SUPABASE_CEREBRO_OPERACAO.md) foi criada em uma sessao:</p>
+                <ul>
+                    <li>Claude conectou ao banco e extraiu estatisticas</li>
+                    <li>Estruturou informacao de forma clara e navegavel</li>
+                    <li>Gerou queries uteis para referencia futura</li>
+                    <li>Documento de ~15KB criado em menos de 1 hora</li>
+                </ul>
+            </div>
+
+            <hr>
+
+            <h3>Claude Code: O Ambiente de Trabalho</h3>
+
+            <p>Claude Code e o ambiente onde a maioria do trabalho tecnico acontece. Oferece:</p>
+
+            <ul>
+                <li><strong>Acesso a arquivos:</strong> Leitura e edicao direta de codigo</li>
+                <li><strong>Execucao de comandos:</strong> Testes, deploys, operacoes de sistema</li>
+                <li><strong>Contexto persistente:</strong> Conhecimento acumulado sobre o projeto</li>
+                <li><strong>Multi-arquivo:</strong> Capacidade de trabalhar em varios arquivos simultaneamente</li>
+            </ul>
+
+            <p>A estrutura de pastas, a organizacao de documentacao, e a arquitetura de codigo — tudo evolui em sessoes de Claude Code.</p>
+
+            <hr>
+
+            <h3>Principios da Parceria</h3>
+
+            <ol class="principles-list">
+                <li><strong>Contexto e rei:</strong> Quanto mais contexto dou, melhores os outputs</li>
+                <li><strong>Iteracao rapida:</strong> Melhor tentar e ajustar do que planejar excessivamente</li>
+                <li><strong>Documentar enquanto fresco:</strong> Criar documentacao junto com o codigo</li>
+                <li><strong>Validar sempre:</strong> Nunca assumir que codigo gerado esta correto sem testar</li>
+                <li><strong>Manter historico:</strong> Conversas anteriores informam decisoes futuras</li>
+            </ol>
+
+            <hr>
+
+            <div class="automation-box">
+                <h4>Evolucao Futura: Agentes Autonomos</h4>
+
+                <p>A proxima fronteira e desenvolver agentes que executam tarefas autonomamente:</p>
+
+                <ul>
+                    <li><strong>Agente de Monitoramento:</strong> Detecta anomalias e sugere acoes</li>
+                    <li><strong>Agente de Relatorios:</strong> Gera reports automaticos periodicos</li>
+                    <li><strong>Agente de Manutencao:</strong> Identifica e corrige problemas proativamente</li>
+                </ul>
+
+                <p>O objetivo e reduzir minha intervencao em tarefas rotineiras, liberando tempo para trabalho estrategico.</p>
+            </div>
+
+            <div class="highlight-quote">
+                <strong>A parceria com Claude nao e terceirizacao de trabalho. E amplificacao de capacidade — fazer em horas o que levaria dias, e em dias o que levaria semanas.</strong>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- BLOCO 7 -->
+    <section class="bloco" id="bloco7">
+        <div class="bloco-header">
+            <span class="bloco-number">BLOCO 7</span>
+            <h2>Metricas e KPIs</h2>
+        </div>
+        <div class="bloco-content">
+
+            <h3>O Que Medir e Por Que</h3>
+
+            <p>Em um sistema de inteligencia de dados, a escolha de metricas e tao importante quanto a coleta. Metricas erradas levam a decisoes erradas. Metricas certas iluminam o caminho.</p>
+
+            <div class="highlight-quote">
+                Nao medimos tudo que podemos medir. Medimos o que importa para tomar decisoes melhores.
+            </div>
+
+            <hr>
+
+            <h3>Metricas do Sistema</h3>
+
+            <table>
+                <tr>
+                    <th>Metrica</th>
+                    <th>Alvo</th>
+                    <th>Por Que Importa</th>
+                </tr>
+                <tr>
+                    <td>Uptime da Coleta</td>
+                    <td>>99%</td>
+                    <td>Gaps na coleta = oportunidades perdidas</td>
+                </tr>
+                <tr>
+                    <td>Latencia de Notificacao</td>
+                    <td><1 hora</td>
+                    <td>Velocidade de reacao a oportunidades</td>
+                </tr>
+                <tr>
+                    <td>Cobertura de Canais</td>
+                    <td>>95%</td>
+                    <td>Visibilidade completa do mercado</td>
+                </tr>
+                <tr>
+                    <td>Precisao de Notificacoes</td>
+                    <td>>80%</td>
+                    <td>Alertas relevantes vs. ruido</td>
+                </tr>
+                <tr>
+                    <td>Tempo de Resposta API</td>
+                    <td><500ms</td>
+                    <td>Experiencia do usuario no dashboard</td>
+                </tr>
+            </table>
+
+            <hr>
+
+            <h3>Metricas de Negocio</h3>
+
+            <p>Alem das metricas tecnicas, monitoramos indicadores de impacto no negocio:</p>
+
+            <h4>Para Nossos Canais:</h4>
+            <ul>
+                <li><strong>Crescimento de Inscritos:</strong> Velocidade de crescimento vs. mes anterior</li>
+                <li><strong>Views por Video:</strong> Media de performance por subnicho/idioma</li>
+                <li><strong>Taxa de Viral:</strong> % de videos que atingem thresholds de sucesso</li>
+                <li><strong>Revenue per Channel:</strong> Receita media por canal monetizado</li>
+            </ul>
+
+            <h4>Para Concorrentes:</h4>
+            <ul>
+                <li><strong>Market Share por SubNicho:</strong> Nossa participacao vs. concorrentes</li>
+                <li><strong>Velocidade de Resposta:</strong> Tempo entre tendencia e nossa adaptacao</li>
+                <li><strong>Gap Analysis:</strong> Oportunidades nao exploradas</li>
+            </ul>
+
+            <hr>
+
+            <h3>Dashboard de Metricas</h3>
+
+            <p>O sistema gera visualizacoes para acompanhamento:</p>
+
+            <div class="two-col">
+                <div class="col-box">
+                    <h5>Visao Diaria</h5>
+                    <ul>
+                        <li>Notificacoes pendentes</li>
+                        <li>Videos coletados (24h)</li>
+                        <li>Status das API keys</li>
+                        <li>Erros de coleta</li>
+                    </ul>
+                </div>
+                <div class="col-box">
+                    <h5>Visao Semanal</h5>
+                    <ul>
+                        <li>Crescimento acumulado</li>
+                        <li>Top videos da semana</li>
+                        <li>Tendencias emergentes</li>
+                        <li>Comparativo de performance</li>
+                    </ul>
+                </div>
+            </div>
+
+            <hr>
+
+            <h3>Alertas de Saude do Sistema</h3>
+
+            <p>O sistema monitora a si mesmo e alerta quando algo precisa de atencao:</p>
+
+            <ul>
+                <li><strong>API Key Exhausta:</strong> Quando uma key atinge limite de quota</li>
+                <li><strong>Coleta Atrasada:</strong> Quando ciclo de coleta excede tempo esperado</li>
+                <li><strong>Erro de Conexao:</strong> Falhas no acesso ao Supabase ou YouTube</li>
+                <li><strong>Espaco em Disco:</strong> Quando logs ou dados crescem demais</li>
+            </ul>
+
+            <hr>
+
+            <div class="automation-box">
+                <h4>Evolucao: Monitoramento Preditivo</h4>
+
+                <p>A proxima fase e antecipar problemas antes que ocorram:</p>
+
+                <ul>
+                    <li><strong>Predicao de Quota:</strong> Estimar quando API keys vao esgotar</li>
+                    <li><strong>Deteccao de Anomalias:</strong> Identificar padroes incomuns automaticamente</li>
+                    <li><strong>Alertas Preventivos:</strong> Notificar antes do problema, nao depois</li>
+                </ul>
+
+                <p>O objetivo e passar de firefighting (reagir a problemas) para prevenction (evitar problemas).</p>
+            </div>
+
+            <div class="highlight-quote">
+                <strong>Metricas nao sao para relatorios bonitos. Sao para decisoes melhores. Se uma metrica nao muda nenhuma decisao, nao deveria existir.</strong>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- BLOCO 8 -->
+    <section class="bloco" id="bloco8">
+        <div class="bloco-header">
+            <span class="bloco-number">BLOCO 8</span>
+            <h2>Visao de Futuro</h2>
+        </div>
+        <div class="bloco-content">
+
+            <h3>Evolucao do Sistema</h3>
+
+            <p>O Dashboard de Mineracao, como existe hoje, e apenas o comeco. A visao de longo prazo e construir um <strong>ecossistema completo de inteligencia</strong> que automatiza cada vez mais decisoes.</p>
+
+            <div class="diagram">
+<pre>
+┌─────────────────────────────────────────────────────────────────────┐
+│                    EVOLUCAO DO ECOSSISTEMA                          │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  HOJE                    PROXIMO                    FUTURO          │
+│  ────                    ───────                    ──────          │
+│                                                                     │
+│  Coleta Manual      →    Coleta Inteligente    →    Coleta Preditiva│
+│  Notificacoes       →    Recomendacoes         →    Acoes Autonomas │
+│  Dashboard Visual   →    Reports Automaticos   →    Insights por IA │
+│  Analise Humana     →    Analise Assistida     →    Analise Autonoma│
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+</pre>
+            </div>
+
+            <hr>
+
+            <h3>Roadmap de Features</h3>
+
+            <h4>Curto Prazo (Q1 2025):</h4>
+            <ul>
+                <li>Sistema de Reports Automaticos Semanais</li>
+                <li>Alertas de Saude do Sistema via Telegram</li>
+                <li>Integracao com Sistema de Monetizacao</li>
+                <li>Dashboard de Comparativo de Performance</li>
+            </ul>
+
+            <h4>Medio Prazo (Q2-Q3 2025):</h4>
+            <ul>
+                <li>Machine Learning para Predicao de Viralizacao</li>
+                <li>Sistema de Recomendacao de Titulos</li>
+                <li>Automacao de Adicao de Novos Canais</li>
+                <li>Analise de Sentimento de Comentarios</li>
+            </ul>
+
+            <h4>Longo Prazo (2026+):</h4>
+            <ul>
+                <li>Agentes Autonomos de Monitoramento</li>
+                <li>Geracao Automatica de Relatorios Estrategicos</li>
+                <li>Integracao End-to-End (Deteccao → Criacao → Publicacao)</li>
+                <li>Plataforma Multi-Tenant para Outros Nichos</li>
+            </ul>
+
+            <hr>
+
+            <h3>Integracao com Outros Sistemas</h3>
+
+            <p>O Dashboard nao existe isolado. Ele se conecta (ou vai se conectar) com:</p>
+
+            <table>
+                <tr>
+                    <th>Sistema</th>
+                    <th>Integracao</th>
+                    <th>Status</th>
+                </tr>
+                <tr>
+                    <td>Sistema de Scripts (Claude Code)</td>
+                    <td>Dados alimentam decisoes de conteudo</td>
+                    <td>Ativo</td>
+                </tr>
+                <tr>
+                    <td>Sistema de Monetizacao</td>
+                    <td>Dados de revenue por canal</td>
+                    <td>Em desenvolvimento</td>
+                </tr>
+                <tr>
+                    <td>Google Sheets</td>
+                    <td>Export de dados para analises ad-hoc</td>
+                    <td>Parcial</td>
+                </tr>
+                <tr>
+                    <td>Sistema de Upload</td>
+                    <td>Tracking de videos publicados</td>
+                    <td>Planejado</td>
+                </tr>
+                <tr>
+                    <td>Telegram/Discord</td>
+                    <td>Alertas e notificacoes em tempo real</td>
+                    <td>Planejado</td>
+                </tr>
+            </table>
+
+            <hr>
+
+            <h3>Escalabilidade</h3>
+
+            <p>O sistema foi desenhado para escalar. Atualmente monitora 344 canais, mas a arquitetura suporta:</p>
+
+            <ul>
+                <li><strong>1.000+ canais:</strong> Com as 20 API keys atuais</li>
+                <li><strong>5.000+ canais:</strong> Com adicao de mais keys</li>
+                <li><strong>Multi-nicho:</strong> Expansao para alem de "Historias"</li>
+                <li><strong>Multi-plataforma:</strong> Potencial para TikTok, Shorts, etc.</li>
+            </ul>
+
+            <p>A limitacao nao e tecnica — e estrategica. Expandimos quando faz sentido para o negocio, nao porque podemos.</p>
+
+            <hr>
+
+            <h3>Principios de Desenvolvimento</h3>
+
+            <ol class="principles-list">
+                <li><strong>Automatizar o tedioso:</strong> Se e repetitivo, deveria ser automatico</li>
+                <li><strong>Dados sobre intuicao:</strong> Decisoes baseadas em evidencia, nao feeling</li>
+                <li><strong>Simplicidade primeiro:</strong> A solucao mais simples que funciona vence</li>
+                <li><strong>Documentar tudo:</strong> Conhecimento que nao esta escrito se perde</li>
+                <li><strong>Iteracao rapida:</strong> Lancae imperfeito e melhore, nao espere perfeicao</li>
+                <li><strong>Medir impacto:</strong> Se nao consegue medir, nao consegue melhorar</li>
+            </ol>
+
+            <hr>
+
+            <h3>Declaracao de Proposito</h3>
+
+            <p>Meu papel na Content Factory e construir a <strong>infraestrutura de inteligencia</strong> que permite a empresa operar com velocidade e precisao superiores aos concorrentes.</p>
+
+            <p>Isso significa:</p>
+            <ul>
+                <li>Sistemas que coletam e processam dados automaticamente</li>
+                <li>Dashboards que transformam dados em insights acionaveis</li>
+                <li>Automacoes que eliminam trabalho manual repetitivo</li>
+                <li>Documentacao que preserva conhecimento e permite escala</li>
+            </ul>
+
+            <p>A medida de sucesso nao e quantos sistemas construo ou quantas linhas de codigo escrevo. E quanto valor estrategico gero para a operacao como um todo.</p>
+
+            <hr>
+
+            <div class="highlight-quote" style="background: linear-gradient(135deg, rgba(0, 217, 255, 0.25) 0%, rgba(0, 217, 255, 0.1) 100%); border-left-width: 5px; font-size: 1.15em;">
+                <strong>A diferenca entre uma operacao e uma empresa esta na infraestrutura. Enquanto concorrentes tomam decisoes no escuro, nos temos visibilidade completa do mercado. Essa vantagem de informacao e construida, nao herdada — e minha missao e expandi-la continuamente.</strong>
+            </div>
+
+        </div>
+    </section>
+
+</div>
+
+<footer>
+    <p><span class="version">DNA CELLIBS v1.0</span></p>
+    <p>Content Factory | Wild Card - Sistemas & Inteligencia de Dados</p>
+    <p style="margin-top: 15px; font-size: 0.85em;">Janeiro 2025</p>
+</footer>
+
+</body>
+</html>

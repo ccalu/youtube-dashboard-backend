@@ -1,16 +1,88 @@
 # YouTube Dashboard Backend - Content Factory
 
-Backend API para o Dashboard de Mineração YouTube da Content Factory.
+Backend API para o Dashboard de Mineracao YouTube da Content Factory.
 
 **Stack:** FastAPI + Supabase + Railway + Python 3.10+
 
-**Documentação criada por:** Cellibs (Marcelo) via Claude Code
+**Documentacao criada por:** Cellibs (Marcelo) via Claude Code
 **Data:** Janeiro 2025
-**Versão:** 1.0
+**Versao:** 2.0
 
 ---
 
-## 🚀 Quick Start
+## ESTRUTURA DE PASTAS
+
+```
+/docs/
+│
+├── DNA/                        # Documentos Fundacionais
+│   ├── DNA-CELLIBS.html       # Sistemas & Inteligencia de Dados
+│   └── DNA-MICHA-V2.html      # Desenvolvimento de Conteudo
+│
+├── 1_CONTEXTO_NEGOCIO/         # Visao geral do negocio
+│   ├── 01_CONTENT_FACTORY_VISAO_GERAL.md
+│   ├── 02_PIPELINE_PRODUCAO_OVERVIEW.md
+│   └── 03_DASHBOARD_PROPOSTA_VALOR.md
+│
+├── 2_DASHBOARD_TECNICO/        # Documentacao tecnica
+│   ├── 04_ARQUITETURA_SISTEMA.md
+│   ├── 05_DATABASE_SCHEMA.md
+│   ├── 06_YOUTUBE_COLLECTOR.md
+│   ├── 07_NOTIFICACOES_INTELIGENTES.md
+│   ├── 08_API_ENDPOINTS_COMPLETA.md
+│   ├── 09_MONETIZACAO_SISTEMA.md
+│   ├── 10_SISTEMA_FINANCEIRO.md
+│   ├── 11_YOUTUBE_UPLOADER.md
+│   ├── SUPABASE_COMPLETO.md   # Guia completo do banco
+│   └── FRONTEND_COMPLETO.md   # Documentacao do frontend
+│
+├── 3_OPERACIONAL/              # Guias operacionais
+│   ├── 12_INTEGRACAO_GOOGLE_APIS.md
+│   ├── 13_DEPLOY_RAILWAY.md
+│   ├── 14_TROUBLESHOOTING.md
+│   ├── CONVERT_TO_FULL_CLONE.md
+│   └── SETUP_NOVO_PC.md
+│
+├── frontend-code/              # Codigo React/TypeScript
+│
+├── database/                   # Banco de dados
+│   ├── migrations/            # Scripts SQL
+│   └── snapshots/             # Backups JSON
+│
+├── scripts/                    # Scripts utilitarios
+│   ├── google-apps-script-*.js
+│   ├── INICIAR_DASHBOARD.ps1
+│   └── *.py (migrations)
+│
+├── referencia/                 # Documentacao de referencia
+│   ├── documentacao-completa/ # 16 docs detalhados
+│   ├── htmls/                 # HTMLs grandes
+│   └── fluxos/                # Diagramas de fluxo
+│
+├── archive/                    # Historico/backups
+│   ├── changelog/
+│   ├── mini-steps/
+│   ├── org-max/
+│   └── docs-backup/
+│
+├── utils/                      # Scripts utilitarios
+│   ├── verificacao/           # Scripts de verificacao
+│   ├── setup/                 # Scripts de configuracao
+│   └── one-time/              # Scripts de uso unico
+│
+└── [Codigo Python na raiz]     # Backend FastAPI (so essenciais)
+    ├── main.py                # Entry point
+    ├── collector.py           # YouTube collector
+    ├── database.py            # Supabase client
+    ├── notifier.py            # Notificacoes
+    ├── monetization_*.py      # Monetizacao
+    ├── financeiro.py          # Financeiro
+    └── yt_uploader/           # Sistema upload
+```
+
+---
+
+## Quick Start
 
 ```bash
 # Instalar dependências
