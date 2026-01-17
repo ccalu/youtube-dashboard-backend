@@ -850,6 +850,10 @@ async def get_coletas_historico(limit: Optional[int] = 20):
         chaves_suspensas_real = len(collector.suspended_keys)
         chaves_ativas_real = len(collector.api_keys) - chaves_esgotadas_real - chaves_suspensas_real
 
+        # Pegar dados da última coleta
+        ultima_coleta = historico[0] if historico else {}
+        videos_coletados = ultima_coleta.get("videos_coletados", 0)
+
         return {
             "historico": historico,
             "total": len(historico),
@@ -878,6 +882,7 @@ async def get_coletas_historico(limit: Optional[int] = 20):
                 "chaves_esgotadas_ids": list(collector.exhausted_keys_date.keys()),
                 "chaves_suspensas": len(collector.suspended_keys),
                 "chaves_suspensas_ids": list(collector.suspended_keys),
+                "videos_coletados": videos_coletados,
                 "proximo_reset_utc": next_reset.isoformat(),
                 "proximo_reset_local": next_reset_brasilia.strftime("%d/%m/%Y %H:%M (Horário de Brasília)")
             }
