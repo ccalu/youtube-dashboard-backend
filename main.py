@@ -830,26 +830,43 @@ async def reset_suspended_keys():
 async def get_coletas_historico(limit: Optional[int] = 20):
     try:
         historico = await db.get_coletas_historico(limit=limit)
-        
+
+        # Buscar canais problemáticos para o modal de logs
+        canais_problematicos = await db.get_canais_problematicos()
+
         quota_usada = await db.get_quota_diaria_usada()
-        
-        quota_total = len(collector.api_keys) * 10000  
+
+        quota_total = len(collector.api_keys) * 10000
         quota_disponivel = quota_total - quota_usada
         porcentagem_usada = (quota_usada / quota_total) * 100 if quota_total > 0 else 0
-        
+
         now_utc = datetime.now(timezone.utc)
         next_reset = now_utc.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
-        
+
         brasilia_offset = timedelta(hours=-3)
         next_reset_brasilia = next_reset + brasilia_offset
 
         chaves_esgotadas_real = min(int(quota_usada // 10000), len(collector.api_keys))
         chaves_suspensas_real = len(collector.suspended_keys)
         chaves_ativas_real = len(collector.api_keys) - chaves_esgotadas_real - chaves_suspensas_real
-        
+
         return {
             "historico": historico,
             "total": len(historico),
+            "canais_com_erro": {
+                "total": len(canais_problematicos),
+                "lista": [
+                    {
+                        "nome": c.get("nome_canal"),
+                        "subnicho": c.get("subnicho"),
+                        "tipo": c.get("tipo"),
+                        "erro": c.get("coleta_ultimo_erro"),
+                        "falhas_consecutivas": c.get("coleta_falhas_consecutivas"),
+                        "url": c.get("url_canal")
+                    }
+                    for c in canais_problematicos
+                ]
+            },
             "quota_info": {
                 "total_diario": quota_total,
                 "usado_hoje": quota_usada,
