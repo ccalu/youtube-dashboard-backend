@@ -332,7 +332,7 @@ class YouTubeCollector:
                 # if self.total_quota_units > 0:
                 #     await asyncio.sleep(self.base_delay)
 
-                async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=60)) as response:
 
                     if response.status == 200:
                         data = await response.json()
@@ -705,16 +705,24 @@ class YouTubeCollector:
             'views_7d': views_7d
         }
 
-    async def get_canal_data(self, url_canal: str, canal_name: str) -> Optional[Dict[str, Any]]:
-        """Get complete canal data"""
+    async def get_canal_data(self, url_canal: str, canal_name: str) -> tuple[Optional[Dict[str, Any]], Optional[List[Dict[str, Any]]]]:
+        """
+        Get complete canal data AND videos in a single call.
+
+        🚀 OTIMIZAÇÃO: Retorna (stats, videos) para evitar buscar vídeos duas vezes.
+        Economiza ~50% da quota de API!
+
+        Returns:
+            tuple: (canal_stats, videos_list) ou (None, None) em caso de erro
+        """
         try:
             if self.is_canal_failed(url_canal):
                 logger.warning(f"⏭️ Skipping {canal_name} - already failed")
-                return None
+                return None, None
 
             if self.all_keys_exhausted():
                 logger.error(f"❌ {canal_name}: All keys exhausted")
-                return None
+                return None, None
 
             logger.info(f"🎬 Iniciando coleta: {canal_name}")
 
@@ -725,7 +733,7 @@ class YouTubeCollector:
             if not channel_id:
                 logger.error(f"❌ {canal_name}: Não foi possível obter channel_id")
                 self.mark_canal_as_failed(url_canal)
-                return None
+                return None, None
 
             logger.info(f"✅ {canal_name}: Channel ID = {channel_id}")
 
@@ -733,7 +741,7 @@ class YouTubeCollector:
             if not channel_info:
                 logger.error(f"❌ {canal_name}: Não foi possível obter info do canal")
                 self.mark_canal_as_failed(url_canal)
-                return None
+                return None, None
 
             logger.info(f"✅ {canal_name}: {channel_info['subscriber_count']:,} inscritos")
 
@@ -759,14 +767,15 @@ class YouTubeCollector:
                 **views_by_period  # Agora só tem views_30d, views_15d, views_7d
             }
 
-            logger.info(f"✅ {canal_name}: Coleta concluída - 7d={views_by_period['views_7d']:,} views")
+            logger.info(f"✅ {canal_name}: Coleta concluída - 7d={views_by_period['views_7d']:,} views, {len(videos)} vídeos")
 
-            return result
+            # 🚀 OTIMIZAÇÃO: Retorna stats E vídeos para evitar busca duplicada
+            return result, videos
 
         except Exception as e:
             logger.error(f"❌ Error for {canal_name}: {e}")
             self.mark_canal_as_failed(url_canal)
-            return None
+            return None, None
 
     async def get_videos_data(self, url_canal: str, canal_name: str) -> Optional[List[Dict[str, Any]]]:
         """Get videos data for a canal"""

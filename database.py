@@ -1138,3 +1138,95 @@ class SupabaseClient:
         except Exception as e:
             logger.error(f"Erro ao buscar all subniche trends: {e}")
             return {"7d": [], "15d": [], "30d": []}
+
+    # =========================================================================
+    # TRACKING DE COLETAS - Funções para rastrear falhas
+    # Added by Claude Code - 2026-01-17
+    # =========================================================================
+
+    async def marcar_coleta_sucesso(self, canal_id: int):
+        """
+        Marca canal como coletado com sucesso.
+        Reseta contador de falhas e atualiza timestamp de último sucesso.
+        """
+        try:
+            self.supabase.table("canais_monitorados").update({
+                "coleta_falhas_consecutivas": 0,
+                "coleta_ultimo_sucesso": datetime.now(timezone.utc).isoformat(),
+                "coleta_ultimo_erro": None
+            }).eq("id", canal_id).execute()
+        except Exception as e:
+            logger.warning(f"Erro ao marcar coleta como sucesso para canal {canal_id}: {e}")
+
+    async def marcar_coleta_falha(self, canal_id: int, erro: str):
+        """
+        Incrementa contador de falhas consecutivas e salva mensagem de erro.
+
+        Args:
+            canal_id: ID do canal
+            erro: Mensagem de erro a salvar
+        """
+        try:
+            # Buscar valor atual de falhas
+            atual = self.supabase.table("canais_monitorados")\
+                .select("coleta_falhas_consecutivas")\
+                .eq("id", canal_id)\
+                .execute()
+
+            falhas_atuais = 0
+            if atual.data and len(atual.data) > 0:
+                falhas_atuais = atual.data[0].get("coleta_falhas_consecutivas") or 0
+
+            # Incrementar e salvar
+            self.supabase.table("canais_monitorados").update({
+                "coleta_falhas_consecutivas": falhas_atuais + 1,
+                "coleta_ultimo_erro": erro[:500] if erro else None  # Limitar tamanho do erro
+            }).eq("id", canal_id).execute()
+
+            logger.warning(f"Canal {canal_id}: falha #{falhas_atuais + 1} - {erro[:100]}...")
+        except Exception as e:
+            logger.error(f"Erro ao marcar coleta como falha para canal {canal_id}: {e}")
+
+    async def get_canais_problematicos(self) -> List[Dict]:
+        """
+        Retorna lista de canais com falhas de coleta.
+        Ordenados por quantidade de falhas consecutivas (mais problemáticos primeiro).
+
+        Returns:
+            Lista de dicts com info dos canais problemáticos
+        """
+        try:
+            response = self.supabase.table("canais_monitorados")\
+                .select("id, nome_canal, url_canal, subnicho, tipo, coleta_falhas_consecutivas, coleta_ultimo_erro, coleta_ultimo_sucesso, ultima_coleta")\
+                .gt("coleta_falhas_consecutivas", 0)\
+                .order("coleta_falhas_consecutivas", desc=True)\
+                .execute()
+
+            return response.data if response.data else []
+        except Exception as e:
+            logger.error(f"Erro ao buscar canais problemáticos: {e}")
+            return []
+
+    async def get_canais_sem_coleta_recente(self, dias: int = 3) -> List[Dict]:
+        """
+        Retorna canais que não tiveram coleta bem-sucedida nos últimos X dias.
+
+        Args:
+            dias: Número de dias para considerar "sem coleta recente"
+
+        Returns:
+            Lista de canais sem coleta recente
+        """
+        try:
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=dias)).isoformat()
+
+            response = self.supabase.table("canais_monitorados")\
+                .select("id, nome_canal, url_canal, subnicho, tipo, ultima_coleta, coleta_falhas_consecutivas, coleta_ultimo_erro")\
+                .eq("status", "ativo")\
+                .or_(f"ultima_coleta.is.null,ultima_coleta.lt.{cutoff}")\
+                .execute()
+
+            return response.data if response.data else []
+        except Exception as e:
+            logger.error(f"Erro ao buscar canais sem coleta recente: {e}")
+            return []

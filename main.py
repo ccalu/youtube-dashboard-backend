@@ -503,6 +503,61 @@ async def get_canais_tabela():
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
+# =========================================================================
+# ENDPOINT DE DIAGNÓSTICO - Canais Problemáticos
+# Added by Claude Code - 2026-01-17
+# =========================================================================
+
+@app.get("/api/canais/problematicos")
+async def get_canais_problematicos():
+    """
+    🔍 Retorna canais com falhas de coleta.
+
+    Útil para diagnóstico e identificação de canais que precisam de atenção.
+    Ordenados por quantidade de falhas consecutivas (mais problemáticos primeiro).
+
+    Returns:
+        - total: número de canais com problemas
+        - canais: lista com detalhes de cada canal problemático
+            - id, nome_canal, url_canal, subnicho, tipo
+            - coleta_falhas_consecutivas: quantas vezes consecutivas falhou
+            - coleta_ultimo_erro: mensagem do último erro
+            - coleta_ultimo_sucesso: última coleta bem-sucedida
+            - ultima_coleta: timestamp da última tentativa
+    """
+    try:
+        canais = await db.get_canais_problematicos()
+        return {
+            "total": len(canais),
+            "canais": canais
+        }
+    except Exception as e:
+        logger.error(f"Error fetching canais problemáticos: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/canais/sem-coleta-recente")
+async def get_canais_sem_coleta_recente(dias: int = 3):
+    """
+    🔍 Retorna canais que não tiveram coleta bem-sucedida nos últimos X dias.
+
+    Args:
+        dias: Número de dias para considerar "sem coleta recente" (default: 3)
+
+    Returns:
+        - total: número de canais sem coleta recente
+        - canais: lista com detalhes de cada canal
+    """
+    try:
+        canais = await db.get_canais_sem_coleta_recente(dias)
+        return {
+            "total": len(canais),
+            "dias_limite": dias,
+            "canais": canais
+        }
+    except Exception as e:
+        logger.error(f"Error fetching canais sem coleta recente: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.patch("/api/canais/{channel_id}/monetizacao")
 async def toggle_monetizacao(channel_id: str, body: dict):
     """
@@ -1394,25 +1449,31 @@ async def run_collection_job():
             
             try:
                 logger.info(f"[{index}/{total_canais}] 🔄 Processing: {canal['nome_canal']}")
-                
-                canal_data = await collector.get_canal_data(canal['url_canal'], canal['nome_canal'])
+
+                # 🚀 OTIMIZAÇÃO: get_canal_data agora retorna (stats, videos) juntos
+                # Isso economiza ~50% da quota de API eliminando busca duplicada!
+                canal_data, videos_data = await collector.get_canal_data(canal['url_canal'], canal['nome_canal'])
+
                 if canal_data:
                     saved = await db.save_canal_data(canal['id'], canal_data)
                     if saved:
                         canais_sucesso += 1
+                        await db.marcar_coleta_sucesso(canal['id'])  # 🆕 Tracking de sucesso
                         logger.info(f"✅ [{index}/{total_canais}] Success: {canal['nome_canal']}")
                     else:
                         canais_erro += 1
+                        await db.marcar_coleta_falha(canal['id'], "Dados não salvos (all zeros)")
                         logger.warning(f"⚠️ [{index}/{total_canais}] Data not saved (all zeros): {canal['nome_canal']}")
                 else:
                     canais_erro += 1
+                    await db.marcar_coleta_falha(canal['id'], "Falha ao obter dados do canal")
                     logger.warning(f"❌ [{index}/{total_canais}] Failed: {canal['nome_canal']}")
-                
-                videos_data = await collector.get_videos_data(canal['url_canal'], canal['nome_canal'])
+
+                # 🚀 Usar vídeos já buscados (não buscar novamente!)
                 if videos_data:
                     await db.save_videos_data(canal['id'], videos_data)
                     videos_total += len(videos_data)
-                
+
                 await db.update_last_collection(canal['id'])
 
                 # 🚀 OTIMIZAÇÃO: Removido sleep entre canais - RateLimiter já controla
@@ -1443,6 +1504,7 @@ async def run_collection_job():
 
             except Exception as e:
                 logger.error(f"❌ Error processing {canal['nome_canal']}: {e}")
+                await db.marcar_coleta_falha(canal['id'], str(e))  # 🆕 Tracking de falha
                 canais_erro += 1
                 continue
         
