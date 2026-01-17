@@ -3,10 +3,11 @@ TREND MONITOR - Supabase Database Module
 =========================================
 Gerenciamento do banco de dados Supabase para armazenar trends e padroes.
 
-TABELAS:
-- trends: Todos os trends coletados (historico completo)
-- trend_patterns: Analise de padroes (evergreen, crescente, etc.)
-- collections: Metadados de cada coleta diaria
+TABELAS (prefixo tm_ para nao misturar com outros projetos):
+- tm_trends: Todos os trends coletados (historico completo)
+- tm_patterns: Analise de padroes (evergreen, crescente, etc.)
+- tm_collections: Metadados de cada coleta diaria
+- tm_subnicho_matches: Matches de trends com subnichos
 
 CONFIGURACAO:
     Defina as variaveis de ambiente:
@@ -102,24 +103,32 @@ class TrendDatabaseSupabase:
                 0
             )
 
-            # URLs
-            url = trend.get("url") or ""
-            hn_url = trend.get("hn_url") or ""
-            permalink = trend.get("permalink") or ""
+            # Calcular engagement ratio
+            views = trend.get("view_count", 0) or 0
+            likes = trend.get("like_count", 0) or 0
+            engagement = likes / max(views, 1) if views > 0 else 0
 
             record = {
                 "title": title,
                 "source": source,
+                "video_id": trend.get("video_id"),
                 "country": country,
                 "language": language,
                 "volume": volume,
-                "url": url,
-                "hn_url": hn_url,
-                "permalink": permalink,
-                "subreddit": trend.get("subreddit", ""),
-                "channel_title": trend.get("channel_title", ""),
+                "like_count": likes,
+                "comment_count": trend.get("comment_count") or trend.get("num_comments") or 0,
+                "duration_seconds": trend.get("duration_seconds", 0),
+                "quality_score": trend.get("quality_score", 0),
+                "engagement_ratio": round(engagement, 4),
+                "url": trend.get("url") or trend.get("hn_url") or "",
+                "thumbnail": trend.get("thumbnail", ""),
+                "channel_title": trend.get("channel_title") or trend.get("channel_name", ""),
+                "channel_id": trend.get("channel_id", ""),
+                "category_id": trend.get("category_id", ""),
                 "author": trend.get("author", ""),
-                "num_comments": trend.get("num_comments", 0),
+                "collection_type": trend.get("collection_type", ""),
+                "matched_subnicho": trend.get("matched_subnicho"),
+                "published_at": trend.get("published_at"),
                 "collected_at": collected_at.isoformat(),
                 "collected_date": collected_date,
                 "raw_data": trend
@@ -130,22 +139,44 @@ class TrendDatabaseSupabase:
             return 0
 
         try:
-            # Upsert para evitar duplicatas (usando constraint UNIQUE)
-            result = self.client.table("trends").upsert(
-                records,
-                on_conflict="title,source,collected_date"
-            ).execute()
+            # Inserir em batches de 100
+            saved = 0
+            batch_size = 100
+            for i in range(0, len(records), batch_size):
+                batch = records[i:i+batch_size]
+                result = self.client.table("tm_trends").insert(batch).execute()
+                saved += len(result.data) if result.data else 0
 
-            saved = len(result.data) if result.data else 0
-
-            # Registrar coleta
+            # Calcular estatisticas
             sources = list(set(t.get("source", "unknown") for t in trends))
             countries = list(set(t.get("country", "global") for t in trends))
+            scores = [t.get("quality_score", 0) for t in trends]
+            avg_score = sum(scores) / len(scores) if scores else 0
 
-            self.client.table("collections").upsert({
+            # Contar por tipo
+            youtube_count = len([t for t in trends if t.get("source") == "youtube"])
+            google_count = len([t for t in trends if t.get("source") == "google_trends"])
+            hn_count = len([t for t in trends if t.get("source") == "hackernews"])
+
+            # Contar por tipo de coleta YouTube
+            yt_trending = len([t for t in trends if t.get("collection_type") == "trending"])
+            yt_subnicho = len([t for t in trends if t.get("collection_type") == "subnicho"])
+            yt_discovery = len([t for t in trends if t.get("collection_type") == "discovery"])
+
+            # Registrar coleta
+            self.client.table("tm_collections").upsert({
                 "collected_date": collected_date,
                 "collected_at": collected_at.isoformat(),
                 "total_trends": saved,
+                "total_youtube": youtube_count,
+                "total_google": google_count,
+                "total_hackernews": hn_count,
+                "youtube_trending": yt_trending,
+                "youtube_subnicho": yt_subnicho,
+                "youtube_discovery": yt_discovery,
+                "avg_quality_score": int(avg_score),
+                "trends_above_70": len([s for s in scores if s >= 70]),
+                "trends_above_50": len([s for s in scores if s >= 50]),
                 "sources_used": sources,
                 "countries_collected": countries,
                 "status": "completed"
@@ -156,6 +187,65 @@ class TrendDatabaseSupabase:
 
         except Exception as e:
             logger.error(f"Erro ao salvar trends no Supabase: {e}")
+            return 0
+
+    def save_subnicho_matches(self, trends: List[Dict]) -> int:
+        """
+        Salva matches de subnicho na tabela subnicho_matches.
+
+        Args:
+            trends: Lista de trends com matched_subnicho
+
+        Returns:
+            Numero de matches salvos
+        """
+        if not self.is_connected():
+            return 0
+
+        # Filtrar trends com match de subnicho
+        matched = [t for t in trends if t.get("matched_subnicho")]
+
+        if not matched:
+            return 0
+
+        records = []
+        collected_date = datetime.now().date().isoformat()
+
+        for trend in matched:
+            # Buscar ID do trend (precisa ja ter sido salvo)
+            title = trend.get("title", "")
+            source = trend.get("source", "")
+
+            # Buscar trend_id
+            try:
+                result = self.client.table("tm_trends").select("id").eq(
+                    "title", title
+                ).eq("source", source).eq(
+                    "collected_date", collected_date
+                ).limit(1).execute()
+
+                if result.data:
+                    trend_id = result.data[0]["id"]
+                    records.append({
+                        "trend_id": trend_id,
+                        "subnicho": trend.get("matched_subnicho"),
+                        "match_score": trend.get("subnicho_score", 0),
+                        "matched_keywords": trend.get("matched_keywords", []),
+                        "collected_date": collected_date
+                    })
+            except:
+                continue
+
+        if not records:
+            return 0
+
+        try:
+            result = self.client.table("tm_subnicho_matches").insert(records).execute()
+            saved = len(result.data) if result.data else 0
+            logger.info(f"Salvos {saved} matches de subnicho")
+            return saved
+        except Exception as e:
+            logger.error(f"Erro ao salvar subnicho matches: {e}")
             return 0
 
     def update_patterns(self):
@@ -170,7 +260,7 @@ class TrendDatabaseSupabase:
         try:
             # Buscar agregacoes via SQL (usando RPC function ou query direta)
             # Por simplicidade, vamos buscar todos os trends e agregar em Python
-            result = self.client.table("trends").select(
+            result = self.client.table("tm_trends").select(
                 "title, source, country, volume, collected_date"
             ).execute()
 
@@ -216,15 +306,15 @@ class TrendDatabaseSupabase:
                     "days_active": days_active,
                     "total_volume": p["total_volume"],
                     "avg_volume": avg_volume,
-                    "sources_found": ",".join(p["sources"]),
-                    "countries_found": ",".join(p["countries"]),
+                    "sources_found": list(p["sources"]),
+                    "countries_found": list(p["countries"]),
                     "is_evergreen": days_active >= 7,
                     "is_growing": days_active >= 3,
                     "updated_at": datetime.now().isoformat()
                 })
 
             if records:
-                self.client.table("trend_patterns").upsert(
+                self.client.table("tm_patterns").upsert(
                     records,
                     on_conflict="title_normalized"
                 ).execute()
@@ -249,7 +339,7 @@ class TrendDatabaseSupabase:
             return []
 
         try:
-            result = self.client.table("trend_patterns") \
+            result = self.client.table("tm_patterns") \
                 .select("*") \
                 .gte("days_active", min_days) \
                 .order("days_active", desc=True) \
@@ -281,7 +371,7 @@ class TrendDatabaseSupabase:
             date = datetime.now().strftime("%Y-%m-%d")
 
         try:
-            result = self.client.table("trends") \
+            result = self.client.table("tm_trends") \
                 .select("*") \
                 .eq("source", source) \
                 .eq("collected_date", date) \
@@ -314,7 +404,7 @@ class TrendDatabaseSupabase:
             date = datetime.now().strftime("%Y-%m-%d")
 
         try:
-            result = self.client.table("trends") \
+            result = self.client.table("tm_trends") \
                 .select("*") \
                 .eq("country", country) \
                 .eq("collected_date", date) \
@@ -346,7 +436,7 @@ class TrendDatabaseSupabase:
             date = datetime.now().strftime("%Y-%m-%d")
 
         try:
-            result = self.client.table("trends") \
+            result = self.client.table("tm_trends") \
                 .select("*") \
                 .eq("collected_date", date) \
                 .order("volume", desc=True) \
@@ -418,16 +508,16 @@ class TrendDatabaseSupabase:
 
         try:
             # Total de trends
-            trends_result = self.client.table("trends").select("id", count="exact").execute()
+            trends_result = self.client.table("tm_trends").select("id", count="exact").execute()
             total_trends = trends_result.count if hasattr(trends_result, 'count') else len(trends_result.data or [])
 
             # Total de dias
-            dates_result = self.client.table("trends").select("collected_date").execute()
+            dates_result = self.client.table("tm_trends").select("collected_date").execute()
             unique_dates = set(t["collected_date"] for t in (dates_result.data or []))
             total_days = len(unique_dates)
 
             # Evergreen count
-            evergreen_result = self.client.table("trend_patterns") \
+            evergreen_result = self.client.table("tm_patterns") \
                 .select("id", count="exact") \
                 .eq("is_evergreen", True) \
                 .execute()
@@ -436,7 +526,7 @@ class TrendDatabaseSupabase:
             # Por fonte
             by_source = {}
             for source in ["google_trends", "youtube", "reddit", "hackernews"]:
-                source_result = self.client.table("trends") \
+                source_result = self.client.table("tm_trends") \
                     .select("id", count="exact") \
                     .eq("source", source) \
                     .execute()
@@ -463,72 +553,13 @@ class TrendDatabaseSupabase:
 
 
 # =============================================================================
-# SQL PARA CRIAR TABELAS NO SUPABASE
+# SQL - Ver arquivo database/supabase_schema.sql
 # =============================================================================
-
-CREATE_TABLES_SQL = """
--- Execute este SQL no Supabase SQL Editor para criar as tabelas
-
--- Tabela 1: Todos os trends coletados
-CREATE TABLE IF NOT EXISTS trends (
-    id SERIAL PRIMARY KEY,
-    title TEXT NOT NULL,
-    source TEXT NOT NULL,
-    country TEXT DEFAULT 'global',
-    language TEXT DEFAULT 'en',
-    volume INTEGER DEFAULT 0,
-    url TEXT,
-    hn_url TEXT,
-    permalink TEXT,
-    subreddit TEXT,
-    channel_title TEXT,
-    author TEXT,
-    num_comments INTEGER DEFAULT 0,
-    collected_at TIMESTAMPTZ NOT NULL,
-    collected_date DATE NOT NULL,
-    raw_data JSONB,
-    UNIQUE(title, source, collected_date)
-);
-
--- Tabela 2: Padroes detectados (evergreen, crescente)
-CREATE TABLE IF NOT EXISTS trend_patterns (
-    id SERIAL PRIMARY KEY,
-    title_normalized TEXT NOT NULL UNIQUE,
-    first_seen DATE NOT NULL,
-    last_seen DATE NOT NULL,
-    days_active INTEGER DEFAULT 1,
-    total_volume BIGINT DEFAULT 0,
-    avg_volume INTEGER DEFAULT 0,
-    sources_found TEXT,
-    countries_found TEXT,
-    is_evergreen BOOLEAN DEFAULT FALSE,
-    is_growing BOOLEAN DEFAULT FALSE,
-    updated_at TIMESTAMPTZ
-);
-
--- Tabela 3: Metadados de coleta
-CREATE TABLE IF NOT EXISTS collections (
-    id SERIAL PRIMARY KEY,
-    collected_date DATE UNIQUE NOT NULL,
-    collected_at TIMESTAMPTZ NOT NULL,
-    total_trends INTEGER DEFAULT 0,
-    sources_used JSONB,
-    countries_collected JSONB,
-    status TEXT DEFAULT 'completed'
-);
-
--- Indices para performance
-CREATE INDEX IF NOT EXISTS idx_trends_source ON trends(source);
-CREATE INDEX IF NOT EXISTS idx_trends_country ON trends(country);
-CREATE INDEX IF NOT EXISTS idx_trends_date ON trends(collected_date);
-CREATE INDEX IF NOT EXISTS idx_trends_title ON trends(title);
-CREATE INDEX IF NOT EXISTS idx_patterns_evergreen ON trend_patterns(is_evergreen);
-
--- Habilitar RLS (Row Level Security) - opcional
--- ALTER TABLE trends ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE trend_patterns ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE collections ENABLE ROW LEVEL SECURITY;
-"""
+# Tabelas usam prefixo tm_:
+# - tm_trends
+# - tm_patterns
+# - tm_collections
+# - tm_subnicho_matches
 
 
 # =============================================================================
@@ -547,10 +578,7 @@ if __name__ == "__main__":
         print("    export SUPABASE_URL='https://xxx.supabase.co'")
         print("    export SUPABASE_KEY='eyJhbGciOiJIUz...'")
         print("\n    Ou crie um arquivo .env com as variaveis.")
-        print("\n" + "-" * 60)
-        print("SQL para criar tabelas no Supabase:")
-        print("-" * 60)
-        print(CREATE_TABLES_SQL)
+        print("\n    SQL para criar tabelas: ver database/supabase_schema.sql")
     else:
         # Testar conexao
         db = TrendDatabaseSupabase()

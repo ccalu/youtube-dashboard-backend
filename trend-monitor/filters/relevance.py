@@ -177,6 +177,58 @@ class RelevanceFilter:
         normalized = ' '.join(normalized.split())
         return normalized
 
+    def _deduplicate_trends(self, trends: List[Dict]) -> List[Dict]:
+        """
+        Remove duplicatas de trends.
+        - YouTube: deduplica por video_id
+        - Outros: deduplica por titulo normalizado
+        Mantém o item com mais views/volume e agrega países.
+        """
+        seen = {}  # key -> trend com mais views
+
+        for trend in trends:
+            source = trend.get("source_type", trend.get("source", ""))
+
+            # Gerar chave unica
+            if source == "youtube":
+                key = trend.get("video_id", "") or self._normalize_title(trend.get("title", ""))
+            else:
+                key = self._normalize_title(trend.get("title", ""))
+
+            if not key:
+                continue
+
+            # Pegar volume para comparacao
+            volume = trend.get("volume") or trend.get("view_count") or trend.get("score") or 0
+            country = trend.get("country", "global")
+
+            if key in seen:
+                existing = seen[key]
+                existing_volume = existing.get("volume") or existing.get("view_count") or existing.get("score") or 0
+
+                # Agregar paises
+                if "_countries_seen" not in existing:
+                    existing["_countries_seen"] = {existing.get("country", "global")}
+                existing["_countries_seen"].add(country)
+
+                # Manter o de maior volume
+                if volume > existing_volume:
+                    trend["_countries_seen"] = existing["_countries_seen"]
+                    seen[key] = trend
+            else:
+                trend["_countries_seen"] = {country}
+                seen[key] = trend
+
+        # Converter _countries_seen para lista
+        result = []
+        for trend in seen.values():
+            if "_countries_seen" in trend:
+                trend["countries_aggregated"] = list(trend["_countries_seen"])
+                del trend["_countries_seen"]
+            result.append(trend)
+
+        return result
+
     def filter_all_trends(self, all_data: Dict) -> Dict:
         """
         Processa todos os trends e retorna dados filtrados e organizados.
@@ -207,6 +259,12 @@ class RelevanceFilter:
                     all_trends_flat.append(trend)
                     trends_by_source[source_type].append(trend)
                     trends_by_country[country].append(trend)
+
+        # DEDUPLICAR antes de processar
+        original_count = len(all_trends_flat)
+        all_trends_flat = self._deduplicate_trends(all_trends_flat)
+        dedup_count = len(all_trends_flat)
+        logger.info(f"Deduplicação: {original_count} -> {dedup_count} ({original_count - dedup_count} duplicatas removidas)")
 
         logger.info(f"Total de trends para processar: {len(all_trends_flat)}")
 
@@ -345,11 +403,14 @@ class RelevanceFilter:
 
         result = {
             "all_scored": scored_trends,
-            "all_raw": all_trends_flat,  # Todos os trends sem filtro
+            "all_raw": all_trends_flat,  # Todos os trends sem filtro (DEDUPLICADOS)
             "raw_by_source": dict(raw_by_source),  # Todos os trends por fonte (para ABA GERAL)
             "by_subnicho": dict(by_subnicho),
             "by_country": dict(by_country),
             "stats": {
+                "total_before_dedup": original_count,
+                "total_after_dedup": dedup_count,
+                "duplicates_removed": original_count - dedup_count,
                 "total_processed": len(all_trends_flat),
                 "total_relevant": len(scored_trends),
                 "total_raw": len(all_trends_flat),

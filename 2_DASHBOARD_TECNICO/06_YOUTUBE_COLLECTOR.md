@@ -1039,6 +1039,58 @@ self.rotate_to_next_key()
 # Benefício: Distribuir carga entre todas as chaves
 ```
 
+### 5. Retorno Único de Stats + Vídeos (NOVO - 17/01/2026)
+
+**Problema Resolvido:** Antes, `get_canal_data()` e `get_videos_data()` eram chamados separadamente, buscando os mesmos vídeos DUAS VEZES (duplicação de requisições).
+
+**Solução:**
+```python
+# collector.py - get_canal_data agora retorna tuple
+async def get_canal_data(self, url_canal: str, canal_name: str) -> tuple[Optional[Dict], Optional[List]]:
+    """
+    🚀 OTIMIZAÇÃO: Retorna (stats, videos) para evitar buscar vídeos duas vezes.
+    """
+    # ... busca vídeos uma única vez ...
+    videos = await self.get_channel_videos(channel_id, canal_name, days=30)
+
+    # Calcular stats usando os mesmos vídeos
+    result = { ... }
+
+    return result, videos  # Retorna AMBOS
+
+# main.py - usa retorno único
+canal_data, videos_data = await collector.get_canal_data(canal['url_canal'], canal['nome_canal'])
+```
+
+**Benefício:** Economia de ~50% da quota diária (elimina chamadas duplicadas de search.list)
+
+### 6. Timeout Aumentado (NOVO - 17/01/2026)
+
+```python
+# Antes: timeout=30 segundos
+# Agora: timeout=60 segundos
+
+timeout=aiohttp.ClientTimeout(total=60)
+```
+
+**Motivo:** Alguns canais com muitos vídeos precisam de mais tempo para processar.
+
+### 7. Tracking de Falhas no Banco (NOVO - 17/01/2026)
+
+**Novos campos em `canais_monitorados`:**
+- `coleta_falhas_consecutivas` (INTEGER) - Contador de falhas seguidas
+- `coleta_ultimo_erro` (TEXT) - Mensagem do último erro
+- `coleta_ultimo_sucesso` (TIMESTAMP) - Data da última coleta OK
+
+**Funções em database.py:**
+```python
+await db.marcar_coleta_sucesso(canal_id)  # Reseta contador
+await db.marcar_coleta_falha(canal_id, "erro aqui")  # Incrementa + salva erro
+canais = await db.get_canais_problematicos()  # Lista canais com falhas
+```
+
+**Benefício:** Visibilidade total de quais canais estão falhando e por quê.
+
 ---
 
 ## Integração com main.py

@@ -137,9 +137,100 @@ class HTMLReportGenerator:
         """Prepara contexto para o template"""
         now = datetime.now()
 
-        # ==== ABA GERAL: Trends RAW por fonte (SEM filtro de subnicho) ====
-        raw_by_source = data.get("raw_by_source", {})
+        # Detectar se dados vem do novo formato (com quality_score)
+        is_new_format = "all_items" in data or "quality_summary" in data
+
         max_display = COLLECTION_CONFIG["max_trends_display"]
+
+        # ==== NOVO FORMATO: Com quality_score e by_subnicho organizado ====
+        if is_new_format:
+            all_items = data.get("all_items", [])
+            by_source = data.get("by_source", {})
+            by_subnicho = data.get("by_subnicho", {})
+            by_language = data.get("by_language", {})
+            top_quality = data.get("top_quality", [])
+            quality_summary = data.get("quality_summary", {})
+
+            # Preparar trends raw por fonte (novo formato)
+            google_trends_raw = by_source.get("google_trends", [])[:max_display]
+            youtube_raw = by_source.get("youtube", [])[:max_display]
+            reddit_raw = []  # Desabilitado
+            hackernews_raw = by_source.get("hackernews", [])[:max_display]
+
+            # Preparar dados por subnicho (novo formato com quality_score)
+            trends_by_subnicho = {}
+            subnichos = get_active_subnichos()
+            for subnicho_key, subnicho_info in subnichos.items():
+                subnicho_trends = by_subnicho.get(subnicho_key, [])
+                # Ordenar por quality_score
+                subnicho_trends.sort(key=lambda x: x.get("quality_score", 0), reverse=True)
+                trends_by_subnicho[subnicho_key] = {
+                    "info": subnicho_info,
+                    "trends": subnicho_trends[:max_display],
+                    "total": len(subnicho_trends)
+                }
+
+            # Top por lingua (novo formato)
+            top_by_language = {
+                "en": by_language.get("en", [])[:max_display],
+                "pt": by_language.get("pt", [])[:max_display],
+                "es": by_language.get("es", [])[:max_display],
+                "other": []
+            }
+            # Adicionar outras linguas em "other"
+            for lang, items in by_language.items():
+                if lang not in ["en", "pt", "es"]:
+                    top_by_language["other"].extend(items)
+            top_by_language["other"] = top_by_language["other"][:max_display]
+
+            # Organizar por pais
+            trends_by_country = {}
+            for country_code, country_info in COUNTRIES.items():
+                country_trends = [i for i in all_items if i.get("country") == country_code]
+                country_trends.sort(key=lambda x: x.get("quality_score", 0), reverse=True)
+                trends_by_country[country_code] = {
+                    "info": country_info,
+                    "trends": country_trends[:max_display]
+                }
+
+            # Evergreen
+            evergreen_trends = data.get("evergreen_trends", [])[:20]
+
+            return {
+                "title": DASHBOARD_CONFIG["title"],
+                "subtitle": DASHBOARD_CONFIG["subtitle"],
+                "theme": DASHBOARD_CONFIG["theme"],
+                "font_family": DASHBOARD_CONFIG["font_family"],
+                "generated_at": now.strftime("%d %b %Y, %H:%M"),
+                "date_iso": now.isoformat(),
+                "countries": COUNTRIES,
+                "subnichos": subnichos,
+                # Dados por fonte
+                "google_trends_raw": google_trends_raw,
+                "youtube_raw": youtube_raw,
+                "reddit_raw": reddit_raw,
+                "hackernews_raw": hackernews_raw,
+                # Por subnicho
+                "trends_by_subnicho": trends_by_subnicho,
+                "trends_by_country": trends_by_country,
+                # Top quality
+                "top_trends": top_quality[:50],
+                "top_quality": top_quality,
+                # Cross platform e multi country (vazios no novo formato)
+                "cross_platform_trends": [],
+                "multi_country_trends": [],
+                "evergreen_trends": evergreen_trends,
+                # Stats
+                "stats": data.get("stats", {}),
+                "quality_summary": quality_summary,
+                "time_periods": COLLECTION_CONFIG["time_periods"],
+                "max_display": max_display,
+                "top_by_language": top_by_language,
+                "is_new_format": True
+            }
+
+        # ==== FORMATO ANTIGO: Compatibilidade ====
+        raw_by_source = data.get("raw_by_source", {})
 
         # Preparar trends raw por fonte
         google_trends_raw = raw_by_source.get("google_trends", [])[:max_display]
@@ -179,6 +270,49 @@ class HTMLReportGenerator:
         # Evergreen trends (do banco de dados)
         evergreen_trends = data.get("evergreen_trends", [])[:20]
 
+        # ==== ANALISES: Top 10 por Lingua ====
+        # Combinar todos os trends raw para analise por lingua
+        all_raw_trends = []
+        for source_key in ["google_trends", "youtube", "reddit", "hackernews"]:
+            source_trends = raw_by_source.get(source_key, [])
+            for t in source_trends:
+                t["source_type"] = source_key
+            all_raw_trends.extend(source_trends)
+
+        # Ordenar por volume (descrescente)
+        all_raw_trends.sort(key=lambda x: x.get("volume", 0) or 0, reverse=True)
+
+        # Separar por lingua
+        top_by_language = {
+            "en": [],
+            "pt": [],
+            "es": [],
+            "other": []
+        }
+
+        language_map = {
+            "US": "en",
+            "BR": "pt",
+            "ES": "es",
+            "FR": "other",
+            "KR": "other",
+            "JP": "other",
+            "IT": "other"
+        }
+
+        for trend in all_raw_trends:
+            country = trend.get("country", "")
+            lang = trend.get("language", language_map.get(country, "en"))
+
+            if lang == "en":
+                top_by_language["en"].append(trend)
+            elif lang == "pt":
+                top_by_language["pt"].append(trend)
+            elif lang == "es":
+                top_by_language["es"].append(trend)
+            else:
+                top_by_language["other"].append(trend)
+
         return {
             "title": DASHBOARD_CONFIG["title"],
             "subtitle": DASHBOARD_CONFIG["subtitle"],
@@ -203,7 +337,9 @@ class HTMLReportGenerator:
             "evergreen_trends": evergreen_trends,
             "stats": data.get("stats", {}),
             "time_periods": COLLECTION_CONFIG["time_periods"],
-            "max_display": max_display
+            "max_display": max_display,
+            # Top por lingua para aba ANALISES
+            "top_by_language": top_by_language
         }
 
     def _get_inline_template(self) -> str:
@@ -839,6 +975,19 @@ class HTMLReportGenerator:
                 </select>
             </div>
             <div class="filter-group">
+                <span class="filter-label">Lingua:</span>
+                <select class="filter-select" id="filter-language" onchange="applyFilters()">
+                    <option value="all">Todas</option>
+                    <option value="en">🇺🇸 Ingles</option>
+                    <option value="pt">🇧🇷 Portugues</option>
+                    <option value="es">🇪🇸 Espanhol</option>
+                    <option value="fr">🇫🇷 Frances</option>
+                    <option value="ko">🇰🇷 Coreano</option>
+                    <option value="ja">🇯🇵 Japones</option>
+                    <option value="it">🇮🇹 Italiano</option>
+                </select>
+            </div>
+            <div class="filter-group">
                 <span class="filter-label">Subnicho:</span>
                 <select class="filter-select" id="filter-subnicho" onchange="applyFilters()">
                     <option value="all">Todos</option>
@@ -856,6 +1005,7 @@ class HTMLReportGenerator:
         <ul>
             <li><a href="#geral" class="active" onclick="showTab('geral')">GERAL</a></li>
             <li><a href="#direcionado" onclick="showTab('direcionado')">DIRECIONADO</a></li>
+            <li><a href="#analises" onclick="showTab('analises')">ANALISES</a></li>
             <li><a href="#relatorio" onclick="showTab('relatorio')">RELATORIO</a></li>
             <li><a href="#historico" onclick="showTab('historico')">HISTORICO</a></li>
         </ul>
@@ -911,7 +1061,7 @@ class HTMLReportGenerator:
                 </div>
                 <div class="trends-grid">
                     {% for trend in google_trends_raw %}
-                    <div class="trend-card" data-source="google_trends" data-country="{{ trend.country }}">
+                    <div class="trend-card" data-source="google_trends" data-country="{{ trend.country }}" data-language="{{ trend.language|default(countries[trend.country].language if trend.country in countries else 'en') }}">
                         <div class="trend-header">
                             <span class="trend-rank">#{{ loop.index }}</span>
                             <span class="trend-title">{{ trend.title }}</span>
@@ -943,7 +1093,7 @@ class HTMLReportGenerator:
                 </div>
                 <div class="trends-grid">
                     {% for trend in youtube_raw %}
-                    <div class="trend-card" data-source="youtube" data-country="{{ trend.country }}">
+                    <div class="trend-card" data-source="youtube" data-country="{{ trend.country }}" data-language="{{ trend.language|default(countries[trend.country].language if trend.country in countries else 'en') }}">
                         <div class="trend-header">
                             <span class="trend-rank">#{{ loop.index }}</span>
                             <span class="trend-title">{{ trend.title }}</span>
@@ -976,7 +1126,7 @@ class HTMLReportGenerator:
                 </div>
                 <div class="trends-grid">
                     {% for trend in reddit_raw %}
-                    <div class="trend-card" data-source="reddit" data-country="{{ trend.country }}">
+                    <div class="trend-card" data-source="reddit" data-country="{{ trend.country }}" data-language="{{ trend.language|default(countries[trend.country].language if trend.country in countries else 'en') }}">
                         <div class="trend-header">
                             <span class="trend-rank">#{{ loop.index }}</span>
                             <span class="trend-title">{{ trend.title }}</span>
@@ -1054,11 +1204,11 @@ class HTMLReportGenerator:
                 </div>
                 <div class="trends-grid">
                     {% for trend in data.trends[:max_display] %}
-                    <div class="trend-card" data-source="{{ trend.source }}" data-country="{{ trend.country }}" data-subnicho="{{ key }}">
+                    <div class="trend-card" data-source="{{ trend.source }}" data-country="{{ trend.country }}" data-subnicho="{{ key }}" data-language="{{ trend.language|default(countries[trend.country].language if trend.country in countries else 'en') }}">
                         <div class="trend-header">
                             <span class="trend-rank">#{{ loop.index }}</span>
                             <span class="trend-title">{{ trend.title }}</span>
-                            <span class="trend-score">{{ trend.score }}%</span>
+                            <span class="trend-score">{{ trend.quality_score|default(0) }}%</span>
                         </div>
                         <div class="trend-volume">
                             <span class="volume-bar" style="width: {{ [trend.volume / 50000, 100] | min }}%"></span>
@@ -1077,6 +1227,197 @@ class HTMLReportGenerator:
                 </div>
             </div>
             {% endfor %}
+        </div>
+
+        <!-- Tab: ANALISES (Top 10 por Lingua e Subnicho) -->
+        <div id="analises" class="tab-content">
+
+            <div class="section-intro" style="background: linear-gradient(135deg, rgba(138,43,226,0.1) 0%, transparent 100%); border-radius: 12px; padding: 1rem 1.5rem; margin-bottom: 1.5rem; border-left: 4px solid #8a2be2;">
+                <h2 style="font-size: 1.25rem; margin-bottom: 0.5rem;">📊 Analises e Recomendacoes</h2>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">Top 10 trends organizados por lingua e subnicho. Use para identificar oportunidades em cada mercado.</p>
+            </div>
+
+            <!-- TOP 10 GERAL POR LINGUA -->
+            <div class="report-section" style="margin-bottom: 2rem;">
+                <h2>🌍 Top 10 por Lingua (Descobertas Gerais)</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Trends com maior volume por idioma - ideal para descobrir novos topicos fora dos seus subnichos.</p>
+
+                <!-- English -->
+                <div class="subnicho-section">
+                    <div class="subnicho-header" style="background: linear-gradient(135deg, rgba(66,133,244,0.15) 0%, var(--bg-card) 100%); border-left: 4px solid #4285f4;">
+                        <span class="subnicho-icon">🇺🇸</span>
+                        <div class="subnicho-info">
+                            <h3>Ingles (US)</h3>
+                            <p>Tendencias em ingles - Maior audiencia global</p>
+                        </div>
+                    </div>
+                    <div class="trends-grid">
+                        {% for trend in top_by_language.en[:10] %}
+                        <div class="trend-card">
+                            <div class="trend-header">
+                                <span class="trend-rank">#{{ loop.index }}</span>
+                                <span class="trend-title">{{ trend.title }}</span>
+                            </div>
+                            <div class="trend-volume">
+                                <span class="volume-bar" style="width: {{ [(trend.volume|default(0)) / 100000, 100] | min }}%"></span>
+                                <span class="volume-text">{% if trend.volume|default(0) >= 1000000 %}{{ (trend.volume / 1000000) | round(1) }}M{% elif trend.volume|default(0) >= 1000 %}{{ (trend.volume / 1000) | round(0) | int }}K{% else %}{{ trend.volume|default(0) }}{% endif %}</span>
+                            </div>
+                            <div class="trend-meta">
+                                <span class="trend-meta-item">{{ trend.source }}</span>
+                                {% if trend.is_new %}<span style="background: #ff6b35; color: white; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 700;">NOVO</span>{% endif %}
+                            </div>
+                            {% if trend.url %}<a href="{{ trend.url }}" target="_blank" class="trend-link">Ver fonte</a>{% endif %}
+                        </div>
+                        {% endfor %}
+                        {% if not top_by_language.en %}
+                        <div class="empty-state" style="grid-column: 1/-1;"><p>Nenhum trend em ingles coletado</p></div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Portugues -->
+                <div class="subnicho-section">
+                    <div class="subnicho-header" style="background: linear-gradient(135deg, rgba(0,156,59,0.15) 0%, var(--bg-card) 100%); border-left: 4px solid #009c3b;">
+                        <span class="subnicho-icon">🇧🇷</span>
+                        <div class="subnicho-info">
+                            <h3>Portugues (BR)</h3>
+                            <p>Tendencias em portugues - Mercado brasileiro</p>
+                        </div>
+                    </div>
+                    <div class="trends-grid">
+                        {% for trend in top_by_language.pt[:10] %}
+                        <div class="trend-card">
+                            <div class="trend-header">
+                                <span class="trend-rank">#{{ loop.index }}</span>
+                                <span class="trend-title">{{ trend.title }}</span>
+                            </div>
+                            <div class="trend-volume">
+                                <span class="volume-bar" style="width: {{ [(trend.volume|default(0)) / 100000, 100] | min }}%"></span>
+                                <span class="volume-text">{% if trend.volume|default(0) >= 1000000 %}{{ (trend.volume / 1000000) | round(1) }}M{% elif trend.volume|default(0) >= 1000 %}{{ (trend.volume / 1000) | round(0) | int }}K{% else %}{{ trend.volume|default(0) }}{% endif %}</span>
+                            </div>
+                            <div class="trend-meta">
+                                <span class="trend-meta-item">{{ trend.source }}</span>
+                                {% if trend.is_new %}<span style="background: #ff6b35; color: white; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 700;">NOVO</span>{% endif %}
+                            </div>
+                            {% if trend.url %}<a href="{{ trend.url }}" target="_blank" class="trend-link">Ver fonte</a>{% endif %}
+                        </div>
+                        {% endfor %}
+                        {% if not top_by_language.pt %}
+                        <div class="empty-state" style="grid-column: 1/-1;"><p>Nenhum trend em portugues coletado</p></div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Espanhol -->
+                <div class="subnicho-section">
+                    <div class="subnicho-header" style="background: linear-gradient(135deg, rgba(198,11,30,0.15) 0%, var(--bg-card) 100%); border-left: 4px solid #c60b1e;">
+                        <span class="subnicho-icon">🇪🇸</span>
+                        <div class="subnicho-info">
+                            <h3>Espanhol (ES)</h3>
+                            <p>Tendencias em espanhol - Mercado hispanico</p>
+                        </div>
+                    </div>
+                    <div class="trends-grid">
+                        {% for trend in top_by_language.es[:10] %}
+                        <div class="trend-card">
+                            <div class="trend-header">
+                                <span class="trend-rank">#{{ loop.index }}</span>
+                                <span class="trend-title">{{ trend.title }}</span>
+                            </div>
+                            <div class="trend-volume">
+                                <span class="volume-bar" style="width: {{ [(trend.volume|default(0)) / 100000, 100] | min }}%"></span>
+                                <span class="volume-text">{% if trend.volume|default(0) >= 1000000 %}{{ (trend.volume / 1000000) | round(1) }}M{% elif trend.volume|default(0) >= 1000 %}{{ (trend.volume / 1000) | round(0) | int }}K{% else %}{{ trend.volume|default(0) }}{% endif %}</span>
+                            </div>
+                            <div class="trend-meta">
+                                <span class="trend-meta-item">{{ trend.source }}</span>
+                            </div>
+                            {% if trend.url %}<a href="{{ trend.url }}" target="_blank" class="trend-link">Ver fonte</a>{% endif %}
+                        </div>
+                        {% endfor %}
+                        {% if not top_by_language.es %}
+                        <div class="empty-state" style="grid-column: 1/-1;"><p>Nenhum trend em espanhol coletado</p></div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Outros Idiomas -->
+                <div class="subnicho-section">
+                    <div class="subnicho-header" style="background: linear-gradient(135deg, rgba(100,100,100,0.15) 0%, var(--bg-card) 100%); border-left: 4px solid #666;">
+                        <span class="subnicho-icon">🌏</span>
+                        <div class="subnicho-info">
+                            <h3>Outros Idiomas (FR, KR, JP, IT)</h3>
+                            <p>Tendencias em frances, coreano, japones e italiano</p>
+                        </div>
+                    </div>
+                    <div class="trends-grid">
+                        {% for trend in top_by_language.other[:10] %}
+                        <div class="trend-card">
+                            <div class="trend-header">
+                                <span class="trend-rank">#{{ loop.index }}</span>
+                                <span class="trend-title">{{ trend.title }}</span>
+                            </div>
+                            <div class="trend-volume">
+                                <span class="volume-bar" style="width: {{ [(trend.volume|default(0)) / 100000, 100] | min }}%"></span>
+                                <span class="volume-text">{% if trend.volume|default(0) >= 1000000 %}{{ (trend.volume / 1000000) | round(1) }}M{% elif trend.volume|default(0) >= 1000 %}{{ (trend.volume / 1000) | round(0) | int }}K{% else %}{{ trend.volume|default(0) }}{% endif %}</span>
+                            </div>
+                            <div class="trend-meta">
+                                <span class="trend-meta-item">{{ countries[trend.country].flag if trend.country in countries else '' }} {{ trend.language|default('') }}</span>
+                                <span class="trend-meta-item">{{ trend.source }}</span>
+                            </div>
+                            {% if trend.url %}<a href="{{ trend.url }}" target="_blank" class="trend-link">Ver fonte</a>{% endif %}
+                        </div>
+                        {% endfor %}
+                        {% if not top_by_language.other %}
+                        <div class="empty-state" style="grid-column: 1/-1;"><p>Nenhum trend em outros idiomas coletado</p></div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- TOP 10 DIRECIONADO POR SUBNICHO -->
+            <div class="report-section">
+                <h2>🎯 Top 10 por Subnicho (Recomendacoes Direcionadas)</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Melhores trends para cada um dos seus 7 canais. Ordenados por score de relevancia.</p>
+
+                {% for key, data in trends_by_subnicho.items() %}
+                <div class="subnicho-section">
+                    <div class="subnicho-header">
+                        <span class="subnicho-icon">{{ data.info.icon }}</span>
+                        <div class="subnicho-info">
+                            <h3>{{ data.info.name }}</h3>
+                            <p>{{ data.info.description }}</p>
+                        </div>
+                        <span class="subnicho-count">{{ data.trends|length }}</span>
+                    </div>
+                    <div class="top-opportunities">
+                        {% for trend in data.trends[:10] %}
+                        <div class="opportunity-card">
+                            <span class="opportunity-rank">#{{ loop.index }}</span>
+                            <div class="opportunity-title">{{ trend.title }}</div>
+                            <div class="opportunity-meta">
+                                <span>📊 Score: {{ trend.quality_score|default(0) }}%</span> |
+                                <span>{% for c in trend.countries_found %}{{ countries[c].flag if c in countries else c }}{% endfor %}</span> |
+                                <span>{{ trend.source }}</span>
+                            </div>
+                            {% if trend.suggested_title %}
+                            <div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(0,212,170,0.1); border-radius: 6px; font-size: 0.8rem;">
+                                <strong style="color: var(--accent);">💡 Sugestao de Titulo:</strong><br>
+                                {{ trend.suggested_title }}
+                            </div>
+                            {% endif %}
+                            {% if trend.url %}
+                            <a href="{{ trend.url }}" target="_blank" class="trend-link" style="margin-top: 0.5rem;">Ver fonte</a>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                        {% if not data.trends %}
+                        <div class="empty-state" style="grid-column: 1/-1;"><p>Nenhum trend encontrado para este subnicho</p></div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
         </div>
 
         <!-- Tab: RELATORIO (Insights Resumidos) -->
@@ -1121,7 +1462,7 @@ class HTMLReportGenerator:
                         <span class="opportunity-rank">#{{ loop.index }}</span>
                         <div class="opportunity-title">{{ trend.title }}</div>
                         <div class="opportunity-meta">
-                            <span>📊 Score: {{ trend.score }}%</span> |
+                            <span>📊 Score: {{ trend.quality_score|default(0) }}%</span> |
                             <span>📍 {{ trend.country }}</span> |
                             <span>📺 {{ trend.source }}</span>
                             {% if trend.is_cross_platform %} | <span style="color: var(--accent)">🔥 VIRAL</span>{% endif %}
@@ -1150,7 +1491,7 @@ class HTMLReportGenerator:
                         <strong>Nicho especifico.</strong> Poucos trends, mas podem ser valiosos.
                         {% endif %}
                         {% if data.trends[0] %}
-                        <br><br>Top trend: "<strong>{{ data.trends[0].title }}</strong>" com score de {{ data.trends[0].score }}%.
+                        <br><br>Top trend: "<strong>{{ data.trends[0].title }}</strong>" com score de {{ data.trends[0].quality_score|default(0) }}%.
                         {% endif %}
                     </p>
                 </div>
@@ -1172,7 +1513,7 @@ class HTMLReportGenerator:
                         <div class="trend-header">
                             <span class="trend-rank">#{{ loop.index }}</span>
                             <span class="trend-title">{{ trend.title }}</span>
-                            <span class="trend-score">{{ trend.score }}%</span>
+                            <span class="trend-score">{{ trend.quality_score|default(0) }}%</span>
                         </div>
                         <div class="trend-meta">
                             <span class="trend-meta-item">{{ countries[trend.country].flag if trend.country in countries else '🌍' }} {{ trend.country }}</span>
@@ -1208,9 +1549,35 @@ class HTMLReportGenerator:
 
         <!-- Tab: HISTORICO -->
         <div id="historico" class="tab-content">
-            <div class="empty-state">
-                <h3>Historico em construcao</h3>
-                <p>O historico sera populado apos multiplas coletas diarias</p>
+            <div class="report-section">
+                <h2>📅 Historico de Coletas</h2>
+                <div class="insight-card">
+                    <h3>Dados sendo coletados...</h3>
+                    <p>O historico mostrara tendencias recorrentes (3+ dias em alta), trends evergreen (7+ dias)
+                    e comparativos de performance apos algumas coletas serem feitas.</p>
+                    <p style="margin-top: 1rem; color: var(--text-muted);">
+                        Dica: Rode a coleta diariamente para ver padroes emergirem no Supabase.
+                    </p>
+                </div>
+
+                {% if evergreen_trends %}
+                <div style="margin-top: 1.5rem;">
+                    <h3 style="color: var(--accent); margin-bottom: 1rem;">🔥 Trends Evergreen (7+ dias)</h3>
+                    <div class="trends-grid">
+                        {% for trend in evergreen_trends[:10] %}
+                        <div class="trend-card">
+                            <div class="trend-header">
+                                <span class="trend-rank">#{{ loop.index }}</span>
+                                <span class="trend-title">{{ trend.title }}</span>
+                            </div>
+                            <div class="trend-meta">
+                                <span class="trend-meta-item">{{ trend.days_active|default(7) }} dias ativo</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
     </main>
@@ -1237,26 +1604,32 @@ class HTMLReportGenerator:
         function applyFilters() {
             const sourceFilter = document.getElementById('filter-source').value;
             const countryFilter = document.getElementById('filter-country').value;
+            const languageFilter = document.getElementById('filter-language').value;
             const subnichoFilter = document.getElementById('filter-subnicho').value;
 
             let visibleCount = 0;
             const sourceCounts = { google_trends: 0, youtube: 0, reddit: 0, hackernews: 0 };
+
+            // Map country to language for filtering
+            const countryLangMap = { US: 'en', BR: 'pt', ES: 'es', FR: 'fr', KR: 'ko', JP: 'ja', IT: 'it' };
 
             // Filter all trend cards
             document.querySelectorAll('.trend-card').forEach(card => {
                 const source = card.dataset.source;
                 const country = card.dataset.country;
                 const subnicho = card.dataset.subnicho || '';
+                const cardLang = card.dataset.language || countryLangMap[country] || 'en';
 
                 const matchSource = sourceFilter === 'all' || source === sourceFilter;
                 const matchCountry = countryFilter === 'all' || country === countryFilter || country === 'global';
+                const matchLanguage = languageFilter === 'all' || cardLang === languageFilter;
 
                 // Na aba GERAL, nao filtra por subnicho
                 const activeTab = document.querySelector('.tab-content.active');
                 const isGeralTab = activeTab && activeTab.id === 'geral';
                 const matchSubnicho = isGeralTab || subnichoFilter === 'all' || subnicho === subnichoFilter;
 
-                if (matchSource && matchCountry && matchSubnicho) {
+                if (matchSource && matchCountry && matchLanguage && matchSubnicho) {
                     card.classList.remove('hidden');
                     visibleCount++;
                     if (sourceCounts[source] !== undefined) sourceCounts[source]++;

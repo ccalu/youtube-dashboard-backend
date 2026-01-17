@@ -11,7 +11,10 @@ from datetime import datetime
 # Carregar variaveis de ambiente do arquivo .env
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    # Carregar .env do diretorio do projeto (onde config.py esta)
+    import pathlib
+    env_path = pathlib.Path(__file__).parent / ".env"
+    load_dotenv(dotenv_path=env_path)
 except ImportError:
     pass  # python-dotenv nao instalado, usar variaveis do sistema
 
@@ -332,12 +335,94 @@ SUBNICHO_CONFIG = {
 # =============================================================================
 
 COLLECTION_CONFIG = {
-    "trends_per_country": 50,           # Número de trends por país
+    "trends_per_country": 50,           # Número de trends por país (Google Trends)
     "reddit_posts_per_sub": 30,         # Posts por subreddit
-    "youtube_videos_per_country": 50,   # Vídeos por país
+    "youtube_videos_per_country": 200,  # Vídeos por país (4 páginas × 50)
+    "hackernews_stories": 500,          # Stories do Hacker News
     "max_trends_display": 30,           # Máximo para exibir no dashboard
     "history_days": 30,                 # Dias de histórico a manter
     "time_periods": ["24h", "7d", "15d", "30d"],  # Períodos de análise
+}
+
+# =============================================================================
+# FILTROS DE QUALIDADE (por fonte)
+# =============================================================================
+
+QUALITY_FILTERS = {
+    "youtube": {
+        "min_duration": 180,           # >= 3 minutos
+        "max_duration": 3600,          # <= 60 minutos
+        "min_views": 10000,            # >= 10K views
+        "min_engagement": 0.02,        # >= 2% likes/views
+        "exclude_categories": [
+            "10",  # Music
+            "17",  # Sports
+            "20",  # Gaming
+        ],
+        "exclude_keywords": [
+            "music video", "official video", "lyric", "lyrics",
+            "highlights", "goals", "match", "vs",
+            "gameplay", "walkthrough", "let's play", "gaming"
+        ]
+    },
+    "google_trends": {
+        "min_volume": 10000,           # >= 10K buscas
+        "exclude_keywords": [
+            # Celebridades/fofoca
+            "kardashian", "celebrity", "divorce", "wedding", "dating",
+            # Esportes
+            "score", "game", "match", "vs", "fifa", "nfl", "nba",
+            # Entretenimento genérico
+            "movie release", "netflix", "premiere", "trailer"
+        ],
+        "prefer_keywords": [
+            # Relevantes para subnichos
+            "history", "mystery", "documentary", "story",
+            "explained", "what happened", "truth about"
+        ]
+    },
+    "hackernews": {
+        "min_score": 50,               # >= 50 pontos
+        "min_comments": 10,            # >= 10 comentários
+        "exclude_domains": [
+            "youtube.com",             # Já coletamos direto do YouTube
+        ],
+        "prefer_topics": [
+            "ai", "startup", "founder", "business",
+            "psychology", "history", "science",
+            "documentary", "investigation"
+        ],
+        "exclude_topics": [
+            # Dev muito técnico (não relevante para os canais)
+            "rust", "golang", "typescript", "kubernetes",
+            "docker", "aws", "azure", "terraform"
+        ]
+    }
+}
+
+# =============================================================================
+# REGRAS DE EXIBIÇÃO DO DASHBOARD
+# =============================================================================
+
+DISPLAY_RULES = {
+    # Top por Subnicho
+    "subnicho_top": 10,           # Top 10 por subnicho (colapsável)
+    "subnicho_min_score": 60,     # Score mínimo para aparecer
+
+    # Top por Língua
+    "language_top": 10,           # Top 10 por língua (colapsável)
+    "language_min_score": 50,     # Score mínimo
+
+    # Bombando (evergreen)
+    "bombando_min_days": 3,       # Mínimo 3 dias ativos
+    "bombando_per_page": 10,      # 10 por página
+
+    # Lista Geral
+    "general_per_page": 20,       # 20 por página
+    "general_min_score": 50,      # Score mínimo para aparecer
+
+    # Ordenação padrão
+    "default_order": "quality_score DESC, volume DESC"
 }
 
 # =============================================================================

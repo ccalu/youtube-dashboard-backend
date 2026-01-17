@@ -1,8 +1,8 @@
 # =============================================================================
 # DATABASE - Modulos de Banco de Dados
 # =============================================================================
-# sqlite.py   - Cliente SQLite (local)
-# supabase.py - Cliente Supabase (nuvem)
+# sqlite.py          - Cliente SQLite (local)
+# supabase_client.py - Cliente Supabase (nuvem)
 # =============================================================================
 
 from .sqlite import TrendDatabase

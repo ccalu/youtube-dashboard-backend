@@ -584,29 +584,114 @@ class RegraNotificacaoCreate(BaseModel):
 
 ### 2. GET /api/coletas/historico
 
-**Descrição:** Histórico de coletas executadas
+**Descrição:** Histórico de coletas executadas + canais com erro + quota info
 
 **Query Parameters:**
 ```typescript
 {
-  limit?: number     // Máximo de resultados (padrão: 50)
-  status?: string    // Filtro por status
+  limit?: number     // Máximo de resultados (padrão: 20)
+}
+```
+
+**Response (Atualizado 17/01/2026):**
+```json
+{
+  "historico": [
+    {
+      "id": 140,
+      "data_inicio": "2026-01-17T08:00:00Z",
+      "data_fim": "2026-01-17T08:12:00Z",
+      "status": "parcial",
+      "canais_total": 305,
+      "canais_sucesso": 297,
+      "canais_erro": 8,
+      "videos_coletados": 6029,
+      "duracao_segundos": 720,
+      "requisicoes_usadas": 36000
+    }
+  ],
+  "total": 1,
+  "canais_com_erro": {
+    "total": 8,
+    "lista": [
+      {
+        "nome": "Canal XYZ",
+        "subnicho": "Terror",
+        "tipo": "nosso",
+        "erro": "Dados não salvos (all zeros)",
+        "falhas_consecutivas": 1,
+        "lingua": "portuguese",
+        "url_canal": "https://youtube.com/@CanalXYZ"
+      }
+    ]
+  },
+  "quota_info": {
+    "total_diario": 200000,
+    "usado_hoje": 108000,
+    "disponivel": 92000,
+    "porcentagem_usada": 54.0,
+    "total_chaves": 20,
+    "chaves_ativas": 10,
+    "chaves_esgotadas": 10,
+    "videos_coletados": 6029,
+    "proximo_reset_local": "18/01/2026 21:00 (Horário de Brasília)"
+  }
+}
+```
+
+---
+
+### 3. GET /api/canais/problematicos (NOVO - 17/01/2026)
+
+**Descrição:** Lista canais com falhas consecutivas de coleta
+
+**Response:**
+```json
+{
+  "total": 8,
+  "canais": [
+    {
+      "id": 645,
+      "nome_canal": "Canal XYZ",
+      "url_canal": "https://youtube.com/@CanalXYZ",
+      "subnicho": "Terror",
+      "tipo": "nosso",
+      "lingua": "portuguese",
+      "coleta_falhas_consecutivas": 3,
+      "coleta_ultimo_erro": "Dados não salvos (all zeros)",
+      "coleta_ultimo_sucesso": null
+    }
+  ]
+}
+```
+
+**Uso:** Diagnóstico de canais problemáticos para o modal de erros no frontend
+
+---
+
+### 4. GET /api/canais/sem-coleta-recente (NOVO - 17/01/2026)
+
+**Descrição:** Lista canais sem coleta bem-sucedida nos últimos X dias
+
+**Query Parameters:**
+```typescript
+{
+  dias?: number  // Dias sem coleta (padrão: 3)
 }
 ```
 
 **Response:**
 ```json
 {
-  "coletas": [
+  "total": 5,
+  "dias_verificados": 3,
+  "canais": [
     {
-      "id": 1,
-      "started_at": "2024-01-10T05:00:00Z",
-      "completed_at": "2024-01-10T05:15:34Z",
-      "status": "completed",
-      "canais_coletados": 150,
-      "videos_coletados": 234,
-      "quota_used": 145230,
-      "errors": 2
+      "id": 123,
+      "nome_canal": "Canal Inativo",
+      "subnicho": "Historia",
+      "ultima_coleta": "2026-01-10T08:00:00Z",
+      "coleta_falhas_consecutivas": 5
     }
   ]
 }
@@ -614,7 +699,7 @@ class RegraNotificacaoCreate(BaseModel):
 
 ---
 
-### 3. GET /api/stats
+### 5. GET /api/stats
 
 **Descrição:** Estatísticas do collector em tempo real
 

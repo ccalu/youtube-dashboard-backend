@@ -17,6 +17,7 @@ from dataclasses import dataclass, asdict
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import COLLECTION_CONFIG, QUALITY_FILTERS
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -174,7 +175,7 @@ class HackerNewsCollector:
 
     def collect_all(self) -> Dict[str, List[Dict]]:
         """
-        Coleta todas as categorias de stories.
+        Coleta todas as categorias de stories (básico).
 
         Returns:
             Dict com categorias como chave
@@ -205,6 +206,167 @@ class HackerNewsCollector:
         logger.info("=" * 50)
 
         return all_stories
+
+    def collect_all_expanded(self) -> Dict:
+        """
+        Coleta EXPANDIDA de stories do Hacker News.
+        Coleta 500 stories: 300 top + 200 best (deduplicado).
+
+        API GRATUITA - sem custo!
+
+        Returns:
+            Dict com stories e estatísticas
+        """
+        target = COLLECTION_CONFIG.get("hackernews_stories", 500)
+        filters = QUALITY_FILTERS.get("hackernews", {})
+
+        logger.info("=" * 60)
+        logger.info("HACKER NEWS COLETA EXPANDIDA - Iniciando")
+        logger.info(f"Alvo: {target} stories")
+        logger.info("=" * 60)
+
+        all_stories = []
+        seen_ids = set()
+        filtered_count = 0
+
+        # Filtros
+        min_score = filters.get("min_score", 50)
+        min_comments = filters.get("min_comments", 10)
+        exclude_domains = filters.get("exclude_domains", [])
+
+        # 1. Coletar TOP stories
+        logger.info("\n📰 Coletando TOP stories...")
+        top_ids = self._get_story_ids("top")
+        logger.info(f"  Encontrados: {len(top_ids)} IDs")
+
+        for i, story_id in enumerate(top_ids[:300]):
+            item = self._get_item(story_id)
+
+            if not item or item.get("type") != "story":
+                continue
+
+            # Verificar duplicata
+            if story_id in seen_ids:
+                continue
+
+            # Aplicar filtros de qualidade
+            score = item.get("score", 0)
+            comments = item.get("descendants", 0)
+            url = item.get("url", "")
+
+            # Filtro: score mínimo
+            if score < min_score:
+                filtered_count += 1
+                continue
+
+            # Filtro: comentários mínimos
+            if comments < min_comments:
+                filtered_count += 1
+                continue
+
+            # Filtro: domínios excluídos
+            if any(domain in url.lower() for domain in exclude_domains):
+                filtered_count += 1
+                continue
+
+            story = HNStory(
+                title=item.get("title", ""),
+                source="hackernews",
+                url=url,
+                score=score,
+                num_comments=comments,
+                author=item.get("by", ""),
+                hn_id=story_id,
+                hn_url=f"https://news.ycombinator.com/item?id={story_id}",
+                timestamp=datetime.now().isoformat(),
+                country="global",
+                language="en"
+            )
+
+            all_stories.append(asdict(story))
+            seen_ids.add(story_id)
+
+            # Rate limiting
+            if i % 20 == 0 and i > 0:
+                time.sleep(0.5)
+
+        logger.info(f"  ✓ TOP: {len(all_stories)} stories válidas")
+
+        # 2. Coletar BEST stories (complementar)
+        logger.info("\n⭐ Coletando BEST stories...")
+        best_ids = self._get_story_ids("best")
+        logger.info(f"  Encontrados: {len(best_ids)} IDs")
+
+        best_count = 0
+        for i, story_id in enumerate(best_ids[:200]):
+            if story_id in seen_ids:
+                continue
+
+            item = self._get_item(story_id)
+
+            if not item or item.get("type") != "story":
+                continue
+
+            score = item.get("score", 0)
+            comments = item.get("descendants", 0)
+            url = item.get("url", "")
+
+            if score < min_score or comments < min_comments:
+                filtered_count += 1
+                continue
+
+            if any(domain in url.lower() for domain in exclude_domains):
+                filtered_count += 1
+                continue
+
+            story = HNStory(
+                title=item.get("title", ""),
+                source="hackernews",
+                url=url,
+                score=score,
+                num_comments=comments,
+                author=item.get("by", ""),
+                hn_id=story_id,
+                hn_url=f"https://news.ycombinator.com/item?id={story_id}",
+                timestamp=datetime.now().isoformat(),
+                country="global",
+                language="en"
+            )
+
+            all_stories.append(asdict(story))
+            seen_ids.add(story_id)
+            best_count += 1
+
+            if i % 20 == 0 and i > 0:
+                time.sleep(0.5)
+
+        logger.info(f"  ✓ BEST: {best_count} stories adicionadas")
+
+        # Ordenar por score
+        all_stories.sort(key=lambda x: x.get("score", 0), reverse=True)
+
+        # Resultado
+        result = {
+            "global": all_stories,
+            "stats": {
+                "total": len(all_stories),
+                "filtered": filtered_count,
+                "top_count": len(all_stories) - best_count,
+                "best_count": best_count
+            }
+        }
+
+        logger.info("\n" + "=" * 60)
+        logger.info("HACKER NEWS COLETA EXPANDIDA - FINALIZADO")
+        logger.info("=" * 60)
+        logger.info(f"📊 ESTATÍSTICAS:")
+        logger.info(f"  • Total:     {result['stats']['total']} stories")
+        logger.info(f"  • Filtradas: {result['stats']['filtered']} (baixa qualidade)")
+        logger.info(f"  • Top:       {result['stats']['top_count']} stories")
+        logger.info(f"  • Best:      {result['stats']['best_count']} stories")
+        logger.info("=" * 60)
+
+        return result
 
 
 # =============================================================================

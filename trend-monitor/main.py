@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 """
-TREND MONITOR - Script Principal
-=================================
+TREND MONITOR - Script Principal (Expandido)
+=============================================
 Orquestra a coleta de trends, filtragem e geração de dashboard.
 
 USO:
-    python main.py                    # Execução completa
+    python main.py                    # Execução completa expandida
+    python main.py --basic            # Coleta básica (menos API units)
     python main.py --collect-only     # Apenas coleta (salva JSON)
     python main.py --generate-only    # Gera dashboard do último JSON
     python main.py --mock             # Usa dados mock (para testes)
+
+COLETA EXPANDIDA (padrão):
+    - YouTube: trending + busca por subnicho + descoberta (~8.000 units)
+    - Google Trends: RSS de 7 países (~175 trends) - GRÁTIS
+    - Hacker News: 500 stories - GRÁTIS
+    - Total esperado: ~3.000 items brutos → ~2.000 após filtros
 
 ESTRUTURA DE SAÍDA:
     data/trends_YYYY-MM-DD.json       # Dados coletados
@@ -16,11 +23,11 @@ ESTRUTURA DE SAÍDA:
 
 VARIÁVEIS DE AMBIENTE:
     YOUTUBE_API_KEY       # API key do YouTube Data API v3
-    REDDIT_CLIENT_ID      # Client ID do Reddit App
-    REDDIT_CLIENT_SECRET  # Client Secret do Reddit App
+    SUPABASE_URL          # URL do projeto Supabase (opcional)
+    SUPABASE_KEY          # Chave anon do Supabase (opcional)
 
 AUTOR: Content Factory
-DATA: Janeiro 2025
+DATA: Janeiro 2026
 """
 
 import os
@@ -44,6 +51,10 @@ from collectors.reddit import get_mock_reddit_data
 from collectors.google_trends import get_mock_google_trends_data
 from collectors.hackernews import get_mock_hackernews_data
 from filters import RelevanceFilter
+from filters.quality import (
+    filter_youtube, filter_google_trends, filter_hackernews,
+    classify_all_items, get_quality_summary
+)
 from generators import HTMLReportGenerator
 
 # Configurar logging
@@ -58,7 +69,7 @@ logger = logging.getLogger(__name__)
 try:
     from config import SUPABASE_CONFIG
     if SUPABASE_CONFIG.get("enabled"):
-        from database.supabase import TrendDatabaseSupabase as TrendDatabase
+        from database.supabase_client import TrendDatabaseSupabase as TrendDatabase
         logger.info("Usando Supabase como banco de dados")
     else:
         from database import TrendDatabase
@@ -72,19 +83,21 @@ class TrendMonitor:
     Classe principal do Trend Monitor.
 
     Orquestra todo o fluxo:
-    1. Coleta de múltiplas fontes
-    2. Filtragem e scoring
+    1. Coleta de múltiplas fontes (básica ou expandida)
+    2. Filtragem e scoring de qualidade
     3. Geração de dashboard
     """
 
-    def __init__(self, use_mock: bool = False):
+    def __init__(self, use_mock: bool = False, expanded: bool = True):
         """
         Inicializa o monitor.
 
         Args:
             use_mock: Se True, usa dados mock ao invés de APIs reais
+            expanded: Se True, usa coleta expandida (mais API units)
         """
         self.use_mock = use_mock
+        self.expanded = expanded
         self.date_str = datetime.now().strftime("%Y-%m-%d")
         self.timestamp = datetime.now().isoformat()
 
@@ -99,15 +112,21 @@ class TrendMonitor:
         self.generator = HTMLReportGenerator()
         self.database = TrendDatabase()
 
+        mode = "MOCK" if use_mock else ("EXPANDIDO" if expanded else "BÁSICO")
+
         logger.info("=" * 60)
         logger.info("TREND MONITOR - Inicializado")
         logger.info(f"Data: {self.date_str}")
-        logger.info(f"Modo: {'MOCK' if use_mock else 'PRODUÇÃO'}")
+        logger.info(f"Modo: {mode}")
+        if expanded and not use_mock:
+            logger.info("YouTube: trending + subnicho + discovery (~8.000 units)")
+            logger.info("Hacker News: 500 stories (GRÁTIS)")
         logger.info("=" * 60)
 
     def collect_all(self) -> Dict:
         """
         Coleta trends de todas as fontes.
+        Se expanded=True, usa coleta expandida com mais dados.
 
         Returns:
             Dict com dados coletados por fonte e país
@@ -124,55 +143,110 @@ class TrendMonitor:
             "google_trends": {},
             "reddit": {},
             "youtube": {},
+            "youtube_expanded": None,  # Dados expandidos do YouTube
             "hackernews": {},
+            "hackernews_expanded": None,  # Dados expandidos do HN
             "metadata": {
                 "collected_at": self.timestamp,
                 "date": self.date_str,
                 "countries": list(COUNTRIES.keys()),
-                "sources": ["google_trends", "reddit", "youtube", "hackernews"]
+                "sources": ["google_trends", "youtube", "hackernews"],
+                "expanded": self.expanded
             }
         }
 
-        # 1. Google Trends
-        logger.info("\n--- Google Trends ---")
+        # 1. Google Trends (RSS - GRÁTIS)
+        logger.info("\n--- Google Trends (RSS) ---")
         try:
             data["google_trends"] = self.google_collector.collect_all_countries()
         except Exception as e:
             logger.error(f"Erro na coleta Google Trends: {e}")
             data["google_trends"] = {}
 
-        # 2. Reddit
-        logger.info("\n--- Reddit ---")
-        try:
-            data["reddit"] = self.reddit_collector.collect_all()
-        except Exception as e:
-            logger.error(f"Erro na coleta Reddit: {e}")
-            data["reddit"] = {}
-
-        # 3. YouTube
+        # 2. YouTube
         logger.info("\n--- YouTube ---")
         try:
-            data["youtube"] = self.youtube_collector.collect_all_countries()
+            if self.expanded:
+                # Coleta expandida: trending + subnicho + discovery
+                expanded_result = self.youtube_collector.collect_all_expanded()
+                data["youtube_expanded"] = expanded_result
+
+                # Flatten para compatibilidade
+                all_yt_videos = self.youtube_collector.flatten_results(expanded_result)
+                data["youtube"] = {"all": all_yt_videos}
+
+                # Estatísticas
+                stats = expanded_result.get("stats", {})
+                logger.info(f"  Trending: {stats.get('trending_count', 0)} vídeos")
+                logger.info(f"  Subnicho: {stats.get('subnicho_count', 0)} vídeos")
+                logger.info(f"  Discovery: {stats.get('discovery_count', 0)} vídeos")
+                logger.info(f"  API Units: ~{stats.get('units_used', 0)}")
+            else:
+                # Coleta básica
+                data["youtube"] = self.youtube_collector.collect_all_countries()
         except Exception as e:
             logger.error(f"Erro na coleta YouTube: {e}")
             data["youtube"] = {}
 
-        # 4. Hacker News
+        # 3. Hacker News (GRÁTIS)
         logger.info("\n--- Hacker News ---")
         try:
-            data["hackernews"] = self.hackernews_collector.collect_all()
+            if self.expanded:
+                # Coleta expandida: 500 stories
+                expanded_result = self.hackernews_collector.collect_all_expanded()
+                data["hackernews_expanded"] = expanded_result
+                data["hackernews"] = {"global": expanded_result.get("global", [])}
+
+                stats = expanded_result.get("stats", {})
+                logger.info(f"  Total: {stats.get('total', 0)} stories")
+                logger.info(f"  Filtradas: {stats.get('filtered', 0)} (baixa qualidade)")
+            else:
+                data["hackernews"] = self.hackernews_collector.collect_all()
         except Exception as e:
             logger.error(f"Erro na coleta Hacker News: {e}")
             data["hackernews"] = {}
 
-        # Estatísticas
-        total = 0
-        for source in ["google_trends", "reddit", "youtube", "hackernews"]:
-            source_total = sum(len(v) for v in data[source].values())
-            total += source_total
-            logger.info(f"  {source}: {source_total} itens")
+        # 4. Reddit (desabilitado por padrão - precisa API)
+        # Comentado pois requer credenciais e a API tem mais restrições
+        data["reddit"] = {}
 
-        logger.info(f"\nTOTAL COLETADO: {total} itens")
+        # Estatísticas finais
+        total = 0
+        youtube_total = 0
+        google_total = 0
+        hn_total = 0
+
+        for country, trends in data.get("google_trends", {}).items():
+            google_total += len(trends)
+
+        if self.expanded and data.get("youtube_expanded"):
+            youtube_total = data["youtube_expanded"].get("stats", {}).get("total_videos", 0)
+        else:
+            for country, videos in data.get("youtube", {}).items():
+                youtube_total += len(videos)
+
+        if self.expanded and data.get("hackernews_expanded"):
+            hn_total = data["hackernews_expanded"].get("stats", {}).get("total", 0)
+        else:
+            for cat, stories in data.get("hackernews", {}).items():
+                hn_total += len(stories)
+
+        total = google_total + youtube_total + hn_total
+
+        logger.info("\n" + "-" * 40)
+        logger.info("RESUMO DA COLETA:")
+        logger.info(f"  Google Trends: {google_total} trends")
+        logger.info(f"  YouTube: {youtube_total} vídeos")
+        logger.info(f"  Hacker News: {hn_total} stories")
+        logger.info(f"  TOTAL BRUTO: {total} itens")
+        logger.info("-" * 40)
+
+        data["metadata"]["totals"] = {
+            "google_trends": google_total,
+            "youtube": youtube_total,
+            "hackernews": hn_total,
+            "total": total
+        }
 
         return data
 
@@ -243,52 +317,151 @@ class TrendMonitor:
 
     def filter_and_score(self, raw_data: Dict) -> Dict:
         """
-        Filtra e pontua os trends.
+        Filtra e pontua os trends com quality_score universal.
 
         Args:
             raw_data: Dados raw coletados
 
         Returns:
-            Dados filtrados e organizados
+            Dados filtrados, pontuados e organizados
         """
         logger.info("\n" + "=" * 60)
-        logger.info("FASE 2: FILTRAGEM E SCORING")
+        logger.info("FASE 2: FILTRAGEM E SCORING DE QUALIDADE")
         logger.info("=" * 60)
 
-        # Preparar dados para o filtro
-        filter_input = {
-            "google_trends": raw_data.get("google_trends", {}),
-            "reddit": raw_data.get("reddit", {}),
-            "youtube": raw_data.get("youtube", {}),
-            "hackernews": raw_data.get("hackernews", {})
+        all_items = []
+        stats = {
+            "youtube_raw": 0,
+            "youtube_filtered": 0,
+            "google_raw": 0,
+            "google_filtered": 0,
+            "hackernews_raw": 0,
+            "hackernews_filtered": 0,
+            "total_raw": 0,
+            "total_filtered": 0,
+            "total_with_score": 0
         }
 
-        filtered = self.filter.filter_all_trends(filter_input)
+        # 1. Processar YouTube
+        logger.info("\n--- Filtrando YouTube ---")
+        youtube_data = raw_data.get("youtube", {})
+        youtube_items = []
+        for country, videos in youtube_data.items():
+            if isinstance(videos, list):
+                youtube_items.extend(videos)
 
-        # Adicionar metadata
-        filtered["metadata"] = raw_data.get("metadata", {})
-        filtered["metadata"]["filtered_at"] = datetime.now().isoformat()
+        stats["youtube_raw"] = len(youtube_items)
+        if youtube_items:
+            filtered_yt, removed_yt = filter_youtube(youtube_items)
+            classified_yt = classify_all_items(filtered_yt, "youtube")
+            all_items.extend(classified_yt)
+            stats["youtube_filtered"] = len(classified_yt)
+            logger.info(f"  YouTube: {stats['youtube_raw']} → {stats['youtube_filtered']} após filtros")
+
+        # 2. Processar Google Trends
+        logger.info("\n--- Filtrando Google Trends ---")
+        google_data = raw_data.get("google_trends", {})
+        google_items = []
+        for country, trends in google_data.items():
+            if isinstance(trends, list):
+                for trend in trends:
+                    trend["country"] = country
+                google_items.extend(trends)
+
+        stats["google_raw"] = len(google_items)
+        if google_items:
+            filtered_gt, removed_gt = filter_google_trends(google_items)
+            classified_gt = classify_all_items(filtered_gt, "google_trends")
+            all_items.extend(classified_gt)
+            stats["google_filtered"] = len(classified_gt)
+            logger.info(f"  Google Trends: {stats['google_raw']} → {stats['google_filtered']} após filtros")
+
+        # 3. Processar Hacker News
+        logger.info("\n--- Filtrando Hacker News ---")
+        hn_data = raw_data.get("hackernews", {})
+        hn_items = []
+        for cat, stories in hn_data.items():
+            if isinstance(stories, list):
+                hn_items.extend(stories)
+
+        stats["hackernews_raw"] = len(hn_items)
+        if hn_items:
+            filtered_hn, removed_hn = filter_hackernews(hn_items)
+            classified_hn = classify_all_items(filtered_hn, "hackernews")
+            all_items.extend(classified_hn)
+            stats["hackernews_filtered"] = len(classified_hn)
+            logger.info(f"  Hacker News: {stats['hackernews_raw']} → {stats['hackernews_filtered']} após filtros")
+
+        # Totais
+        stats["total_raw"] = stats["youtube_raw"] + stats["google_raw"] + stats["hackernews_raw"]
+        stats["total_filtered"] = stats["youtube_filtered"] + stats["google_filtered"] + stats["hackernews_filtered"]
+        stats["total_with_score"] = len(all_items)
+
+        # Ordenar por quality_score
+        all_items.sort(key=lambda x: x.get("quality_score", 0), reverse=True)
+
+        # Resumo de qualidade
+        quality_summary = get_quality_summary(all_items)
+
+        logger.info("\n" + "-" * 40)
+        logger.info("RESUMO DE QUALIDADE:")
+        logger.info(f"  Total processado: {stats['total_filtered']} itens")
+        logger.info(f"  Score médio: {quality_summary.get('avg_score', 0):.1f}")
+        logger.info(f"  Excelentes (>=80): {quality_summary.get('excellent_count', 0)}")
+        logger.info(f"  Bons (60-79): {quality_summary.get('good_count', 0)}")
+        logger.info(f"  Match subnicho: {quality_summary.get('subnicho_matches', 0)} ({quality_summary.get('subnicho_percent', 0):.1f}%)")
+        logger.info("-" * 40)
+
+        # Organizar por categoria
+        filtered = {
+            "all_items": all_items,
+            "by_source": {
+                "youtube": [i for i in all_items if i.get("source") == "youtube"],
+                "google_trends": [i for i in all_items if i.get("source") == "google_trends"],
+                "hackernews": [i for i in all_items if i.get("source") == "hackernews"]
+            },
+            "by_subnicho": {},
+            "by_language": {},
+            "top_quality": [i for i in all_items if i.get("quality_score", 0) >= 70][:50],
+            "stats": stats,
+            "quality_summary": quality_summary,
+            "metadata": raw_data.get("metadata", {})
+        }
+
+        # Agrupar por subnicho
+        for item in all_items:
+            subnicho = item.get("matched_subnicho")
+            if subnicho:
+                if subnicho not in filtered["by_subnicho"]:
+                    filtered["by_subnicho"][subnicho] = []
+                filtered["by_subnicho"][subnicho].append(item)
+
+        # Agrupar por língua
+        for item in all_items:
+            lang = item.get("language", "en")
+            if lang not in filtered["by_language"]:
+                filtered["by_language"][lang] = []
+            filtered["by_language"][lang].append(item)
 
         # Salvar no banco de dados
         logger.info("\n--- Salvando no Banco de Dados ---")
-        all_trends = []
-        for source, country_data in filter_input.items():
-            for country, trends in country_data.items():
-                for trend in trends:
-                    trend["source"] = source
-                    trend["country"] = country
-                    all_trends.append(trend)
+        saved = self.database.save_trends(all_items)
+        logger.info(f"Salvos {saved} trends no banco de dados")
 
-        saved = self.database.save_trends(all_trends)
-        logger.info(f"Salvos {saved} trends no SQLite")
+        # Salvar matches de subnicho (se Supabase)
+        if hasattr(self.database, 'save_subnicho_matches'):
+            matches_saved = self.database.save_subnicho_matches(all_items)
+            logger.info(f"Salvos {matches_saved} matches de subnicho")
 
         # Atualizar padrões (evergreen, etc.)
         self.database.update_patterns()
 
-        # Adicionar dados de evergreen ao filtered
+        # Adicionar dados de evergreen
         evergreen = self.database.get_evergreen_trends(min_days=7)
         filtered["evergreen_trends"] = evergreen
         filtered["stats"]["evergreen_count"] = len(evergreen)
+
+        filtered["metadata"]["filtered_at"] = datetime.now().isoformat()
 
         return filtered
 
@@ -386,15 +559,28 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Exemplos:
-  python main.py                    # Execução completa
+  python main.py                    # Execução completa EXPANDIDA (~8.000 units)
+  python main.py --basic            # Coleta BÁSICA (~100 units)
   python main.py --mock             # Teste com dados mock
   python main.py --collect-only     # Apenas coleta dados
   python main.py --generate-only    # Gera dashboard do último JSON
 
-Variáveis de ambiente necessárias:
+COLETA EXPANDIDA (padrão):
+  - YouTube: trending + subnicho + discovery (~8.000 units)
+  - Google Trends: RSS 7 países (~175 trends) - GRÁTIS
+  - Hacker News: 500 stories - GRÁTIS
+  - Total: ~3.000 items brutos
+
+COLETA BÁSICA (--basic):
+  - YouTube: apenas trending (~100 units)
+  - Google Trends: RSS 7 países
+  - Hacker News: 70 stories
+  - Total: ~500 items
+
+Variáveis de ambiente:
   YOUTUBE_API_KEY       # Para coleta do YouTube
-  REDDIT_CLIENT_ID      # Para coleta do Reddit
-  REDDIT_CLIENT_SECRET  # Para coleta do Reddit
+  SUPABASE_URL          # URL Supabase (opcional)
+  SUPABASE_KEY          # Key Supabase (opcional)
         """
     )
 
@@ -402,6 +588,12 @@ Variáveis de ambiente necessárias:
         "--mock",
         action="store_true",
         help="Usar dados mock ao invés de APIs reais"
+    )
+
+    parser.add_argument(
+        "--basic",
+        action="store_true",
+        help="Usar coleta básica (menos API units)"
     )
 
     parser.add_argument(
@@ -428,9 +620,10 @@ Variáveis de ambiente necessárias:
     # Determinar modo de execução
     collect = not args.generate_only
     generate = not args.collect_only
+    expanded = not args.basic  # Expandido é o padrão
 
     # Executar
-    monitor = TrendMonitor(use_mock=args.mock)
+    monitor = TrendMonitor(use_mock=args.mock, expanded=expanded)
 
     if args.date:
         monitor.date_str = args.date
