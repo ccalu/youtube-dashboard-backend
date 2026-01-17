@@ -866,7 +866,8 @@ async def get_coletas_historico(limit: Optional[int] = 20):
                         "tipo": c.get("tipo"),
                         "erro": c.get("coleta_ultimo_erro"),
                         "falhas_consecutivas": c.get("coleta_falhas_consecutivas"),
-                        "url": c.get("url_canal")
+                        "lingua": c.get("lingua"),
+                        "url_canal": c.get("url_canal")
                     }
                     for c in canais_problematicos
                 ]

@@ -1197,7 +1197,7 @@ class SupabaseClient:
         """
         try:
             response = self.supabase.table("canais_monitorados")\
-                .select("id, nome_canal, url_canal, subnicho, tipo, coleta_falhas_consecutivas, coleta_ultimo_erro, coleta_ultimo_sucesso, ultima_coleta")\
+                .select("id, nome_canal, url_canal, subnicho, tipo, lingua, coleta_falhas_consecutivas, coleta_ultimo_erro, coleta_ultimo_sucesso, ultima_coleta")\
                 .gt("coleta_falhas_consecutivas", 0)\
                 .order("coleta_falhas_consecutivas", desc=True)\
                 .execute()
