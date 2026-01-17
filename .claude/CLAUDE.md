@@ -69,7 +69,62 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 - Pode melhorar lógica existente
 - SEMPRE fazer backup antes de mudanças grandes
 
-## 🆕 ATUALIZAÇÕES RECENTES (02/12/2025):
+## 🆕 ATUALIZAÇÕES RECENTES (17/01/2026):
+
+### 1. Otimização do Sistema de Coleta (50% menos API calls)
+**Arquivos:** `collector.py`, `main.py`, `database.py`
+
+- ✅ `get_canal_data()` agora retorna tuple `(stats, videos)` - elimina duplicação
+- ✅ Timeout aumentado de 30s para 60s
+- ✅ Economia de ~50% da quota diária
+
+### 2. Tracking de Falhas de Coleta
+**Novos campos em `canais_monitorados`:**
+- `coleta_falhas_consecutivas` (INTEGER)
+- `coleta_ultimo_erro` (TEXT)
+- `coleta_ultimo_sucesso` (TIMESTAMP)
+
+**Novas funções em `database.py`:**
+- `marcar_coleta_sucesso()` - reseta contador de falhas
+- `marcar_coleta_falha()` - incrementa contador e salva erro
+- `get_canais_problematicos()` - lista canais com falhas
+
+### 3. Novos Endpoints de Diagnóstico
+- `GET /api/canais/problematicos` - Lista canais com erros de coleta
+- `GET /api/canais/sem-coleta-recente` - Canais sem coleta nos últimos X dias
+
+### 4. Melhorias no Endpoint `/api/coletas/historico`
+Agora retorna:
+```json
+{
+  "historico": [...],
+  "canais_com_erro": {
+    "total": 8,
+    "lista": [
+      {
+        "nome": "Canal X",
+        "subnicho": "Terror",
+        "tipo": "nosso",
+        "erro": "Dados não salvos",
+        "lingua": "portuguese",
+        "url_canal": "https://youtube.com/@..."
+      }
+    ]
+  },
+  "quota_info": {
+    "videos_coletados": 6029,
+    ...
+  }
+}
+```
+
+### 5. Limpeza de Canais
+- Deletados 24 canais problemáticos (22 minerados inativos + 2 com URL inválida)
+- Total atual: **305 canais ativos**
+
+---
+
+## 📜 ATUALIZAÇÕES ANTERIORES (02/12/2025):
 
 ### 1. Nova Feature: Aba "Tabela" (Nossos Canais)
 **Endpoint:** `GET /api/canais-tabela`
