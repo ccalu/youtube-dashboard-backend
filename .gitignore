@@ -75,4 +75,4 @@ delete_*.py
 fix_*.py
 execute_*.py
 limpar_*.py
-identificar_*.py
+identificar_*.pycleanup_backup_*/
