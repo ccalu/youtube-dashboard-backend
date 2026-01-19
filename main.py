@@ -956,6 +956,168 @@ async def toggle_monetizacao(channel_id: str, body: dict):
         logger.error(f"Erro ao toggle monetização: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@app.get("/api/comments/stats")
+async def get_comments_stats():
+    """
+    📊 Retorna estatísticas completas dos comentários analisados com GPT.
+
+    Inclui:
+    - Total de comentários coletados e analisados
+    - Distribuição de sentimentos
+    - Comentários prioritários
+    - Métricas de uso do GPT (tokens, custo, tempo)
+    - Canais com mais engajamento
+
+    Returns:
+        JSON com estatísticas detalhadas
+    """
+    try:
+        # Importar database_comments se ainda não foi importado
+        from database_comments import CommentsDB
+        from gpt_analyzer import GPTAnalyzer
+
+        comments_db = CommentsDB()
+        gpt_analyzer = GPTAnalyzer()
+
+        # Obter estatísticas gerais (últimos 7 dias)
+        stats = await comments_db.get_comments_stats(days=7)
+
+        # Obter métricas GPT do dia
+        gpt_metrics = gpt_analyzer.get_daily_metrics()
+
+        # Buscar distribuição de sentimentos
+        sentiment_query = db.supabase.table('video_comments')\
+            .select('sentiment_category', count='exact')\
+            .execute()
+
+        sentiment_counts = {}
+        if sentiment_query.data:
+            for row in sentiment_query.data:
+                category = row.get('sentiment_category', 'unknown')
+                sentiment_counts[category] = sentiment_counts.get(category, 0) + 1
+
+        # Buscar comentários de alta prioridade
+        priority_query = db.supabase.table('video_comments')\
+            .select('comment_id, comment_text_original, priority_score, sentiment_category, author_name, video_title')\
+            .gte('priority_score', 70)\
+            .order('priority_score', desc=True)\
+            .limit(10)\
+            .execute()
+
+        high_priority = priority_query.data if priority_query.data else []
+
+        # Buscar canais com mais comentários
+        top_canais_query = """
+            SELECT
+                cm.nome_canal,
+                cm.tipo,
+                COUNT(vc.id) as total_comments,
+                AVG(vc.sentiment_score) as avg_sentiment,
+                COUNT(CASE WHEN vc.priority_score >= 70 THEN 1 END) as high_priority_count
+            FROM video_comments vc
+            JOIN canais_monitorados cm ON vc.canal_id = cm.id
+            WHERE vc.created_at >= NOW() - INTERVAL '7 days'
+            GROUP BY cm.id, cm.nome_canal, cm.tipo
+            ORDER BY total_comments DESC
+            LIMIT 10
+        """
+
+        # Como não temos RPC, vamos fazer uma query simplificada
+        canais_stats = []
+        nossos_canais = db.supabase.table('canais_monitorados')\
+            .select('id, nome_canal, tipo')\
+            .eq('tipo', 'nosso')\
+            .execute()
+
+        if nossos_canais.data:
+            for canal in nossos_canais.data[:10]:
+                canal_comments = db.supabase.table('video_comments')\
+                    .select('id, sentiment_score, priority_score')\
+                    .eq('canal_id', canal['id'])\
+                    .execute()
+
+                if canal_comments.data:
+                    total = len(canal_comments.data)
+                    avg_sentiment = sum(c.get('sentiment_score', 0) for c in canal_comments.data) / total if total > 0 else 0
+                    high_priority = sum(1 for c in canal_comments.data if c.get('priority_score', 0) >= 70)
+
+                    canais_stats.append({
+                        'nome_canal': canal['nome_canal'],
+                        'tipo': canal['tipo'],
+                        'total_comments': total,
+                        'avg_sentiment': round(avg_sentiment, 2),
+                        'high_priority_count': high_priority
+                    })
+
+        # Montar resposta completa
+        return {
+            'summary': {
+                'total_comments': stats.get('total_comments', 0),
+                'analyzed_comments': stats.get('analyzed_comments', 0),
+                'high_priority_count': stats.get('high_priority_count', 0),
+                'pending_response_count': stats.get('pending_response_count', 0),
+                'last_collection': stats.get('last_collection', None)
+            },
+            'sentiment_distribution': {
+                'positive': sentiment_counts.get('positive', 0),
+                'negative': sentiment_counts.get('negative', 0),
+                'neutral': sentiment_counts.get('neutral', 0),
+                'mixed': sentiment_counts.get('mixed', 0)
+            },
+            'gpt_metrics': {
+                'total_analyzed': gpt_metrics.get('total_analyzed', 0),
+                'total_tokens_input': gpt_metrics.get('total_tokens_input', 0),
+                'total_tokens_output': gpt_metrics.get('total_tokens_output', 0),
+                'estimated_cost_usd': gpt_metrics.get('estimated_cost_usd', 0),
+                'avg_response_time_ms': gpt_metrics.get('avg_response_time_ms', 0),
+                'success_rate': gpt_metrics.get('success_rate', 100)
+            },
+            'high_priority_comments': high_priority,
+            'top_canais_engagement': canais_stats,
+            'collection_info': {
+                'comments_per_video_limit': 100,
+                'batch_size': 30,
+                'model': 'gpt-4o-mini',
+                'cost_per_1m_tokens': {
+                    'input': 0.15,
+                    'output': 0.60
+                }
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Erro ao obter estatísticas de comentários: {e}")
+        # Retornar estrutura vazia em caso de erro
+        return {
+            'summary': {
+                'total_comments': 0,
+                'analyzed_comments': 0,
+                'high_priority_count': 0,
+                'pending_response_count': 0,
+                'last_collection': None
+            },
+            'sentiment_distribution': {
+                'positive': 0,
+                'negative': 0,
+                'neutral': 0,
+                'mixed': 0
+            },
+            'gpt_metrics': {
+                'total_analyzed': 0,
+                'total_tokens_input': 0,
+                'total_tokens_output': 0,
+                'estimated_cost_usd': 0,
+                'avg_response_time_ms': 0,
+                'success_rate': 0
+            },
+            'high_priority_comments': [],
+            'top_canais_engagement': [],
+            'error': str(e),
+            'message': 'Sistema de comentários ainda não tem dados. Execute a coleta para ver estatísticas.'
+        }
+
+
 @app.get("/api/videos")
 async def get_videos(
     nicho: Optional[str] = None,
