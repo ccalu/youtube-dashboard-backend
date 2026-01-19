@@ -21,6 +21,7 @@ from collector import YouTubeCollector
 from notifier import NotificationChecker
 from monetization_endpoints import router as monetization_router
 from financeiro import FinanceiroService
+from analytics import ChannelAnalytics
 
 # YouTube Uploader
 from yt_uploader.uploader import YouTubeUploader
@@ -556,6 +557,65 @@ async def get_canais_sem_coleta_recente(dias: int = 3):
         }
     except Exception as e:
         logger.error(f"Error fetching canais sem coleta recente: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/canais/{canal_id}/analytics")
+async def get_canal_analytics(canal_id: int):
+    """
+    📊 Retorna análise completa de um canal com insights inteligentes.
+
+    Inclui:
+    - Informações básicas expandidas (data criação, custom URL, etc)
+    - Métricas de performance (views, engagement, score)
+    - Top 10 vídeos com thumbnails
+    - Padrões de sucesso identificados estatisticamente
+    - Clustering de conteúdo por tema/performance
+    - Detecção de anomalias (outliers, tendências)
+    - Melhor dia/hora para postar
+
+    Returns:
+        JSON com análise completa do canal
+    """
+    try:
+        # Criar instância do analisador
+        analyzer = ChannelAnalytics(db)
+
+        # Executar análise completa
+        analytics_data = await analyzer.analyze_channel(canal_id)
+
+        if not analytics_data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Canal {canal_id} não encontrado ou sem dados para análise"
+            )
+
+        # Atualizar campos de analytics no banco se houver dados novos
+        if analytics_data.get('canal_info'):
+            info = analytics_data['canal_info']
+            if info.get('criado_em') or info.get('custom_url'):
+                await db.update_canal_analytics_fields(canal_id, {
+                    'published_at': info.get('criado_em'),
+                    'custom_url': info.get('custom_url'),
+                    'video_count': info.get('total_videos')
+                })
+
+        # Atualizar melhor momento no banco
+        if analytics_data.get('melhor_momento'):
+            momento = analytics_data['melhor_momento']
+            if momento.get('dia_numero') is not None and momento.get('hora') is not None:
+                await db.supabase.table('canais_monitorados').update({
+                    'melhor_dia_semana': momento['dia_numero'],
+                    'melhor_hora': momento['hora']
+                }).eq('id', canal_id).execute()
+
+        logger.info(f"✅ Analytics gerado para canal {canal_id}")
+
+        return analytics_data
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao gerar analytics para canal {canal_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.patch("/api/canais/{channel_id}/monetizacao")

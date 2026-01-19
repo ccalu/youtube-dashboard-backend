@@ -841,6 +841,54 @@ class SupabaseClient:
             logger.error(f"Erro ao toggle regra de notificacao: {e}")
             return None
 
+    async def update_canal_analytics_fields(self, canal_id: int, analytics_data: Dict[str, Any]) -> bool:
+        """
+        Atualiza campos de analytics do canal (publishedAt, customUrl, etc)
+
+        Args:
+            canal_id: ID do canal
+            analytics_data: Dados coletados incluindo publishedAt, customUrl, etc
+
+        Returns:
+            True se atualizado com sucesso
+        """
+        try:
+            # Preparar dados para atualização
+            update_data = {}
+
+            # Adicionar campos se existirem
+            if analytics_data.get('published_at'):
+                update_data['published_at'] = analytics_data['published_at']
+
+            if analytics_data.get('custom_url'):
+                update_data['custom_url'] = analytics_data['custom_url']
+
+            if analytics_data.get('video_count'):
+                # Podemos calcular frequência semanal se tivermos published_at
+                if analytics_data.get('published_at'):
+                    # Calcular semanas desde criação
+                    created = datetime.fromisoformat(analytics_data['published_at'].replace('Z', '+00:00'))
+                    now = datetime.now(timezone.utc)
+                    weeks = (now - created).days / 7
+                    if weeks > 0:
+                        update_data['frequencia_semanal'] = round(analytics_data['video_count'] / weeks, 2)
+
+            # Só atualizar se houver dados novos
+            if update_data:
+                response = self.supabase.table("canais_monitorados")\
+                    .update(update_data)\
+                    .eq("id", canal_id)\
+                    .execute()
+
+                logger.info(f"✅ Analytics fields updated for canal {canal_id}")
+                return True
+
+            return False
+
+        except Exception as e:
+            logger.error(f"Erro ao atualizar campos de analytics: {e}")
+            return False
+
     async def cleanup_old_notifications(self, days: int = 30) -> int:
         """
         Deleta notificações não vistas com mais de X dias.

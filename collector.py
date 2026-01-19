@@ -534,11 +534,12 @@ class YouTubeCollector:
         return channel_id
 
     async def get_channel_info(self, channel_id: str, canal_name: str) -> Optional[Dict[str, Any]]:
-        """Get channel info"""
+        """Get channel info - EXPANDIDO com publishedAt e customUrl"""
         if not self.is_valid_channel_id(channel_id):
             return None
 
         url = f"{self.base_url}/channels"
+        # Expandido para incluir mais dados (sem custo extra - mesma requisição)
         params = {'part': 'statistics,snippet', 'id': channel_id}
 
         data = await self.make_api_request(url, params, canal_name)
@@ -553,7 +554,12 @@ class YouTubeCollector:
                 'title': snippet.get('title'),
                 'subscriber_count': int(stats.get('subscriberCount', 0)),
                 'video_count': int(stats.get('videoCount', 0)),
-                'view_count': int(stats.get('viewCount', 0))
+                'view_count': int(stats.get('viewCount', 0)),
+                # NOVOS CAMPOS para Analytics
+                'published_at': snippet.get('publishedAt'),  # Data de criação do canal
+                'custom_url': snippet.get('customUrl'),      # URL customizada (@handle)
+                'country': snippet.get('country'),           # País do canal (opcional)
+                'description': snippet.get('description')    # Descrição do canal (opcional)
             }
 
         return None
@@ -789,7 +795,12 @@ class YouTubeCollector:
                 'inscritos': channel_info['subscriber_count'],
                 'videos_publicados_7d': videos_7d,
                 'engagement_rate': round(engagement_rate, 2),
-                **views_by_period  # Agora só tem views_30d, views_15d, views_7d
+                **views_by_period,  # Agora só tem views_30d, views_15d, views_7d
+                # NOVOS CAMPOS para Analytics
+                'published_at': channel_info.get('published_at'),
+                'custom_url': channel_info.get('custom_url'),
+                'video_count': channel_info.get('video_count'),
+                'view_count': channel_info.get('view_count')
             }
 
             logger.info(f"✅ {canal_name}: Coleta concluída - 7d={views_by_period['views_7d']:,} views, {len(videos)} vídeos")
