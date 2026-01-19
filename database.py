@@ -1278,3 +1278,197 @@ class SupabaseClient:
         except Exception as e:
             logger.error(f"Erro ao buscar canais sem coleta recente: {e}")
             return []
+
+    # =========================================================================
+    # SISTEMA DE COMENTÁRIOS - Funções para análise de engajamento
+    # Added by Claude Code - 2026-01-19
+    # =========================================================================
+
+    async def save_video_comments(self, video_id: str, canal_id: int, comments: List[Dict]) -> bool:
+        """
+        Salva comentários analisados no banco de dados
+        """
+        try:
+            if not comments:
+                return True
+
+            # Preparar dados para inserção
+            records = []
+            for comment in comments:
+                record = {
+                    'comment_id': comment.get('comment_id'),
+                    'video_id': video_id,
+                    'video_title': comment.get('video_title', ''),
+                    'canal_id': canal_id,
+                    'author_name': comment.get('author_name', 'Anônimo'),
+                    'author_channel_id': comment.get('author_channel_id', ''),
+                    'comment_text_original': comment.get('comment_text_original', ''),
+                    'comment_text_pt': comment.get('comment_text_pt', ''),
+                    'original_language': comment.get('original_language', 'unknown'),
+                    'is_translated': comment.get('is_translated', False),
+                    'like_count': comment.get('like_count', 0),
+                    'reply_count': comment.get('reply_count', 0),
+                    'is_reply': comment.get('is_reply', False),
+                    'parent_comment_id': comment.get('parent_comment_id'),
+                    'sentiment_score': comment.get('sentiment_score', 0),
+                    'sentiment_category': comment.get('sentiment_category', 'neutral'),
+                    'has_problem': comment.get('has_problem', False),
+                    'problem_type': comment.get('problem_type'),
+                    'problem_description': comment.get('problem_description'),
+                    'has_praise': comment.get('has_praise', False),
+                    'praise_type': comment.get('praise_type'),
+                    'insight_text': comment.get('insight_text', ''),
+                    'action_required': comment.get('action_required', False),
+                    'suggested_action': comment.get('suggested_action', ''),
+                    'published_at': comment.get('published_at')
+                }
+                records.append(record)
+
+            # Inserir em lote (upsert para evitar duplicatas)
+            response = self.supabase.table('video_comments').upsert(records).execute()
+
+            logger.info(f"✅ {len(records)} comentários salvos para vídeo {video_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"❌ Erro ao salvar comentários: {e}")
+            return False
+
+    async def update_video_comments_summary(self, video_id: str, canal_id: int, summary: Dict) -> bool:
+        """
+        Atualiza resumo de comentários de um vídeo
+        """
+        try:
+            data = {
+                'video_id': video_id,
+                'canal_id': canal_id,
+                'total_comments': summary.get('total_comments', 0),
+                'positive_count': summary['sentiment_distribution'].get('positive', 0),
+                'negative_count': summary['sentiment_distribution'].get('negative', 0),
+                'neutral_count': summary['sentiment_distribution'].get('neutral', 0),
+                'positive_percentage': summary['sentiment_distribution'].get('positive_pct', 0),
+                'negative_percentage': summary['sentiment_distribution'].get('negative_pct', 0),
+                'problems_count': len(summary.get('problems_found', [])),
+                'praise_count': len(summary.get('praises_found', [])),
+                'actionable_count': len(summary.get('actionable_items', [])),
+                'problem_categories': {p['type']: 1 for p in summary.get('problems_found', [])},
+                'praise_categories': {p['type']: 1 for p in summary.get('praises_found', [])},
+                'last_analyzed_at': datetime.now(timezone.utc).isoformat()
+            }
+
+            response = self.supabase.table('video_comments_summary').upsert(data).execute()
+
+            return True
+
+        except Exception as e:
+            logger.error(f"❌ Erro ao salvar resumo de comentários: {e}")
+            return False
+
+    async def get_canal_engagement_data(self, canal_id: int) -> Dict[str, Any]:
+        """
+        Busca dados de engajamento completos de um canal
+        """
+        try:
+            # Buscar resumo geral
+            summary_response = self.supabase.table('video_comments_summary')\
+                .select('*')\
+                .eq('canal_id', canal_id)\
+                .order('last_analyzed_at', desc=True)\
+                .execute()
+
+            # Buscar comentários com problemas
+            problems_response = self.supabase.table('video_comments')\
+                .select('*')\
+                .eq('canal_id', canal_id)\
+                .eq('has_problem', True)\
+                .order('published_at', desc=True)\
+                .limit(20)\
+                .execute()
+
+            # Buscar comentários positivos
+            positive_response = self.supabase.table('video_comments')\
+                .select('*')\
+                .eq('canal_id', canal_id)\
+                .eq('sentiment_category', 'positive')\
+                .eq('has_praise', True)\
+                .order('like_count', desc=True)\
+                .limit(20)\
+                .execute()
+
+            # Buscar comentários acionáveis
+            actionable_response = self.supabase.table('video_comments')\
+                .select('*')\
+                .eq('canal_id', canal_id)\
+                .eq('action_required', True)\
+                .eq('is_resolved', False)\
+                .order('published_at', desc=True)\
+                .limit(20)\
+                .execute()
+
+            # Calcular métricas gerais
+            total_comments = sum(s.get('total_comments', 0) for s in summary_response.data) if summary_response.data else 0
+            total_positive = sum(s.get('positive_count', 0) for s in summary_response.data) if summary_response.data else 0
+            total_negative = sum(s.get('negative_count', 0) for s in summary_response.data) if summary_response.data else 0
+
+            return {
+                'summary': {
+                    'total_comments': total_comments,
+                    'positive_count': total_positive,
+                    'negative_count': total_negative,
+                    'positive_pct': round(total_positive / total_comments * 100, 1) if total_comments > 0 else 0,
+                    'negative_pct': round(total_negative / total_comments * 100, 1) if total_comments > 0 else 0,
+                    'actionable_count': len(actionable_response.data) if actionable_response.data else 0,
+                    'problems_count': len(problems_response.data) if problems_response.data else 0
+                },
+                'videos_summary': summary_response.data[:10] if summary_response.data else [],
+                'problem_comments': problems_response.data if problems_response.data else [],
+                'positive_comments': positive_response.data if positive_response.data else [],
+                'actionable_comments': actionable_response.data if actionable_response.data else []
+            }
+
+        except Exception as e:
+            logger.error(f"❌ Erro ao buscar dados de engajamento: {e}")
+            return {
+                'summary': {'total_comments': 0},
+                'videos_summary': [],
+                'problem_comments': [],
+                'positive_comments': [],
+                'actionable_comments': []
+            }
+
+    async def mark_comment_resolved(self, comment_id: str) -> bool:
+        """
+        Marca um comentário como resolvido
+        """
+        try:
+            response = self.supabase.table('video_comments')\
+                .update({
+                    'is_resolved': True,
+                    'resolved_at': datetime.now(timezone.utc).isoformat()
+                })\
+                .eq('comment_id', comment_id)\
+                .execute()
+
+            return True
+
+        except Exception as e:
+            logger.error(f"❌ Erro ao marcar comentário como resolvido: {e}")
+            return False
+
+    async def get_comments_by_video(self, video_id: str, limit: int = 100) -> List[Dict]:
+        """
+        Busca comentários de um vídeo específico
+        """
+        try:
+            response = self.supabase.table('video_comments')\
+                .select('*')\
+                .eq('video_id', video_id)\
+                .order('like_count', desc=True)\
+                .limit(limit)\
+                .execute()
+
+            return response.data if response.data else []
+
+        except Exception as e:
+            logger.error(f"❌ Erro ao buscar comentários do vídeo: {e}")
+            return []

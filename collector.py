@@ -834,3 +834,151 @@ class YouTubeCollector:
         except Exception as e:
             logger.error(f"❌ Error getting videos for {canal_name}: {e}")
             return None
+
+    # ===============================================
+    # 🆕 SISTEMA DE COLETA DE COMENTÁRIOS
+    # ===============================================
+
+    async def get_video_comments(self, video_id: str, video_title: str = "", max_results: int = 100) -> Optional[List[Dict[str, Any]]]:
+        """
+        Busca comentários de um vídeo específico
+        - Custo: 1 unit por request (até 100 comentários)
+        - Suporta paginação para buscar TODOS os comentários
+        """
+        try:
+            if not video_id:
+                return []
+
+            url = f"{self.base_url}/commentThreads"
+            all_comments = []
+            next_page_token = None
+            total_fetched = 0
+
+            logger.info(f"💬 Buscando comentários do vídeo: {video_title[:50]}...")
+
+            while True:
+                params = {
+                    'part': 'snippet,replies',
+                    'videoId': video_id,
+                    'maxResults': min(max_results, 100),  # Máximo 100 por request
+                    'order': 'relevance',
+                    'textFormat': 'plainText'
+                }
+
+                if next_page_token:
+                    params['pageToken'] = next_page_token
+
+                data = await self.make_api_request(url, params, f"Comments-{video_id[:10]}")
+
+                if not data or 'items' not in data:
+                    break
+
+                # Processar comentários principais
+                for item in data.get('items', []):
+                    snippet = item['snippet']['topLevelComment']['snippet']
+
+                    comment = {
+                        'comment_id': item['id'],
+                        'video_id': video_id,
+                        'video_title': video_title,
+                        'author_name': snippet['authorDisplayName'],
+                        'author_channel_id': snippet.get('authorChannelId', {}).get('value', ''),
+                        'comment_text_original': decode_html_entities(snippet['textDisplay']),
+                        'like_count': snippet.get('likeCount', 0),
+                        'published_at': snippet['publishedAt'],
+                        'is_reply': False,
+                        'reply_count': item['snippet'].get('totalReplyCount', 0)
+                    }
+
+                    all_comments.append(comment)
+
+                    # Processar replies se existirem
+                    if 'replies' in item and item['replies'].get('comments'):
+                        for reply_item in item['replies']['comments']:
+                            reply_snippet = reply_item['snippet']
+                            reply = {
+                                'comment_id': reply_item['id'],
+                                'video_id': video_id,
+                                'video_title': video_title,
+                                'author_name': reply_snippet['authorDisplayName'],
+                                'author_channel_id': reply_snippet.get('authorChannelId', {}).get('value', ''),
+                                'comment_text_original': decode_html_entities(reply_snippet['textDisplay']),
+                                'like_count': reply_snippet.get('likeCount', 0),
+                                'published_at': reply_snippet['publishedAt'],
+                                'is_reply': True,
+                                'parent_comment_id': item['id'],
+                                'reply_count': 0
+                            }
+                            all_comments.append(reply)
+
+                total_fetched = len(all_comments)
+
+                # Verificar se tem próxima página e se ainda não atingiu o limite
+                next_page_token = data.get('nextPageToken')
+                if not next_page_token or total_fetched >= max_results:
+                    break
+
+                # Limitar a 1000 comentários por vídeo para não sobrecarregar
+                if total_fetched >= 1000:
+                    logger.info(f"⚠️ Limite de 1000 comentários atingido para vídeo {video_title[:30]}")
+                    break
+
+            logger.info(f"✅ {total_fetched} comentários coletados para: {video_title[:50]}")
+            return all_comments
+
+        except Exception as e:
+            logger.error(f"❌ Erro ao buscar comentários do vídeo {video_id}: {e}")
+            return []
+
+    async def get_all_channel_comments(self, channel_id: str, canal_name: str, videos: List[Dict]) -> Dict[str, Any]:
+        """
+        Busca comentários de todos os vídeos de um canal
+        Otimizado para canais 'nossos' apenas
+        """
+        try:
+            if not videos:
+                return {'total_comments': 0, 'comments_by_video': {}}
+
+            total_comments = 0
+            comments_by_video = {}
+
+            # Limitar aos vídeos mais recentes (últimos 30 dias ou top 20 vídeos)
+            recent_videos = sorted(videos, key=lambda x: x.get('publishedAt', ''), reverse=True)[:20]
+
+            logger.info(f"📊 Coletando comentários de {len(recent_videos)} vídeos recentes de {canal_name}")
+
+            for video in recent_videos:
+                video_id = video.get('videoId')
+                video_title = video.get('title', 'Sem título')
+
+                if not video_id:
+                    continue
+
+                # Buscar comentários (limitado a 500 por vídeo para economizar)
+                comments = await self.get_video_comments(video_id, video_title, max_results=500)
+
+                if comments:
+                    comments_by_video[video_id] = {
+                        'video_title': video_title,
+                        'video_views': video.get('viewCount', 0),
+                        'video_published': video.get('publishedAt'),
+                        'comments': comments,
+                        'total_count': len(comments)
+                    }
+                    total_comments += len(comments)
+
+                # Pequena pausa entre vídeos para não sobrecarregar
+                await asyncio.sleep(0.5)
+
+            logger.info(f"✅ Total de {total_comments} comentários coletados de {canal_name}")
+
+            return {
+                'canal_name': canal_name,
+                'total_videos_analyzed': len(recent_videos),
+                'total_comments': total_comments,
+                'comments_by_video': comments_by_video
+            }
+
+        except Exception as e:
+            logger.error(f"❌ Erro ao coletar comentários do canal {canal_name}: {e}")
+            return {'total_comments': 0, 'comments_by_video': {}}

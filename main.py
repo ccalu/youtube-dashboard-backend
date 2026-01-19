@@ -618,6 +618,152 @@ async def get_canal_analytics(canal_id: int):
         logger.error(f"Erro ao gerar analytics para canal {canal_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@app.get("/api/canais/{canal_id}/engagement")
+async def get_canal_engagement(canal_id: int):
+    """
+    💬 Retorna análise completa de engajamento (comentários) de um canal.
+
+    Organizado por vídeo com:
+    - Comentários traduzidos para PT-BR
+    - Análise de sentimento
+    - Detecção de problemas (áudio, vídeo, conteúdo)
+    - Insights acionáveis
+    - Separação entre positivos e negativos
+
+    Returns:
+        JSON com análise de comentários organizada por vídeo
+    """
+    try:
+        # Buscar dados de engajamento do banco
+        engagement_data = await db.get_canal_engagement_data(canal_id)
+
+        # Se não há dados ainda, organizar resposta vazia estruturada
+        if not engagement_data or engagement_data['summary']['total_comments'] == 0:
+
+            # Buscar vídeos do canal para estruturar resposta
+            videos = await db.get_videos_by_canal(canal_id, limit=20)
+
+            videos_data = []
+            for video in videos:
+                videos_data.append({
+                    'video_id': video.get('video_id'),
+                    'video_title': video.get('titulo', ''),
+                    'published_days_ago': (datetime.now(timezone.utc) - datetime.fromisoformat(video['data_publicacao'].replace('Z', '+00:00'))).days if video.get('data_publicacao') else 0,
+                    'views': video.get('views_atuais', 0),
+                    'total_comments': 0,
+                    'positive_count': 0,
+                    'negative_count': 0,
+                    'has_problems': False,
+                    'problem_count': 0,
+                    'sentiment_score': 0,
+                    'positive_comments': [],
+                    'negative_comments': []
+                })
+
+            return {
+                'summary': {
+                    'total_comments': 0,
+                    'positive_count': 0,
+                    'negative_count': 0,
+                    'positive_pct': 0,
+                    'negative_pct': 0,
+                    'actionable_count': 0,
+                    'problems_count': 0
+                },
+                'videos': videos_data[:10],  # Top 10 vídeos
+                'problems_grouped': {
+                    'audio': [],
+                    'video': [],
+                    'content': [],
+                    'technical': []
+                },
+                'message': 'Ainda não há comentários coletados para este canal. Execute a coleta de comentários para ver análises.'
+            }
+
+        # Organizar dados por vídeo
+        videos_dict = {}
+
+        # Processar comentários com problemas
+        for comment in engagement_data.get('problem_comments', []):
+            video_id = comment['video_id']
+            if video_id not in videos_dict:
+                videos_dict[video_id] = {
+                    'video_id': video_id,
+                    'video_title': comment.get('video_title', ''),
+                    'total_comments': 0,
+                    'positive_comments': [],
+                    'negative_comments': [],
+                    'problem_count': 0
+                }
+
+            videos_dict[video_id]['negative_comments'].append(comment)
+            videos_dict[video_id]['problem_count'] += 1
+
+        # Processar comentários positivos
+        for comment in engagement_data.get('positive_comments', []):
+            video_id = comment['video_id']
+            if video_id not in videos_dict:
+                videos_dict[video_id] = {
+                    'video_id': video_id,
+                    'video_title': comment.get('video_title', ''),
+                    'total_comments': 0,
+                    'positive_comments': [],
+                    'negative_comments': [],
+                    'problem_count': 0
+                }
+
+            videos_dict[video_id]['positive_comments'].append(comment)
+
+        # Agrupar problemas por tipo
+        problems_grouped = {
+            'audio': [],
+            'video': [],
+            'content': [],
+            'technical': []
+        }
+
+        for comment in engagement_data.get('problem_comments', []):
+            problem_type = comment.get('problem_type', 'other')
+            if problem_type in problems_grouped:
+                problems_grouped[problem_type].append({
+                    'video_title': comment.get('video_title', ''),
+                    'author': comment.get('author_name', ''),
+                    'text_pt': comment.get('comment_text_pt', comment.get('comment_text_original', '')),
+                    'specific_issue': comment.get('problem_description', ''),
+                    'suggested_action': comment.get('suggested_action', '')
+                })
+
+        # Converter para lista de vídeos
+        videos_list = []
+        for video_id, video_data in videos_dict.items():
+            video_data['positive_count'] = len(video_data['positive_comments'])
+            video_data['negative_count'] = len(video_data['negative_comments'])
+            video_data['total_comments'] = video_data['positive_count'] + video_data['negative_count']
+            video_data['has_problems'] = video_data['problem_count'] > 0
+
+            # Calcular sentiment score
+            total = video_data['total_comments']
+            if total > 0:
+                video_data['sentiment_score'] = round((video_data['positive_count'] - video_data['negative_count']) / total * 100, 1)
+            else:
+                video_data['sentiment_score'] = 0
+
+            videos_list.append(video_data)
+
+        # Ordenar por mais recente ou maior engajamento
+        videos_list.sort(key=lambda x: x['total_comments'], reverse=True)
+
+        return {
+            'summary': engagement_data['summary'],
+            'videos': videos_list[:20],  # Top 20 vídeos
+            'problems_grouped': problems_grouped
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Erro ao buscar engagement do canal {canal_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.patch("/api/canais/{channel_id}/monetizacao")
 async def toggle_monetizacao(channel_id: str, body: dict):
     """
