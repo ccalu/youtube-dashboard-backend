@@ -1873,24 +1873,36 @@ async def run_collection_job():
                             )
 
                             if comments_data and comments_data.get('total_comments', 0) > 0:
-                                # Analisar e salvar comentários por vídeo
-                                from comment_analyzer import CommentAnalyzer
-                                analyzer = CommentAnalyzer()
+                                # Analisar comentários com GPT
+                                from gpt_analyzer import GPTAnalyzer
+                                from database_comments import CommentsDB
+
+                                gpt_analyzer = GPTAnalyzer()
+                                comments_db = CommentsDB()
 
                                 for video_id, video_comments in comments_data.get('comments_by_video', {}).items():
                                     if video_comments and video_comments.get('comments'):
-                                        # Analisar comentários
-                                        analyzed_comments = []
-                                        for comment in video_comments['comments']:
-                                            analysis = analyzer.analyze_comment(comment)
-                                            analyzed_comments.append(analysis)
+                                        # Analisar batch de comentários com GPT
+                                        try:
+                                            analyzed_comments = await gpt_analyzer.analyze_batch(
+                                                comments=video_comments['comments'],
+                                                video_title=video_comments.get('video_title', ''),
+                                                canal_name=canal['nome_canal'],
+                                                batch_size=30  # Processar até 30 por vez
+                                            )
 
-                                        # Salvar comentários analisados no banco
-                                        await db.save_video_comments(
-                                            video_id=video_id,
-                                            canal_id=canal['id'],
-                                            comments=analyzed_comments
-                                        )
+                                            # Salvar comentários analisados no banco
+                                            if analyzed_comments:
+                                                await comments_db.save_video_comments(
+                                                    video_id=video_id,
+                                                    canal_id=canal['id'],
+                                                    comments=analyzed_comments
+                                                )
+                                                logger.info(f"💬 {len(analyzed_comments)} comentários analisados e salvos para {canal['nome_canal']}")
+                                        except Exception as e:
+                                            logger.warning(f"⚠️ Erro na análise GPT para {canal['nome_canal']}: {e}")
+                                            # Continua sem análise se GPT falhar
+                                            continue
 
                                 comentarios_total += comments_data['total_comments']
                                 logger.info(f"✅ [{index}/{total_canais}] {comments_data['total_comments']} comments saved: {canal['nome_canal']}")
@@ -1947,6 +1959,26 @@ async def run_collection_job():
         logger.info(f"📡 Total API Requests: {total_requests}")
         logger.info(f"🔑 Active keys: {stats['active_keys']}/{len(collector.api_keys)}")
         logger.info("=" * 80)
+
+        # Registrar métricas GPT se comentários foram analisados
+        if comentarios_total > 0:
+            try:
+                from database_comments import CommentsDB
+                comments_db = CommentsDB()
+
+                # Obter métricas do GPT analyzer (se foi usado)
+                try:
+                    from gpt_analyzer import GPTAnalyzer
+                    gpt_analyzer = GPTAnalyzer()
+                    gpt_metrics = gpt_analyzer.get_daily_metrics()
+
+                    if gpt_metrics['total_analyzed'] > 0:
+                        await comments_db.record_gpt_metrics(gpt_metrics)
+                        logger.info(f"🤖 GPT Metrics: {gpt_metrics['total_analyzed']} analyzed, ${gpt_metrics['estimated_cost_usd']} cost")
+                except:
+                    pass  # GPT não foi usado ou erro ao obter métricas
+            except Exception as e:
+                logger.warning(f"⚠️ Erro ao registrar métricas GPT: {e}")
         
         if canais_sucesso > 0:
             try:
