@@ -1077,7 +1077,7 @@ async def get_comments_stats():
             'top_canais_engagement': canais_stats,
             'collection_info': {
                 'comments_per_video_limit': 100,
-                'batch_size': 20,  # Reduzido para evitar erros de JSON
+                'batch_size': 15,  # Reduzido para evitar erros de JSON
                 'model': 'gpt-4o-mini',
                 'cost_per_1m_tokens': {
                     'input': 0.15,
@@ -1954,23 +1954,34 @@ async def run_collection_job():
     canais_erro = 0
     videos_total = 0
     comentarios_total = 0  # Contador de comentários coletados
-    
+
+    # Timeout de segurança - 2 horas máximo
+    collection_start_time = time.time()
+    MAX_COLLECTION_TIME = 7200  # 2 horas em segundos
+
     try:
         collection_in_progress = True
         logger.info("=" * 80)
         logger.info("🚀 STARTING COLLECTION JOB")
         logger.info("=" * 80)
-        
+
         collector.reset_for_new_collection()
-        
+
         canais_to_collect = await db.get_canais_for_collection()
         total_canais = len(canais_to_collect)
         logger.info(f"📊 Found {total_canais} canais to collect")
-        
+
         coleta_id = await db.create_coleta_log(total_canais)
         logger.info(f"📝 Created coleta log ID: {coleta_id}")
         
         for index, canal in enumerate(canais_to_collect, 1):
+            # Verificar timeout de segurança
+            elapsed_time = time.time() - collection_start_time
+            if elapsed_time > MAX_COLLECTION_TIME:
+                logger.warning("⏱️ TIMEOUT DE SEGURANÇA ATINGIDO (2 horas)")
+                logger.warning(f"✅ Coletados {canais_sucesso}/{total_canais} canais antes do timeout")
+                break
+
             if collector.all_keys_exhausted():
                 logger.error("=" * 80)
                 logger.error("❌ ALL API KEYS EXHAUSTED - STOPPING COLLECTION")
@@ -2027,11 +2038,15 @@ async def run_collection_job():
                                     'publishedAt': video.get('data_publicacao')
                                 })
 
+                            # Buscar timestamp do último comentário coletado (para coleta incremental)
+                            last_comment_timestamp = canal.get('ultimo_comentario_coletado')
+
                             # Coletar comentários de todos os vídeos recentes
                             comments_data = await collector.get_all_channel_comments(
                                 channel_id=channel_id,
                                 canal_name=canal['nome_canal'],
-                                videos=videos_adapted
+                                videos=videos_adapted,
+                                last_collected_timestamp=last_comment_timestamp
                             )
 
                             if comments_data and comments_data.get('total_comments', 0) > 0:
@@ -2044,29 +2059,67 @@ async def run_collection_job():
 
                                 for video_id, video_comments in comments_data.get('comments_by_video', {}).items():
                                     if video_comments and video_comments.get('comments'):
-                                        # Analisar batch de comentários com GPT
-                                        try:
-                                            analyzed_comments = await gpt_analyzer.analyze_batch(
-                                                comments=video_comments['comments'],
-                                                video_title=video_comments.get('video_title', ''),
-                                                canal_name=canal['nome_canal'],
-                                                batch_size=20  # Reduzido para evitar erros de JSON
-                                            )
+                                        # Analisar batch de comentários com GPT (com retry)
+                                        analyzed_comments = None
+                                        max_retries = 3
 
-                                            # Salvar comentários analisados no banco
-                                            if analyzed_comments:
+                                        for attempt in range(max_retries):
+                                            try:
+                                                logger.debug(f"🤖 Tentativa {attempt + 1}/{max_retries} de análise GPT para {len(video_comments['comments'])} comentários")
+
+                                                analyzed_comments = await gpt_analyzer.analyze_batch(
+                                                    comments=video_comments['comments'],
+                                                    video_title=video_comments.get('video_title', ''),
+                                                    canal_name=canal['nome_canal'],
+                                                    batch_size=15  # Reduzido para evitar erros de JSON
+                                                )
+
+                                                if analyzed_comments:
+                                                    break  # Sucesso, sair do loop de retry
+
+                                            except Exception as e:
+                                                logger.warning(f"⚠️ Tentativa {attempt + 1} falhou para análise GPT de {canal['nome_canal']}: {str(e)}")
+                                                if attempt < max_retries - 1:
+                                                    await asyncio.sleep(2)  # Aguardar 2 segundos antes de tentar novamente
+                                                else:
+                                                    logger.error(f"❌ Falha definitiva na análise GPT após {max_retries} tentativas")
+
+                                        # Salvar comentários (com ou sem análise GPT)
+                                        if analyzed_comments:
+                                            try:
                                                 await comments_db.save_video_comments(
                                                     video_id=video_id,
                                                     canal_id=canal['id'],
                                                     comments=analyzed_comments
                                                 )
-                                                logger.info(f"💬 {len(analyzed_comments)} comentários analisados e salvos para {canal['nome_canal']}")
-                                        except Exception as e:
-                                            logger.warning(f"⚠️ Erro na análise GPT para {canal['nome_canal']}: {e}")
-                                            # Continua sem análise se GPT falhar
-                                            continue
+                                                logger.info(f"✅ {len(analyzed_comments)} comentários analisados e salvos para {canal['nome_canal']}")
+                                            except Exception as save_error:
+                                                logger.error(f"❌ Erro ao salvar comentários no banco: {save_error}")
+                                        else:
+                                            # Salvar comentários sem análise GPT se todas as tentativas falharem
+                                            logger.info(f"💾 Salvando {len(video_comments['comments'])} comentários SEM análise GPT")
+                                            try:
+                                                await comments_db.save_video_comments(
+                                                    video_id=video_id,
+                                                    canal_id=canal['id'],
+                                                    comments=video_comments['comments']  # Salvar sem análise
+                                                )
+                                            except Exception as save_error:
+                                                logger.error(f"❌ Erro ao salvar comentários sem análise: {save_error}")
 
                                 comentarios_total += comments_data['total_comments']
+
+                                # Atualizar timestamp do último comentário coletado (para coleta incremental)
+                                if comments_data.get('latest_comment_timestamp'):
+                                    try:
+                                        await db.update_canal_ultimo_comentario(
+                                            canal['id'],
+                                            comments_data['latest_comment_timestamp']
+                                        )
+                                        logger.debug(f"📅 Timestamp atualizado para {canal['nome_canal']}: {comments_data['latest_comment_timestamp']}")
+                                    except Exception as e:
+                                        logger.warning(f"⚠️ Erro ao atualizar timestamp: {e}")
+
                                 logger.info(f"✅ [{index}/{total_canais}] {comments_data['total_comments']} comments saved: {canal['nome_canal']}")
                             else:
                                 logger.info(f"ℹ️ [{index}/{total_canais}] No new comments: {canal['nome_canal']}")

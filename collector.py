@@ -930,22 +930,28 @@ class YouTubeCollector:
             logger.error(f"❌ Erro ao buscar comentários do vídeo {video_id}: {e}")
             return []
 
-    async def get_all_channel_comments(self, channel_id: str, canal_name: str, videos: List[Dict]) -> Dict[str, Any]:
+    async def get_all_channel_comments(self, channel_id: str, canal_name: str, videos: List[Dict], last_collected_timestamp: str = None) -> Dict[str, Any]:
         """
         Busca comentários de todos os vídeos de um canal
         Otimizado para canais 'nossos' apenas
+        Suporta coleta incremental usando timestamp
         """
         try:
             if not videos:
-                return {'total_comments': 0, 'comments_by_video': {}}
+                return {'total_comments': 0, 'comments_by_video': {}, 'latest_comment_timestamp': None}
 
             total_comments = 0
             comments_by_video = {}
+            latest_comment_timestamp = None
 
             # Limitar aos vídeos mais recentes (últimos 30 dias ou top 20 vídeos)
             recent_videos = sorted(videos, key=lambda x: x.get('publishedAt', ''), reverse=True)[:20]
 
-            logger.info(f"📊 Coletando comentários de {len(recent_videos)} vídeos recentes de {canal_name}")
+            # Log da coleta incremental se aplicável
+            if last_collected_timestamp:
+                logger.info(f"📊 Coleta INCREMENTAL para {canal_name} - Comentários após {last_collected_timestamp}")
+            else:
+                logger.info(f"📊 Coleta COMPLETA de comentários de {len(recent_videos)} vídeos de {canal_name}")
 
             for video in recent_videos:
                 video_id = video.get('videoId')
@@ -958,6 +964,30 @@ class YouTubeCollector:
                 comments = await self.get_video_comments(video_id, video_title, max_results=500)
 
                 if comments:
+                    # Filtrar comentários se for coleta incremental
+                    if last_collected_timestamp:
+                        # Filtrar apenas comentários novos (após o timestamp)
+                        filtered_comments = []
+                        for comment in comments:
+                            comment_time = comment.get('published_at', '')
+                            if comment_time > last_collected_timestamp:
+                                filtered_comments.append(comment)
+                                # Rastrear o comentário mais recente
+                                if not latest_comment_timestamp or comment_time > latest_comment_timestamp:
+                                    latest_comment_timestamp = comment_time
+
+                        if filtered_comments:
+                            logger.debug(f"  ↳ {len(filtered_comments)} novos comentários de {len(comments)} totais")
+                            comments = filtered_comments
+                        else:
+                            continue  # Nenhum comentário novo neste vídeo
+                    else:
+                        # Coleta completa - rastrear timestamp mais recente
+                        for comment in comments:
+                            comment_time = comment.get('published_at', '')
+                            if comment_time and (not latest_comment_timestamp or comment_time > latest_comment_timestamp):
+                                latest_comment_timestamp = comment_time
+
                     comments_by_video[video_id] = {
                         'video_title': video_title,
                         'video_views': video.get('viewCount', 0),
@@ -970,15 +1000,23 @@ class YouTubeCollector:
                 # Pequena pausa entre vídeos para não sobrecarregar
                 await asyncio.sleep(0.5)
 
-            logger.info(f"✅ Total de {total_comments} comentários coletados de {canal_name}")
+            # Log diferente para coleta incremental vs completa
+            if last_collected_timestamp and total_comments > 0:
+                logger.info(f"✅ {total_comments} NOVOS comentários coletados de {canal_name}")
+            elif total_comments > 0:
+                logger.info(f"✅ Total de {total_comments} comentários coletados de {canal_name}")
+            else:
+                logger.info(f"ℹ️ Nenhum comentário novo para {canal_name}")
 
             return {
                 'canal_name': canal_name,
                 'total_videos_analyzed': len(recent_videos),
                 'total_comments': total_comments,
-                'comments_by_video': comments_by_video
+                'comments_by_video': comments_by_video,
+                'latest_comment_timestamp': latest_comment_timestamp,
+                'incremental_collection': last_collected_timestamp is not None
             }
 
         except Exception as e:
             logger.error(f"❌ Erro ao coletar comentários do canal {canal_name}: {e}")
-            return {'total_comments': 0, 'comments_by_video': {}}
+            return {'total_comments': 0, 'comments_by_video': {}, 'latest_comment_timestamp': None}

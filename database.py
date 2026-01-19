@@ -1235,6 +1235,25 @@ class SupabaseClient:
         except Exception as e:
             logger.error(f"Erro ao marcar coleta como falha para canal {canal_id}: {e}")
 
+    async def update_canal_ultimo_comentario(self, canal_id: int, timestamp: str):
+        """
+        Atualiza o timestamp do último comentário coletado para um canal.
+        Usado para implementar coleta incremental de comentários.
+        """
+        try:
+            self.supabase.table("canais_monitorados").update({
+                "ultimo_comentario_coletado": timestamp,
+                "total_comentarios_coletados": self.supabase.table("canais_monitorados")
+                    .select("total_comentarios_coletados")
+                    .eq("id", canal_id)
+                    .execute()
+                    .data[0].get("total_comentarios_coletados", 0) + 1
+            }).eq("id", canal_id).execute()
+
+            logger.debug(f"Timestamp de comentário atualizado para canal {canal_id}: {timestamp}")
+        except Exception as e:
+            logger.error(f"Erro ao atualizar timestamp de comentário para canal {canal_id}: {e}")
+
     async def get_canais_problematicos(self) -> List[Dict]:
         """
         Retorna lista de canais com falhas de coleta.

@@ -157,7 +157,7 @@ ESTRUTURA ESPERADA:
         comments: List[Dict],
         video_title: str = "",
         canal_name: str = "",
-        batch_size: int = 20  # Reduzido para evitar erros de JSON
+        batch_size: int = 15  # Reduzido para evitar erros de JSON
     ) -> List[Dict]:
         """
         Analisa um lote de comentários usando GPT.
@@ -166,7 +166,7 @@ ESTRUTURA ESPERADA:
             comments: Lista de comentários para analisar
             video_title: Título do vídeo (contexto)
             canal_name: Nome do canal
-            batch_size: Tamanho máximo do batch (padrão 20)
+            batch_size: Tamanho máximo do batch (padrão 15)
 
         Returns:
             Lista de comentários com análise GPT completa
