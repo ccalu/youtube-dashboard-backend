@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Optional, Any, Set
 from collections import deque
 import aiohttp
+from aiohttp import ClientConnectionError
 import json
 
 logger = logging.getLogger(__name__)
@@ -392,6 +393,30 @@ class YouTubeCollector:
                 await asyncio.sleep(5)
                 return await self.make_api_request(url, params, canal_name, retry_count + 1)
             return None
+
+        except ClientConnectionError as e:
+            # Tratamento especial para ConnectionTerminated (limite HTTP/2)
+            error_str = str(e)
+            if 'ConnectionTerminated' in error_str or 'ConnectionReset' in error_str:
+                logger.warning(f"⚠️ Conexão terminada pelo servidor YouTube (limite HTTP/2 atingido)")
+                logger.info(f"   Erro: {error_str[:100]}...")
+
+                if retry_count < self.max_retries:
+                    # Aguardar um pouco mais para dar tempo do servidor resetar
+                    wait_time = 3 + (retry_count * 2)
+                    logger.info(f"♻️ Tentando novamente em {wait_time}s (tentativa {retry_count + 1}/{self.max_retries})")
+                    await asyncio.sleep(wait_time)
+                    return await self.make_api_request(url, params, canal_name, retry_count + 1)
+                else:
+                    logger.error(f"❌ Max retries atingido após ConnectionTerminated")
+                    return None
+            else:
+                # Outros erros de conexão
+                logger.error(f"❌ Erro de conexão: {e}")
+                if retry_count < self.max_retries:
+                    await asyncio.sleep(2)
+                    return await self.make_api_request(url, params, canal_name, retry_count + 1)
+                return None
 
         except Exception as e:
             logger.error(f"❌ Exception na requisição: {e}")
