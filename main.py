@@ -1077,7 +1077,7 @@ async def get_comments_stats():
             'top_canais_engagement': canais_stats,
             'collection_info': {
                 'comments_per_video_limit': 100,
-                'batch_size': 30,
+                'batch_size': 20,  # Reduzido para evitar erros de JSON
                 'model': 'gpt-4o-mini',
                 'cost_per_1m_tokens': {
                     'input': 0.15,
@@ -2050,7 +2050,7 @@ async def run_collection_job():
                                                 comments=video_comments['comments'],
                                                 video_title=video_comments.get('video_title', ''),
                                                 canal_name=canal['nome_canal'],
-                                                batch_size=30  # Processar até 30 por vez
+                                                batch_size=20  # Reduzido para evitar erros de JSON
                                             )
 
                                             # Salvar comentários analisados no banco
