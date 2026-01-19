@@ -1786,11 +1786,12 @@ async def run_gap_analysis():
 
 async def run_collection_job():
     global collection_in_progress, last_collection_time
-    
+
     coleta_id = None
     canais_sucesso = 0
     canais_erro = 0
     videos_total = 0
+    comentarios_total = 0  # Contador de comentários coletados
     
     try:
         collection_in_progress = True
@@ -1845,6 +1846,63 @@ async def run_collection_job():
 
                 await db.update_last_collection(canal['id'])
 
+                # 💬 COLETA DE COMENTÁRIOS (APENAS CANAIS NOSSOS)
+                if canal.get('tipo') == 'nosso' and videos_data:
+                    try:
+                        logger.info(f"💬 [{index}/{total_canais}] Collecting comments: {canal['nome_canal']}")
+
+                        # Buscar channel_id necessário para coleta
+                        channel_id = await collector.get_channel_id(canal['url_canal'], canal['nome_canal'])
+
+                        if channel_id:
+                            # Adaptar estrutura dos vídeos para a função de coleta
+                            videos_adapted = []
+                            for video in videos_data[:20]:  # Limitar a 20 vídeos mais recentes
+                                videos_adapted.append({
+                                    'videoId': video.get('video_id'),
+                                    'title': video.get('titulo'),
+                                    'viewCount': video.get('views_atuais'),
+                                    'publishedAt': video.get('data_publicacao')
+                                })
+
+                            # Coletar comentários de todos os vídeos recentes
+                            comments_data = await collector.get_all_channel_comments(
+                                channel_id=channel_id,
+                                canal_name=canal['nome_canal'],
+                                videos=videos_adapted
+                            )
+
+                            if comments_data and comments_data.get('total_comments', 0) > 0:
+                                # Analisar e salvar comentários por vídeo
+                                from comment_analyzer import CommentAnalyzer
+                                analyzer = CommentAnalyzer()
+
+                                for video_id, video_comments in comments_data.get('comments_by_video', {}).items():
+                                    if video_comments and video_comments.get('comments'):
+                                        # Analisar comentários
+                                        analyzed_comments = []
+                                        for comment in video_comments['comments']:
+                                            analysis = analyzer.analyze_comment(comment)
+                                            analyzed_comments.append(analysis)
+
+                                        # Salvar comentários analisados no banco
+                                        await db.save_video_comments(
+                                            video_id=video_id,
+                                            canal_id=canal['id'],
+                                            comments=analyzed_comments
+                                        )
+
+                                comentarios_total += comments_data['total_comments']
+                                logger.info(f"✅ [{index}/{total_canais}] {comments_data['total_comments']} comments saved: {canal['nome_canal']}")
+                            else:
+                                logger.info(f"ℹ️ [{index}/{total_canais}] No new comments: {canal['nome_canal']}")
+                        else:
+                            logger.warning(f"⚠️ [{index}/{total_canais}] Channel ID not found for comments: {canal['nome_canal']}")
+
+                    except Exception as e:
+                        logger.warning(f"⚠️ [{index}/{total_canais}] Error collecting comments from {canal['nome_canal']}: {e}")
+                        # Não interrompe o fluxo - apenas registra o erro
+
                 # 🚀 OTIMIZAÇÃO: Removido sleep entre canais - RateLimiter já controla
                 # await asyncio.sleep(1)
 
@@ -1868,7 +1926,7 @@ async def run_collection_job():
                     logger.info("=" * 80)
                     logger.info(f"🔄 PROGRESS CHECKPOINT [{index}/{total_canais}]")
                     logger.info(f"✅ Success: {canais_sucesso} | ❌ Errors: {canais_erro} | 🎬 Videos: {videos_total}")
-                    logger.info(f"📡 API Requests: {collector.total_quota_units} | ⏱️  Time elapsed: ongoing")
+                    logger.info(f"💬 Comments: {comentarios_total} | 📡 API: {collector.total_quota_units} | ⏱️  Time: ongoing")
                     logger.info("=" * 80)
 
             except Exception as e:
@@ -1885,6 +1943,7 @@ async def run_collection_job():
         logger.info(f"✅ Success: {canais_sucesso}/{total_canais}")
         logger.info(f"❌ Errors: {canais_erro}/{total_canais}")
         logger.info(f"🎬 Videos: {videos_total}")
+        logger.info(f"💬 Comments: {comentarios_total}")
         logger.info(f"📡 Total API Requests: {total_requests}")
         logger.info(f"🔑 Active keys: {stats['active_keys']}/{len(collector.api_keys)}")
         logger.info("=" * 80)
