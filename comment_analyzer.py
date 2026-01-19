@@ -198,7 +198,7 @@ class CommentAnalyzer:
         suggested_action = ""
 
         if has_problem:
-            insight_text = f"⚠️ {problem_desc}"
+            insight_text = f"[PROBLEMA] {problem_desc}"
             action_required = True
 
             if problem_type == 'audio':
@@ -212,25 +212,25 @@ class CommentAnalyzer:
 
         elif has_praise:
             if praise_type == 'content':
-                insight_text = "✨ Conteúdo bem recebido - manter formato"
+                insight_text = "[ELOGIO] Conteúdo bem recebido - manter formato"
             elif praise_type == 'editing':
-                insight_text = "🎬 Edição elogiada - replicar estilo"
+                insight_text = "[ELOGIO] Edição elogiada - replicar estilo"
             elif praise_type == 'narration':
-                insight_text = "🎙️ Narração aprovada - manter padrão"
+                insight_text = "[ELOGIO] Narração aprovada - manter padrão"
             elif praise_type == 'thumbnail':
-                insight_text = "🖼️ Thumbnail eficaz - usar como referência"
+                insight_text = "[ELOGIO] Thumbnail eficaz - usar como referência"
             else:
-                insight_text = "👍 Feedback positivo geral"
+                insight_text = "[POSITIVO] Feedback positivo geral"
 
         else:
             if sentiment_category == 'positive':
-                insight_text = "😊 Comentário positivo - engajamento saudável"
+                insight_text = "[POSITIVO] Comentário positivo - engajamento saudável"
             elif sentiment_category == 'negative':
-                insight_text = "😟 Comentário negativo - avaliar contexto"
+                insight_text = "[NEGATIVO] Comentário negativo - avaliar contexto"
                 action_required = True
                 suggested_action = "Verificar se há padrão em comentários negativos"
             else:
-                insight_text = "💬 Comentário neutro - sem ação necessária"
+                insight_text = "[NEUTRO] Comentário neutro - sem ação necessária"
 
         return {
             'sentiment_score': sentiment_score,
