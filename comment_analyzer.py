@@ -26,16 +26,16 @@ class CommentAnalyzer:
                 'en': ['audio', 'sound', 'volume', 'hear', 'noise', 'static', 'echo', 'mute', 'quiet', 'loud']
             },
             'video': {
-                'pt': ['vídeo', 'imagem', 'qualidade', 'pixelado', 'borrado', 'travando', 'lag', 'resolução', 'desfocado'],
-                'en': ['video', 'image', 'quality', 'pixelated', 'blurry', 'lagging', 'lag', 'resolution', 'blurred']
+                'pt': ['imagem ruim', 'qualidade ruim', 'pixelado', 'borrado', 'travando', 'lag', 'resolução ruim', 'desfocado', 'vídeo ruim', 'vídeo borrado'],
+                'en': ['bad image', 'bad quality', 'pixelated', 'blurry', 'lagging', 'lag', 'poor resolution', 'blurred', 'bad video']
             },
             'content': {
-                'pt': ['erro', 'errado', 'incorreto', 'confuso', 'não entendi', 'explicar', 'dúvida', 'mentira'],
-                'en': ['error', 'wrong', 'incorrect', 'confused', "don't understand", 'explain', 'doubt', 'false']
+                'pt': ['erro', 'errado', 'errada', 'incorreto', 'informação errada', 'informação incorreta', 'não entendi', 'explicar', 'dúvida', 'mentira', 'minuto'],
+                'en': ['error', 'wrong', 'incorrect', 'confused', "don't understand", 'explain', 'doubt', 'false', 'mistake']
             },
             'technical': {
-                'pt': ['bug', 'problema', 'não funciona', 'quebrado', 'travou', 'crashou', 'falha'],
-                'en': ['bug', 'issue', "doesn't work", 'broken', 'crashed', 'crash', 'fail', 'failed']
+                'pt': ['bug', 'problema', 'não funciona', 'quebrado', 'travou', 'crashou', 'crash', 'falha', 'navegador'],
+                'en': ['bug', 'issue', "doesn't work", 'broken', 'crashed', 'crash', 'fail', 'failed', 'browser']
             }
         }
 
@@ -60,8 +60,8 @@ class CommentAnalyzer:
 
         # Palavras negativas e positivas para sentiment
         self.negative_words = {
-            'pt': ['ruim', 'péssimo', 'horrível', 'terrível', 'odeio', 'pior', 'chato', 'entediante', 'fraco', 'decepção'],
-            'en': ['bad', 'terrible', 'horrible', 'awful', 'hate', 'worst', 'boring', 'weak', 'disappointment', 'trash']
+            'pt': ['ruim', 'péssimo', 'horrível', 'terrível', 'odeio', 'pior', 'chato', 'entediante', 'fraco', 'decepção', 'não gostei', 'confuso', 'confusa'],
+            'en': ['bad', 'terrible', 'horrible', 'awful', 'hate', 'worst', 'boring', 'weak', 'disappointment', 'trash', 'confused', 'confusing']
         }
 
         self.positive_words = {
@@ -75,9 +75,9 @@ class CommentAnalyzer:
         Retorna: (texto_original, idioma_detectado, foi_traduzido=False)
         """
         # Detecção simples de idioma baseada em palavras comuns
-        portuguese_words = ['é', 'de', 'que', 'não', 'para', 'com', 'uma', 'por', 'mas', 'muito', 'bom', 'ótimo']
-        english_words = ['the', 'is', 'and', 'to', 'of', 'in', 'for', 'with', 'that', 'this', 'good', 'great']
-        spanish_words = ['el', 'la', 'es', 'en', 'que', 'y', 'por', 'con', 'muy', 'bueno', 'excelente']
+        portuguese_words = ['é', 'de', 'que', 'não', 'para', 'com', 'uma', 'por', 'mas', 'muito', 'bom', 'ótimo', 'este', 'está', 'são', 'português', 'comentário', 'vídeo']
+        english_words = ['the', 'is', 'and', 'to', 'of', 'in', 'for', 'with', 'that', 'this', 'good', 'great', 'comment']
+        spanish_words = ['el', 'la', 'es', 'en', 'que', 'y', 'por', 'con', 'muy', 'bueno', 'excelente', 'comentario']
 
         text_lower = text.lower()
 
@@ -142,22 +142,33 @@ class CommentAnalyzer:
         """
         text_lower = text.lower()
 
-        for problem_type, keywords in self.problem_keywords.items():
-            for lang in ['pt', 'en']:
-                if lang in keywords:
-                    for keyword in keywords[lang]:
-                        if keyword in text_lower:
-                            # Criar descrição específica
-                            if problem_type == 'audio':
-                                desc = "Problema de áudio detectado - verificar qualidade da gravação"
-                            elif problem_type == 'video':
-                                desc = "Problema de vídeo detectado - verificar renderização"
-                            elif problem_type == 'content':
-                                desc = "Possível erro de conteúdo - revisar informações"
-                            else:
-                                desc = "Problema técnico detectado - investigar causa"
+        # Priorizar technical sobre video para palavras específicas
+        technical_priority_words = ['travou', 'crashou', 'crash', 'navegador', 'browser']
+        for word in technical_priority_words:
+            if word in text_lower:
+                return True, 'technical', "Problema técnico detectado - investigar causa"
 
-                            return True, problem_type, desc
+        # Verificar outros problemas na ordem de prioridade
+        priority_order = ['content', 'audio', 'video', 'technical']
+
+        for problem_type in priority_order:
+            if problem_type in self.problem_keywords:
+                keywords = self.problem_keywords[problem_type]
+                for lang in ['pt', 'en']:
+                    if lang in keywords:
+                        for keyword in keywords[lang]:
+                            if keyword in text_lower:
+                                # Criar descrição específica
+                                if problem_type == 'audio':
+                                    desc = "Problema de áudio detectado - verificar qualidade da gravação"
+                                elif problem_type == 'video':
+                                    desc = "Problema de vídeo detectado - verificar renderização"
+                                elif problem_type == 'content':
+                                    desc = "Possível erro de conteúdo - revisar informações"
+                                else:
+                                    desc = "Problema técnico detectado - investigar causa"
+
+                                return True, problem_type, desc
 
         return False, None, None
 

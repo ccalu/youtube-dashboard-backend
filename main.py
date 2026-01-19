@@ -624,6 +624,8 @@ async def get_canal_engagement(canal_id: int):
     """
     💬 Retorna análise completa de engajamento (comentários) de um canal.
 
+    APENAS para canais tipo="nosso" (canais próprios).
+
     Organizado por vídeo com:
     - Comentários traduzidos para PT-BR
     - Análise de sentimento
@@ -635,6 +637,26 @@ async def get_canal_engagement(canal_id: int):
         JSON com análise de comentários organizada por vídeo
     """
     try:
+        # ========== VALIDAÇÃO: APENAS CANAIS "NOSSOS" ==========
+        canal_response = db.supabase.table("canais_monitorados")\
+            .select("id, tipo, nome_canal")\
+            .eq("id", canal_id)\
+            .execute()
+
+        if not canal_response.data:
+            raise HTTPException(status_code=404, detail="Canal não encontrado")
+
+        canal = canal_response.data[0]
+
+        # Verificar se é tipo="nosso"
+        if canal.get('tipo') != 'nosso':
+            raise HTTPException(
+                status_code=403,
+                detail="Análise de comentários disponível apenas para canais próprios. Este é um canal minerado de referência."
+            )
+
+        logger.info(f"✅ Buscando engagement do canal próprio: {canal.get('nome_canal')} (ID: {canal_id})")
+
         # Buscar dados de engajamento do banco
         engagement_data = await db.get_canal_engagement_data(canal_id)
 
@@ -763,6 +785,124 @@ async def get_canal_engagement(canal_id: int):
     except Exception as e:
         logger.error(f"❌ Erro ao buscar engagement do canal {canal_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/collect-comments/{canal_id}")
+async def collect_canal_comments(canal_id: int):
+    """
+    💬 Coleta comentários de todos os vídeos de um canal.
+
+    APENAS para canais tipo="nosso" (canais próprios).
+
+    Processo:
+    1. Valida se canal é tipo="nosso"
+    2. Busca últimos 20 vídeos do canal
+    3. Coleta até 100 comentários por vídeo
+    4. Analisa sentimento e detecta problemas
+    5. Salva no banco de dados
+
+    Returns:
+        JSON com resumo da coleta
+    """
+    try:
+        # ========== VALIDAÇÃO: APENAS CANAIS "NOSSOS" ==========
+        canal_response = db.supabase.table("canais_monitorados")\
+            .select("id, tipo, nome_canal, url_canal")\
+            .eq("id", canal_id)\
+            .execute()
+
+        if not canal_response.data:
+            raise HTTPException(status_code=404, detail="Canal não encontrado")
+
+        canal = canal_response.data[0]
+
+        # Verificar se é tipo="nosso"
+        if canal.get('tipo') != 'nosso':
+            logger.info(f"⏭️ Pulando coleta de comentários - Canal minerado: {canal.get('nome_canal')} (ID: {canal_id})")
+            raise HTTPException(
+                status_code=403,
+                detail="Coleta de comentários disponível apenas para canais próprios. Este é um canal minerado de referência."
+            )
+
+        logger.info(f"🎯 Iniciando coleta de comentários do canal próprio: {canal.get('nome_canal')} (ID: {canal_id})")
+
+        # Buscar vídeos do canal
+        videos_response = db.supabase.table("videos")\
+            .select("video_id, titulo, views_atuais, data_publicacao")\
+            .eq("canal_id", canal_id)\
+            .order("data_publicacao", desc=True)\
+            .limit(20)\
+            .execute()
+
+        if not videos_response.data:
+            return {
+                'success': True,
+                'canal': canal.get('nome_canal'),
+                'message': 'Canal não possui vídeos para coletar comentários',
+                'total_videos': 0,
+                'total_comments': 0
+            }
+
+        videos = videos_response.data
+        logger.info(f"📹 {len(videos)} vídeos encontrados para coleta de comentários")
+
+        # Extrair channel_id da URL
+        url = canal.get('url_canal', '')
+        channel_id = None
+        if '@' in url:
+            channel_id = url.split('@')[1].strip('/')
+        elif '/channel/' in url:
+            channel_id = url.split('/channel/')[1].split('/')[0]
+        elif '/c/' in url:
+            channel_id = url.split('/c/')[1].split('/')[0]
+
+        if not channel_id:
+            logger.error(f"❌ Não foi possível extrair channel_id da URL: {url}")
+            raise HTTPException(status_code=400, detail="URL do canal inválida para coleta")
+
+        # Coletar comentários
+        from comment_analyzer import CommentAnalyzer
+        analyzer = CommentAnalyzer()
+
+        comments_data = await collector.get_all_channel_comments(
+            channel_id=channel_id,
+            canal_name=canal.get('nome_canal'),
+            videos=videos
+        )
+
+        total_comments = comments_data.get('total_comments', 0)
+        comments_by_video = comments_data.get('comments_by_video', {})
+
+        # Analisar e salvar comentários por vídeo
+        saved_count = 0
+        for video_id, comments in comments_by_video.items():
+            if comments:
+                # Analisar lote de comentários
+                analyzed_comments = await analyzer.analyze_comment_batch(comments)
+
+                # Salvar no banco
+                success = await db.save_video_comments(video_id, canal_id, analyzed_comments)
+                if success:
+                    saved_count += len(analyzed_comments)
+
+        logger.info(f"✅ Coleta concluída: {saved_count}/{total_comments} comentários salvos")
+
+        return {
+            'success': True,
+            'canal': canal.get('nome_canal'),
+            'canal_id': canal_id,
+            'total_videos': len(videos),
+            'total_comments': total_comments,
+            'comments_saved': saved_count,
+            'message': f'Coleta concluída com sucesso! {saved_count} comentários analisados e salvos.'
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Erro ao coletar comentários do canal {canal_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.patch("/api/canais/{channel_id}/monetizacao")
 async def toggle_monetizacao(channel_id: str, body: dict):
