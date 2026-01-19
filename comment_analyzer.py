@@ -10,7 +10,6 @@ import re
 import logging
 from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime, timezone
-from googletrans import Translator
 import asyncio
 
 logger = logging.getLogger(__name__)
@@ -19,7 +18,6 @@ class CommentAnalyzer:
     """Analisa comentários do YouTube para gerar insights"""
 
     def __init__(self):
-        self.translator = Translator()
 
         # Palavras-chave para análise (português e inglês)
         self.problem_keywords = {
@@ -73,26 +71,33 @@ class CommentAnalyzer:
 
     async def translate_comment(self, text: str, source_lang: str = 'auto') -> Tuple[str, str, bool]:
         """
-        Traduz comentário para PT-BR
-        Retorna: (texto_traduzido, idioma_original, foi_traduzido)
+        Detecta idioma do comentário (sem tradução automática por enquanto)
+        Retorna: (texto_original, idioma_detectado, foi_traduzido=False)
         """
-        try:
-            # Detectar idioma se não especificado
-            if source_lang == 'auto':
-                detection = self.translator.detect(text)
-                source_lang = detection.lang
+        # Detecção simples de idioma baseada em palavras comuns
+        portuguese_words = ['é', 'de', 'que', 'não', 'para', 'com', 'uma', 'por', 'mas', 'muito', 'bom', 'ótimo']
+        english_words = ['the', 'is', 'and', 'to', 'of', 'in', 'for', 'with', 'that', 'this', 'good', 'great']
+        spanish_words = ['el', 'la', 'es', 'en', 'que', 'y', 'por', 'con', 'muy', 'bueno', 'excelente']
 
-            # Se já está em português, não traduzir
-            if source_lang in ['pt', 'pt-br', 'pt-BR']:
-                return text, 'pt', False
+        text_lower = text.lower()
 
-            # Traduzir para português
-            translation = self.translator.translate(text, dest='pt', src=source_lang)
-            return translation.text, source_lang, True
+        # Contar palavras de cada idioma
+        pt_count = sum(1 for word in portuguese_words if word in text_lower)
+        en_count = sum(1 for word in english_words if word in text_lower)
+        es_count = sum(1 for word in spanish_words if word in text_lower)
 
-        except Exception as e:
-            logger.warning(f"⚠️ Erro ao traduzir comentário: {e}")
-            return text, 'unknown', False
+        # Determinar idioma mais provável
+        if pt_count > en_count and pt_count > es_count:
+            detected_lang = 'pt'
+        elif en_count > pt_count and en_count > es_count:
+            detected_lang = 'en'
+        elif es_count > pt_count and es_count > en_count:
+            detected_lang = 'es'
+        else:
+            detected_lang = 'unknown'
+
+        # Por enquanto, retorna o texto original sem tradução
+        return text, detected_lang, False
 
     def analyze_sentiment(self, text: str) -> Tuple[float, str]:
         """
