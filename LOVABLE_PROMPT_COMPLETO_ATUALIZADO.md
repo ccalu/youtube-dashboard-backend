@@ -90,8 +90,8 @@ GET /api/comments/stats
     "videos_processed": 89,
     "comments_collected": 2345,
     "gpt_api_calls": 156,
-    "gpt_tokens_used": 234567,
-    "estimated_cost_usd": 0.35,
+    "gpt_tokens_used": 285000,
+    "percentual_limite_diario": 28.5,
     "errors_count": 2,
     "success_rate": 97.8
   }
@@ -105,6 +105,44 @@ GET /api/canais/{canalId}/engagement
 ```
 
 **Nota:** Este endpoint já está documentado na seção da Aba Engajamento abaixo.
+
+---
+
+## SISTEMA DE LOGS DE COLETA (NOVO! USANDO TOKENS)
+
+### 3. ENDPOINTS DE LOGS DE COLETA
+
+O sistema agora registra logs detalhados de cada coleta de comentários, incluindo uso de tokens GPT:
+
+```typescript
+GET /api/comments/logs?limit=10
+```
+
+**Resposta:** Lista dos últimos logs de coleta com detalhes de tokens usados
+
+```typescript
+GET /api/comments/logs/summary?days=7
+```
+
+**Resposta:** Resumo estatístico dos últimos N dias incluindo:
+- Total de tokens usados
+- Percentual médio do limite diário (1M tokens gratuitos)
+- Taxa de sucesso
+- Tempo médio de execução
+
+```typescript
+GET /api/comments/logs/{collection_id}
+```
+
+**Resposta:** Log detalhado de uma coleta específica
+
+### IMPORTANTE: SISTEMA DE TOKENS
+
+O sistema agora usa o limite gratuito de 1M tokens/dia do GPT-4o-mini:
+- **Capacidade:** ~17.391 comentários/dia
+- **Uso estimado:** ~285.000 tokens (28.5% do limite) para ~5.000 comentários
+- **Custo:** $0 (gratuito dentro do limite)
+- **Cálculo:** ~37.5 tokens input + ~20 tokens output por comentário
 
 ---
 
@@ -188,7 +226,7 @@ interface CollectionMetrics {
   comments_collected: number;
   gpt_api_calls: number;
   gpt_tokens_used: number;
-  estimated_cost_usd: number;
+  percentual_limite_diario: number;
   errors_count: number;
   success_rate: number;
 }

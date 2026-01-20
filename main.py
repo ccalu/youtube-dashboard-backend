@@ -2317,13 +2317,15 @@ async def run_collection_job():
         # Salvar log de comentários se houve coleta
         if comentarios_total > 0 or len(detalhes_erros) > 0:
             try:
-                # Calcular custos estimados do GPT
-                custo_gpt = 0.0
+                # Calcular tokens usados pelo GPT
+                tokens_usados = 0
+                percentual_limite = 0.0
                 if comentarios_analisados_total > 0:
-                    # GPT-4o-mini: $0.15/1M input, $0.60/1M output
-                    tokens_input = (comentarios_analisados_total * 150) / 4  # ~150 chars por comentário, 4 chars por token
+                    # Cálculo de tokens: ~37.5 tokens input + ~20 tokens output por comentário
+                    tokens_input = int((comentarios_analisados_total * 150) / 4)  # ~150 chars por comentário, 4 chars por token
                     tokens_output = comentarios_analisados_total * 20  # ~20 tokens por análise
-                    custo_gpt = (tokens_input / 1_000_000 * 0.15) + (tokens_output / 1_000_000 * 0.60)
+                    tokens_usados = tokens_input + tokens_output
+                    percentual_limite = (tokens_usados / 1_000_000) * 100  # % do limite de 1M tokens/dia
 
                 log_data = {
                     'collection_id': collection_id,
@@ -2338,7 +2340,8 @@ async def run_collection_job():
                     'detalhes_erros': detalhes_erros,
                     'detalhes_sucesso': detalhes_sucesso,
                     'tempo_execucao': time.time() - collection_start_time,
-                    'custo_gpt_estimado': custo_gpt
+                    'tokens_usados': tokens_usados,
+                    'percentual_limite_diario': percentual_limite
                 }
 
                 saved = comments_logger.save_collection_log(log_data)

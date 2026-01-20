@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS comments_collection_logs (
     detalhes_erros JSONB DEFAULT '[]'::jsonb,
     detalhes_sucesso JSONB DEFAULT '[]'::jsonb,
     tempo_execucao DECIMAL(10,2) DEFAULT 0,
-    custo_gpt_estimado DECIMAL(10,4) DEFAULT 0,
+    tokens_usados INTEGER DEFAULT 0,
+    percentual_limite_diario DECIMAL(5,2) DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -28,4 +29,5 @@ COMMENT ON COLUMN comments_collection_logs.tipo IS 'Tipo de coleta: automatic (a
 COMMENT ON COLUMN comments_collection_logs.detalhes_erros IS 'Array JSON com detalhes dos canais que falharam';
 COMMENT ON COLUMN comments_collection_logs.detalhes_sucesso IS 'Array JSON com detalhes dos canais processados com sucesso';
 COMMENT ON COLUMN comments_collection_logs.tempo_execucao IS 'Tempo total de execução em segundos';
-COMMENT ON COLUMN comments_collection_logs.custo_gpt_estimado IS 'Custo estimado de uso do GPT em USD';
+COMMENT ON COLUMN comments_collection_logs.tokens_usados IS 'Total de tokens GPT usados na análise';
+COMMENT ON COLUMN comments_collection_logs.percentual_limite_diario IS 'Percentual usado do limite diário de 1M tokens';

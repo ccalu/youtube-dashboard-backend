@@ -46,7 +46,8 @@ class CommentsLogsManager:
                 }
             ],
             'tempo_execucao': float,  # em segundos
-            'custo_gpt_estimado': float  # em USD
+            'tokens_usados': int,  # quantidade de tokens GPT usados
+            'percentual_limite_diario': float  # % do limite de 1M tokens/dia
         }
         """
         try:
@@ -64,7 +65,8 @@ class CommentsLogsManager:
                 'detalhes_erros': json.dumps(log_data.get('detalhes_erros', []), ensure_ascii=False),
                 'detalhes_sucesso': json.dumps(log_data.get('detalhes_sucesso', []), ensure_ascii=False),
                 'tempo_execucao': log_data.get('tempo_execucao', 0),
-                'custo_gpt_estimado': log_data.get('custo_gpt_estimado', 0),
+                'tokens_usados': log_data.get('tokens_usados', 0),
+                'percentual_limite_diario': log_data.get('percentual_limite_diario', 0),
                 'created_at': datetime.now(timezone.utc).isoformat()
             }
 
@@ -143,7 +145,8 @@ class CommentsLogsManager:
                     'total_comentarios': 0,
                     'total_analisados': 0,
                     'taxa_sucesso_canais': 0,
-                    'custo_total_gpt': 0,
+                    'tokens_totais_usados': 0,
+                    'percentual_medio_limite': 0,
                     'tempo_medio_execucao': 0
                 }
 
@@ -153,11 +156,13 @@ class CommentsLogsManager:
             total_analisados = sum(log.get('comentarios_analisados', 0) for log in response.data)
             total_canais = sum(log.get('canais_processados', 0) for log in response.data)
             total_sucesso = sum(log.get('canais_com_sucesso', 0) for log in response.data)
-            custo_total = sum(log.get('custo_gpt_estimado', 0) for log in response.data)
+            tokens_total = sum(log.get('tokens_usados', 0) for log in response.data)
+            percentual_total = sum(log.get('percentual_limite_diario', 0) for log in response.data)
             tempo_total = sum(log.get('tempo_execucao', 0) for log in response.data)
 
             taxa_sucesso = (total_sucesso / total_canais * 100) if total_canais > 0 else 0
             tempo_medio = tempo_total / total_coletas if total_coletas > 0 else 0
+            percentual_medio = percentual_total / total_coletas if total_coletas > 0 else 0
 
             return {
                 'periodo_dias': days,
@@ -165,7 +170,8 @@ class CommentsLogsManager:
                 'total_comentarios': total_comentarios,
                 'total_analisados': total_analisados,
                 'taxa_sucesso_canais': round(taxa_sucesso, 1),
-                'custo_total_gpt': round(custo_total, 2),
+                'tokens_totais_usados': tokens_total,
+                'percentual_medio_limite': round(percentual_medio, 1),
                 'tempo_medio_execucao': round(tempo_medio / 60, 1)  # em minutos
             }
 
@@ -177,7 +183,8 @@ class CommentsLogsManager:
                 'total_comentarios': 0,
                 'total_analisados': 0,
                 'taxa_sucesso_canais': 0,
-                'custo_total_gpt': 0,
+                'tokens_totais_usados': 0,
+                'percentual_medio_limite': 0,
                 'tempo_medio_execucao': 0
             }
 
