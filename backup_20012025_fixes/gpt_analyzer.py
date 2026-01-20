@@ -30,16 +30,11 @@ class GPTAnalyzer:
         """Inicializa cliente OpenAI e configurações"""
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
-            logger.error("❌ OPENAI_API_KEY não configurada no .env")
             raise ValueError("OPENAI_API_KEY não configurada no .env")
-
-        logger.info(f"✅ OpenAI API Key carregada: {api_key[:10]}...{api_key[-4:]}")
 
         self.client = OpenAI(api_key=api_key)
         self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")  # Modelo padrão
         self.max_tokens_per_request = 16000  # Limite seguro para gpt-4o-mini
-
-        logger.info(f"✅ GPTAnalyzer inicializado - Modelo: {self.model}")
 
         # Métricas diárias
         self.daily_metrics = {
@@ -177,23 +172,18 @@ ESTRUTURA ESPERADA:
             Lista de comentários com análise GPT completa
         """
         if not comments:
-            logger.warning("⚠️ Lista de comentários vazia, retornando []")
             return []
 
-        logger.info(f"📊 Iniciando análise GPT de {len(comments)} comentários - Canal: {canal_name}")
         analyzed_comments = []
 
         # Processar em batches para economizar tokens
-        total_batches = (len(comments) + batch_size - 1) // batch_size
         for i in range(0, len(comments), batch_size):
             batch = comments[i:i + batch_size]
-            batch_num = (i // batch_size) + 1
-            logger.info(f"🔄 Processando batch {batch_num}/{total_batches} com {len(batch)} comentários...")
+            logger.info(f"Analisando batch {i//batch_size + 1} com {len(batch)} comentários...")
 
             try:
                 # Fazer a análise do batch
                 batch_analysis = await self._analyze_single_batch(batch, video_title, canal_name)
-                logger.info(f"✅ Batch {batch_num} analisado: {len(batch_analysis)} respostas retornadas")
 
                 # Combinar comentários originais com análise
                 for j, comment in enumerate(batch):
@@ -260,12 +250,10 @@ ESTRUTURA ESPERADA:
                         analyzed_comments.append(comment)
 
             except Exception as e:
-                logger.error(f"❌ ERRO ao analisar batch {batch_num}: {str(e)}")
-                logger.error(f"   Canal: {canal_name}, Vídeo: {video_title}")
-                logger.error(f"   Batch size: {len(batch)}")
+                logger.error(f"Erro ao analisar batch: {e}")
                 self.daily_metrics['total_errors'] += 1
-                # NÃO adicionar comentários sem análise - melhor falhar do que salvar incompleto
-                logger.warning(f"⚠️ Batch {batch_num} NÃO será salvo devido ao erro")
+                # Adicionar comentários sem análise em caso de erro
+                analyzed_comments.extend(batch)
 
             # Pequena pausa entre batches para evitar rate limit
             if i + batch_size < len(comments):
@@ -291,18 +279,13 @@ ESTRUTURA ESPERADA:
         start_time = time.time()
 
         try:
-            logger.info(f"🚀 Iniciando análise do batch - {len(batch)} comentários")
-
             # Preparar mensagens
             messages = [
                 {"role": "system", "content": self._get_system_prompt(canal_name)},
                 {"role": "user", "content": self._create_analysis_prompt(batch)}
             ]
 
-            logger.info(f"📝 Prompt preparado - Tamanho aproximado: {len(str(messages))} caracteres")
-
             # Chamar API da OpenAI
-            logger.info(f"🌐 Chamando OpenAI API - Modelo: {self.model}")
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
@@ -310,31 +293,18 @@ ESTRUTURA ESPERADA:
                 max_tokens=4000,  # Suficiente para ~30 comentários
                 response_format={"type": "json_object"}  # Força resposta em JSON
             )
-            logger.info("✅ Resposta recebida da OpenAI")
 
             # Processar resposta
             content = response.choices[0].message.content
 
             # Parse JSON
             try:
-                logger.info(f"📋 Tamanho da resposta: {len(content)} caracteres")
                 result = json.loads(content)
                 comments_analysis = result.get('comments', [])
-                logger.info(f"✅ JSON parseado com sucesso - {len(comments_analysis)} análises retornadas")
-
-                # Validar que temos análises válidas
-                if not comments_analysis or len(comments_analysis) == 0:
-                    logger.error(f"❌ GPT retornou JSON válido mas SEM análises")
-                    logger.error(f"   Esperado: {len(batch)} análises")
-                    logger.error(f"   Recebido: 0 análises")
-                    logger.error(f"   Resposta completa: {content[:500]}...")
-                    raise ValueError("Nenhuma análise retornada pelo GPT")
-
             except json.JSONDecodeError as e:
-                logger.error(f"❌ ERRO ao fazer parse do JSON: {e}")
-                logger.error(f"   Resposta GPT (primeiros 500 chars): {content[:500]}")
-                logger.error(f"   Resposta GPT (últimos 500 chars): {content[-500:]}")
-                raise  # Re-lançar exceção para ser capturada no nível superior
+                logger.error(f"Erro ao fazer parse do JSON: {e}")
+                logger.error(f"Resposta GPT: {content[:500]}")
+                return []
 
             # Atualizar métricas
             self.daily_metrics['total_requests'] += 1
@@ -356,17 +326,9 @@ ESTRUTURA ESPERADA:
             return comments_analysis
 
         except Exception as e:
-            logger.error(f"❌ ERRO CRÍTICO na chamada GPT: {str(e)}")
-            logger.error(f"   Tipo do erro: {type(e).__name__}")
-            logger.error(f"   Canal: {canal_name}")
-            logger.error(f"   Batch size: {len(batch)}")
-
-            # Registrar erro nas métricas
+            logger.error(f"❌ Erro na chamada GPT: {e}")
             self.daily_metrics['total_errors'] += 1
-
-            # Re-lançar exceção para ser tratada no nível superior
-            # NÃO retornar [] pois isso faz parecer que funcionou
-            raise
+            return []
 
     async def analyze_single_comment(self, comment: Dict, context: Dict = None) -> Dict:
         """

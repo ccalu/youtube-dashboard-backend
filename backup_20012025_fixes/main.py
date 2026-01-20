@@ -1954,8 +1954,6 @@ async def run_collection_job():
     canais_erro = 0
     videos_total = 0
     comentarios_total = 0  # Contador de comentários coletados
-    comentarios_analisados_total = 0  # Contador de comentários analisados com GPT
-    comentarios_com_erro_total = 0  # Contador de comentários que falharam
 
     # Timeout de segurança - 2 horas máximo
     collection_start_time = time.time()
@@ -1975,13 +1973,14 @@ async def run_collection_job():
 
         coleta_id = await db.create_coleta_log(total_canais)
         logger.info(f"📝 Created coleta log ID: {coleta_id}")
-
-        # Criar GPTAnalyzer e CommentsDB UMA vez só (fora do loop)
-        gpt_analyzer = None
-        comments_db = None
-
+        
         for index, canal in enumerate(canais_to_collect, 1):
-            # SEM TIMEOUT - processar todos os canais
+            # Verificar timeout de segurança
+            elapsed_time = time.time() - collection_start_time
+            if elapsed_time > MAX_COLLECTION_TIME:
+                logger.warning("⏱️ TIMEOUT DE SEGURANÇA ATINGIDO (2 horas)")
+                logger.warning(f"✅ Coletados {canais_sucesso}/{total_canais} canais antes do timeout")
+                break
 
             if collector.all_keys_exhausted():
                 logger.error("=" * 80)
@@ -2051,14 +2050,12 @@ async def run_collection_job():
                             )
 
                             if comments_data and comments_data.get('total_comments', 0) > 0:
-                                # Inicializar GPTAnalyzer e CommentsDB uma vez só (na primeira vez)
-                                if gpt_analyzer is None:
-                                    logger.info("🤖 Inicializando GPTAnalyzer e CommentsDB...")
-                                    from gpt_analyzer import GPTAnalyzer
-                                    from database_comments import CommentsDB
-                                    gpt_analyzer = GPTAnalyzer()
-                                    comments_db = CommentsDB()
-                                    logger.info("✅ GPTAnalyzer e CommentsDB inicializados")
+                                # Analisar comentários com GPT
+                                from gpt_analyzer import GPTAnalyzer
+                                from database_comments import CommentsDB
+
+                                gpt_analyzer = GPTAnalyzer()
+                                comments_db = CommentsDB()
 
                                 for video_id, video_comments in comments_data.get('comments_by_video', {}).items():
                                     if video_comments and video_comments.get('comments'):
@@ -2077,11 +2074,8 @@ async def run_collection_job():
                                                     batch_size=15  # Reduzido para evitar erros de JSON
                                                 )
 
-                                                if analyzed_comments is not None and len(analyzed_comments) > 0:
-                                                    logger.info(f"✅ GPT analisou com sucesso {len(analyzed_comments)} comentários")
+                                                if analyzed_comments:
                                                     break  # Sucesso, sair do loop de retry
-                                                else:
-                                                    logger.warning(f"⚠️ GPT retornou lista vazia na tentativa {attempt + 1}")
 
                                             except Exception as e:
                                                 logger.warning(f"⚠️ Tentativa {attempt + 1} falhou para análise GPT de {canal['nome_canal']}: {str(e)}")
@@ -2090,8 +2084,8 @@ async def run_collection_job():
                                                 else:
                                                     logger.error(f"❌ Falha definitiva na análise GPT após {max_retries} tentativas")
 
-                                        # IMPORTANTE: Só salvar se GPT analisou com sucesso
-                                        if analyzed_comments and len(analyzed_comments) > 0:
+                                        # Salvar comentários (com ou sem análise GPT)
+                                        if analyzed_comments:
                                             try:
                                                 await comments_db.save_video_comments(
                                                     video_id=video_id,
@@ -2099,22 +2093,19 @@ async def run_collection_job():
                                                     comments=analyzed_comments
                                                 )
                                                 logger.info(f"✅ {len(analyzed_comments)} comentários analisados e salvos para {canal['nome_canal']}")
-                                                comentarios_analisados_total += len(analyzed_comments)
                                             except Exception as save_error:
                                                 logger.error(f"❌ Erro ao salvar comentários no banco: {save_error}")
-                                                comentarios_com_erro_total += len(video_comments['comments'])
                                         else:
-                                            # NÃO salvar sem análise - melhor perder dados do que salvar incompleto
-                                            logger.error(f"❌ {len(video_comments['comments'])} comentários NÃO foram salvos - GPT falhou após {max_retries} tentativas")
-                                            logger.error(f"   Canal: {canal['nome_canal']}, Video: {video_id}")
-                                            logger.error(f"   AÇÃO: Estes comentários serão coletados na próxima execução")
-                                            comentarios_com_erro_total += len(video_comments['comments'])
-
-                                            # Registrar falha para análise posterior
-                                            await db.marcar_coleta_falha(
-                                                canal['id'],
-                                                f"GPT analysis failed for {len(video_comments['comments'])} comments after {max_retries} attempts"
-                                            )
+                                            # Salvar comentários sem análise GPT se todas as tentativas falharem
+                                            logger.info(f"💾 Salvando {len(video_comments['comments'])} comentários SEM análise GPT")
+                                            try:
+                                                await comments_db.save_video_comments(
+                                                    video_id=video_id,
+                                                    canal_id=canal['id'],
+                                                    comments=video_comments['comments']  # Salvar sem análise
+                                                )
+                                            except Exception as save_error:
+                                                logger.error(f"❌ Erro ao salvar comentários sem análise: {save_error}")
 
                                 comentarios_total += comments_data['total_comments']
 
