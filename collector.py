@@ -944,8 +944,8 @@ class YouTubeCollector:
             comments_by_video = {}
             latest_comment_timestamp = None
 
-            # Limitar aos vídeos mais recentes (últimos 30 dias ou top 20 vídeos)
-            recent_videos = sorted(videos, key=lambda x: x.get('publishedAt', ''), reverse=True)[:20]
+            # Coletar TODOS os vídeos (sem limite) - ordenados do mais recente para o mais antigo
+            recent_videos = sorted(videos, key=lambda x: x.get('publishedAt', ''), reverse=True)
 
             # Log da coleta incremental se aplicável
             if last_collected_timestamp:
