@@ -986,16 +986,16 @@ async def get_comments_stats():
         # Obter métricas GPT do dia
         gpt_metrics = gpt_analyzer.get_daily_metrics()
 
-        # Buscar distribuição de sentimentos
-        sentiment_query = db.supabase.table('video_comments')\
-            .select('sentiment_category', count='exact')\
-            .execute()
+        # Buscar distribuição de sentimentos (COM PAGINAÇÃO PARA >1000 COMENTÁRIOS)
+        all_comments = await db.fetch_all_records(
+            table='video_comments',
+            select_fields='sentiment_category'
+        )
 
         sentiment_counts = {}
-        if sentiment_query.data:
-            for row in sentiment_query.data:
-                category = row.get('sentiment_category', 'unknown')
-                sentiment_counts[category] = sentiment_counts.get(category, 0) + 1
+        for row in all_comments:
+            category = row.get('sentiment_category', 'unknown')
+            sentiment_counts[category] = sentiment_counts.get(category, 0) + 1
 
         # Buscar comentários de alta prioridade
         priority_query = db.supabase.table('video_comments')\
@@ -1032,15 +1032,17 @@ async def get_comments_stats():
 
         if nossos_canais.data:
             for canal in nossos_canais.data[:10]:
-                canal_comments = db.supabase.table('video_comments')\
-                    .select('id, sentiment_score, priority_score')\
-                    .eq('canal_id', canal['id'])\
-                    .execute()
+                # Usar paginação para garantir TODOS os comentários do canal
+                canal_comments = await db.fetch_all_records(
+                    table='video_comments',
+                    select_fields='id, sentiment_score, priority_score',
+                    filters={'canal_id': canal['id']}
+                )
 
-                if canal_comments.data:
-                    total = len(canal_comments.data)
-                    avg_sentiment = sum(c.get('sentiment_score', 0) for c in canal_comments.data) / total if total > 0 else 0
-                    high_priority = sum(1 for c in canal_comments.data if c.get('priority_score', 0) >= 70)
+                if canal_comments:
+                    total = len(canal_comments)
+                    avg_sentiment = sum(c.get('sentiment_score', 0) for c in canal_comments) / total if total > 0 else 0
+                    high_priority = sum(1 for c in canal_comments if c.get('priority_score', 0) >= 70)
 
                     canais_stats.append({
                         'nome_canal': canal['nome_canal'],
@@ -2247,6 +2249,50 @@ async def run_collection_job():
                 logger.info(f"✅ Cleaned up {deleted_count} old notifications (>30 days)")
             except Exception as e:
                 logger.error(f"❌ Error checking notifications: {e}")
+
+            # 🔄 REPROCESSAMENTO AUTOMÁTICO DE COMENTÁRIOS SEM ANÁLISE
+            if comentarios_total > 0:  # Só reprocessar se coletou comentários
+                try:
+                    logger.info("=" * 80)
+                    logger.info("🔄 REPROCESSAMENTO AUTOMÁTICO DE COMENTÁRIOS")
+                    logger.info("=" * 80)
+
+                    # Buscar comentários sem análise
+                    sem_analise = db.supabase.table('video_comments')\
+                        .select('id')\
+                        .is_('analyzed_at', 'null')\
+                        .execute()
+
+                    total_sem_analise = len(sem_analise.data) if sem_analise.data else 0
+
+                    if total_sem_analise > 0:
+                        logger.info(f"📊 {total_sem_analise} comentários sem análise encontrados")
+                        logger.info("🔄 Iniciando reprocessamento automático...")
+
+                        # Importar função de reprocessamento
+                        from reprocess_comments import reprocess_unanalyzed_comments
+
+                        # Executar reprocessamento
+                        await reprocess_unanalyzed_comments()
+
+                        # Verificar resultado
+                        ainda_sem = db.supabase.table('video_comments')\
+                            .select('id')\
+                            .is_('analyzed_at', 'null')\
+                            .execute()
+
+                        ainda_sem_count = len(ainda_sem.data) if ainda_sem.data else 0
+                        processados = total_sem_analise - ainda_sem_count
+
+                        logger.info(f"✅ {processados} comentários reprocessados com sucesso")
+                        if ainda_sem_count > 0:
+                            logger.warning(f"⚠️ {ainda_sem_count} comentários ainda sem análise (próxima tentativa amanhã)")
+                    else:
+                        logger.info("✅ Todos os comentários já estão analisados!")
+
+                except Exception as e:
+                    logger.error(f"❌ Erro no reprocessamento automático: {str(e)}")
+                    # Não falhar a coleta por erro no reprocessamento
 
             # 💰 COLETA DE MONETIZAÇÃO (ESTIMATIVAS)
             try:

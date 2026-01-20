@@ -37,6 +37,58 @@ class SupabaseClient:
             logger.error(f"Database connection test failed: {e}")
             raise
 
+    async def fetch_all_records(self, table: str, select_fields: str = "*", filters: Optional[Dict] = None, batch_size: int = 1000) -> List[Dict]:
+        """
+        Busca TODOS os registros de uma tabela com paginação automática.
+        Garante que não há limite de 1000 registros do Supabase.
+
+        Args:
+            table: Nome da tabela
+            select_fields: Campos a selecionar (default: "*")
+            filters: Dicionário de filtros {campo: valor}
+            batch_size: Tamanho do lote para paginação (default: 1000)
+
+        Returns:
+            Lista com TODOS os registros, sem limite de 1000
+        """
+        all_records = []
+        offset = 0
+
+        while True:
+            try:
+                # Criar query com paginação
+                query = self.supabase.table(table).select(select_fields).range(offset, offset + batch_size - 1)
+
+                # Aplicar filtros se fornecidos
+                if filters:
+                    for field, value in filters.items():
+                        if value is not None:
+                            query = query.eq(field, value)
+
+                response = query.execute()
+
+                if not response.data:
+                    break
+
+                all_records.extend(response.data)
+
+                # Log de warning se atingiu exatamente o limite
+                if len(response.data) == batch_size:
+                    logger.warning(f"⚠️ Tabela '{table}' retornou {batch_size} registros - usando paginação automática (offset: {offset})")
+
+                # Se retornou menos que batch_size, acabou
+                if len(response.data) < batch_size:
+                    break
+
+                offset += batch_size
+
+            except Exception as e:
+                logger.error(f"Erro ao buscar registros da tabela {table}: {e}")
+                raise
+
+        logger.info(f"✅ Busca completa na tabela '{table}': {len(all_records)} registros totais")
+        return all_records
+
     async def upsert_canal(self, canal_data: Dict[str, Any]) -> Dict:
         try:
             response = self.supabase.table("canais_monitorados").upsert({
@@ -56,10 +108,19 @@ class SupabaseClient:
             raise
 
     async def get_canais_for_collection(self) -> List[Dict]:
+        """
+        Busca TODOS os canais ativos para coleta com paginação automática.
+        CRÍTICO: Garante que todos os canais sejam coletados mesmo com >1000 canais.
+        """
         try:
-            response = self.supabase.table("canais_monitorados").select("*").eq("status", "ativo").execute()
-            logger.info(f"Found {len(response.data)} canais needing collection")
-            return response.data
+            # Usar paginação automática para garantir todos os canais
+            canais = await self.fetch_all_records(
+                table="canais_monitorados",
+                select_fields="*",
+                filters={"status": "ativo"}
+            )
+            logger.info(f"Found {len(canais)} canais needing collection (com paginação)")
+            return canais
         except Exception as e:
             logger.error(f"Error getting canais for collection: {e}")
             raise
@@ -386,10 +447,32 @@ class SupabaseClient:
             days = days_map.get(periodo_publicacao, 30)
             cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
             
-            all_videos_response = self.supabase.table("videos_historico").select("*").gte("data_publicacao", cutoff_date).execute()
+            # PAGINAÇÃO: Buscar TODOS os vídeos (pode ter >1000 nos últimos 30 dias)
+            all_videos = []
+            batch_size = 1000
+            offset_count = 0
+
+            while True:
+                response = self.supabase.table("videos_historico")\
+                    .select("*")\
+                    .gte("data_publicacao", cutoff_date)\
+                    .range(offset_count, offset_count + batch_size - 1)\
+                    .execute()
+
+                if not response.data:
+                    break
+
+                all_videos.extend(response.data)
+
+                if len(response.data) < batch_size:
+                    break
+
+                offset_count += batch_size
+
+            logger.info(f"✅ Busca de vídeos completa: {len(all_videos)} vídeos dos últimos {days} dias")
             
             videos_dict = {}
-            for video in all_videos_response.data:
+            for video in all_videos:
                 video_id = video["video_id"]
                 data_coleta = video.get("data_coleta", "")
                 
