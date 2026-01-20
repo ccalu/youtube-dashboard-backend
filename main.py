@@ -19,6 +19,7 @@ load_dotenv()
 from database import SupabaseClient
 from collector import YouTubeCollector
 from notifier import NotificationChecker
+from comments_logs import CommentsLogsManager
 from monetization_endpoints import router as monetization_router
 from financeiro import FinanceiroService
 from analytics import ChannelAnalytics
@@ -954,6 +955,81 @@ async def toggle_monetizacao(channel_id: str, body: dict):
         raise
     except Exception as e:
         logger.error(f"Erro ao toggle monetização: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/comments/logs")
+async def get_comments_logs(limit: int = 10):
+    """
+    📊 Retorna logs detalhados das coletas de comentários
+
+    Args:
+        limit: Número máximo de logs a retornar (default: 10)
+
+    Returns:
+        Lista de logs de coleta com detalhes de sucesso/erro
+    """
+    try:
+        logs_manager = CommentsLogsManager()
+        logs = logs_manager.get_latest_logs(limit=limit)
+
+        return {
+            "logs": logs,
+            "total": len(logs)
+        }
+    except Exception as e:
+        logger.error(f"Erro ao buscar logs de comentários: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/comments/logs/summary")
+async def get_comments_logs_summary(days: int = 7):
+    """
+    📊 Retorna resumo estatístico dos logs de comentários
+
+    Args:
+        days: Número de dias para calcular o resumo (default: 7)
+
+    Returns:
+        Estatísticas agregadas das coletas de comentários
+    """
+    try:
+        logs_manager = CommentsLogsManager()
+        summary = logs_manager.get_logs_summary(days=days)
+
+        # Adicionar canais problemáticos
+        canais_problematicos = logs_manager.get_canais_com_mais_erros(limit=10)
+        summary['canais_problematicos'] = canais_problematicos
+
+        return summary
+    except Exception as e:
+        logger.error(f"Erro ao buscar resumo de logs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/comments/logs/{collection_id}")
+async def get_comment_log_by_id(collection_id: str):
+    """
+    📊 Retorna detalhes de um log específico de coleta
+
+    Args:
+        collection_id: ID da coleta
+
+    Returns:
+        Detalhes completos do log de coleta
+    """
+    try:
+        logs_manager = CommentsLogsManager()
+        log = logs_manager.get_log_by_id(collection_id)
+
+        if not log:
+            raise HTTPException(status_code=404, detail="Log não encontrado")
+
+        return log
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao buscar log por ID: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -1959,6 +2035,15 @@ async def run_collection_job():
     comentarios_analisados_total = 0  # Contador de comentários analisados com GPT
     comentarios_com_erro_total = 0  # Contador de comentários que falharam
 
+    # Sistema de logs para comentários
+    comments_logger = CommentsLogsManager()
+    collection_id = str(uuid.uuid4())
+    collection_timestamp = datetime.now(timezone.utc)
+
+    # Listas para rastrear detalhes da coleta
+    detalhes_sucesso = []
+    detalhes_erros = []
+
     # Timeout de segurança - 2 horas máximo
     collection_start_time = time.time()
     MAX_COLLECTION_TIME = 7200  # 2 horas em segundos
@@ -2147,6 +2232,15 @@ async def run_collection_job():
 
                                 comentarios_total += comments_data['total_comments']
 
+                                # Adicionar ao log de sucesso
+                                detalhes_sucesso.append({
+                                    'canal_nome': canal['nome_canal'],
+                                    'canal_id': canal['id'],
+                                    'videos_processados': len(videos_adapted),
+                                    'comentarios_coletados': comments_data['total_comments'],
+                                    'comentarios_analisados_gpt': comentarios_analisados_total - (comentarios_analisados_total - len([c for c in comments_to_save if c.get('analyzed_at')]))
+                                })
+
                                 # Atualizar timestamp do último comentário coletado (para coleta incremental)
                                 if comments_data.get('latest_comment_timestamp'):
                                     try:
@@ -2166,6 +2260,13 @@ async def run_collection_job():
 
                     except Exception as e:
                         logger.warning(f"⚠️ [{index}/{total_canais}] Error collecting comments from {canal['nome_canal']}: {e}")
+                        # Adicionar ao log de erros
+                        detalhes_erros.append({
+                            'canal_nome': canal['nome_canal'],
+                            'canal_id': canal['id'],
+                            'tipo_erro': 'api_error' if 'quota' in str(e).lower() else 'sem_comentarios',
+                            'mensagem': str(e)[:200]
+                        })
                         # Não interrompe o fluxo - apenas registra o erro
 
                 # 🚀 OTIMIZAÇÃO: Removido sleep entre canais - RateLimiter já controla
@@ -2212,6 +2313,42 @@ async def run_collection_job():
         logger.info(f"📡 Total API Requests: {total_requests}")
         logger.info(f"🔑 Active keys: {stats['active_keys']}/{len(collector.api_keys)}")
         logger.info("=" * 80)
+
+        # Salvar log de comentários se houve coleta
+        if comentarios_total > 0 or len(detalhes_erros) > 0:
+            try:
+                # Calcular custos estimados do GPT
+                custo_gpt = 0.0
+                if comentarios_analisados_total > 0:
+                    # GPT-4o-mini: $0.15/1M input, $0.60/1M output
+                    tokens_input = (comentarios_analisados_total * 150) / 4  # ~150 chars por comentário, 4 chars por token
+                    tokens_output = comentarios_analisados_total * 20  # ~20 tokens por análise
+                    custo_gpt = (tokens_input / 1_000_000 * 0.15) + (tokens_output / 1_000_000 * 0.60)
+
+                log_data = {
+                    'collection_id': collection_id,
+                    'timestamp': collection_timestamp,
+                    'tipo': 'automatic',  # ou 'manual' se foi disparado manualmente
+                    'canais_processados': len([d for d in detalhes_sucesso]) + len(detalhes_erros),
+                    'canais_com_sucesso': len(detalhes_sucesso),
+                    'canais_com_erro': len(detalhes_erros),
+                    'total_comentarios': comentarios_total,
+                    'comentarios_analisados': comentarios_analisados_total,
+                    'comentarios_nao_analisados': comentarios_com_erro_total,
+                    'detalhes_erros': detalhes_erros,
+                    'detalhes_sucesso': detalhes_sucesso,
+                    'tempo_execucao': time.time() - collection_start_time,
+                    'custo_gpt_estimado': custo_gpt
+                }
+
+                saved = comments_logger.save_collection_log(log_data)
+                if saved:
+                    logger.info(f"💾 Log de comentários salvo: {collection_id}")
+                else:
+                    logger.warning("⚠️ Falha ao salvar log de comentários")
+
+            except Exception as e:
+                logger.error(f"❌ Erro ao salvar log de comentários: {e}")
 
         # Registrar métricas GPT se comentários foram analisados
         if comentarios_total > 0:
