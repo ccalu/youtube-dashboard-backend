@@ -1020,3 +1020,42 @@ class YouTubeCollector:
         except Exception as e:
             logger.error(f"❌ Erro ao coletar comentários do canal {canal_name}: {e}")
             return {'total_comments': 0, 'comments_by_video': {}, 'latest_comment_timestamp': None}
+
+    async def analyze_comments_with_gpt(self, comments: List[Dict]) -> List[Dict]:
+        """
+        Wrapper para análise GPT - delega para GPTAnalyzer
+        Mantém compatibilidade com scripts existentes
+        """
+        try:
+            from gpt_analyzer import GPTAnalyzer
+            analyzer = GPTAnalyzer()
+
+            # Chamar analyze_batch com parâmetros padrão
+            analyzed = await analyzer.analyze_batch(
+                comments=comments,
+                video_title="",  # Não temos o título aqui
+                canal_name="",   # Não temos o nome do canal aqui
+                batch_size=15    # Tamanho do batch padrão
+            )
+
+            # Garantir que campos originais sejam preservados
+            if analyzed:
+                for i, comment in enumerate(analyzed):
+                    # Preservar campos originais se existirem
+                    if i < len(comments):
+                        original = comments[i]
+                        for key, value in original.items():
+                            if key not in comment:
+                                comment[key] = value
+
+            return analyzed if analyzed else comments
+
+        except Exception as e:
+            logger.error(f"❌ Erro na análise GPT: {e}")
+            # Retornar comentários sem análise mas com campos vazios
+            for comment in comments:
+                comment['sentiment_score'] = None
+                comment['sentiment_category'] = None
+                comment['priority_level'] = 'baixa'
+                comment['analyzed_at'] = None
+            return comments
