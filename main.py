@@ -2063,8 +2063,7 @@ async def run_collection_job():
         coleta_id = await db.create_coleta_log(total_canais)
         logger.info(f"📝 Created coleta log ID: {coleta_id}")
 
-        # Criar GPTAnalyzer e CommentsDB UMA vez só (fora do loop)
-        gpt_analyzer = None
+        # Criar CommentsDB uma vez só quando necessário
         comments_db = None
 
         for index, canal in enumerate(canais_to_collect, 1):
@@ -2138,82 +2137,41 @@ async def run_collection_job():
                             )
 
                             if comments_data and comments_data.get('total_comments', 0) > 0:
-                                # Inicializar GPTAnalyzer e CommentsDB uma vez só (na primeira vez)
-                                if gpt_analyzer is None:
-                                    logger.info("🤖 Inicializando GPTAnalyzer e CommentsDB...")
-                                    from gpt_analyzer import GPTAnalyzer
+                                # Inicializar CommentsDB uma vez só (na primeira vez que precisar)
+                                if comments_db is None:
+                                    logger.info("💾 Inicializando CommentsDB...")
                                     from database_comments import CommentsDB
-                                    gpt_analyzer = GPTAnalyzer()
                                     comments_db = CommentsDB()
-                                    logger.info("✅ GPTAnalyzer e CommentsDB inicializados")
+                                    logger.info("✅ CommentsDB inicializado")
 
+                                # Processar comentários por vídeo - APENAS SALVAR (análise GPT vem depois)
                                 for video_id, video_comments in comments_data.get('comments_by_video', {}).items():
                                     if video_comments and video_comments.get('comments'):
-                                        # Analisar batch de comentários com GPT (com retry)
-                                        analyzed_comments = None
-                                        max_retries = 3
-
-                                        for attempt in range(max_retries):
-                                            try:
-                                                logger.debug(f"🤖 Tentativa {attempt + 1}/{max_retries} de análise GPT para {len(video_comments['comments'])} comentários")
-
-                                                analyzed_comments = await gpt_analyzer.analyze_batch(
-                                                    comments=video_comments['comments'],
-                                                    video_title=video_comments.get('video_title', ''),
-                                                    canal_name=canal['nome_canal'],
-                                                    batch_size=15  # Reduzido para evitar erros de JSON
-                                                )
-
-                                                if analyzed_comments is not None and len(analyzed_comments) > 0:
-                                                    logger.info(f"✅ GPT analisou com sucesso {len(analyzed_comments)} comentários")
-                                                    break  # Sucesso, sair do loop de retry
-                                                else:
-                                                    logger.warning(f"⚠️ GPT retornou lista vazia na tentativa {attempt + 1}")
-
-                                            except Exception as e:
-                                                logger.warning(f"⚠️ Tentativa {attempt + 1} falhou para análise GPT de {canal['nome_canal']}: {str(e)}")
-                                                if attempt < max_retries - 1:
-                                                    await asyncio.sleep(2)  # Aguardar 2 segundos antes de tentar novamente
-                                                else:
-                                                    logger.error(f"❌ Falha definitiva na análise GPT após {max_retries} tentativas")
-
-                                        # SEMPRE salvar comentários (com ou sem análise GPT)
+                                        # Preparar comentários SEM análise (serão analisados no reprocessamento)
                                         comments_to_save = []
 
-                                        if analyzed_comments and len(analyzed_comments) > 0:
-                                            # GPT analisou com sucesso
-                                            comments_to_save = analyzed_comments
-                                            logger.info(f"✅ GPT analisou {len(analyzed_comments)} comentários")
-                                            comentarios_analisados_total += len(analyzed_comments)
-                                        else:
-                                            # GPT falhou - salvar SEM análise para não perder dados
-                                            logger.warning(f"⚠️ GPT falhou após {max_retries} tentativas - salvando {len(video_comments['comments'])} comentários SEM análise")
+                                        for comment in video_comments['comments']:
+                                            comment_data = {
+                                                'comment_id': comment.get('comment_id'),
+                                                'video_id': video_id,
+                                                'canal_id': canal['id'],
+                                                'author_name': comment.get('author'),
+                                                'comment_text_original': comment.get('text', ''),
+                                                'published_at': comment.get('published_at'),
+                                                'like_count': comment.get('like_count', 0),
+                                                'reply_count': comment.get('reply_count', 0),
+                                                # Campos de análise vazios (para reprocessar depois)
+                                                'sentiment_category': None,
+                                                'sentiment_score': None,
+                                                'priority_score': None,
+                                                'emotional_tone': None,
+                                                'requires_response': False,
+                                                'suggested_response': None,
+                                                'analyzed_at': None  # NULL = precisa análise GPT
+                                            }
+                                            comments_to_save.append(comment_data)
 
-                                            # Preparar comentários sem análise (serão reprocessados depois)
-                                            for comment in video_comments['comments']:
-                                                comment_data = {
-                                                    'comment_id': comment.get('comment_id'),
-                                                    'video_id': video_id,
-                                                    'canal_id': canal['id'],
-                                                    'author': comment.get('author'),
-                                                    'comment_text_original': comment.get('text', ''),
-                                                    'published_at': comment.get('published_at'),
-                                                    'like_count': comment.get('like_count', 0),
-                                                    'reply_count': comment.get('reply_count', 0),
-                                                    # Campos de análise vazios (para reprocessar depois)
-                                                    'sentiment_category': None,
-                                                    'sentiment_score': None,
-                                                    'priority_score': None,
-                                                    'emotional_tone': None,
-                                                    'requires_response': False,
-                                                    'suggested_response': None,
-                                                    'analyzed_at': None  # NULL indica que precisa ser analisado
-                                                }
-                                                comments_to_save.append(comment_data)
-
-                                            comentarios_com_erro_total += len(comments_to_save)
-
-                                        # Salvar comentários (com ou sem análise)
+                                        # Salvar comentários no banco (SEM análise GPT)
                                         if comments_to_save:
                                             try:
                                                 await comments_db.save_video_comments(
@@ -2221,7 +2179,7 @@ async def run_collection_job():
                                                     canal_id=canal['id'],
                                                     comments=comments_to_save
                                                 )
-                                                logger.info(f"💾 {len(comments_to_save)} comentários salvos para {canal['nome_canal']}")
+                                                logger.info(f"💾 {len(comments_to_save)} comentários salvos (sem análise) para {canal['nome_canal']}")
                                             except Exception as save_error:
                                                 logger.error(f"❌ Erro ao salvar comentários no banco: {save_error}")
                                                 # Registrar falha de salvamento
@@ -2238,7 +2196,7 @@ async def run_collection_job():
                                     'canal_id': canal['id'],
                                     'videos_processados': len(videos_adapted),
                                     'comentarios_coletados': comments_data['total_comments'],
-                                    'comentarios_analisados_gpt': comentarios_analisados_total - (comentarios_analisados_total - len([c for c in comments_to_save if c.get('analyzed_at')]))
+                                    'comentarios_analisados_gpt': 0  # Análise será feita no reprocessamento
                                 })
 
                                 # Atualizar timestamp do último comentário coletado (para coleta incremental)
@@ -2318,6 +2276,7 @@ async def run_collection_job():
         if comentarios_total > 0 or len(detalhes_erros) > 0:
             try:
                 # Calcular tokens usados pelo GPT
+                # NOTA: Durante coleta, sempre será 0 (análise só no reprocessamento)
                 tokens_usados = 0
                 percentual_limite = 0.0
                 if comentarios_analisados_total > 0:
@@ -2335,8 +2294,8 @@ async def run_collection_job():
                     'canais_com_sucesso': len(detalhes_sucesso),
                     'canais_com_erro': len(detalhes_erros),
                     'total_comentarios': comentarios_total,
-                    'comentarios_analisados': comentarios_analisados_total,
-                    'comentarios_nao_analisados': comentarios_com_erro_total,
+                    'comentarios_analisados': 0,  # Durante coleta = 0 (análise no reprocessamento)
+                    'comentarios_nao_analisados': comentarios_total,  # Todos pendentes de análise
                     'detalhes_erros': detalhes_erros,
                     'detalhes_sucesso': detalhes_sucesso,
                     'tempo_execucao': time.time() - collection_start_time,

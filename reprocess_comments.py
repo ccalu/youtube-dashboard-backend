@@ -1,201 +1,155 @@
 """
-Sistema de Reprocessamento de Comentários sem Análise GPT
-Identifica e reanalisa comentários que foram salvos sem análise
+Reprocessamento Automático de Comentários Sem Análise GPT
+Processa comentários que foram salvos sem análise devido a falhas
 """
 import asyncio
-import os
-from datetime import datetime
-from typing import List, Dict, Any
-from dotenv import load_dotenv
 import logging
+from typing import List, Dict
+from database import SupabaseClient
+from gpt_analyzer import GPTAnalyzer
+from datetime import datetime
+import json
 
-# Configurar logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
 
-# Carregar variáveis de ambiente
-load_dotenv()
 
-async def reprocess_unanalyzed_comments():
-    """Reprocessa comentários sem análise GPT"""
+async def reprocess_unanalyzed_comments(batch_size: int = 100) -> Dict:
+    """
+    Reprocessa comentários que não foram analisados pelo GPT.
 
-    # Importar após carregar .env
-    from database import SupabaseClient
-    from gpt_analyzer import GPTAnalyzer
-    from database_comments import CommentsDB
+    Args:
+        batch_size: Número máximo de comentários para processar por vez
 
-    print("\n" + "="*60)
-    print("REPROCESSAMENTO DE COMENTARIOS SEM ANALISE GPT")
-    print("="*60)
+    Returns:
+        Dict com estatísticas do reprocessamento
+    """
+    logger.info("🔄 Iniciando reprocessamento de comentários sem análise...")
+
+    db = SupabaseClient()
+    stats = {
+        'total_found': 0,
+        'processed': 0,
+        'errors': 0,
+        'tokens_used': 0
+    }
 
     try:
-        # Inicializar componentes
-        db = SupabaseClient()
-        gpt_analyzer = GPTAnalyzer()
-        comments_db = CommentsDB()
-
-        # Buscar comentários sem análise
-        print("\n[BUSCA] Buscando comentarios sem analise GPT...")
-
-        # Query para buscar comentários sem analyzed_at
-        result = db.supabase.table('video_comments')\
+        # 1. Buscar comentários sem análise
+        response = db.supabase.table('video_comments')\
             .select('*')\
             .is_('analyzed_at', 'null')\
+            .limit(batch_size)\
             .execute()
 
-        unanalyzed_comments = result.data if result.data else []
+        unanalyzed = response.data if response.data else []
+        stats['total_found'] = len(unanalyzed)
 
-        if not unanalyzed_comments:
-            print("[OK] Nenhum comentario sem analise encontrado!")
-            return
+        if not unanalyzed:
+            logger.info("✅ Nenhum comentário pendente de análise")
+            return stats
 
-        print(f"[INFO] {len(unanalyzed_comments)} comentarios sem analise encontrados")
+        logger.info(f"📊 {len(unanalyzed)} comentários pendentes encontrados")
 
-        # Agrupar por vídeo para processar em contexto
-        videos_dict = {}
-        for comment in unanalyzed_comments:
-            video_id = comment.get('video_id')
-            if video_id not in videos_dict:
-                videos_dict[video_id] = {
-                    'video_id': video_id,
-                    'canal_id': comment.get('canal_id'),
-                    'comments': []
-                }
-            videos_dict[video_id]['comments'].append(comment)
+        # 2. Inicializar GPT Analyzer
+        try:
+            analyzer = GPTAnalyzer()
+            logger.info(f"✅ GPTAnalyzer inicializado - Modelo: {analyzer.model}")
+        except Exception as e:
+            logger.error(f"❌ Erro ao inicializar GPTAnalyzer: {e}")
+            stats['errors'] = len(unanalyzed)
+            return stats
 
-        print(f"[INFO] Comentarios agrupados em {len(videos_dict)} videos")
+        # 3. Preparar comentários para análise
+        comments_for_analysis = []
+        for comment in unanalyzed:
+            comments_for_analysis.append({
+                'comment_id': comment.get('comment_id'),
+                'text': comment.get('comment_text_original', ''),
+                'author': comment.get('author_name', 'Unknown'),
+                'published_at': comment.get('published_at', ''),
+                'like_count': comment.get('like_count', 0)
+            })
 
-        # Processar cada vídeo
-        total_processed = 0
-        total_success = 0
-        total_failed = 0
+        # 4. Analisar com GPT
+        logger.info(f"🤖 Analisando {len(comments_for_analysis)} comentários com GPT...")
 
-        for idx, (video_id, video_data) in enumerate(videos_dict.items(), 1):
-            comments = video_data['comments']
-            canal_id = video_data['canal_id']
+        try:
+            analyzed = await analyzer.analyze_batch(
+                comments=comments_for_analysis,
+                video_title="Reprocessamento automático",
+                canal_name="Diversos canais"
+            )
 
-            print(f"\n[VIDEO {idx}/{len(videos_dict)}] Processando {len(comments)} comentarios do video: {video_id[:20]}...")
+            logger.info(f"✅ {len(analyzed)} comentários analisados")
 
-            # Preparar comentários no formato esperado
-            formatted_comments = []
-            for comment in comments:
-                formatted_comments.append({
-                    'comment_id': comment.get('comment_id'),
-                    'author': comment.get('author'),
-                    'text': comment.get('comment_text_original', ''),
-                    'published_at': comment.get('published_at'),
-                    'like_count': comment.get('like_count', 0),
-                    'reply_count': comment.get('reply_count', 0)
-                })
+            # Obter métricas
+            input_tokens = analyzer.daily_metrics.get('total_tokens_input', 0)
+            output_tokens = analyzer.daily_metrics.get('total_tokens_output', 0)
+            stats['tokens_used'] = input_tokens + output_tokens
 
-            # Analisar com GPT em batches de 15
-            batch_size = 15
-            all_analyzed = []
+        except Exception as e:
+            logger.error(f"❌ Erro na análise GPT: {e}")
+            stats['errors'] = len(unanalyzed)
+            return stats
 
-            for i in range(0, len(formatted_comments), batch_size):
-                batch = formatted_comments[i:i+batch_size]
-                print(f"  [BATCH] Analisando batch {i//batch_size + 1} com {len(batch)} comentarios...")
+        # 5. Atualizar comentários no banco
+        logger.info("💾 Atualizando comentários no banco...")
 
-                try:
-                    # Tentar análise com retry
-                    for attempt in range(3):
-                        try:
-                            analyzed = await gpt_analyzer.analyze_batch(
-                                comments=batch,
-                                video_title=f"Video {video_id[:20]}",  # Título genérico
-                                canal_name="Canal",  # Nome genérico
-                                batch_size=batch_size
-                            )
+        for analyzed_comment in analyzed:
+            try:
+                comment_id = analyzed_comment.get('comment_id')
+                gpt_analysis = analyzed_comment.get('gpt_analysis', {})
 
-                            if analyzed and len(analyzed) > 0:
-                                all_analyzed.extend(analyzed)
-                                print(f"    [OK] {len(analyzed)} comentarios analisados")
-                                break
-                            else:
-                                print(f"    [AVISO] Tentativa {attempt + 1} retornou vazio")
-
-                        except Exception as e:
-                            logger.error(f"Erro na tentativa {attempt + 1}: {str(e)}")
-                            if attempt < 2:
-                                await asyncio.sleep(2)
-                            else:
-                                print(f"    [ERRO] Falha apos 3 tentativas")
-
-                except Exception as e:
-                    print(f"  [ERRO] Erro no batch: {str(e)}")
+                if not gpt_analysis:
                     continue
 
-            # Atualizar comentários no banco
-            if all_analyzed:
-                print(f"  [UPDATE] Atualizando {len(all_analyzed)} comentarios no banco...")
+                # Preparar dados para update
+                sentiment = gpt_analysis.get('sentiment', {})
 
-                for analyzed_comment in all_analyzed:
-                    comment_id = analyzed_comment.get('comment_id')
+                update_data = {
+                    'gpt_analysis': json.dumps(gpt_analysis),
+                    'analyzed_at': datetime.utcnow().isoformat(),
+                    'sentiment_category': sentiment.get('category'),
+                    'sentiment_score': sentiment.get('score'),
+                    'sentiment_confidence': sentiment.get('confidence'),
+                    'primary_category': gpt_analysis.get('primary_category'),
+                    'priority_score': analyzed_comment.get('priority_score', 0),
+                    'requires_response': analyzed_comment.get('requires_response', False),
+                    'updated_at': datetime.utcnow().isoformat()
+                }
 
-                    # Encontrar o comentário original para pegar o ID do banco
-                    original = None
-                    for c in comments:
-                        if c.get('comment_id') == comment_id:
-                            original = c
-                            break
+                # Atualizar no banco
+                result = db.supabase.table('video_comments')\
+                    .update(update_data)\
+                    .eq('comment_id', comment_id)\
+                    .execute()
 
-                    if original and original.get('id'):
-                        # Atualizar comentário com análise GPT (nomes corretos das colunas)
-                        update_data = {
-                            'sentiment_category': analyzed_comment.get('sentiment_category'),
-                            'sentiment_score': analyzed_comment.get('sentiment_score'),
-                            'priority_score': analyzed_comment.get('priority_score'),
-                            'emotional_tone': analyzed_comment.get('emotional_tone'),
-                            'requires_response': analyzed_comment.get('requires_response'),
-                            'suggested_response': analyzed_comment.get('suggested_response'),
-                            'analyzed_at': datetime.now().isoformat()
-                        }
+                if result.data:
+                    stats['processed'] += 1
+                else:
+                    stats['errors'] += 1
+                    logger.warning(f"⚠️ Falha ao atualizar comentário {comment_id}")
 
-                        try:
-                            db.supabase.table('video_comments')\
-                                .update(update_data)\
-                                .eq('id', original['id'])\
-                                .execute()
+            except Exception as e:
+                stats['errors'] += 1
+                logger.error(f"❌ Erro ao atualizar comentário: {e}")
 
-                            total_success += 1
+        logger.info(f"✅ Reprocessamento concluído: {stats['processed']}/{stats['total_found']} processados")
 
-                        except Exception as e:
-                            logger.error(f"Erro ao atualizar comentario {comment_id}: {str(e)}")
-                            total_failed += 1
-
-                print(f"  [OK] {len(all_analyzed)} comentarios atualizados com sucesso")
-                total_processed += len(all_analyzed)
-
-            # Pequena pausa entre vídeos
-            if idx < len(videos_dict):
-                await asyncio.sleep(1)
-
-        # Relatório final
-        print("\n" + "="*60)
-        print("RELATORIO DE REPROCESSAMENTO")
-        print("="*60)
-        print(f"[INFO] Total encontrado: {len(unanalyzed_comments)} comentarios")
-        print(f"[OK] Processados com sucesso: {total_success}")
-        print(f"[ERRO] Falharam: {total_failed}")
-        print(f"[INFO] Taxa de sucesso: {(total_success/len(unanalyzed_comments)*100):.1f}%")
-
-        # Métricas do GPT
-        metrics = gpt_analyzer.get_daily_metrics()
-        print(f"\n[METRICS] Uso do GPT:")
-        print(f"  Tokens entrada: {metrics['total_tokens_input']:,}")
-        print(f"  Tokens saida: {metrics['total_tokens_output']:,}")
-        print(f"  Custo estimado: ${metrics['estimated_cost_usd']:.4f}")
-
-        print("\n[OK] REPROCESSAMENTO CONCLUIDO!")
-        print("="*60)
+        return stats
 
     except Exception as e:
-        print(f"\n[ERRO] Erro no reprocessamento: {str(e)}")
+        logger.error(f"❌ Erro no reprocessamento: {e}")
         import traceback
-        traceback.print_exc()
+        logger.error(traceback.format_exc())
+        return stats
+
 
 if __name__ == "__main__":
-    asyncio.run(reprocess_unanalyzed_comments())
+    # Permitir executar standalone para testes
+    result = asyncio.run(reprocess_unanalyzed_comments())
+    print(f"\n\nRESULTADO:")
+    print(f"  Encontrados: {result['total_found']}")
+    print(f"  Processados: {result['processed']}")
+    print(f"  Erros: {result['errors']}")
+    print(f"  Tokens usados: {result['tokens_used']:,}")
