@@ -55,10 +55,8 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo [3/5] Adicionando mudancas locais...
-git add docs/
-git add README.md
-git add sync.bat
+echo [3/5] Adicionando TODAS as mudancas locais...
+git add .
 
 echo.
 echo [4/5] Criando commit com suas mudancas...
@@ -67,7 +65,7 @@ git diff-index --quiet HEAD --
 if %ERRORLEVEL% EQU 0 (
     echo         Nenhuma mudanca para commitar.
 ) else (
-    git commit -m "docs: Update documentation - %date% %time%"
+    git commit -m "sync: Auto-sync from %COMPUTERNAME% - %date% %time%"
 )
 
 echo.
