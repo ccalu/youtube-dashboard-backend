@@ -513,7 +513,59 @@ class SupabaseClient:
             import traceback
             logger.error(traceback.format_exc())
             raise
-            
+
+    async def get_videos_by_canal(self, canal_id: int, limit: int = 20) -> List[Dict]:
+        """
+        Busca os vídeos mais recentes de um canal específico.
+
+        Args:
+            canal_id: ID do canal
+            limit: Quantidade de vídeos a retornar (padrão: 20)
+
+        Returns:
+            Lista de vídeos ordenados por data de publicação (mais recente primeiro)
+        """
+        try:
+            # Buscar vídeos mais recentes deste canal
+            response = self.supabase.table("videos_historico")\
+                .select("*")\
+                .eq("canal_id", canal_id)\
+                .order("data_publicacao", desc=True)\
+                .limit(limit * 2)\
+                .execute()
+
+            if not response.data:
+                logger.info(f"Nenhum vídeo encontrado para canal {canal_id}")
+                return []
+
+            # Deduplicar por video_id (pegar o registro mais recente)
+            videos_dict = {}
+            for video in response.data:
+                video_id = video.get("video_id")
+                if not video_id:
+                    continue
+
+                data_coleta = video.get("data_coleta", "")
+
+                if video_id not in videos_dict:
+                    videos_dict[video_id] = video
+                elif data_coleta > videos_dict[video_id].get("data_coleta", ""):
+                    videos_dict[video_id] = video
+
+            videos = list(videos_dict.values())
+
+            # Ordenar por data de publicação (mais recente primeiro)
+            videos.sort(key=lambda x: x.get("data_publicacao", ""), reverse=True)
+
+            logger.info(f"✅ Encontrados {len(videos)} vídeos únicos para canal {canal_id}")
+            return videos[:limit]
+
+        except Exception as e:
+            logger.error(f"Erro ao buscar vídeos do canal {canal_id}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return []
+
     async def get_filter_options(self) -> Dict[str, List]:
         try:
             nichos_response = self.supabase.table("canais_monitorados").select("nicho").execute()
