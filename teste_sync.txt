@@ -1,3 +1,0 @@
-Arquivo de teste para verificar se o sync funciona
-Criado em: 21/01/2026
-Teste do sync.bat atualizado
