@@ -5,11 +5,14 @@
 
 ---
 
-## [22/01/2026] - sync.py v4.1 + Bug Fixes Críticos
+## [22/01/2026] - sync.py v4.2 + Bug Fixes Críticos
 
-### sync.py v4.1 - Verificação Obrigatória de Documentação
+### sync.py v4.2 - Verificação de Documentação (Automático)
 
-**Fix v4.1:** Alterado `git add .` para `git add -A` (garantir que todos arquivos são adicionados)
+- **v4.2:** Removida pergunta interativa - sync agora é 100% automático
+- **v4.1:** Alterado `git add .` para `git add -A`
+- **v4.1:** Corrigidos caracteres Unicode para ASCII (compatibilidade Windows)
+- **v4.0:** Adicionado passo [0/7] verificação de documentação
 
 **Arquivo:** `sync.py`
 

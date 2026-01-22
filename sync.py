@@ -154,34 +154,14 @@ def check_documentation():
         for f in list(updated_docs)[:5]:
             print(f"      {Colors.GREEN}[OK]{Colors.RESET} {f}")
 
-    # ALERTA: Docs faltando
+    # ALERTA: Docs faltando (apenas aviso, não bloqueia)
     if missing_docs:
-        print(f"\n   {Colors.RED}{'='*50}{Colors.RESET}")
-        print(f"   {Colors.RED}[!] ATENCAO: Documentação NÃO atualizada!{Colors.RESET}")
-        print(f"   {Colors.RED}{'='*50}{Colors.RESET}")
-        print(f"\n   {Colors.YELLOW}Docs que deveriam ser atualizados:{Colors.RESET}")
+        print(f"\n   {Colors.YELLOW}[LEMBRETE] Docs que podem precisar de atualizacao:{Colors.RESET}")
         for doc in missing_docs:
-            print(f"      {Colors.RED}[X]{Colors.RESET} {doc}")
-
-        print(f"\n   {Colors.YELLOW}WORKFLOW OBRIGATÓRIO:{Colors.RESET}")
-        print(f"      1. Editar código")
-        print(f"      2. {Colors.BOLD}ATUALIZAR DOCUMENTAÇÃO{Colors.RESET} ← Você está aqui!")
-        print(f"      3. Rodar sync.py")
-        print(f"      4. Railway deploya")
-
-        print(f"\n   {Colors.CYAN}Deseja continuar mesmo assim? (s/N):{Colors.RESET} ", end="")
-
-        try:
-            resposta = input().strip().lower()
-            if resposta != 's':
-                print(f"\n   {Colors.YELLOW}[!] Sync cancelado. Atualize a documentação primeiro!{Colors.RESET}")
-                sys.exit(0)
-            print(f"\n   {Colors.YELLOW}[!] Continuando sem atualizar docs (não recomendado){Colors.RESET}")
-        except:
-            print(f"\n   {Colors.YELLOW}[!] Sync cancelado.{Colors.RESET}")
-            sys.exit(0)
+            print(f"      {Colors.YELLOW}>{Colors.RESET} {doc}")
+        print(f"   {Colors.CYAN}(Continuando sync...){Colors.RESET}")
     else:
-        print(f"\n   {Colors.GREEN}[OK]{Colors.RESET} Documentação esta atualizada!")
+        print(f"\n   {Colors.GREEN}[OK]{Colors.RESET} Documentacao esta atualizada!")
 
     return True
 
