@@ -71,7 +71,7 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 
 ## 🆕 ATUALIZAÇÕES RECENTES (22/01/2026):
 
-### 0. sync.py v4.0 - Verificação Obrigatória de Documentação
+### 0. sync.py v4.1 - Verificação Obrigatória de Documentação
 **Arquivo:** `sync.py`
 
 - ✅ Novo passo [0/7]: Verifica se docs foram atualizados ANTES de commitar
@@ -79,6 +79,7 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 - ✅ Alerta visual se docs estão faltando
 - ✅ Pergunta confirmação antes de continuar sem docs
 - ✅ Lista docs obrigatórios: `.claude/CLAUDE.md`, `CHANGELOG.md`
+- ✅ Fix: Alterado `git add .` para `git add -A` (garante que todos arquivos são adicionados)
 
 **Workflow obrigatório:**
 ```

@@ -5,9 +5,11 @@
 
 ---
 
-## [22/01/2026] - sync.py v4.0 + Bug Fixes Críticos
+## [22/01/2026] - sync.py v4.1 + Bug Fixes Críticos
 
-### sync.py v4.0 - Verificação Obrigatória de Documentação
+### sync.py v4.1 - Verificação Obrigatória de Documentação
+
+**Fix v4.1:** Alterado `git add .` para `git add -A` (garantir que todos arquivos são adicionados)
 
 **Arquivo:** `sync.py`
 

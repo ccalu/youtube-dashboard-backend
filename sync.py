@@ -144,7 +144,7 @@ def check_documentation():
     # Mostrar código alterado
     print(f"\n   {Colors.CYAN}Código alterado:{Colors.RESET}")
     for f in code_files[:5]:
-        print(f"      {Colors.YELLOW}→{Colors.RESET} {f}")
+        print(f"      {Colors.YELLOW}>{Colors.RESET} {f}")
     if len(code_files) > 5:
         print(f"      {Colors.CYAN}... +{len(code_files)-5} arquivo(s){Colors.RESET}")
 
@@ -152,16 +152,16 @@ def check_documentation():
     if updated_docs:
         print(f"\n   {Colors.CYAN}Documentação atualizada:{Colors.RESET}")
         for f in list(updated_docs)[:5]:
-            print(f"      {Colors.GREEN}✓{Colors.RESET} {f}")
+            print(f"      {Colors.GREEN}[OK]{Colors.RESET} {f}")
 
     # ALERTA: Docs faltando
     if missing_docs:
         print(f"\n   {Colors.RED}{'='*50}{Colors.RESET}")
-        print(f"   {Colors.RED}⚠️  ATENÇÃO: Documentação NÃO atualizada!{Colors.RESET}")
+        print(f"   {Colors.RED}[!] ATENCAO: Documentação NÃO atualizada!{Colors.RESET}")
         print(f"   {Colors.RED}{'='*50}{Colors.RESET}")
         print(f"\n   {Colors.YELLOW}Docs que deveriam ser atualizados:{Colors.RESET}")
         for doc in missing_docs:
-            print(f"      {Colors.RED}✗{Colors.RESET} {doc}")
+            print(f"      {Colors.RED}[X]{Colors.RESET} {doc}")
 
         print(f"\n   {Colors.YELLOW}WORKFLOW OBRIGATÓRIO:{Colors.RESET}")
         print(f"      1. Editar código")
@@ -181,7 +181,7 @@ def check_documentation():
             print(f"\n   {Colors.YELLOW}[!] Sync cancelado.{Colors.RESET}")
             sys.exit(0)
     else:
-        print(f"\n   {Colors.GREEN}[OK]{Colors.RESET} Documentação está atualizada! ✓")
+        print(f"\n   {Colors.GREEN}[OK]{Colors.RESET} Documentação esta atualizada!")
 
     return True
 
@@ -237,7 +237,7 @@ def step3_pull():
             files = output.split('\n')[:5]
             for file in files:
                 if file:
-                    print(f"      {Colors.GREEN}↓{Colors.RESET} {file}")
+                    print(f"      {Colors.GREEN}v{Colors.RESET} {file}")
             if len(output.split('\n')) > 5:
                 more = len(output.split('\n')) - 5
                 print(f"      {Colors.CYAN}... +{more} arquivo(s){Colors.RESET}")
@@ -248,10 +248,14 @@ def step4_add():
     """Passo 4: Adicionar mudanças"""
     print(f"\n{Colors.YELLOW}[4/7]{Colors.RESET} Preparando envio...")
 
-    run_command("git add .")
+    # Usar git add -A para garantir que TODOS os arquivos sejam adicionados
+    # (novos, modificados e deletados)
+    _, code = run_command("git add -A")
+    if code != 0:
+        print(f"   {Colors.RED}[ERRO] Falha ao adicionar arquivos!{Colors.RESET}")
 
     output, _ = run_command("git diff --cached --name-only")
-    staged = len(output.split('\n')) if output else 0
+    staged = len([f for f in output.split('\n') if f.strip()]) if output else 0
 
     if staged > 0:
         print(f"   {Colors.CYAN}[i]{Colors.RESET} Para enviar: {Colors.BOLD}{staged} arquivo(s){Colors.RESET}")
