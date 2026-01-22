@@ -69,7 +69,49 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 - Pode melhorar lógica existente
 - SEMPRE fazer backup antes de mudanças grandes
 
-## 🆕 ATUALIZAÇÕES RECENTES (17/01/2026):
+## 🆕 ATUALIZAÇÕES RECENTES (22/01/2026):
+
+### 1. Bug Fix: Colisão de Variável `offset` (CRÍTICO)
+**Arquivo:** `database.py` (linhas 342, 348, 359)
+**Função:** `get_canais_with_filters()`
+
+- **Problema:** Variável `offset` do loop de paginação sobrescrevia o parâmetro `offset` da função
+- **Sintoma:** API `/api/canais` retornava `[]` (array vazio)
+- **Solução:** Renomeada para `pagination_offset`
+- **Commit:** `8bd8777`
+
+### 2. Bug Fix: Cálculo de `inscritos_diff`
+**Arquivo:** `database.py` (linhas 427-429)
+
+- **Problema:** Assumia que `datas_disponiveis[1]` era "ontem", mas podia ser de vários dias atrás
+- **Sintoma:** `inscritos_diff` mostrava diferença errada ou nula
+- **Solução:** Agora busca especificamente a data de ontem: `data_ontem_str = (datetime.now(timezone.utc).date() - timedelta(days=1)).isoformat()`
+- **Commit:** `809e596`
+
+### 3. Bug Fix: Paginação do Histórico
+**Arquivo:** `database.py`
+
+- **Problema:** Query não buscava todos os registros do histórico
+- **Solução:** Corrigida lógica de paginação para buscar todos os records
+- **Commit:** `79de42f`
+
+### 4. Campos de Views Growth/Diff
+**Endpoint:** `GET /api/canais`
+
+Novos campos disponíveis (calculados automaticamente):
+- `views_growth_7d` - Crescimento % de views nos últimos 7 dias
+- `views_growth_30d` - Crescimento % de views nos últimos 30 dias
+- `views_diff_7d` - Diferença absoluta de views (7 dias)
+- `views_diff_30d` - Diferença absoluta de views (30 dias)
+
+**Status Atual:**
+- 300 canais ativos retornando dados
+- 228 canais com `views_growth_7d`
+- 287 canais com `inscritos_diff`
+
+---
+
+## 📜 ATUALIZAÇÕES ANTERIORES (17/01/2026):
 
 ### 1. Otimização do Sistema de Coleta (50% menos API calls)
 **Arquivos:** `collector.py`, `main.py`, `database.py`
