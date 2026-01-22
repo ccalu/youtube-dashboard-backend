@@ -316,11 +316,11 @@ class SupabaseClient:
 
     async def get_canais_with_filters(self, nicho: Optional[str] = None, subnicho: Optional[str] = None, lingua: Optional[str] = None, tipo: Optional[str] = None, views_30d_min: Optional[int] = None, views_15d_min: Optional[int] = None, views_7d_min: Optional[int] = None, score_min: Optional[float] = None, growth_min: Optional[float] = None, limit: int = 500, offset: int = 0) -> List[Dict]:
         try:
-            # 🔧 CORREÇÃO CRÍTICA: Buscar apenas histórico dos últimos 2 dias
-            # Isso garante que sempre pega os dados MAIS RECENTES e evita carregar dados antigos
-            dois_dias_atras = (datetime.now(timezone.utc) - timedelta(days=2)).date().isoformat()
-            
-            logger.info(f"📊 Buscando histórico a partir de: {dois_dias_atras}")
+            # 🔧 ATUALIZAÇÃO: Buscar histórico de 35 dias para calcular growth_30d
+            # Precisamos de dados de ~30 dias atrás para comparar com hoje
+            trinta_e_cinco_dias_atras = (datetime.now(timezone.utc) - timedelta(days=35)).date().isoformat()
+
+            logger.info(f"📊 Buscando histórico a partir de: {trinta_e_cinco_dias_atras}")
             
             query = self.supabase.table("canais_monitorados").select("*").eq("status", "ativo")
             
@@ -335,10 +335,10 @@ class SupabaseClient:
             
             canais_response = query.execute()
             
-            # 🔧 BUSCAR APENAS HISTÓRICO RECENTE (últimos 2 dias)
+            # 🔧 BUSCAR HISTÓRICO DOS ÚLTIMOS 35 DIAS (para calcular growth_7d e growth_30d)
             historico_response = self.supabase.table("dados_canais_historico")\
                 .select("*")\
-                .gte("data_coleta", dois_dias_atras)\
+                .gte("data_coleta", trinta_e_cinco_dias_atras)\
                 .execute()
             
             logger.info(f"📊 Histórico carregado: {len(historico_response.data)} linhas (otimizado)")
@@ -377,7 +377,10 @@ class SupabaseClient:
                     "videos_publicados_7d": 0,
                     "score_calculado": 0,
                     "growth_30d": 0,
-                    "growth_7d": 0
+                    "growth_7d": 0,
+                    # 🆕 Novos campos de crescimento percentual
+                    "views_growth_7d": None,   # % crescimento views 7d vs 7d anteriores
+                    "views_growth_30d": None   # % crescimento views 30d vs 30d anteriores
                 }
 
                 # 🔧 Se tem histórico recente, usa ele
@@ -401,13 +404,46 @@ class SupabaseClient:
                             inscritos_hoje = h_hoje.get("inscritos") or 0
                             inscritos_ontem = h_ontem.get("inscritos") or 0
                             canal["inscritos_diff"] = inscritos_hoje - inscritos_ontem
-                    
+
+                        # 🆕 NOVO: Calcular views_growth_7d (comparar com ~7 dias atrás)
+                        hoje_date = datetime.now(timezone.utc).date()
+                        data_7d_atras = (hoje_date - timedelta(days=7)).isoformat()
+                        data_30d_atras = (hoje_date - timedelta(days=30)).isoformat()
+
+                        # Encontrar registro mais próximo de 7 dias atrás
+                        h_7d_atras = None
+                        for data in datas_disponiveis:
+                            if data <= data_7d_atras:
+                                h_7d_atras = historico_por_canal[item["id"]][data]
+                                break
+
+                        # Encontrar registro mais próximo de 30 dias atrás
+                        h_30d_atras = None
+                        for data in datas_disponiveis:
+                            if data <= data_30d_atras:
+                                h_30d_atras = historico_por_canal[item["id"]][data]
+                                break
+
+                        # Calcular views_growth_7d
+                        if h_7d_atras:
+                            views_7d_anterior = h_7d_atras.get("views_7d") or 0
+                            if views_7d_anterior > 0:
+                                growth_7d = ((canal["views_7d"] - views_7d_anterior) / views_7d_anterior) * 100
+                                canal["views_growth_7d"] = round(growth_7d, 1)
+
+                        # Calcular views_growth_30d
+                        if h_30d_atras:
+                            views_30d_anterior = h_30d_atras.get("views_30d") or 0
+                            if views_30d_anterior > 0:
+                                growth_30d = ((canal["views_30d"] - views_30d_anterior) / views_30d_anterior) * 100
+                                canal["views_growth_30d"] = round(growth_30d, 1)
+
                     # Calcular score
                     if canal["inscritos"] > 0:
                         score = ((canal["views_30d"] / canal["inscritos"]) * 0.7) + ((canal["views_7d"] / canal["inscritos"]) * 0.3)
                         canal["score_calculado"] = round(score, 2)
-                    
-                    # Calcular growth 7d
+
+                    # Calcular growth 7d (método antigo - mantido para compatibilidade)
                     if canal["views_7d"] > 0 and canal["views_15d"] > 0:
                         views_anterior_7d = canal["views_15d"] - canal["views_7d"]
                         if views_anterior_7d > 0:
