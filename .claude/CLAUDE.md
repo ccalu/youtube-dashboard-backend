@@ -71,13 +71,14 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 
 ## 🆕 ATUALIZAÇÕES RECENTES (22/01/2026):
 
-### 0. sync.py v4.2 - Verificação de Documentação (Automático)
+### 0. sync.py v4.3 - Sync Automático Completo
 **Arquivo:** `sync.py`
 
 - ✅ Passo [0/7]: Verifica se docs foram atualizados
 - ✅ Mapeamento código → documentação (main.py → 08_API_ENDPOINTS, etc.)
 - ✅ Mostra LEMBRETE se docs podem precisar de atualização (não bloqueia)
 - ✅ Sync é 100% automático - apenas puxa, commita e envia
+- ✅ **NOVO:** Mostra última mudança recebida após pull (mensagem + data)
 - ✅ Fix: `git add -A` para garantir que todos arquivos são adicionados
 - ✅ Fix: Caracteres ASCII para compatibilidade Windows
 

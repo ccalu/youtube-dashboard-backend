@@ -209,18 +209,22 @@ def step3_pull():
 
     if hash_before != hash_after:
         output, _ = run_command(f"git diff --name-only {hash_before} {hash_after}")
-        files_pulled = len(output.split('\n')) if output else 0
+        files_pulled = len([f for f in output.split('\n') if f.strip()]) if output else 0
         print(f"   {Colors.GREEN}[OK]{Colors.RESET} Baixados: {Colors.BOLD}{files_pulled} arquivo(s){Colors.RESET}")
 
         # Listar primeiros 5 arquivos
         if output:
-            files = output.split('\n')[:5]
+            files = [f for f in output.split('\n') if f.strip()][:5]
             for file in files:
-                if file:
-                    print(f"      {Colors.GREEN}v{Colors.RESET} {file}")
-            if len(output.split('\n')) > 5:
-                more = len(output.split('\n')) - 5
+                print(f"      {Colors.GREEN}v{Colors.RESET} {file}")
+            if len([f for f in output.split('\n') if f.strip()]) > 5:
+                more = len([f for f in output.split('\n') if f.strip()]) - 5
                 print(f"      {Colors.CYAN}... +{more} arquivo(s){Colors.RESET}")
+
+        # Mostrar ultima mudanca recebida
+        msg, _ = run_command("git log -1 --format=%s")
+        date, _ = run_command('git log -1 --format=%cd --date=format:"%d/%m %H:%M"')
+        print(f"\n   {Colors.CYAN}[i] Ultima mudanca:{Colors.RESET} \"{msg}\" ({date})")
     else:
         print(f"   {Colors.CYAN}[i]{Colors.RESET} Nenhum arquivo novo")
 
