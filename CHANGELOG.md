@@ -5,6 +5,38 @@
 
 ---
 
+## [22/01/2026] - sync.py v4.0 + Bug Fixes Críticos
+
+### sync.py v4.0 - Verificação Obrigatória de Documentação
+
+**Arquivo:** `sync.py`
+
+| Feature | Descrição |
+|---------|-----------|
+| Passo [0/7] | Verifica se documentação foi atualizada ANTES de commitar |
+| Mapeamento | Código → Documentação (main.py → 08_API_ENDPOINTS, etc.) |
+| Alerta visual | Mostra quais docs estão faltando |
+| Confirmação | Pergunta se quer continuar sem docs atualizados |
+
+**Docs obrigatórios em qualquer mudança:**
+- `.claude/CLAUDE.md` - Resumo geral para Claude
+- `CHANGELOG.md` - Histórico de mudanças
+
+**Mapeamento código → docs:**
+| Código | Documentação |
+|--------|-------------|
+| main.py | 08_API_ENDPOINTS_COMPLETA.md |
+| collector.py | 06_YOUTUBE_COLLECTOR.md |
+| notifier.py | 07_NOTIFICACOES_INTELIGENTES.md |
+| database.py | 05_DATABASE_SCHEMA.md |
+| financeiro.py | 10_SISTEMA_FINANCEIRO.md |
+| monetization_*.py | 09_MONETIZACAO_SISTEMA.md |
+| yt_uploader/ | 11_YOUTUBE_UPLOADER.md |
+
+**Commit:** `d4873eb`
+
+---
+
 ## [22/01/2026] - Bug Fixes Críticos em database.py
 
 ### Bugs Corrigidos

@@ -71,6 +71,23 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 
 ## 🆕 ATUALIZAÇÕES RECENTES (22/01/2026):
 
+### 0. sync.py v4.0 - Verificação Obrigatória de Documentação
+**Arquivo:** `sync.py`
+
+- ✅ Novo passo [0/7]: Verifica se docs foram atualizados ANTES de commitar
+- ✅ Mapeamento código → documentação (main.py → 08_API_ENDPOINTS, etc.)
+- ✅ Alerta visual se docs estão faltando
+- ✅ Pergunta confirmação antes de continuar sem docs
+- ✅ Lista docs obrigatórios: `.claude/CLAUDE.md`, `CHANGELOG.md`
+
+**Workflow obrigatório:**
+```
+1. Alterar código
+2. ATUALIZAR DOCS (.claude/CLAUDE.md, CHANGELOG.md, 2_DASHBOARD_TECNICO/*.md)
+3. python sync.py
+4. Railway deploya
+```
+
 ### 1. Bug Fix: Colisão de Variável `offset` (CRÍTICO)
 **Arquivo:** `database.py` (linhas 342, 348, 359)
 **Função:** `get_canais_with_filters()`
