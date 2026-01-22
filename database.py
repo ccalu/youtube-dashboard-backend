@@ -339,13 +339,13 @@ class SupabaseClient:
             # FIX: Paginação completa para evitar limite de 1000 registros do Supabase
             all_historico = []
             page_size = 1000
-            offset = 0
+            pagination_offset = 0  # Renomeado para não colidir com parâmetro 'offset' da função
 
             while True:
                 response = self.supabase.table("dados_canais_historico")\
                     .select("*")\
                     .gte("data_coleta", trinta_e_cinco_dias_atras)\
-                    .range(offset, offset + page_size - 1)\
+                    .range(pagination_offset, pagination_offset + page_size - 1)\
                     .execute()
 
                 if not response.data:
@@ -356,7 +356,7 @@ class SupabaseClient:
                 if len(response.data) < page_size:
                     break
 
-                offset += page_size
+                pagination_offset += page_size
                 logger.info(f"📊 Paginando histórico... {len(all_historico)} registros carregados")
 
             # Criar objeto compatível com código existente
@@ -423,8 +423,10 @@ class SupabaseClient:
                         canal["videos_publicados_7d"] = h_hoje.get("videos_publicados_7d") or 0
 
                         # 🆕 Calcular diferença de inscritos (hoje vs ontem)
-                        if len(datas_disponiveis) >= 2:
-                            h_ontem = historico_por_canal[item["id"]][datas_disponiveis[1]]
+                        # FIX: Buscar especificamente o registro de ontem (não assumir que [1] é ontem)
+                        data_ontem_str = (datetime.now(timezone.utc).date() - timedelta(days=1)).isoformat()
+                        if data_ontem_str in historico_por_canal[item["id"]]:
+                            h_ontem = historico_por_canal[item["id"]][data_ontem_str]
                             inscritos_hoje = h_hoje.get("inscritos") or 0
                             inscritos_ontem = h_ontem.get("inscritos") or 0
                             canal["inscritos_diff"] = inscritos_hoje - inscritos_ontem
