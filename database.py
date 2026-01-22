@@ -336,12 +336,33 @@ class SupabaseClient:
             canais_response = query.execute()
             
             # 🔧 BUSCAR HISTÓRICO DOS ÚLTIMOS 35 DIAS (para calcular growth_7d e growth_30d)
-            historico_response = self.supabase.table("dados_canais_historico")\
-                .select("*")\
-                .gte("data_coleta", trinta_e_cinco_dias_atras)\
-                .execute()
-            
-            logger.info(f"📊 Histórico carregado: {len(historico_response.data)} linhas (otimizado)")
+            # FIX: Paginação completa para evitar limite de 1000 registros do Supabase
+            all_historico = []
+            page_size = 1000
+            offset = 0
+
+            while True:
+                response = self.supabase.table("dados_canais_historico")\
+                    .select("*")\
+                    .gte("data_coleta", trinta_e_cinco_dias_atras)\
+                    .range(offset, offset + page_size - 1)\
+                    .execute()
+
+                if not response.data:
+                    break
+
+                all_historico.extend(response.data)
+
+                if len(response.data) < page_size:
+                    break
+
+                offset += page_size
+                logger.info(f"📊 Paginando histórico... {len(all_historico)} registros carregados")
+
+            # Criar objeto compatível com código existente
+            historico_response = type('obj', (object,), {'data': all_historico})()
+
+            logger.info(f"📊 Histórico carregado: {len(historico_response.data)} linhas (com paginação completa)")
 
             # 🔧 Organizar histórico por canal_id e data (para calcular diferença)
             historico_por_canal = {}
