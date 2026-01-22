@@ -429,27 +429,29 @@ class SupabaseClient:
 
                         # Calcular views_growth_7d
                         if h_7d_atras:
-                            views_7d_anterior = h_7d_atras.get("views_7d") or 0
-                            if views_7d_anterior > 0:
+                            views_7d_anterior = h_7d_atras.get("views_7d")
+                            if views_7d_anterior is not None and views_7d_anterior > 0:
                                 growth_7d = ((canal["views_7d"] - views_7d_anterior) / views_7d_anterior) * 100
                                 canal["views_growth_7d"] = round(growth_7d, 1)
 
                         # Calcular views_growth_30d
                         if h_30d_atras:
-                            views_30d_anterior = h_30d_atras.get("views_30d") or 0
-                            if views_30d_anterior > 0:
+                            views_30d_anterior = h_30d_atras.get("views_30d")
+                            if views_30d_anterior is not None and views_30d_anterior > 0:
                                 growth_30d = ((canal["views_30d"] - views_30d_anterior) / views_30d_anterior) * 100
                                 canal["views_growth_30d"] = round(growth_30d, 1)
 
                         # 🆕 Calcular views_diff_7d (diferença absoluta)
                         if h_7d_atras:
-                            views_7d_anterior = h_7d_atras.get("views_7d") or 0
-                            canal["views_diff_7d"] = canal["views_7d"] - views_7d_anterior
+                            views_7d_anterior = h_7d_atras.get("views_7d")
+                            if views_7d_anterior is not None:
+                                canal["views_diff_7d"] = canal["views_7d"] - views_7d_anterior
 
                         # 🆕 Calcular views_diff_30d (diferença absoluta)
                         if h_30d_atras:
-                            views_30d_anterior = h_30d_atras.get("views_30d") or 0
-                            canal["views_diff_30d"] = canal["views_30d"] - views_30d_anterior
+                            views_30d_anterior = h_30d_atras.get("views_30d")
+                            if views_30d_anterior is not None:
+                                canal["views_diff_30d"] = canal["views_30d"] - views_30d_anterior
 
                     # Calcular score
                     if canal["inscritos"] > 0:
