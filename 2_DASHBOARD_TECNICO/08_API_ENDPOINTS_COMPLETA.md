@@ -68,15 +68,32 @@
       "tipo": "minerado",
       "subnicho": "Guerras Mundiais",
       "inscritos": 150000,
+      "inscritos_diff": 50,
       "videos_count": 234,
       "url_canal": "https://youtube.com/@exemplo",
-      "created_at": "2024-01-01T00:00:00Z"
+      "created_at": "2024-01-01T00:00:00Z",
+      "views_growth_7d": 8100.0,
+      "views_growth_30d": 5200.0,
+      "views_diff_7d": 1944,
+      "views_diff_30d": 12500
     }
   ],
   "total": 150,
   "limit": 50,
   "offset": 0
 }
+```
+
+**Campos Calculados (Atualizado 22/01/2026):**
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `inscritos_diff` | int/null | Diferença de inscritos (ontem → hoje) |
+| `views_growth_7d` | float/null | Crescimento % de views nos últimos 7 dias |
+| `views_growth_30d` | float/null | Crescimento % de views nos últimos 30 dias |
+| `views_diff_7d` | int/null | Diferença absoluta de views (7 dias) |
+| `views_diff_30d` | int/null | Diferença absoluta de views (30 dias) |
+
+**Nota:** Campos retornam `null` se não houver dados históricos suficientes para o cálculo.
 ```
 
 **Código:**
@@ -1273,4 +1290,13 @@ query.select("id, nome_canal, inscritos")
 
 ---
 
-**Última atualização:** 2024-01-12
+**Última atualização:** 2026-01-22
+
+---
+
+## Changelog
+
+### 22/01/2026
+- **GET /api/canais**: Adicionados campos calculados `views_growth_7d`, `views_growth_30d`, `views_diff_7d`, `views_diff_30d`
+- **Bug Fix**: Corrigida colisão de variável `offset` → `pagination_offset` em `database.py`
+- **Bug Fix**: Corrigido cálculo de `inscritos_diff` para buscar especificamente a data de ontem

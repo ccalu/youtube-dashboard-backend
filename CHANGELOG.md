@@ -5,6 +5,44 @@
 
 ---
 
+## [22/01/2026] - Bug Fixes Críticos em database.py
+
+### Bugs Corrigidos
+
+| Bug | Arquivo | Linha | Descrição |
+|-----|---------|-------|-----------|
+| Colisão de variável `offset` | database.py | 342, 348, 359 | Variável do loop sobrescrevia parâmetro da função, causando API retornar `[]` |
+| Cálculo `inscritos_diff` | database.py | 427-429 | Assumia que `datas_disponiveis[1]` era ontem, mas podia ser de dias atrás |
+| Paginação histórico | database.py | - | Query não buscava todos os registros |
+
+### Novos Campos na API `/api/canais`
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `views_growth_7d` | float/null | Crescimento % de views (7 dias) |
+| `views_growth_30d` | float/null | Crescimento % de views (30 dias) |
+| `views_diff_7d` | int/null | Diferença absoluta de views (7 dias) |
+| `views_diff_30d` | int/null | Diferença absoluta de views (30 dias) |
+
+### Commits
+
+- `8bd8777` - Fix critical bugs in get_canais_with_filters function
+- `79de42f` - Fix pagination bug in history query
+- `809e596` - Fix bug in views_growth and views_diff calculations
+
+### Status Pós-Fix
+
+- 300 canais ativos retornando dados (antes: 0)
+- 228 canais com `views_growth_7d`
+- 287 canais com `inscritos_diff`
+
+### Documentação Atualizada
+
+- `.claude/CLAUDE.md` - Adicionada seção de atualizações 22/01/2026
+- `2_DASHBOARD_TECNICO/08_API_ENDPOINTS_COMPLETA.md` - Documentados novos campos e changelog
+
+---
+
 ## [14/01/2025] - Reorganizacao Completa
 
 ### Estrutura Criada
