@@ -1,9 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-SYNC.PY - Sincronização Universal v3.0
+SYNC.PY - Sincronização Universal v4.0
 Dashboard de Mineração YouTube
 Funciona em Windows, Mac e Linux sem limitações
+
+IMPORTANTE: Este script garante que a documentação seja atualizada
+antes de fazer commit/push. Workflow obrigatório:
+1. Fazer alterações no código
+2. ATUALIZAR DOCUMENTAÇÃO (obrigatório!)
+3. Rodar sync.py
+4. Railway deploya automaticamente
 """
 
 import os
@@ -16,6 +23,24 @@ from datetime import datetime
 SISTEMA = platform.system()
 MACHINE_NAME = platform.node()
 USER_NAME = os.getenv('USERNAME') if SISTEMA == 'Windows' else os.getenv('USER')
+
+# Mapeamento: arquivo de código → documentação relacionada
+DOC_MAPPING = {
+    'main.py': '2_DASHBOARD_TECNICO/08_API_ENDPOINTS_COMPLETA.md',
+    'collector.py': '2_DASHBOARD_TECNICO/06_YOUTUBE_COLLECTOR.md',
+    'notifier.py': '2_DASHBOARD_TECNICO/07_NOTIFICACOES_INTELIGENTES.md',
+    'database.py': '2_DASHBOARD_TECNICO/05_DATABASE_SCHEMA.md',
+    'financeiro.py': '2_DASHBOARD_TECNICO/10_SISTEMA_FINANCEIRO.md',
+    'monetization_collector.py': '2_DASHBOARD_TECNICO/09_MONETIZACAO_SISTEMA.md',
+    'monetization_endpoints.py': '2_DASHBOARD_TECNICO/09_MONETIZACAO_SISTEMA.md',
+    'yt_uploader/': '2_DASHBOARD_TECNICO/11_YOUTUBE_UPLOADER.md',
+}
+
+# Documentos que SEMPRE devem ser atualizados quando há mudanças
+ALWAYS_UPDATE = [
+    '.claude/CLAUDE.md',      # Resumo geral para Claude
+    'CHANGELOG.md',           # Histórico de mudanças
+]
 
 # Cores (funciona em todos os sistemas)
 class Colors:
@@ -69,9 +94,100 @@ def check_git():
         print(f"{Colors.RED}[ERRO] Nenhum remote configurado!{Colors.RESET}")
         sys.exit(1)
 
+def check_documentation():
+    """
+    PASSO 0: Verificar se documentação foi atualizada
+    CRÍTICO: Garante que mudanças de código tenham docs atualizados
+    """
+    print(f"{Colors.YELLOW}[0/7]{Colors.RESET} Verificando documentação...")
+
+    output, _ = run_command("git status --porcelain")
+    if not output:
+        print(f"   {Colors.CYAN}[i]{Colors.RESET} Nenhuma mudança para verificar")
+        return True
+
+    changed_files = [line.split()[-1] for line in output.split('\n') if line.strip()]
+
+    # Separar arquivos de código e documentação
+    code_files = []
+    doc_files = []
+
+    for f in changed_files:
+        if f.endswith('.py'):
+            code_files.append(f)
+        elif f.endswith('.md'):
+            doc_files.append(f)
+
+    # Se não há código alterado, OK
+    if not code_files:
+        print(f"   {Colors.GREEN}[OK]{Colors.RESET} Apenas documentação alterada")
+        return True
+
+    # Verificar quais docs deveriam ser atualizados
+    expected_docs = set()
+    for code_file in code_files:
+        base_name = os.path.basename(code_file)
+        if base_name in DOC_MAPPING:
+            expected_docs.add(DOC_MAPPING[base_name])
+        # Verificar pastas (ex: yt_uploader/)
+        for folder, doc in DOC_MAPPING.items():
+            if folder.endswith('/') and folder in code_file:
+                expected_docs.add(doc)
+
+    # Sempre adicionar docs obrigatórios
+    expected_docs.update(ALWAYS_UPDATE)
+
+    # Verificar quais docs foram atualizados
+    updated_docs = set(f for f in doc_files)
+    missing_docs = expected_docs - updated_docs
+
+    # Mostrar código alterado
+    print(f"\n   {Colors.CYAN}Código alterado:{Colors.RESET}")
+    for f in code_files[:5]:
+        print(f"      {Colors.YELLOW}→{Colors.RESET} {f}")
+    if len(code_files) > 5:
+        print(f"      {Colors.CYAN}... +{len(code_files)-5} arquivo(s){Colors.RESET}")
+
+    # Mostrar docs atualizados
+    if updated_docs:
+        print(f"\n   {Colors.CYAN}Documentação atualizada:{Colors.RESET}")
+        for f in list(updated_docs)[:5]:
+            print(f"      {Colors.GREEN}✓{Colors.RESET} {f}")
+
+    # ALERTA: Docs faltando
+    if missing_docs:
+        print(f"\n   {Colors.RED}{'='*50}{Colors.RESET}")
+        print(f"   {Colors.RED}⚠️  ATENÇÃO: Documentação NÃO atualizada!{Colors.RESET}")
+        print(f"   {Colors.RED}{'='*50}{Colors.RESET}")
+        print(f"\n   {Colors.YELLOW}Docs que deveriam ser atualizados:{Colors.RESET}")
+        for doc in missing_docs:
+            print(f"      {Colors.RED}✗{Colors.RESET} {doc}")
+
+        print(f"\n   {Colors.YELLOW}WORKFLOW OBRIGATÓRIO:{Colors.RESET}")
+        print(f"      1. Editar código")
+        print(f"      2. {Colors.BOLD}ATUALIZAR DOCUMENTAÇÃO{Colors.RESET} ← Você está aqui!")
+        print(f"      3. Rodar sync.py")
+        print(f"      4. Railway deploya")
+
+        print(f"\n   {Colors.CYAN}Deseja continuar mesmo assim? (s/N):{Colors.RESET} ", end="")
+
+        try:
+            resposta = input().strip().lower()
+            if resposta != 's':
+                print(f"\n   {Colors.YELLOW}[!] Sync cancelado. Atualize a documentação primeiro!{Colors.RESET}")
+                sys.exit(0)
+            print(f"\n   {Colors.YELLOW}[!] Continuando sem atualizar docs (não recomendado){Colors.RESET}")
+        except:
+            print(f"\n   {Colors.YELLOW}[!] Sync cancelado.{Colors.RESET}")
+            sys.exit(0)
+    else:
+        print(f"\n   {Colors.GREEN}[OK]{Colors.RESET} Documentação está atualizada! ✓")
+
+    return True
+
 def step1_status():
     """Passo 1: Verificar status local"""
-    print(f"{Colors.YELLOW}[1/6]{Colors.RESET} Verificando status local...")
+    print(f"\n{Colors.YELLOW}[1/7]{Colors.RESET} Verificando status local...")
 
     output, _ = run_command("git status --porcelain")
     local_changes = len(output.split('\n')) if output else 0
@@ -83,7 +199,7 @@ def step1_status():
 
 def step2_fetch():
     """Passo 2: Buscar atualizações"""
-    print(f"\n{Colors.YELLOW}[2/6]{Colors.RESET} Buscando atualizações do GitHub...")
+    print(f"\n{Colors.YELLOW}[2/7]{Colors.RESET} Buscando atualizações do GitHub...")
 
     run_command("git fetch origin main", capture=False)
 
@@ -97,7 +213,7 @@ def step2_fetch():
 
 def step3_pull():
     """Passo 3: Baixar atualizações"""
-    print(f"\n{Colors.YELLOW}[3/6]{Colors.RESET} Baixando atualizações...")
+    print(f"\n{Colors.YELLOW}[3/7]{Colors.RESET} Baixando atualizações...")
 
     # Hash antes
     hash_before, _ = run_command("git rev-parse HEAD")
@@ -130,7 +246,7 @@ def step3_pull():
 
 def step4_add():
     """Passo 4: Adicionar mudanças"""
-    print(f"\n{Colors.YELLOW}[4/6]{Colors.RESET} Preparando envio...")
+    print(f"\n{Colors.YELLOW}[4/7]{Colors.RESET} Preparando envio...")
 
     run_command("git add .")
 
@@ -144,7 +260,7 @@ def step4_add():
 
 def step5_commit():
     """Passo 5: Criar commit"""
-    print(f"\n{Colors.YELLOW}[5/6]{Colors.RESET} Criando commit...")
+    print(f"\n{Colors.YELLOW}[5/7]{Colors.RESET} Criando commit...")
 
     output, code = run_command("git diff-index --quiet HEAD --")
 
@@ -160,7 +276,7 @@ def step5_commit():
 
 def step6_push(commit_made):
     """Passo 6: Enviar para GitHub"""
-    print(f"\n{Colors.YELLOW}[6/6]{Colors.RESET} Enviando para GitHub...")
+    print(f"\n{Colors.YELLOW}[6/7]{Colors.RESET} Enviando para GitHub...")
 
     if commit_made:
         output, code = run_command("git push origin main")
@@ -172,8 +288,9 @@ def step6_push(commit_made):
     else:
         print(f"   {Colors.CYAN}[i]{Colors.RESET} Nada para enviar")
 
-def show_summary():
-    """Mostra resumo final"""
+def step7_summary():
+    """Passo 7: Mostrar resumo final"""
+    print(f"\n{Colors.YELLOW}[7/7]{Colors.RESET} Resumo final...")
     print(f"\n{Colors.BLUE}{'='*60}{Colors.RESET}")
     print(f"{Colors.GREEN}       SYNC COMPLETO COM SUCESSO!{Colors.RESET}")
     print(f"{Colors.BLUE}{'='*60}{Colors.RESET}\n")
@@ -206,13 +323,14 @@ def main():
     try:
         print_header()
         check_git()
+        check_documentation()  # NOVO: Verifica docs ANTES de tudo
         step1_status()
         step2_fetch()
         step3_pull()
         step4_add()
         commit_made = step5_commit()
         step6_push(commit_made)
-        show_summary()
+        step7_summary()
 
     except KeyboardInterrupt:
         print(f"\n{Colors.YELLOW}[!] Sync interrompido pelo usuário{Colors.RESET}")

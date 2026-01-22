@@ -82,6 +82,50 @@ Backend API para o Dashboard de Mineracao YouTube da Content Factory.
 
 ---
 
+## ⚠️ WORKFLOW OBRIGATÓRIO DE DOCUMENTAÇÃO
+
+**REGRA DE OURO:** Toda alteração de código DEVE ter documentação atualizada ANTES do sync.
+
+### O Workflow Correto:
+
+```
+1. 📝 Fazer alterações no código
+2. 📚 ATUALIZAR DOCUMENTAÇÃO ← OBRIGATÓRIO!
+   ├── .claude/CLAUDE.md (resumo geral)
+   ├── CHANGELOG.md (histórico)
+   └── 2_DASHBOARD_TECNICO/*.md (docs específicos)
+3. 🔄 Rodar: python sync.py
+4. 🚀 Railway deploya automaticamente
+```
+
+### Mapeamento Código → Documentação:
+
+| Arquivo de Código | Documentação a Atualizar |
+|-------------------|-------------------------|
+| `main.py` | `2_DASHBOARD_TECNICO/08_API_ENDPOINTS_COMPLETA.md` |
+| `collector.py` | `2_DASHBOARD_TECNICO/06_YOUTUBE_COLLECTOR.md` |
+| `notifier.py` | `2_DASHBOARD_TECNICO/07_NOTIFICACOES_INTELIGENTES.md` |
+| `database.py` | `2_DASHBOARD_TECNICO/05_DATABASE_SCHEMA.md` |
+| `financeiro.py` | `2_DASHBOARD_TECNICO/10_SISTEMA_FINANCEIRO.md` |
+| `monetization_*.py` | `2_DASHBOARD_TECNICO/09_MONETIZACAO_SISTEMA.md` |
+| `yt_uploader/` | `2_DASHBOARD_TECNICO/11_YOUTUBE_UPLOADER.md` |
+
+### SEMPRE Atualizar (em qualquer mudança):
+
+- **`.claude/CLAUDE.md`** - Resumo geral para Claude em qualquer PC
+- **`CHANGELOG.md`** - Histórico de todas as mudanças
+
+### Por Que Isso é Importante?
+
+- ✅ Claude de outro PC sabe o que foi feito
+- ✅ Histórico completo de mudanças
+- ✅ Continuidade entre sessões
+- ✅ `sync.py` verifica automaticamente e alerta se docs faltam
+
+**O `sync.py` agora verifica se você atualizou a documentação antes de fazer commit!**
+
+---
+
 ## Quick Start
 
 ```bash
