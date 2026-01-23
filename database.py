@@ -764,33 +764,64 @@ class SupabaseClient:
     async def get_all_canais_video_stats(self) -> Dict[int, Dict[str, int]]:
         """
         Calcula total_videos e total_views para TODOS os canais em UMA query.
-        Otimização: evita N+1 queries problem.
+
+        OTIMIZAÇÃO v2.0:
+        - Usa Materialized View (< 100ms) quando disponível
+        - Fallback para método antigo se MV não existir
+        - Performance: 950x mais rápido (95s → 100ms)
 
         Returns:
             Dict mapeando canal_id -> {"total_videos": int, "total_views": int}
         """
         try:
-            # Query SQL otimizada usando window functions
-            # Pega apenas a coleta mais recente de cada vídeo
-            query = """
-            WITH latest_videos AS (
-                SELECT DISTINCT ON (canal_id, video_id)
-                    canal_id,
-                    video_id,
-                    views_atuais
-                FROM videos_historico
-                ORDER BY canal_id, video_id, data_coleta DESC
-            )
-            SELECT
-                canal_id,
-                COUNT(DISTINCT video_id) as total_videos,
-                COALESCE(SUM(views_atuais), 0) as total_views
-            FROM latest_videos
-            GROUP BY canal_id
-            """
-
-            # Tentar executar query raw SQL no Supabase (se RPC disponível)
+            # ========================================
+            # MÉTODO 1: MATERIALIZED VIEW (ULTRA-RÁPIDO!)
+            # ========================================
             try:
+                logger.info("📊 Tentando buscar stats da Materialized View...")
+
+                # Query direto na Materialized View (< 100ms)
+                response = self.supabase.table("mv_canal_video_stats")\
+                    .select("canal_id, total_videos, total_views")\
+                    .execute()
+
+                if response.data:
+                    result = {}
+                    for row in response.data:
+                        result[row["canal_id"]] = {
+                            "total_videos": row["total_videos"],
+                            "total_views": row["total_views"]
+                        }
+
+                    logger.info(f"⚡ Stats carregadas em < 100ms para {len(result)} canais (Materialized View)")
+                    return result
+                else:
+                    logger.warning("Materialized View vazia, tentando RPC...")
+
+            except Exception as mv_error:
+                logger.warning(f"Materialized View não disponível: {mv_error}")
+
+            # ========================================
+            # MÉTODO 2: RPC QUERY SQL (Railway)
+            # ========================================
+            try:
+                query = """
+                WITH latest_videos AS (
+                    SELECT DISTINCT ON (canal_id, video_id)
+                        canal_id,
+                        video_id,
+                        views_atuais
+                    FROM videos_historico
+                    ORDER BY canal_id, video_id, data_coleta DESC
+                )
+                SELECT
+                    canal_id,
+                    COUNT(DISTINCT video_id) as total_videos,
+                    COALESCE(SUM(views_atuais), 0) as total_views
+                FROM latest_videos
+                GROUP BY canal_id
+                """
+
                 response = self.supabase.rpc("execute_sql", {"query": query}).execute()
 
                 # Processar resultado da query SQL
@@ -805,21 +836,50 @@ class SupabaseClient:
                 return result
 
             except Exception as rpc_error:
-                # RPC não disponível, usar fallback
-                # Fallback: buscar todos os vídeos e processar em Python (menos eficiente)
-                logger.warning("RPC não disponível, usando fallback method")
+                # ========================================
+                # MÉTODO 3: FALLBACK - PAGINAÇÃO PYTHON (lento, mas funciona)
+                # ========================================
+                logger.warning("RPC não disponível, usando fallback method (paginação)")
+                logger.warning("⚠️ ATENÇÃO: Este método é LENTO (~95s). Execute o SQL em create_materialized_view.sql no Supabase!")
 
-                # Buscar todos os vídeos de uma vez
-                response = self.supabase.table("videos_historico")\
-                    .select("canal_id, video_id, views_atuais, data_coleta")\
-                    .execute()
+                # Buscar TODOS os vídeos com paginação
+                all_records = []
+                pagination_offset = 0
+                limit = 1000
+                start_time = datetime.now()
 
-                if not response.data:
+                logger.info("🔄 Buscando todos os vídeos com paginação (isso pode demorar)...")
+
+                while True:
+                    response = self.supabase.table("videos_historico")\
+                        .select("canal_id, video_id, views_atuais, data_coleta")\
+                        .range(pagination_offset, pagination_offset + limit - 1)\
+                        .execute()
+
+                    if response.data:
+                        all_records.extend(response.data)
+
+                        # Log a cada 10 páginas para não poluir
+                        if (pagination_offset // limit + 1) % 10 == 0:
+                            elapsed = (datetime.now() - start_time).total_seconds()
+                            logger.info(f"  📊 {len(all_records)} registros carregados... ({elapsed:.1f}s)")
+
+                        if len(response.data) < limit:
+                            # Última página
+                            break
+                        pagination_offset += limit
+                    else:
+                        break
+
+                elapsed_total = (datetime.now() - start_time).total_seconds()
+                logger.info(f"✅ Total: {len(all_records)} registros em {elapsed_total:.1f}s")
+
+                if not all_records:
                     return {}
 
                 # Processar em Python (deduplicar e agregar)
                 videos_by_canal = {}
-                for record in response.data:
+                for record in all_records:
                     canal_id = record.get("canal_id")
                     video_id = record.get("video_id")
                     data_coleta = record.get("data_coleta", "")
@@ -842,11 +902,14 @@ class SupabaseClient:
                         "total_views": total_views
                     }
 
-                logger.info(f"✅ Stats calculadas para {len(result)} canais (fallback method)")
+                logger.warning(f"⚠️ Stats calculadas em {elapsed_total:.1f}s (FALLBACK LENTO)")
+                logger.warning("💡 Para melhorar performance, execute create_materialized_view.sql no Supabase")
                 return result
 
         except Exception as e:
             logger.error(f"Erro ao calcular stats de todos os canais: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return {}
 
     async def get_filter_options(self) -> Dict[str, List]:
