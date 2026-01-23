@@ -912,6 +912,46 @@ class SupabaseClient:
             logger.error(traceback.format_exc())
             return {}
 
+    async def refresh_mv_canal_video_stats(self) -> bool:
+        """
+        Atualiza a Materialized View mv_canal_video_stats.
+        Deve ser chamado após cada coleta para manter dados frescos.
+
+        Performance: ~2-5 segundos para 300 canais
+        Non-blocking: Se falhar, apenas registra warning
+
+        Returns:
+            bool: True se sucesso, False se falhou
+        """
+        try:
+            logger.info("=" * 60)
+            logger.info("🔄 ATUALIZANDO MATERIALIZED VIEW")
+            logger.info("=" * 60)
+
+            start_time = datetime.now()
+
+            # Chamar função SQL de refresh
+            # CONCURRENTLY = não bloqueia leituras durante refresh
+            self.supabase.rpc("refresh_mv_canal_video_stats").execute()
+
+            elapsed = (datetime.now() - start_time).total_seconds()
+            logger.info(f"✅ Materialized View atualizada com sucesso!")
+            logger.info(f"⏱️  Tempo de refresh: {elapsed:.1f} segundos")
+            logger.info("=" * 60)
+
+            return True
+
+        except Exception as e:
+            # NÃO é crítico - apenas registra erro e continua
+            # Dashboard continua funcionando com dados anteriores
+            logger.warning("=" * 60)
+            logger.warning("⚠️ Erro ao atualizar Materialized View")
+            logger.warning(f"Erro: {e}")
+            logger.warning("Dashboard continuará com dados anteriores")
+            logger.warning("Próxima tentativa na próxima coleta")
+            logger.warning("=" * 60)
+            return False
+
     async def get_filter_options(self) -> Dict[str, List]:
         try:
             nichos_response = self.supabase.table("canais_monitorados").select("nicho").execute()

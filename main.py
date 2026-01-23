@@ -2501,9 +2501,20 @@ async def run_collection_job():
         logger.info("=" * 80)
         logger.info(f"✅ COLLECTION COMPLETED")
         logger.info("=" * 80)
-        
+
         last_collection_time = datetime.now(timezone.utc)
-        
+
+        # 🆕 REFRESH AUTOMÁTICO DA MATERIALIZED VIEW
+        # Atualiza os totais de vídeos após cada coleta
+        try:
+            logger.info("")  # Linha em branco para melhor visualização
+            await db.refresh_mv_canal_video_stats()
+            logger.info("")  # Linha em branco para melhor visualização
+        except Exception as mv_error:
+            # Não é crítico - apenas log de warning
+            logger.warning(f"⚠️ Falha ao atualizar Materialized View: {mv_error}")
+            logger.warning("Dashboard continuará funcionando com dados anteriores")
+
         # Run daily analysis
         await run_daily_analysis_job()
         
