@@ -376,7 +376,12 @@ class SupabaseClient:
                 historico_por_canal[canal_id][data_coleta] = h
 
             logger.info(f"📊 Canais com histórico: {len(historico_por_canal)}")
-            
+
+            # 🚀 OTIMIZAÇÃO: Buscar stats de vídeos de TODOS os canais em 1 query
+            logger.info("📊 Calculando stats de vídeos para todos os canais...")
+            all_video_stats = await self.get_all_canais_video_stats()
+            logger.info(f"✅ Stats calculadas para {len(all_video_stats)} canais")
+
             canais = []
             for item in canais_response.data:
                 canal = {
@@ -491,8 +496,8 @@ class SupabaseClient:
                             growth = ((canal["views_7d"] - views_anterior_7d) / views_anterior_7d) * 100
                             canal["growth_7d"] = round(growth, 2)
 
-                # 🆕 Calcular total_videos e total_views
-                video_stats = await self.get_canal_video_stats(item["id"])
+                # 🆕 Pegar stats de vídeos do dict pré-calculado (OTIMIZADO!)
+                video_stats = all_video_stats.get(item["id"], {"total_videos": 0, "total_views": 0})
                 canal["total_videos"] = video_stats["total_videos"]
                 canal["total_views"] = video_stats["total_views"]
 
@@ -755,6 +760,94 @@ class SupabaseClient:
         except Exception as e:
             logger.error(f"Erro ao calcular stats de vídeos do canal {canal_id}: {e}")
             return {"total_videos": 0, "total_views": 0}
+
+    async def get_all_canais_video_stats(self) -> Dict[int, Dict[str, int]]:
+        """
+        Calcula total_videos e total_views para TODOS os canais em UMA query.
+        Otimização: evita N+1 queries problem.
+
+        Returns:
+            Dict mapeando canal_id -> {"total_videos": int, "total_views": int}
+        """
+        try:
+            # Query SQL otimizada usando window functions
+            # Pega apenas a coleta mais recente de cada vídeo
+            query = """
+            WITH latest_videos AS (
+                SELECT DISTINCT ON (canal_id, video_id)
+                    canal_id,
+                    video_id,
+                    views_atuais
+                FROM videos_historico
+                ORDER BY canal_id, video_id, data_coleta DESC
+            )
+            SELECT
+                canal_id,
+                COUNT(DISTINCT video_id) as total_videos,
+                COALESCE(SUM(views_atuais), 0) as total_views
+            FROM latest_videos
+            GROUP BY canal_id
+            """
+
+            # Tentar executar query raw SQL no Supabase (se RPC disponível)
+            try:
+                response = self.supabase.rpc("execute_sql", {"query": query}).execute()
+
+                # Processar resultado da query SQL
+                result = {}
+                for row in response.data:
+                    result[row["canal_id"]] = {
+                        "total_videos": row["total_videos"],
+                        "total_views": row["total_views"]
+                    }
+
+                logger.info(f"✅ Stats calculadas para {len(result)} canais em 1 query SQL")
+                return result
+
+            except Exception as rpc_error:
+                # RPC não disponível, usar fallback
+                # Fallback: buscar todos os vídeos e processar em Python (menos eficiente)
+                logger.warning("RPC não disponível, usando fallback method")
+
+                # Buscar todos os vídeos de uma vez
+                response = self.supabase.table("videos_historico")\
+                    .select("canal_id, video_id, views_atuais, data_coleta")\
+                    .execute()
+
+                if not response.data:
+                    return {}
+
+                # Processar em Python (deduplicar e agregar)
+                videos_by_canal = {}
+                for record in response.data:
+                    canal_id = record.get("canal_id")
+                    video_id = record.get("video_id")
+                    data_coleta = record.get("data_coleta", "")
+
+                    if canal_id not in videos_by_canal:
+                        videos_by_canal[canal_id] = {}
+
+                    if video_id not in videos_by_canal[canal_id]:
+                        videos_by_canal[canal_id][video_id] = record
+                    elif data_coleta > videos_by_canal[canal_id][video_id].get("data_coleta", ""):
+                        videos_by_canal[canal_id][video_id] = record
+
+                # Calcular stats
+                result = {}
+                for canal_id, videos in videos_by_canal.items():
+                    total_videos = len(videos)
+                    total_views = sum(v.get("views_atuais", 0) for v in videos.values())
+                    result[canal_id] = {
+                        "total_videos": total_videos,
+                        "total_views": total_views
+                    }
+
+                logger.info(f"✅ Stats calculadas para {len(result)} canais (fallback method)")
+                return result
+
+        except Exception as e:
+            logger.error(f"Erro ao calcular stats de todos os canais: {e}")
+            return {}
 
     async def get_filter_options(self) -> Dict[str, List]:
         try:
