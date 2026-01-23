@@ -24,6 +24,12 @@ SISTEMA = platform.system()
 MACHINE_NAME = platform.node()
 USER_NAME = os.getenv('USERNAME') if SISTEMA == 'Windows' else os.getenv('USER')
 
+# Forçar UTF-8 no Windows para evitar erros de encoding
+if SISTEMA == 'Windows':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 # Mapeamento: arquivo de código → documentação relacionada
 DOC_MAPPING = {
     'main.py': '2_DASHBOARD_TECNICO/08_API_ENDPOINTS_COMPLETA.md',
@@ -216,7 +222,7 @@ def step3_pull():
         if output:
             files = [f for f in output.split('\n') if f.strip()][:5]
             for file in files:
-                print(f"      {Colors.GREEN}v{Colors.RESET} {file}")
+                print(f"      {Colors.GREEN}>{Colors.RESET} {file}")
             if len([f for f in output.split('\n') if f.strip()]) > 5:
                 more = len([f for f in output.split('\n') if f.strip()]) - 5
                 print(f"      {Colors.CYAN}... +{more} arquivo(s){Colors.RESET}")

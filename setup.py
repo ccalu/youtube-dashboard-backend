@@ -17,6 +17,12 @@ SISTEMA = platform.system()
 MACHINE_NAME = platform.node()
 USER_NAME = os.getenv('USERNAME') if SISTEMA == 'Windows' else os.getenv('USER')
 
+# Forçar UTF-8 no Windows para evitar erros de encoding
+if SISTEMA == 'Windows':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 # Cores (funciona em todos os sistemas)
 class Colors:
     if SISTEMA == 'Windows':
@@ -153,12 +159,12 @@ def step4_create_shortcuts():
         # Criar sync.cmd
         sync_cmd = Path('sync.cmd')
         sync_cmd.write_text('@echo off\npython sync.py %*\n')
-        print(f"   {Colors.GREEN}[OK]{Colors.RESET} Criado: sync.cmd → python sync.py")
+        print(f"   {Colors.GREEN}[OK]{Colors.RESET} Criado: sync.cmd -> python sync.py")
 
         # Criar setup.cmd
         setup_cmd = Path('setup.cmd')
         setup_cmd.write_text('@echo off\npython setup.py %*\n')
-        print(f"   {Colors.GREEN}[OK]{Colors.RESET} Criado: setup.cmd → python setup.py")
+        print(f"   {Colors.GREEN}[OK]{Colors.RESET} Criado: setup.cmd -> python setup.py")
 
         print(f"\n   {Colors.CYAN}[i]{Colors.RESET} No Windows, use:")
         print(f"       {Colors.BOLD}sync{Colors.RESET}   - Para sincronizar")
@@ -222,11 +228,11 @@ def show_summary():
     print(f"{Colors.GREEN}       SETUP COMPLETO COM SUCESSO!{Colors.RESET}")
     print(f"{Colors.BLUE}{'='*60}{Colors.RESET}\n")
 
-    print(f"{Colors.CYAN}✓ Git configurado{Colors.RESET}")
-    print(f"{Colors.CYAN}✓ Repositório inicializado{Colors.RESET}")
-    print(f"{Colors.CYAN}✓ Remote GitHub conectado{Colors.RESET}")
-    print(f"{Colors.CYAN}✓ Atalhos criados{Colors.RESET}")
-    print(f"{Colors.CYAN}✓ Pronto para usar!{Colors.RESET}\n")
+    print(f"{Colors.CYAN}[OK] Git configurado{Colors.RESET}")
+    print(f"{Colors.CYAN}[OK] Repositório inicializado{Colors.RESET}")
+    print(f"{Colors.CYAN}[OK] Remote GitHub conectado{Colors.RESET}")
+    print(f"{Colors.CYAN}[OK] Atalhos criados{Colors.RESET}")
+    print(f"{Colors.CYAN}[OK] Pronto para usar!{Colors.RESET}\n")
 
     print(f"{Colors.YELLOW}PRÓXIMOS PASSOS:{Colors.RESET}")
     print(f"1. Use {Colors.BOLD}sync{Colors.RESET} (ou {Colors.BOLD}python sync.py{Colors.RESET}) para sincronizar")
