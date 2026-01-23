@@ -850,7 +850,7 @@ def safe_days_diff(date_str: str) -> int:
 
 
 @app.get("/api/canais/{canal_id}/engagement")
-async def get_canal_engagement(canal_id: int):
+async def get_canal_engagement(canal_id: int, page: int = 1, limit: int = 10):
     """
     💬 Retorna análise completa de engajamento (comentários) de um canal.
 
@@ -933,41 +933,44 @@ async def get_canal_engagement(canal_id: int):
                 'message': 'Ainda não há comentários coletados para este canal. Execute a coleta de comentários para ver análises.'
             }
 
-        # Organizar dados por vídeo
-        videos_dict = {}
+        # Processar dados dos vídeos com paginação
+        videos_list = engagement_data.get('videos_summary', [])
 
-        # Processar comentários com problemas
-        for comment in engagement_data.get('problem_comments', []):
-            video_id = comment['video_id']
-            if video_id not in videos_dict:
-                videos_dict[video_id] = {
-                    'video_id': video_id,
-                    'video_title': comment.get('video_title', ''),
-                    'total_comments': 0,
-                    'positive_comments': [],
-                    'negative_comments': [],
-                    'problem_count': 0
-                }
+        # Aplicar paginação
+        offset = (page - 1) * limit
+        videos_paginated = videos_list[offset:offset + limit]
 
-            videos_dict[video_id]['negative_comments'].append(comment)
-            videos_dict[video_id]['problem_count'] += 1
+        # Formatar dados dos vídeos para o frontend
+        videos_data = []
+        for video_data in videos_paginated:
+            # Separar comentários positivos e negativos do vídeo
+            video_comments = video_data.get('comments', [])
+            positive_comments = [c for c in video_comments if c.get('sentiment_category') == 'positive']
+            negative_comments = [c for c in video_comments if c.get('sentiment_category') in ['negative', 'problem']]
 
-        # Processar comentários positivos
-        for comment in engagement_data.get('positive_comments', []):
-            video_id = comment['video_id']
-            if video_id not in videos_dict:
-                videos_dict[video_id] = {
-                    'video_id': video_id,
-                    'video_title': comment.get('video_title', ''),
-                    'total_comments': 0,
-                    'positive_comments': [],
-                    'negative_comments': [],
-                    'problem_count': 0
-                }
+            # Ordenar por like_count se existir
+            positive_comments.sort(key=lambda x: x.get('like_count', 0), reverse=True)
+            negative_comments.sort(key=lambda x: x.get('like_count', 0), reverse=True)
 
-            videos_dict[video_id]['positive_comments'].append(comment)
+            videos_data.append({
+                'video_id': video_data.get('video_id'),
+                'video_title': video_data.get('video_title', ''),
+                'published_days_ago': 0,  # Pode calcular se necessário
+                'views': 0,  # Pode buscar de videos_historico se necessário
+                'total_comments': video_data.get('total_comments', 0),
+                'positive_count': video_data.get('positive_count', 0),
+                'negative_count': video_data.get('negative_count', 0) + video_data.get('problem_count', 0),
+                'has_problems': video_data.get('problem_count', 0) > 0,
+                'problem_count': video_data.get('problem_count', 0),
+                'sentiment_score': round(
+                    (video_data.get('positive_count', 0) - video_data.get('negative_count', 0)) /
+                    max(video_data.get('total_comments', 1), 1) * 100, 1
+                ),
+                'positive_comments': positive_comments[:10],  # Top 10 positivos
+                'negative_comments': negative_comments[:10]   # Top 10 negativos
+            })
 
-        # Agrupar problemas por tipo
+        # Agrupar problemas por tipo (usando comentários com problema)
         problems_grouped = {
             'audio': [],
             'video': [],
@@ -981,35 +984,25 @@ async def get_canal_engagement(canal_id: int):
                 problems_grouped[problem_type].append({
                     'video_title': comment.get('video_title', ''),
                     'author': comment.get('author_name', ''),
-                    'text_pt': comment.get('comment_text_pt', comment.get('comment_text_original', '')),
+                    'text_pt': comment.get('comment_text_pt', comment.get('comment_text', '')),
                     'specific_issue': comment.get('problem_description', ''),
                     'suggested_action': comment.get('suggested_action', '')
                 })
 
-        # Converter para lista de vídeos
-        videos_list = []
-        for video_id, video_data in videos_dict.items():
-            video_data['positive_count'] = len(video_data['positive_comments'])
-            video_data['negative_count'] = len(video_data['negative_comments'])
-            video_data['total_comments'] = video_data['positive_count'] + video_data['negative_count']
-            video_data['has_problems'] = video_data['problem_count'] > 0
-
-            # Calcular sentiment score
-            total = video_data['total_comments']
-            if total > 0:
-                video_data['sentiment_score'] = round((video_data['positive_count'] - video_data['negative_count']) / total * 100, 1)
-            else:
-                video_data['sentiment_score'] = 0
-
-            videos_list.append(video_data)
-
-        # Ordenar por mais recente ou maior engajamento
-        videos_list.sort(key=lambda x: x['total_comments'], reverse=True)
+        # Calcular total de páginas
+        total_videos = len(engagement_data.get('videos_summary', []))
+        total_pages = (total_videos + limit - 1) // limit
 
         return {
             'summary': engagement_data['summary'],
-            'videos': videos_list[:20],  # Top 20 vídeos
-            'problems_grouped': problems_grouped
+            'videos': videos_data,  # Vídeos paginados com comentários
+            'problems_grouped': problems_grouped,
+            'pagination': {
+                'page': page,
+                'limit': limit,
+                'total_videos': total_videos,
+                'total_pages': total_pages
+            }
         }
 
     except Exception as e:

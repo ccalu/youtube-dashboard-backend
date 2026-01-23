@@ -2088,64 +2088,80 @@ class SupabaseClient:
 
     async def get_canal_engagement_data(self, canal_id: int) -> Dict[str, Any]:
         """
-        Busca dados de engajamento completos de um canal
+        Busca dados de engajamento completos de um canal DIRETO dos comentários
         """
         try:
-            # Buscar resumo geral
-            summary_response = self.supabase.table('video_comments_summary')\
+            # Buscar TODOS os comentários do canal
+            all_comments_response = self.supabase.table('video_comments')\
                 .select('*')\
                 .eq('canal_id', canal_id)\
-                .order('last_analyzed_at', desc=True)\
                 .execute()
 
-            # Buscar comentários com problemas
-            problems_response = self.supabase.table('video_comments')\
-                .select('*')\
-                .eq('canal_id', canal_id)\
-                .eq('has_problem', True)\
-                .order('published_at', desc=True)\
-                .limit(20)\
-                .execute()
-
-            # Buscar comentários positivos
-            positive_response = self.supabase.table('video_comments')\
-                .select('*')\
-                .eq('canal_id', canal_id)\
-                .eq('sentiment_category', 'positive')\
-                .eq('has_praise', True)\
-                .order('like_count', desc=True)\
-                .limit(20)\
-                .execute()
-
-            # Buscar comentários acionáveis
-            actionable_response = self.supabase.table('video_comments')\
-                .select('*')\
-                .eq('canal_id', canal_id)\
-                .eq('action_required', True)\
-                .eq('is_resolved', False)\
-                .order('published_at', desc=True)\
-                .limit(20)\
-                .execute()
+            all_comments = all_comments_response.data if all_comments_response.data else []
 
             # Calcular métricas gerais
-            total_comments = sum(s.get('total_comments', 0) for s in summary_response.data) if summary_response.data else 0
-            total_positive = sum(s.get('positive_count', 0) for s in summary_response.data) if summary_response.data else 0
-            total_negative = sum(s.get('negative_count', 0) for s in summary_response.data) if summary_response.data else 0
+            total_comments = len(all_comments)
+            positive_count = len([c for c in all_comments if c.get('sentiment_category') == 'positive'])
+            negative_count = len([c for c in all_comments if c.get('sentiment_category') == 'negative'])
+            problem_count = len([c for c in all_comments if c.get('sentiment_category') == 'problem'])
+
+            # Agrupar comentários por vídeo
+            videos_data = {}
+            for comment in all_comments:
+                video_id = comment.get('video_id')
+                if video_id not in videos_data:
+                    videos_data[video_id] = {
+                        'video_id': video_id,
+                        'video_title': comment.get('video_title', ''),
+                        'total_comments': 0,
+                        'positive_count': 0,
+                        'negative_count': 0,
+                        'neutral_count': 0,
+                        'problem_count': 0,
+                        'comments': []
+                    }
+
+                videos_data[video_id]['total_comments'] += 1
+                videos_data[video_id]['comments'].append(comment)
+
+                sentiment = comment.get('sentiment_category', 'neutral')
+                if sentiment == 'positive':
+                    videos_data[video_id]['positive_count'] += 1
+                elif sentiment == 'negative':
+                    videos_data[video_id]['negative_count'] += 1
+                elif sentiment == 'problem':
+                    videos_data[video_id]['problem_count'] += 1
+                else:
+                    videos_data[video_id]['neutral_count'] += 1
+
+            # Converter para lista e ordenar por total de comentários
+            videos_list = list(videos_data.values())
+            videos_list.sort(key=lambda x: x['total_comments'], reverse=True)
+
+            # Buscar comentários positivos e negativos para destaque
+            positive_comments = [c for c in all_comments if c.get('sentiment_category') == 'positive']
+            negative_comments = [c for c in all_comments if c.get('sentiment_category') == 'negative']
+            problem_comments = [c for c in all_comments if c.get('sentiment_category') == 'problem']
+
+            # Ordenar por like_count se existir
+            positive_comments.sort(key=lambda x: x.get('like_count', 0), reverse=True)
+            negative_comments.sort(key=lambda x: x.get('like_count', 0), reverse=True)
 
             return {
                 'summary': {
                     'total_comments': total_comments,
-                    'positive_count': total_positive,
-                    'negative_count': total_negative,
-                    'positive_pct': round(total_positive / total_comments * 100, 1) if total_comments > 0 else 0,
-                    'negative_pct': round(total_negative / total_comments * 100, 1) if total_comments > 0 else 0,
-                    'actionable_count': len(actionable_response.data) if actionable_response.data else 0,
-                    'problems_count': len(problems_response.data) if problems_response.data else 0
+                    'positive_count': positive_count,
+                    'negative_count': negative_count,
+                    'positive_pct': round(positive_count / total_comments * 100, 1) if total_comments > 0 else 0,
+                    'negative_pct': round(negative_count / total_comments * 100, 1) if total_comments > 0 else 0,
+                    'actionable_count': problem_count,  # problemas são acionáveis
+                    'problems_count': problem_count
                 },
-                'videos_summary': summary_response.data[:10] if summary_response.data else [],
-                'problem_comments': problems_response.data if problems_response.data else [],
-                'positive_comments': positive_response.data if positive_response.data else [],
-                'actionable_comments': actionable_response.data if actionable_response.data else []
+                'videos_summary': videos_list,  # TODOS os vídeos com comentários
+                'problem_comments': problem_comments[:20],  # Top 20 problemas
+                'positive_comments': positive_comments[:20],  # Top 20 positivos
+                'negative_comments': negative_comments[:20],  # Top 20 negativos
+                'actionable_comments': problem_comments[:20]  # Problemas são acionáveis
             }
 
         except Exception as e:
