@@ -620,6 +620,50 @@ async def get_canal_analytics(canal_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def safe_days_diff(date_str: str) -> int:
+    """
+    Calcula diferença em dias entre agora e uma data, com tratamento seguro de timezone.
+
+    Args:
+        date_str: String de data em formato ISO (com ou sem timezone)
+
+    Returns:
+        Número de dias de diferença ou 0 se houver erro
+    """
+    try:
+        if not date_str:
+            return 0
+
+        # Garantir que temos datetime.now com timezone UTC
+        now_utc = datetime.now(timezone.utc)
+
+        # Tentar parsear a data
+        if 'T' in date_str:
+            # Formato ISO com tempo
+            if date_str.endswith('Z'):
+                # Z significa UTC - converter para +00:00
+                date_str = date_str.replace('Z', '+00:00')
+
+            # Parse da data
+            target_date = datetime.fromisoformat(date_str)
+
+            # Se não tem timezone (naive), assumir UTC
+            if target_date.tzinfo is None:
+                target_date = target_date.replace(tzinfo=timezone.utc)
+
+        else:
+            # Formato sem tempo - assumir início do dia em UTC
+            target_date = datetime.fromisoformat(date_str + 'T00:00:00+00:00')
+
+        # Calcular diferença
+        delta = now_utc - target_date
+        return delta.days
+
+    except Exception as e:
+        logger.debug(f"Erro ao calcular diferença de dias para '{date_str}': {e}")
+        return 0
+
+
 @app.get("/api/canais/{canal_id}/engagement")
 async def get_canal_engagement(canal_id: int):
     """
@@ -672,7 +716,7 @@ async def get_canal_engagement(canal_id: int):
                 videos_data.append({
                     'video_id': video.get('video_id'),
                     'video_title': video.get('titulo', ''),
-                    'published_days_ago': (datetime.now(timezone.utc) - datetime.fromisoformat(video['data_publicacao'].replace('Z', '+00:00'))).days if video.get('data_publicacao') else 0,
+                    'published_days_ago': safe_days_diff(video.get('data_publicacao', '')),
                     'views': video.get('views_atuais', 0),
                     'total_comments': 0,
                     'positive_count': 0,
