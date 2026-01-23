@@ -666,21 +666,37 @@ class SupabaseClient:
             Lista de vídeos ordenados por views_atuais DESC
         """
         try:
-            # Buscar TODOS os vídeos do canal (limite generoso para garantir deduplicação)
-            response = self.supabase.table("videos_historico")\
-                .select("*")\
-                .eq("canal_id", canal_id)\
-                .order("views_atuais", desc=True)\
-                .limit(limit * 10)\
-                .execute()
+            # CORREÇÃO: Buscar TODOS os vídeos do canal sem limite inicial
+            # Isso garante que pegaremos todos os vídeos únicos
+            all_videos = []
+            offset = 0
+            batch_size = 1000
 
-            if not response.data:
+            # Paginar para buscar TODOS os registros
+            while True:
+                response = self.supabase.table("videos_historico")\
+                    .select("*")\
+                    .eq("canal_id", canal_id)\
+                    .range(offset, offset + batch_size - 1)\
+                    .execute()
+
+                if response.data:
+                    all_videos.extend(response.data)
+                    if len(response.data) < batch_size:
+                        break
+                    offset += batch_size
+                else:
+                    break
+
+            if not all_videos:
                 logger.info(f"Nenhum vídeo encontrado para canal {canal_id}")
                 return []
 
+            logger.info(f"📊 Canal {canal_id}: {len(all_videos)} registros totais encontrados")
+
             # Deduplicar: pegar coleta mais recente de cada video_id
             videos_dict = {}
-            for video in response.data:
+            for video in all_videos:
                 video_id = video.get("video_id")
                 if not video_id:
                     continue
@@ -697,13 +713,17 @@ class SupabaseClient:
             videos = list(videos_dict.values())
             videos.sort(key=lambda x: x.get("views_atuais", 0), reverse=True)
 
+            logger.info(f"📹 Canal {canal_id}: {len(videos)} vídeos únicos após deduplicação")
+
             # Adicionar url_thumbnail calculada
             for video in videos:
                 video_id = video.get("video_id", "")
                 video["url_thumbnail"] = f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
 
-            logger.info(f"✅ Top {limit} vídeos do canal {canal_id} encontrados")
-            return videos[:limit]
+            # Retornar top N vídeos
+            result = videos[:limit]
+            logger.info(f"✅ Retornando top {len(result)} vídeos do canal {canal_id} (solicitado: {limit})")
+            return result
 
         except Exception as e:
             logger.error(f"Erro ao buscar top vídeos do canal {canal_id}: {e}")
