@@ -404,7 +404,10 @@ class SupabaseClient:
                     "views_growth_30d": None,  # % crescimento views 30d vs 30d anteriores
                     # 🆕 Novos campos de diferença absoluta
                     "views_diff_7d": None,     # diferença absoluta views 7d vs 7d anteriores
-                    "views_diff_30d": None     # diferença absoluta views 30d vs 30d anteriores
+                    "views_diff_30d": None,     # diferença absoluta views 30d vs 30d anteriores
+                    # 🆕 Novos campos de estatísticas de vídeos
+                    "total_videos": 0,          # quantidade total de vídeos únicos
+                    "total_views": 0            # soma das views de todos os vídeos
                 }
 
                 # 🔧 Se tem histórico recente, usa ele
@@ -487,7 +490,12 @@ class SupabaseClient:
                         if views_anterior_7d > 0:
                             growth = ((canal["views_7d"] - views_anterior_7d) / views_anterior_7d) * 100
                             canal["growth_7d"] = round(growth, 2)
-                
+
+                # 🆕 Calcular total_videos e total_views
+                video_stats = await self.get_canal_video_stats(item["id"])
+                canal["total_videos"] = video_stats["total_videos"]
+                canal["total_views"] = video_stats["total_views"]
+
                 canais.append(canal)
             
             # Aplicar filtros numéricos
@@ -639,6 +647,114 @@ class SupabaseClient:
             import traceback
             logger.error(traceback.format_exc())
             return []
+
+    async def get_top_videos_by_canal(self, canal_id: int, limit: int = 5) -> List[Dict]:
+        """
+        Busca os top N vídeos de um canal ordenados por views.
+        Retorna apenas a coleta mais recente de cada vídeo.
+
+        Args:
+            canal_id: ID do canal
+            limit: Quantidade de vídeos (padrão: 5)
+
+        Returns:
+            Lista de vídeos ordenados por views_atuais DESC
+        """
+        try:
+            # Buscar TODOS os vídeos do canal (limite generoso para garantir deduplicação)
+            response = self.supabase.table("videos_historico")\
+                .select("*")\
+                .eq("canal_id", canal_id)\
+                .order("views_atuais", desc=True)\
+                .limit(limit * 10)\
+                .execute()
+
+            if not response.data:
+                logger.info(f"Nenhum vídeo encontrado para canal {canal_id}")
+                return []
+
+            # Deduplicar: pegar coleta mais recente de cada video_id
+            videos_dict = {}
+            for video in response.data:
+                video_id = video.get("video_id")
+                if not video_id:
+                    continue
+
+                data_coleta = video.get("data_coleta", "")
+
+                # Se não existe ou se a data_coleta é mais recente
+                if video_id not in videos_dict:
+                    videos_dict[video_id] = video
+                elif data_coleta > videos_dict[video_id].get("data_coleta", ""):
+                    videos_dict[video_id] = video
+
+            # Converter para lista e reordenar por views
+            videos = list(videos_dict.values())
+            videos.sort(key=lambda x: x.get("views_atuais", 0), reverse=True)
+
+            # Adicionar url_thumbnail calculada
+            for video in videos:
+                video_id = video.get("video_id", "")
+                video["url_thumbnail"] = f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
+
+            logger.info(f"✅ Top {limit} vídeos do canal {canal_id} encontrados")
+            return videos[:limit]
+
+        except Exception as e:
+            logger.error(f"Erro ao buscar top vídeos do canal {canal_id}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return []
+
+    async def get_canal_video_stats(self, canal_id: int) -> Dict[str, int]:
+        """
+        Calcula total_videos e total_views de um canal.
+        Usa apenas a coleta mais recente de cada vídeo.
+
+        Args:
+            canal_id: ID do canal
+
+        Returns:
+            {
+                "total_videos": int,
+                "total_views": int
+            }
+        """
+        try:
+            # Buscar todos os vídeos deste canal (campos mínimos para performance)
+            response = self.supabase.table("videos_historico")\
+                .select("video_id, views_atuais, data_coleta")\
+                .eq("canal_id", canal_id)\
+                .execute()
+
+            if not response.data:
+                return {"total_videos": 0, "total_views": 0}
+
+            # Deduplicar: pegar coleta mais recente de cada video_id
+            videos_dict = {}
+            for record in response.data:
+                video_id = record.get("video_id")
+                data_coleta = record.get("data_coleta", "")
+
+                if video_id not in videos_dict:
+                    videos_dict[video_id] = record
+                elif data_coleta > videos_dict[video_id].get("data_coleta", ""):
+                    videos_dict[video_id] = record
+
+            # Calcular métricas
+            total_videos = len(videos_dict)
+            total_views = sum(v.get("views_atuais", 0) for v in videos_dict.values())
+
+            logger.debug(f"Canal {canal_id}: {total_videos} vídeos, {total_views:,} views totais")
+
+            return {
+                "total_videos": total_videos,
+                "total_views": total_views
+            }
+
+        except Exception as e:
+            logger.error(f"Erro ao calcular stats de vídeos do canal {canal_id}: {e}")
+            return {"total_videos": 0, "total_views": 0}
 
     async def get_filter_options(self) -> Dict[str, List]:
         try:

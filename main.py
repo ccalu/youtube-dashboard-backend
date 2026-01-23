@@ -905,6 +905,66 @@ async def collect_canal_comments(canal_id: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/canais/{canal_id}/top-videos")
+async def get_canal_top_videos(canal_id: int):
+    """
+    📺 Retorna os 5 vídeos mais vistos de um canal.
+
+    Usado na aba "Top Videos" do modal de analytics.
+    Ordenação por views_atuais (maior → menor).
+
+    Args:
+        canal_id: ID do canal
+
+    Returns:
+        {
+            "canal_id": int,
+            "canal_nome": str,
+            "top_videos": [
+                {
+                    "video_id": str,
+                    "titulo": str,
+                    "url_video": str,
+                    "url_thumbnail": str,  // calculado
+                    "data_publicacao": str,
+                    "views_atuais": int,
+                    "likes": int,
+                    "comentarios": int,
+                    "duracao": int  // segundos
+                }
+            ]
+        }
+    """
+    try:
+        # Verificar se canal existe
+        canal_response = db.supabase.table("canais_monitorados")\
+            .select("id, nome_canal")\
+            .eq("id", canal_id)\
+            .execute()
+
+        if not canal_response.data:
+            raise HTTPException(status_code=404, detail="Canal não encontrado")
+
+        canal = canal_response.data[0]
+
+        logger.info(f"📺 Buscando top 5 vídeos do canal: {canal.get('nome_canal')} (ID: {canal_id})")
+
+        # Buscar top 5 vídeos
+        top_videos = await db.get_top_videos_by_canal(canal_id, limit=5)
+
+        return {
+            "canal_id": canal_id,
+            "canal_nome": canal.get("nome_canal"),
+            "top_videos": top_videos
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao buscar top vídeos do canal {canal_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.patch("/api/canais/{channel_id}/monetizacao")
 async def toggle_monetizacao(channel_id: str, body: dict):
     """
