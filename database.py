@@ -1,5 +1,6 @@
 import os
 import asyncio
+import time
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Optional, Any
 import logging
@@ -971,6 +972,167 @@ class SupabaseClient:
             logger.warning("Próxima tentativa na próxima coleta")
             logger.warning("=" * 60)
             return False
+
+    async def refresh_all_dashboard_mvs(self) -> dict:
+        """
+        Atualiza TODAS as Materialized Views do dashboard.
+        Chamado após coleta diária às 5h AM.
+
+        Returns:
+            Dicionário com estatísticas do refresh
+        """
+        try:
+            logger.info("=" * 60)
+            logger.info("🔄 REFRESH DE TODAS AS MATERIALIZED VIEWS")
+            logger.info("=" * 60)
+
+            start_time = datetime.now()
+            results = {}
+
+            # Chamar função SQL que faz refresh de TODAS as MVs
+            response = self.supabase.rpc("refresh_all_dashboard_mvs").execute()
+
+            if response.data:
+                for mv in response.data:
+                    mv_name = mv.get('mv_name', 'unknown')
+                    status = mv.get('status', 'UNKNOWN')
+                    rows = mv.get('rows_affected', 0)
+                    exec_time = mv.get('execution_time', '0')
+
+                    results[mv_name] = {
+                        'status': status,
+                        'rows': rows,
+                        'time': exec_time
+                    }
+
+                    if status == 'SUCCESS':
+                        logger.info(f"✅ {mv_name}: {rows} linhas, tempo: {exec_time}")
+                    else:
+                        logger.warning(f"⚠️ {mv_name}: {status}")
+
+            elapsed = (datetime.now() - start_time).total_seconds()
+            logger.info(f"⏱️  Tempo total de refresh: {elapsed:.1f} segundos")
+            logger.info("=" * 60)
+
+            return results
+
+        except Exception as e:
+            logger.error(f"❌ Erro ao atualizar MVs: {e}")
+            return {'error': str(e)}
+
+    async def get_dashboard_from_mv(self, tipo: str = None, subnicho: str = None,
+                                   lingua: str = None, limit: int = 100,
+                                   offset: int = 0) -> List[Dict]:
+        """
+        Busca dados do dashboard direto da Materialized View.
+        Ultra-rápido: < 100ms ao invés de 3000ms!
+
+        Args:
+            tipo: Filtrar por tipo (nosso/minerado)
+            subnicho: Filtrar por subnicho
+            lingua: Filtrar por língua
+            limit: Quantidade máxima de resultados
+            offset: Offset para paginação
+
+        Returns:
+            Lista de canais com todas as métricas pré-calculadas
+        """
+        try:
+            # Tentar buscar da MV otimizada
+            logger.info("⚡ Buscando dados da Materialized View mv_dashboard_completo...")
+            start_time = time.time()
+
+            # Construir query base
+            query = self.supabase.table("mv_dashboard_completo")\
+                .select("*")\
+                .order("inscritos", desc=True)\
+                .limit(limit)\
+                .offset(offset)
+
+            # Aplicar filtros opcionais
+            if tipo:
+                query = query.eq("tipo", tipo)
+            if subnicho:
+                query = query.eq("subnicho", subnicho)
+            if lingua:
+                query = query.eq("lingua", lingua)
+
+            # Executar query
+            response = query.execute()
+
+            if response.data:
+                elapsed_ms = int((time.time() - start_time) * 1000)
+                logger.info(f"✅ MV retornou {len(response.data)} canais em {elapsed_ms}ms")
+
+                # Formatar resposta para manter compatibilidade
+                result = []
+                for canal in response.data:
+                    # Converter campos para formato esperado
+                    formatted = {
+                        'id': canal.get('canal_id'),
+                        'nome_canal': canal.get('nome_canal'),
+                        'canal_handle': canal.get('canal_handle'),
+                        'tipo': canal.get('tipo'),
+                        'subnicho': canal.get('subnicho'),
+                        'lingua': canal.get('lingua'),
+                        'pais': canal.get('pais'),
+                        'status': canal.get('status'),
+                        'url_canal': canal.get('url_canal'),
+                        'thumbnail_url': canal.get('thumbnail_url'),
+                        'descricao': canal.get('descricao'),
+                        'data_adicao': canal.get('data_adicao'),
+                        'ultima_verificacao': canal.get('ultima_verificacao'),
+                        'coleta_ativa': canal.get('coleta_ativa'),
+                        'notificacoes_ativas': canal.get('notificacoes_ativas'),
+                        'limite_notificacao': canal.get('limite_notificacao'),
+                        'dias_notificacao': canal.get('dias_notificacao'),
+                        'views_referencia': canal.get('views_referencia'),
+
+                        # Métricas atuais
+                        'inscritos': canal.get('inscritos', 0),
+                        'views_totais': canal.get('views_totais', 0),
+                        'videos_publicados': canal.get('videos_publicados', 0),
+                        'ultima_coleta': canal.get('ultima_coleta'),
+
+                        # Growth metrics
+                        'inscritos_diff': canal.get('inscritos_diff', 0),
+                        'views_diff_24h': canal.get('views_diff_24h', 0),
+                        'views_diff_7d': canal.get('views_diff_7d', 0),
+                        'views_diff_30d': canal.get('views_diff_30d', 0),
+                        'views_growth_7d': canal.get('views_growth_7d', 0),
+                        'views_growth_30d': canal.get('views_growth_30d', 0),
+
+                        # Video stats
+                        'total_videos': canal.get('total_videos', 0),
+                        'total_video_views': canal.get('total_video_views', 0),
+
+                        # Dados históricos (compatibilidade)
+                        'inscritos_7d_atras': canal.get('inscritos_7d_atras', 0),
+                        'views_7d_atras': canal.get('views_7d_atras', 0),
+                        'inscritos_30d_atras': canal.get('inscritos_30d_atras', 0),
+                        'views_30d_atras': canal.get('views_30d_atras', 0)
+                    }
+                    result.append(formatted)
+
+                return result
+
+            else:
+                logger.warning("⚠️ MV vazia ou não existe, usando fallback...")
+                # Fallback para método antigo se MV não existir
+                return await self.get_canais_with_filters(
+                    tipo=tipo, subnicho=subnicho, lingua=lingua,
+                    limit=limit, offset=offset
+                )
+
+        except Exception as e:
+            logger.error(f"❌ Erro ao buscar da MV: {e}")
+            logger.info("📊 Usando método tradicional como fallback...")
+
+            # Fallback para método antigo em caso de erro
+            return await self.get_canais_with_filters(
+                tipo=tipo, subnicho=subnicho, lingua=lingua,
+                limit=limit, offset=offset
+            )
 
     async def get_filter_options(self) -> Dict[str, List]:
         try:

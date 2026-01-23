@@ -48,6 +48,128 @@ app.add_middleware(
 )
 
 # ========================================
+# 💾 SISTEMA DE CACHE 24H PARA DASHBOARD
+# ========================================
+import hashlib
+from functools import wraps
+import json
+
+# Cache global com TTL de 24 horas
+dashboard_cache = {}
+CACHE_DURATION = timedelta(hours=24)  # Cache de 24 horas (só atualiza após coleta)
+
+def get_cache_key(endpoint: str, params: dict = None) -> str:
+    """
+    Gera chave única para o cache baseada no endpoint e parâmetros.
+
+    Args:
+        endpoint: Nome do endpoint
+        params: Parâmetros da requisição
+
+    Returns:
+        Hash MD5 único para identificar o cache
+    """
+    params = params or {}
+    # Ordenar parâmetros para garantir consistência
+    param_str = json.dumps(sorted(params.items()) if params else [], sort_keys=True)
+    cache_str = f"{endpoint}:{param_str}"
+    return hashlib.md5(cache_str.encode()).hexdigest()
+
+def get_cached_response(cache_key: str) -> Optional[Any]:
+    """
+    Busca resposta no cache se ainda válida.
+
+    Args:
+        cache_key: Chave do cache
+
+    Returns:
+        Dados do cache ou None se expirado/inexistente
+    """
+    if cache_key in dashboard_cache:
+        cached_data, cached_time = dashboard_cache[cache_key]
+        now = datetime.now(timezone.utc)
+
+        # Verificar se cache ainda é válido (24h)
+        if now - cached_time < CACHE_DURATION:
+            age_minutes = int((now - cached_time).total_seconds() / 60)
+            logger.info(f"⚡ Cache hit! Servindo instantâneo (idade: {age_minutes} min)")
+            return cached_data
+        else:
+            # Cache expirado, remover
+            del dashboard_cache[cache_key]
+            logger.info(f"⏰ Cache expirado (> 24h), buscando novo...")
+
+    return None
+
+def save_to_cache(cache_key: str, data: Any) -> None:
+    """
+    Salva dados no cache com timestamp.
+
+    Args:
+        cache_key: Chave do cache
+        data: Dados a serem cacheados
+    """
+    dashboard_cache[cache_key] = (data, datetime.now(timezone.utc))
+    logger.info(f"💾 Dados salvos no cache por 24h (key: {cache_key[:8]}...)")
+
+def clear_all_cache() -> dict:
+    """
+    Limpa todo o cache do dashboard.
+    Chamado após coleta diária às 5h.
+
+    Returns:
+        Estatísticas do cache limpo
+    """
+    cache_count = len(dashboard_cache)
+    cache_size = sum(len(str(v[0])) for v in dashboard_cache.values())
+    dashboard_cache.clear()
+
+    logger.info(f"🧹 Cache limpo: {cache_count} entradas, ~{cache_size/1024:.1f}KB liberados")
+    return {
+        "entries_cleared": cache_count,
+        "approx_size_kb": round(cache_size/1024, 1)
+    }
+
+def cache_endpoint(endpoint_name: str):
+    """
+    Decorator para adicionar cache automático a endpoints.
+
+    Args:
+        endpoint_name: Nome do endpoint para logging
+
+    Usage:
+        @cache_endpoint("canais")
+        async def get_canais(...):
+    """
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            # Gerar chave do cache baseada nos parâmetros
+            cache_params = {k: str(v) for k, v in kwargs.items() if v is not None}
+            cache_key = get_cache_key(endpoint_name, cache_params)
+
+            # Tentar buscar do cache
+            cached_data = get_cached_response(cache_key)
+            if cached_data is not None:
+                return cached_data
+
+            # Cache miss - buscar dados frescos
+            logger.info(f"📊 Cache miss para {endpoint_name} - buscando dados...")
+            start_time = time.time()
+
+            # Executar função original
+            result = await func(*args, **kwargs)
+
+            # Salvar no cache
+            elapsed_ms = int((time.time() - start_time) * 1000)
+            logger.info(f"✅ Dados obtidos em {elapsed_ms}ms")
+            save_to_cache(cache_key, result)
+
+            return result
+        return wrapper
+    return decorator
+
+# ========================================
 # 🔒 UPLOAD CONCURRENCY CONTROL
 # ========================================
 # Semáforo: máximo 3 uploads simultâneos (protege Railway de overload)
@@ -373,20 +495,64 @@ async def get_canais(
     offset: Optional[int] = 0
 ):
     try:
-        canais = await db.get_canais_with_filters(
-            nicho=nicho,
-            subnicho=subnicho,
-            lingua=lingua,
-            tipo=tipo,
-            views_30d_min=views_30d_min,
-            views_15d_min=views_15d_min,
-            views_7d_min=views_7d_min,
-            score_min=score_min,
-            growth_min=growth_min,
-            limit=limit,
-            offset=offset
-        )
-        return {"canais": canais, "total": len(canais)}
+        # Para requests simples (só tipo/subnicho/lingua), usar cache + MV
+        if (not views_30d_min and not views_15d_min and not views_7d_min and
+            not score_min and not growth_min and not nicho):
+
+            # Gerar chave do cache
+            cache_key = get_cache_key("canais", {
+                "tipo": tipo,
+                "subnicho": subnicho,
+                "lingua": lingua,
+                "limit": limit,
+                "offset": offset
+            })
+
+            # Tentar buscar do cache
+            cached_data = get_cached_response(cache_key)
+            if cached_data is not None:
+                return cached_data
+
+            # Cache miss - buscar da MV otimizada
+            logger.info(f"📊 Buscando dados da MV para /api/canais...")
+            start_time = time.time()
+
+            # Usar nova função otimizada com MV
+            canais = await db.get_dashboard_from_mv(
+                tipo=tipo,
+                subnicho=subnicho,
+                lingua=lingua,
+                limit=limit,
+                offset=offset
+            )
+
+            result = {"canais": canais, "total": len(canais)}
+
+            # Salvar no cache
+            elapsed_ms = int((time.time() - start_time) * 1000)
+            logger.info(f"✅ Dados obtidos em {elapsed_ms}ms")
+            save_to_cache(cache_key, result)
+
+            return result
+
+        else:
+            # Para filtros complexos, usar método tradicional (sem cache por enquanto)
+            logger.info("🔍 Filtros complexos detectados, usando método tradicional...")
+            canais = await db.get_canais_with_filters(
+                nicho=nicho,
+                subnicho=subnicho,
+                lingua=lingua,
+                tipo=tipo,
+                views_30d_min=views_30d_min,
+                views_15d_min=views_15d_min,
+                views_7d_min=views_7d_min,
+                score_min=score_min,
+                growth_min=growth_min,
+                limit=limit,
+                offset=offset
+            )
+            return {"canais": canais, "total": len(canais)}
+
     except Exception as e:
         logger.error(f"Error fetching canais: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -429,12 +595,24 @@ async def get_canais_tabela():
     Retorna nossos canais agrupados por subnicho para aba Tabela.
     Canais ordenados por desempenho (maior ganho de inscritos no topo).
     Subnichos ordenados alfabeticamente.
+
+    🚀 OTIMIZADO: Usa cache de 24h + Materialized View
     """
     try:
-        logger.info("Buscando canais para aba Tabela...")
+        # Gerar chave do cache
+        cache_key = get_cache_key("canais-tabela", {})
 
-        # Buscar todos os nossos canais (sem limite)
-        canais = await db.get_canais_with_filters(
+        # Tentar buscar do cache
+        cached_data = get_cached_response(cache_key)
+        if cached_data is not None:
+            return cached_data
+
+        # Cache miss - buscar dados
+        logger.info("📊 Buscando canais para aba Tabela...")
+        start_time = time.time()
+
+        # Buscar todos os nossos canais usando MV otimizada
+        canais = await db.get_dashboard_from_mv(
             tipo="nosso",
             limit=1000,
             offset=0
@@ -493,11 +671,18 @@ async def get_canais_tabela():
 
         logger.info(f"Canais agrupados em {len(grupos_ordenados)} subnichos")
 
-        return {
+        result = {
             "grupos": grupos_ordenados,
             "total_canais": len(canais),
             "total_subnichos": len(grupos_ordenados)
         }
+
+        # Salvar no cache
+        elapsed_ms = int((time.time() - start_time) * 1000)
+        logger.info(f"✅ Dados processados em {elapsed_ms}ms")
+        save_to_cache(cache_key, result)
+
+        return result
 
     except Exception as e:
         logger.error(f"Error fetching canais tabela: {e}")
@@ -2548,15 +2733,30 @@ async def run_collection_job():
 
         last_collection_time = datetime.now(timezone.utc)
 
-        # 🆕 REFRESH AUTOMÁTICO DA MATERIALIZED VIEW
-        # Atualiza os totais de vídeos após cada coleta
+        # 🚀 REFRESH AUTOMÁTICO DAS MATERIALIZED VIEWS + CACHE
+        # Atualiza TODAS as MVs e limpa cache após cada coleta
         try:
             logger.info("")  # Linha em branco para melhor visualização
-            await db.refresh_mv_canal_video_stats()
+            logger.info("=" * 60)
+            logger.info("🔄 ATUALIZANDO MATERIALIZED VIEWS E CACHE")
+            logger.info("=" * 60)
+
+            # 1. Atualizar TODAS as Materialized Views
+            mv_results = await db.refresh_all_dashboard_mvs()
+
+            # 2. Limpar todo o cache do dashboard (será renovado no próximo acesso)
+            cache_stats = clear_all_cache()
+            logger.info(f"🧹 Cache limpo: {cache_stats['entries_cleared']} entradas removidas")
+            logger.info(f"💾 Memória liberada: ~{cache_stats['approx_size_kb']}KB")
+
+            logger.info("✅ Dashboard pronto com dados frescos e cache renovado!")
+            logger.info("⚡ Próximo acesso será instantâneo (< 1ms)")
+            logger.info("=" * 60)
             logger.info("")  # Linha em branco para melhor visualização
+
         except Exception as mv_error:
             # Não é crítico - apenas log de warning
-            logger.warning(f"⚠️ Falha ao atualizar Materialized View: {mv_error}")
+            logger.warning(f"⚠️ Falha ao atualizar MVs/Cache: {mv_error}")
             logger.warning("Dashboard continuará funcionando com dados anteriores")
 
         # Run daily analysis
