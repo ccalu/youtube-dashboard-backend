@@ -128,6 +128,8 @@ ESTRUTURA ESPERADA:
   "comments": [
     {{
       "index": 1,
+      "translation_pt": "TRADUÇÃO ADAPTADA para português brasileiro (não literal, mas contextualizada e natural)",
+      "is_translated": true|false (true se o comentário foi traduzido, false se já estava em PT),
       "sentiment": {{
         "category": "positive|negative|neutral|mixed",
         "score": -1.0 a 1.0,
@@ -155,7 +157,14 @@ ESTRUTURA ESPERADA:
       "actionable_items": ["ação 1", "ação 2"] ou null
     }}
   ]
-}}"""
+}}
+
+IMPORTANTE SOBRE TRADUÇÃO:
+- SEMPRE traduza para português brasileiro, mesmo comentários já em PT (para padronizar)
+- Use linguagem natural e contextualizada, não tradução literal
+- Adapte gírias e expressões para equivalentes em PT-BR
+- Mantenha o tom e emoção originais
+- Se o comentário já estiver em PT-BR correto, apenas copie mas marque is_translated como false"""
 
     async def analyze_batch(
         self,
@@ -208,6 +217,8 @@ ESTRUTURA ESPERADA:
                             'author_name': comment.get('author_name', comment.get('author')),
                             'author_channel_id': comment.get('author_channel_id'),
                             'comment_text_original': comment.get('text', comment.get('comment_text_original')),
+                            'comment_text_pt': analysis.get('translation_pt', ''),  # TRADUÇÃO DO GPT
+                            'is_translated': analysis.get('is_translated', False),  # FLAG DE TRADUÇÃO
                             'like_count': comment.get('like_count', comment.get('likeCount', 0)),
                             'reply_count': comment.get('reply_count', comment.get('replyCount', 0)),
                             'is_reply': comment.get('is_reply', False),

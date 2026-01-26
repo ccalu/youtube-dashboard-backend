@@ -947,20 +947,6 @@ async def get_canal_engagement(canal_id: int, page: int = 1, limit: int = 10):
         # Processar dados dos vídeos com paginação
         videos_list = engagement_data.get('videos_summary', [])
 
-        # Buscar dados completos dos vídeos (views, título, data de publicação)
-        # Isso garante que temos as informações reais mesmo quando os comentários não trazem tudo
-        video_ids = [v.get('video_id') for v in videos_list if v.get('video_id')]
-        videos_from_db = []
-        if video_ids:
-            # Buscar vídeos do canal para obter views, título e data de publicação
-            videos_from_db = await db.get_videos_by_canal(canal_id, limit=200)  # Aumentado limite para garantir que pegamos todos
-
-        # Criar mapa de vídeos para acesso rápido
-        videos_map = {}
-        for video in videos_from_db:
-            if video.get('video_id') in video_ids:
-                videos_map[video['video_id']] = video
-
         # Aplicar paginação
         offset = (page - 1) * limit
         videos_paginated = videos_list[offset:offset + limit]
@@ -968,56 +954,20 @@ async def get_canal_engagement(canal_id: int, page: int = 1, limit: int = 10):
         # Formatar dados dos vídeos para o frontend
         videos_data = []
         for video_data in videos_paginated:
-            # Obter dados reais do vídeo do mapa
-            video_id = video_data.get('video_id')
-            video_info = videos_map.get(video_id, {})
-
             # Separar comentários positivos e negativos do vídeo
             video_comments = video_data.get('comments', [])
-
-            # Garantir que cada comentário tenha os campos obrigatórios
-            formatted_comments = []
-            for comment in video_comments:
-                # Priorizar texto traduzido, depois original
-                comment_text = (
-                    comment.get('comment_text_pt') or  # Primeiro: tradução
-                    comment.get('comment_text_original') or  # Segundo: original
-                    comment.get('comment_text', '') or  # Terceiro: fallback antigo
-                    ''  # Último: string vazia
-                )
-
-                formatted_comment = {
-                    'comment_id': comment.get('comment_id', ''),
-                    'author_name': comment.get('author_name', ''),
-                    'comment_text_pt': comment_text,  # Sempre enviar texto (traduzido ou original)
-                    'is_translated': comment.get('is_translated', False),
-                    'like_count': comment.get('like_count', 0),
-                    'insight_text': comment.get('insight_text', ''),
-                    'suggested_action': comment.get('suggested_action'),
-                    'sentiment_category': comment.get('sentiment_category', '')
-                }
-                formatted_comments.append(formatted_comment)
-
-            positive_comments = [c for c in formatted_comments if c.get('sentiment_category') == 'positive']
-            negative_comments = [c for c in formatted_comments if c.get('sentiment_category') in ['negative', 'problem']]
+            positive_comments = [c for c in video_comments if c.get('sentiment_category') == 'positive']
+            negative_comments = [c for c in video_comments if c.get('sentiment_category') in ['negative', 'problem']]
 
             # Ordenar por like_count se existir
             positive_comments.sort(key=lambda x: x.get('like_count', 0), reverse=True)
             negative_comments.sort(key=lambda x: x.get('like_count', 0), reverse=True)
 
-            # Log para debug do Bug #4 (comentários vazios)
-            if video_comments:
-                # Verificar se há sentiment_category nos comentários
-                sentiments = [c.get('sentiment_category', 'NONE') for c in video_comments[:5]]  # Primeiros 5 para debug
-                logger.info(f"🔍 Engagement - Video {video_id}: {len(video_comments)} comentários totais, "
-                          f"{len(positive_comments)} positivos, {len(negative_comments)} negativos. "
-                          f"Sentiments amostra: {sentiments}")
-
             videos_data.append({
-                'video_id': video_id,
-                'video_title': video_info.get('titulo') or video_data.get('video_title', ''),  # Prioriza título do DB
-                'published_days_ago': safe_days_diff(video_info.get('data_publicacao', '')),  # Calcula dias desde publicação
-                'views': video_info.get('views_atuais', 0),  # Views reais do banco
+                'video_id': video_data.get('video_id'),
+                'video_title': video_data.get('video_title', ''),
+                'published_days_ago': 0,  # Pode calcular se necessário
+                'views': 0,  # Pode buscar de videos_historico se necessário
                 'total_comments': video_data.get('total_comments', 0),
                 'positive_count': video_data.get('positive_count', 0),
                 'negative_count': video_data.get('negative_count', 0) + video_data.get('problem_count', 0),
