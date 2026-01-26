@@ -1094,6 +1094,15 @@ class SupabaseClient:
                         'videos_publicados': canal.get('videos_publicados', 0),
                         'ultima_coleta': canal.get('ultima_coleta'),
 
+                        # Métricas de views por período (CORRIGIDO - estavam faltando!)
+                        'views_60d': canal.get('views_60d', 0),
+                        'views_30d': canal.get('views_30d', 0),
+                        'views_15d': canal.get('views_15d', 0),
+                        'views_7d': canal.get('views_7d', 0),
+                        'videos_publicados_7d': canal.get('videos_publicados_7d', 0),
+                        'videos_30d': canal.get('videos_30d', 0),
+                        'engagement_rate': canal.get('engagement_rate', 0.0),
+
                         # Growth metrics
                         'inscritos_diff': canal.get('inscritos_diff', 0),
                         'views_diff_24h': canal.get('views_diff_24h', 0),
