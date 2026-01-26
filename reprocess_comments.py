@@ -115,6 +115,9 @@ async def reprocess_unanalyzed_comments(batch_size: int = 100) -> Dict:
                     'primary_category': gpt_analysis.get('primary_category'),
                     'priority_score': analyzed_comment.get('priority_score', 0),
                     'requires_response': analyzed_comment.get('requires_response', False),
+                    # CRITICAL: Adicionar campos de tradução
+                    'comment_text_pt': analyzed_comment.get('comment_text_pt', ''),
+                    'is_translated': analyzed_comment.get('is_translated', False),
                     'updated_at': datetime.utcnow().isoformat()
                 }
 
