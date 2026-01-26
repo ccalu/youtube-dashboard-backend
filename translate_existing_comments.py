@@ -33,19 +33,38 @@ class CommentTranslator:
         self.gpt = GPTAnalyzer()
         self.total_processed = 0
         self.total_translated = 0
+        self.total_skipped_pt = 0  # Comentários já em português
         self.total_errors = 0
         self.start_time = None
+
+    def is_likely_portuguese(self, text: str) -> bool:
+        """Detecta se o comentário provavelmente já está em português"""
+        if not text:
+            return False
+
+        # Palavras comuns em português
+        pt_words = [
+            'que', 'para', 'com', 'não', 'você', 'muito',
+            'é', 'está', 'fazer', 'ter', 'mas', 'isso',
+            'foi', 'vai', 'bem', 'quando', 'como', 'mais',
+            'seu', 'sua', 'esse', 'essa', 'todo', 'tudo',
+            'já', 'até', 'também', 'só', 'ainda', 'sempre'
+        ]
+
+        # Converter para lowercase e contar palavras PT
+        text_lower = text.lower()
+        matches = sum(1 for word in pt_words if f' {word} ' in f' {text_lower} ')
+
+        # Se tem 3+ palavras portuguesas, provavelmente é PT
+        return matches >= 3
 
     async def get_comments_to_translate(self, limit=1000, offset=0):
         """Busca comentários que precisam de tradução"""
         try:
-            # Buscar comentários sem tradução
+            # Buscar comentários sem tradução (apenas pelo campo comment_text_pt)
             response = self.db.supabase.table('video_comments').select(
                 'comment_id, author_name, comment_text_original, sentiment_category, video_id, canal_id'
-            ).or_(
-                'comment_text_pt.is.null',
-                'is_translated.eq.false'
-            ).range(offset, offset + limit - 1).execute()
+            ).is_('comment_text_pt', 'null').range(offset, offset + limit - 1).execute()
 
             return response.data if response.data else []
         except Exception as e:
@@ -55,25 +74,42 @@ class CommentTranslator:
     async def translate_batch(self, comments):
         """Traduz um lote de comentários usando GPT"""
         try:
-            # Preparar comentários para análise
+            # Separar comentários que precisam tradução vs já em português
             comments_for_gpt = []
+            comments_already_pt = []
+
             for comment in comments:
-                comments_for_gpt.append({
-                    'comment_id': comment['comment_id'],
-                    'author_name': comment.get('author_name', 'Anônimo'),
-                    'text': comment.get('comment_text_original', ''),
-                    'comment_text_original': comment.get('comment_text_original', '')
-                })
+                text = comment.get('comment_text_original', '')
 
-            # Analisar com GPT (inclui tradução)
-            analyzed = await self.gpt.analyze_batch(
-                comments=comments_for_gpt,
-                video_title="",
-                canal_name="",
-                batch_size=20  # Processar 20 por vez
-            )
+                # Se já está em português, pular tradução
+                if self.is_likely_portuguese(text):
+                    comments_already_pt.append({
+                        'comment_id': comment['comment_id'],
+                        'comment_text_pt': text,  # Apenas copia o texto original
+                        'is_translated': False  # Marca como não traduzido
+                    })
+                    self.total_skipped_pt += 1
+                else:
+                    # Precisa tradução
+                    comments_for_gpt.append({
+                        'comment_id': comment['comment_id'],
+                        'author_name': comment.get('author_name', 'Anônimo'),
+                        'text': text,
+                        'comment_text_original': text
+                    })
 
-            return analyzed
+            # Analisar com GPT apenas os que precisam tradução
+            analyzed = []
+            if comments_for_gpt:
+                analyzed = await self.gpt.analyze_batch(
+                    comments=comments_for_gpt,
+                    video_title="",
+                    canal_name="",
+                    batch_size=20  # Processar 20 por vez
+                )
+
+            # Combinar resultados
+            return analyzed + comments_already_pt
 
         except Exception as e:
             logger.error(f"❌ Erro na tradução GPT: {e}")
@@ -104,10 +140,7 @@ class CommentTranslator:
         try:
             count_response = self.db.supabase.table('video_comments').select(
                 'comment_id', count='exact'
-            ).or_(
-                'comment_text_pt.is.null',
-                'is_translated.eq.false'
-            ).execute()
+            ).is_('comment_text_pt', 'null').execute()
 
             total_to_translate = count_response.count if hasattr(count_response, 'count') else 0
             logger.info(f"📊 Total de comentários para traduzir: {total_to_translate}")
@@ -188,9 +221,17 @@ class CommentTranslator:
         logger.info("="*60)
         logger.info(f"✅ Total processado: {self.total_processed}")
         logger.info(f"🌐 Traduzidos com sucesso: {self.total_translated}")
+        logger.info(f"🇧🇷 Já em português (pulados): {self.total_skipped_pt}")
         logger.info(f"❌ Erros: {self.total_errors}")
         logger.info(f"⏱️ Tempo total: {elapsed/60:.1f} minutos")
         logger.info(f"📈 Taxa média: {self.total_processed/elapsed:.1f} comentários/segundo")
+
+        # Mostrar economia
+        total_enviado_gpt = self.total_translated
+        total_economizado = self.total_skipped_pt
+        if total_economizado > 0:
+            economia_pct = (total_economizado / (total_enviado_gpt + total_economizado)) * 100
+            logger.info(f"💰 Economia: {economia_pct:.1f}% dos comentários não precisaram de tradução")
 
         # Verificar resultado no banco
         try:
@@ -210,13 +251,13 @@ async def main():
 
     # Perguntar confirmação
     print("\n" + "="*60)
-    print("🌐 TRADUTOR DE COMENTÁRIOS EXISTENTES")
+    print("TRADUTOR DE COMENTARIOS EXISTENTES")
     print("="*60)
-    print("\nEste script irá:")
-    print("1. Buscar todos os comentários sem tradução")
+    print("\nEste script ira:")
+    print("1. Buscar todos os comentarios sem traducao")
     print("2. Enviar para GPT-4 Mini traduzir para PT-BR")
-    print("3. Salvar traduções no campo comment_text_pt")
-    print("\n⚠️ ATENÇÃO: Isso pode levar tempo e consumir créditos da OpenAI!")
+    print("3. Salvar traducoes no campo comment_text_pt")
+    print("\n[ATENCAO] Isso pode levar tempo e consumir creditos da OpenAI!")
 
     response = input("\nDeseja continuar? (s/n): ")
 

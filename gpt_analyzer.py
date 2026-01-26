@@ -160,11 +160,12 @@ ESTRUTURA ESPERADA:
 }}
 
 IMPORTANTE SOBRE TRADUÇÃO:
-- SEMPRE traduza para português brasileiro, mesmo comentários já em PT (para padronizar)
-- Use linguagem natural e contextualizada, não tradução literal
+- Se o comentário NÃO está em português: traduza para PT-BR natural e contextualizado
+- Se o comentário JÁ está em português: apenas copie o texto original e marque is_translated como false
+- Detecte português por palavras como: que, para, com, não, você, muito, é, está, fazer, ter
+- Use linguagem natural, não tradução literal
 - Adapte gírias e expressões para equivalentes em PT-BR
-- Mantenha o tom e emoção originais
-- Se o comentário já estiver em PT-BR correto, apenas copie mas marque is_translated como false"""
+- Mantenha o tom e emoção originais"""
 
     async def analyze_batch(
         self,
