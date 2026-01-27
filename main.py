@@ -2805,8 +2805,33 @@ async def run_collection_job():
             except Exception as e:
                 logger.error(f"❌ Error checking notifications: {e}")
 
-            # 🔄 REPROCESSAMENTO AUTOMÁTICO DE COMENTÁRIOS SEM ANÁLISE
-            if comentarios_total > 0:  # Só reprocessar se coletou comentários
+            # 🤖 AUTOMAÇÃO PÓS-COLETA: Tradução e geração de respostas
+            if comentarios_total > 0:
+                try:
+                    logger.info("=" * 80)
+                    logger.info("🤖 INICIANDO AUTOMAÇÃO PÓS-COLETA")
+                    logger.info(f"📝 Processando {comentarios_total} novos comentários...")
+                    logger.info("=" * 80)
+
+                    # Importar e executar automação em background
+                    from post_collection_automation import PostCollectionAutomation
+                    automation = PostCollectionAutomation()
+
+                    # Criar task assíncrona para não bloquear o fluxo
+                    asyncio.create_task(automation.run(only_recent=True))
+
+                    logger.info("✅ Automação pós-coleta iniciada em background")
+                    logger.info("   → Traduzindo comentários não-PT")
+                    logger.info("   → Gerando respostas TOP 10 (canais monetizados)")
+
+                except Exception as e:
+                    logger.error(f"❌ Erro ao iniciar automação pós-coleta: {e}")
+                    logger.error(f"   Detalhes: {str(e)}")
+                    # Não interrompe o fluxo - apenas registra o erro
+
+            # 🔄 REPROCESSAMENTO AUTOMÁTICO DE COMENTÁRIOS SEM ANÁLISE (LEGADO - DESATIVADO)
+            # NOTA: Substituído pela automação pós-coleta acima
+            if False:  # Desativado - mantido apenas para referência
                 try:
                     logger.info("=" * 80)
                     logger.info("🔄 REPROCESSAMENTO AUTOMÁTICO DE COMENTÁRIOS")
