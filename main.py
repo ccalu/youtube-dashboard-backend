@@ -994,24 +994,22 @@ async def get_canal_engagement(canal_id: int, page: int = 1, limit: int = 10):
                     'like_count': comment.get('like_count', 0),
                     'insight_text': comment.get('insight_text', ''),
                     'suggested_action': comment.get('suggested_action'),
-                    'sentiment_category': comment.get('sentiment_category', '')
+                    'sentiment_category': comment.get('sentiment_category', ''),
+                    'suggested_reply': comment.get('suggested_reply', '')  # Adicionar resposta sugerida
                 }
                 formatted_comments.append(formatted_comment)
 
-            positive_comments = [c for c in formatted_comments if c.get('sentiment_category') == 'positive']
-            negative_comments = [c for c in formatted_comments if c.get('sentiment_category') in ['negative', 'problem']]
+            # Ordenar todos os comentários por like_count (mais likes primeiro)
+            formatted_comments.sort(key=lambda x: x.get('like_count', 0), reverse=True)
 
-            # Ordenar por like_count se existir
-            positive_comments.sort(key=lambda x: x.get('like_count', 0), reverse=True)
-            negative_comments.sort(key=lambda x: x.get('like_count', 0), reverse=True)
+            # Arrays vazios para compatibilidade (Lovable pode estar esperando)
+            positive_comments = []
+            negative_comments = []
+            neutral_comments = []
 
-            # Log para debug do Bug #4 (comentários vazios)
+            # Log para debug
             if video_comments:
-                # Verificar se há sentiment_category nos comentários
-                sentiments = [c.get('sentiment_category', 'NONE') for c in video_comments[:5]]  # Primeiros 5 para debug
-                logger.info(f"🔍 Engagement - Video {video_id}: {len(video_comments)} comentários totais, "
-                          f"{len(positive_comments)} positivos, {len(negative_comments)} negativos. "
-                          f"Sentiments amostra: {sentiments}")
+                logger.info(f"🔍 Engagement - Video {video_id}: {len(video_comments)} comentários totais")
 
             videos_data.append({
                 'video_id': video_id,
@@ -1019,16 +1017,17 @@ async def get_canal_engagement(canal_id: int, page: int = 1, limit: int = 10):
                 'published_days_ago': safe_days_diff(video_info.get('data_publicacao', '')),  # Calcula dias desde publicação
                 'views': video_info.get('views_atuais', 0),  # Views reais do banco
                 'total_comments': video_data.get('total_comments', 0),
-                'positive_count': video_data.get('positive_count', 0),
-                'negative_count': video_data.get('negative_count', 0) + video_data.get('problem_count', 0),
-                'has_problems': video_data.get('problem_count', 0) > 0,
-                'problem_count': video_data.get('problem_count', 0),
-                'sentiment_score': round(
-                    (video_data.get('positive_count', 0) - video_data.get('negative_count', 0)) /
-                    max(video_data.get('total_comments', 1), 1) * 100, 1
-                ),
-                'positive_comments': positive_comments[:10],  # Top 10 positivos
-                'negative_comments': negative_comments[:10]   # Top 10 negativos
+                'positive_count': 0,  # Removido análise de sentimentos
+                'negative_count': 0,  # Removido análise de sentimentos
+                'has_problems': False,  # Removido análise de sentimentos
+                'problem_count': 0,  # Removido análise de sentimentos
+                'sentiment_score': 0,  # Removido análise de sentimentos
+                # Arrays para compatibilidade com frontend existente
+                'positive_comments': positive_comments,  # Array vazio
+                'negative_comments': negative_comments,  # Array vazio
+                'neutral_comments': neutral_comments,  # Array vazio
+                # NOVO: Array único com TODOS os comentários
+                'all_comments': formatted_comments[:20]  # Top 20 comentários (ordenados por likes)
             })
 
         # Agrupar problemas por tipo (usando comentários com problema)
@@ -1537,6 +1536,120 @@ async def get_comments_stats():
             'error': str(e),
             'message': 'Sistema de comentários ainda não tem dados. Execute a coleta para ver estatísticas.'
         }
+
+
+@app.get("/api/comments/management")
+async def get_comments_management():
+    """
+    💬 Retorna comentários dos canais monetizados para gestão de respostas.
+
+    Endpoint para a aba "Comentários" na seção Ferramentas do dashboard.
+    Gera respostas únicas e humanizadas para cada comentário.
+
+    Query params:
+        - canal_id: ID do canal específico (opcional)
+        - limit: Número máximo de comentários por vídeo (padrão: 10)
+        - sentiment: Filtrar por sentimento (positive/negative/neutral)
+        - requires_response: Se true, apenas comentários que precisam resposta
+
+    Returns:
+        JSON com canais monetizados e seus comentários com respostas sugeridas únicas
+    """
+    try:
+        # Importar o gerenciador de respostas
+        from comments_manager import comments_manager
+
+        # Buscar canais monetizados
+        monetized_response = db.supabase.table('canais_monitorados')\
+            .select('id, nome_canal, url_canal, status')\
+            .eq('subnicho', 'Monetizados')\
+            .eq('status', 'ativo')\
+            .execute()
+
+        if not monetized_response.data:
+            return {
+                'success': True,
+                'message': 'Nenhum canal monetizado encontrado',
+                'canais': [],
+                'total_comments': 0
+            }
+
+        result = {
+            'success': True,
+            'canais': [],
+            'total_comments': 0,
+            'total_responses_generated': 0
+        }
+
+        for canal in monetized_response.data:
+            canal_id = canal['id']
+            canal_nome = canal['nome_canal']
+
+            # Buscar vídeos recentes do canal
+            videos_response = db.supabase.table('videos_historico')\
+                .select('video_id, titulo, views_atuais, data_publicacao')\
+                .eq('canal_id', canal_id)\
+                .order('data_publicacao', desc=True)\
+                .limit(5)\
+                .execute()
+
+            if not videos_response.data:
+                continue
+
+            canal_data = {
+                'id': canal_id,
+                'nome': canal_nome,
+                'url': canal['url_canal'],
+                'videos': []
+            }
+
+            for video in videos_response.data:
+                video_id = video['video_id']
+
+                # Buscar comentários do vídeo
+                comments_query = db.supabase.table('video_comments')\
+                    .select('*')\
+                    .eq('video_id', video_id)\
+                    .order('priority_score', desc=True)\
+                    .limit(10)
+
+                # Aplicar filtros adicionais se fornecidos
+                # (sentiment, requires_response, etc)
+
+                comments_response = comments_query.execute()
+
+                if not comments_response.data:
+                    continue
+
+                # Processar comentários com o gerenciador para gerar respostas únicas
+                processed_comments = comments_manager.process_comments_batch(comments_response.data)
+
+                video_data = {
+                    'id': video_id,
+                    'titulo': video['titulo'],
+                    'views': video['views_atuais'],
+                    'data_publicacao': video['data_publicacao'],
+                    'url': f"https://youtube.com/watch?v={video_id}",
+                    'comments': processed_comments,
+                    'total_comments': len(processed_comments)
+                }
+
+                canal_data['videos'].append(video_data)
+                result['total_comments'] += len(processed_comments)
+                result['total_responses_generated'] += len(processed_comments)
+
+            if canal_data['videos']:
+                canal_data['total_videos'] = len(canal_data['videos'])
+                result['canais'].append(canal_data)
+
+        # Resetar cache do gerenciador periodicamente (a cada requisição para garantir unicidade)
+        comments_manager.reset_cache()
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Erro ao buscar comentários para gestão: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/videos")
@@ -2498,8 +2611,8 @@ async def run_collection_job():
                                                 'comment_id': comment.get('comment_id'),
                                                 'video_id': video_id,
                                                 'canal_id': canal['id'],
-                                                'author_name': comment.get('author'),
-                                                'comment_text_original': comment.get('text', ''),
+                                                'author_name': comment.get('author_name', ''),
+                                                'comment_text_original': comment.get('comment_text_original', ''),
                                                 'published_at': comment.get('published_at'),
                                                 'like_count': comment.get('like_count', 0),
                                                 'reply_count': comment.get('reply_count', 0),
@@ -2735,6 +2848,32 @@ async def run_collection_job():
                 except Exception as e:
                     logger.error(f"❌ Erro no reprocessamento automático: {str(e)}")
                     # Não falhar a coleta por erro no reprocessamento
+
+            # 🆕 PÓS-PROCESSAMENTO: Tradução + Geração de Respostas
+            # Executado APÓS análise GPT para não quebrar o processo atual
+            if comentarios_total > 0:
+                try:
+                    logger.info("=" * 80)
+                    logger.info("🔄 PÓS-PROCESSAMENTO: TRADUÇÃO E RESPOSTAS")
+                    logger.info("=" * 80)
+
+                    # Importar o workflow corrigido
+                    from workflow_comments_fixed import WorkflowCommentsFixed
+
+                    # Processar TODOS os comentários usando workflow corrigido
+                    processor = WorkflowCommentsFixed()
+                    post_stats = await processor.run_complete_workflow()
+
+                    logger.info(f"✅ Pós-processamento completo:")
+                    logger.info(f"  - Total comentários: {post_stats.get('total_comments', 0)}")
+                    logger.info(f"  - Com texto: {post_stats.get('comments_with_text', 0)}")
+                    logger.info(f"  - Traduzidos: {post_stats.get('translated', 0)}")
+                    logger.info(f"  - Respostas geradas: {post_stats.get('responses_generated', 0)}")
+                    logger.info(f"  - Erros: {post_stats.get('errors', 0)}")
+
+                except Exception as e:
+                    # Não quebrar a coleta se o pós-processamento falhar
+                    logger.error(f"⚠️ Erro no pós-processamento (não crítico): {e}")
 
             # 💰 COLETA DE MONETIZAÇÃO (ESTIMATIVAS)
             try:

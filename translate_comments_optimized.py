@@ -1,328 +1,179 @@
 """
-Script OTIMIZADO para traduzir comentários - Versão Simplificada
-Data: 26/01/2026
-Objetivo: Traduzir 5.645 comentários com JSON minimalista (90% menor)
+Módulo de Tradução Otimizado usando GPT-4 Mini
+Data: 27/01/2026
+Objetivo: Traduzir comentários usando OpenAI GPT-4 Mini
+Funciona para todas as línguas -> PT-BR
 """
 
-import os
-import json
 import asyncio
 import logging
-from datetime import datetime
+import os
+import json
+from typing import List
+from openai import OpenAI
 from dotenv import load_dotenv
-from database import SupabaseClient
-import openai
-import time
-from typing import List, Dict
 
-# Configurar logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
 logger = logging.getLogger(__name__)
 
 # Carregar variáveis de ambiente
 load_dotenv()
 
 class OptimizedTranslator:
-    """Tradutor otimizado com JSON minimalista"""
+    """Tradutor otimizado usando GPT-4 Mini"""
 
     def __init__(self):
-        """Inicializa tradutor otimizado"""
-        self.db = SupabaseClient()
-
-        # Configurar OpenAI
-        api_key = os.getenv('OPENAI_API_KEY')
+        """Inicializa cliente OpenAI"""
+        api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
-            raise ValueError("OPENAI_API_KEY não encontrada no .env")
+            logger.error("OPENAI_API_KEY não configurada no .env")
+            raise ValueError("OPENAI_API_KEY não configurada")
 
-        openai.api_key = api_key
-        self.client = openai.OpenAI(api_key=api_key)
+        self.client = OpenAI(api_key=api_key)
+        self.model = "gpt-4o-mini"  # Modelo eficiente para tradução
+        self.batch_size = 20  # Processar 20 textos por vez
 
-        # Contadores
-        self.total_processed = 0
-        self.total_translated = 0
-        self.total_skipped_pt = 0
-        self.total_errors = 0
-        self.start_time = None
-
-    def is_likely_portuguese(self, text: str) -> bool:
-        """Detecta se o comentário já está em português"""
-        if not text:
-            return False
-
-        # Palavras comuns em português
-        pt_words = [
-            'que', 'para', 'com', 'não', 'você', 'muito',
-            'é', 'está', 'fazer', 'ter', 'mas', 'isso',
-            'foi', 'vai', 'bem', 'quando', 'como', 'mais',
-            'seu', 'sua', 'esse', 'essa', 'todo', 'tudo'
-        ]
-
-        text_lower = text.lower()
-        matches = sum(1 for word in pt_words if f' {word} ' in f' {text_lower} ')
-
-        # Se tem 3+ palavras portuguesas, provavelmente é PT
-        return matches >= 3
-
-    async def get_comments_to_translate(self, limit=1000, offset=0):
-        """Busca comentários que precisam de tradução"""
-        try:
-            response = self.db.supabase.table('video_comments').select(
-                'comment_id, comment_text_original'
-            ).is_('comment_text_pt', 'null').range(offset, offset + limit - 1).execute()
-
-            return response.data if response.data else []
-        except Exception as e:
-            logger.error(f"Erro ao buscar comentários: {e}")
-            return []
-
-    def create_translation_prompt(self, comments: List[Dict]) -> str:
+    async def translate_batch(self, texts: List[str]) -> List[str]:
         """
-        Cria prompt MINIMALISTA focado APENAS em tradução.
-        Reduz JSON de ~15KB para ~1.5KB (90% menor).
+        Traduz batch de textos para português brasileiro usando GPT-4 Mini
+
+        Args:
+            texts: Lista de textos para traduzir
+
+        Returns:
+            Lista de textos traduzidos para PT-BR
         """
-        comments_text = []
-        for i, comment in enumerate(comments, 1):
-            text = comment.get('comment_text_original', '')
-            # Limitar tamanho de cada comentário para evitar overflow
-            if len(text) > 500:
-                text = text[:500] + "..."
-            comments_text.append(f"#{i}: {text}")
-
-        return f"""Traduza os {len(comments)} comentários abaixo para português brasileiro.
-
-COMENTÁRIOS:
-{chr(10).join(comments_text)}
-
-REGRAS:
-1. Se já está em PT-BR: copie o original e marque is_translated=false
-2. Se NÃO está em PT-BR: traduza naturalmente e marque is_translated=true
-3. Detecte PT por palavras: que, para, com, não, você, muito, é, está
-4. Mantenha tom original
-5. Adapte gírias para PT-BR
-
-RETORNE APENAS este JSON exato (sem explicações):
-{{
-  "comments": [
-    {{
-      "index": 1,
-      "translation_pt": "texto traduzido ou original",
-      "is_translated": true ou false
-    }}
-  ]
-}}"""
-
-    async def translate_batch_gpt(self, comments: List[Dict]) -> List[Dict]:
-        """Traduz um lote usando GPT com JSON minimalista"""
-        try:
-            prompt = self.create_translation_prompt(comments)
-
-            # Chamar OpenAI
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "Você é um tradutor especializado em português brasileiro. Retorne APENAS JSON válido, sem explicações."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.3,
-                max_tokens=2000,  # Reduzido de 4000
-                response_format={"type": "json_object"}
-            )
-
-            # Parse da resposta
-            content = response.choices[0].message.content
-            result = json.loads(content)
-
-            return result.get('comments', [])
-
-        except json.JSONDecodeError as e:
-            logger.error(f"Erro ao decodificar JSON: {e}")
-            logger.error(f"Resposta: {content[:500] if 'content' in locals() else 'N/A'}")
-            return []
-        except Exception as e:
-            logger.error(f"Erro na tradução GPT: {e}")
+        if not texts:
             return []
 
-    async def translate_batch(self, comments: List[Dict]) -> List[Dict]:
-        """Processa lote separando PT de não-PT"""
-        results = []
-        comments_to_translate = []
+        translated = []
 
-        # Separar comentários
-        for comment in comments:
-            text = comment.get('comment_text_original', '')
-
-            if self.is_likely_portuguese(text):
-                # Já está em PT - apenas copiar
-                results.append({
-                    'comment_id': comment['comment_id'],
-                    'comment_text_pt': text,
-                    'is_translated': False
-                })
-                self.total_skipped_pt += 1
-            else:
-                # Precisa tradução
-                comments_to_translate.append(comment)
-
-        # Traduzir apenas os que precisam
-        if comments_to_translate:
-            # Processar em sub-lotes de 30
-            for i in range(0, len(comments_to_translate), 30):
-                sub_batch = comments_to_translate[i:i+30]
-                logger.info(f"  Traduzindo sub-lote de {len(sub_batch)} comentários...")
-
-                translations = await self.translate_batch_gpt(sub_batch)
-
-                # Mapear traduções de volta
-                for j, translation in enumerate(translations):
-                    if j < len(sub_batch):
-                        comment = sub_batch[j]
-                        results.append({
-                            'comment_id': comment['comment_id'],
-                            'comment_text_pt': translation.get('translation_pt', comment['comment_text_original']),
-                            'is_translated': translation.get('is_translated', False)
-                        })
-
-                # Pequena pausa entre sub-lotes
-                if i + 30 < len(comments_to_translate):
-                    await asyncio.sleep(0.5)
-
-        return results
-
-    async def update_comment(self, comment_id: str, translation_pt: str, is_translated: bool):
-        """Atualiza tradução no banco"""
         try:
-            response = self.db.supabase.table('video_comments').update({
-                'comment_text_pt': translation_pt,
-                'is_translated': is_translated
-            }).eq('comment_id', comment_id).execute()
+            # Processar em sub-batches para otimizar tokens
+            for i in range(0, len(texts), self.batch_size):
+                sub_batch = texts[i:i + self.batch_size]
 
-            return response.data is not None
-        except Exception as e:
-            logger.error(f"Erro ao atualizar {comment_id}: {e}")
-            return False
-
-    async def process_all_comments(self):
-        """Processa todos os comentários"""
-        self.start_time = time.time()
-
-        logger.info("="*60)
-        logger.info("TRADUCAO OTIMIZADA - JSON MINIMALISTA")
-        logger.info("="*60)
-
-        # Contar total
-        try:
-            count_response = self.db.supabase.table('video_comments').select(
-                'comment_id', count='exact'
-            ).is_('comment_text_pt', 'null').execute()
-
-            total_to_translate = count_response.count if hasattr(count_response, 'count') else 0
-            logger.info(f"Total para traduzir: {total_to_translate}")
-
-        except Exception as e:
-            logger.error(f"Erro ao contar: {e}")
-            return
-
-        if total_to_translate == 0:
-            logger.info("Nenhum comentário para traduzir!")
-            return
-
-        # Processar em lotes
-        batch_size = 100
-        offset = 0
-
-        while offset < total_to_translate:
-            # Buscar lote
-            logger.info(f"\nLote {offset//batch_size + 1} (offset: {offset})...")
-            comments = await self.get_comments_to_translate(limit=batch_size, offset=offset)
-
-            if not comments:
-                break
-
-            logger.info(f"Processando {len(comments)} comentários...")
-
-            # Traduzir
-            results = await self.translate_batch(comments)
-
-            # Salvar no banco
-            for result in results:
-                success = await self.update_comment(
-                    result['comment_id'],
-                    result['comment_text_pt'],
-                    result.get('is_translated', False)
+                # Criar prompt para tradução em batch
+                comments_json = json.dumps(
+                    [{"id": idx, "text": text} for idx, text in enumerate(sub_batch)],
+                    ensure_ascii=False
                 )
 
-                if success:
-                    if result.get('is_translated'):
-                        self.total_translated += 1
-                    else:
-                        self.total_skipped_pt += 1
-                else:
-                    self.total_errors += 1
+                system_prompt = """Você é um tradutor especializado em adaptar textos para português brasileiro.
 
-                self.total_processed += 1
+TAREFA: Traduza os comentários para PT-BR mantendo o tom e contexto original.
 
-                # Mostrar progresso
-                if self.total_processed % 50 == 0:
-                    elapsed = time.time() - self.start_time
-                    rate = self.total_processed / elapsed if elapsed > 0 else 0
-                    eta = (total_to_translate - self.total_processed) / rate if rate > 0 else 0
+DIRETRIZES:
+1. Se já estiver em português, retorne como está
+2. Adapte gírias e expressões culturais quando possível
+3. Mantenha emojis e formatação
+4. Use linguagem natural brasileira (não tradução literal)
+5. Retorne APENAS um JSON array com os textos traduzidos na mesma ordem
 
-                    logger.info(
-                        f"Progresso: {self.total_processed}/{total_to_translate} "
-                        f"({self.total_processed*100/total_to_translate:.1f}%) | "
-                        f"Traduzidos: {self.total_translated} | "
-                        f"PT: {self.total_skipped_pt} | "
-                        f"Erros: {self.total_errors} | "
-                        f"Taxa: {rate:.1f}/s | "
-                        f"ETA: {eta/60:.1f} min"
+FORMATO DE RESPOSTA:
+["texto traduzido 1", "texto traduzido 2", ...]"""
+
+                user_prompt = f"Traduza estes comentários para PT-BR:\n{comments_json}"
+
+                try:
+                    # Fazer chamada para GPT-4 Mini
+                    response = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt}
+                        ],
+                        temperature=0.3,  # Baixa temperatura para tradução consistente
+                        max_tokens=2000
                     )
 
-            offset += batch_size
+                    # Extrair traduções do response
+                    content = response.choices[0].message.content.strip()
 
-            # Pausa entre lotes
-            await asyncio.sleep(1)
+                    # Tentar fazer parse do JSON
+                    try:
+                        # Limpar possíveis marcadores de código
+                        if content.startswith("```"):
+                            content = content.split("```")[1]
+                            if content.startswith("json"):
+                                content = content[4:]
 
-        # Estatísticas finais
-        elapsed = time.time() - self.start_time
-        logger.info("\n" + "="*60)
-        logger.info("TRADUCAO CONCLUIDA!")
-        logger.info("="*60)
-        logger.info(f"Total processado: {self.total_processed}")
-        logger.info(f"Traduzidos (outras linguas): {self.total_translated}")
-        logger.info(f"Ja em portugues (pulados): {self.total_skipped_pt}")
-        logger.info(f"Erros: {self.total_errors}")
-        logger.info(f"Tempo total: {elapsed/60:.1f} minutos")
-        logger.info(f"Taxa media: {self.total_processed/elapsed:.1f} comentarios/segundo")
+                        translations = json.loads(content)
 
-        # Economia
-        if self.total_skipped_pt > 0:
-            economia_pct = (self.total_skipped_pt / self.total_processed) * 100 if self.total_processed > 0 else 0
-            logger.info(f"ECONOMIA: {economia_pct:.1f}% dos comentarios ja estavam em PT!")
+                        if isinstance(translations, list):
+                            translated.extend(translations)
+                        else:
+                            # Fallback se não for lista
+                            logger.warning("Resposta não é uma lista, usando textos originais")
+                            translated.extend(sub_batch)
 
-async def main():
-    """Função principal"""
+                    except json.JSONDecodeError as e:
+                        logger.error(f"Erro ao fazer parse do JSON de tradução: {e}")
+                        # Em caso de erro, usar textos originais
+                        translated.extend(sub_batch)
+
+                    # Log de progresso
+                    logger.info(f"[TRADUTOR GPT] Traduzidos {len(sub_batch)} textos")
+
+                    # Pequena pausa entre batches para não sobrecarregar API
+                    if i + self.batch_size < len(texts):
+                        await asyncio.sleep(1)
+
+                except Exception as e:
+                    logger.error(f"Erro na chamada GPT-4 Mini: {e}")
+                    # Em caso de erro, adicionar textos originais
+                    translated.extend(sub_batch)
+
+            logger.info(f"[TRADUTOR GPT] Total traduzido: {len(translated)} textos")
+            return translated
+
+        except Exception as e:
+            logger.error(f"Erro crítico no tradutor: {e}")
+            # Retornar textos originais em caso de erro crítico
+            return texts
+
+    async def translate_single(self, text: str) -> str:
+        """
+        Traduz um único texto para PT-BR
+
+        Args:
+            text: Texto para traduzir
+
+        Returns:
+            Texto traduzido
+        """
+        if not text or text.strip() == "":
+            return text
+
+        result = await self.translate_batch([text])
+        return result[0] if result else text
+
+
+# Teste rápido
+async def test_translator():
+    """Testa o tradutor com alguns exemplos"""
     translator = OptimizedTranslator()
 
+    test_texts = [
+        "This is amazing! Keep up the great work!",
+        "C'est incroyable, j'adore cette vidéo!",
+        "これは素晴らしいです！",
+        "Este vídeo já está em português",
+        "¡Qué miedo! Me encantó el video"
+    ]
+
     print("\n" + "="*60)
-    print("TRADUTOR OTIMIZADO - JSON 90% MENOR")
+    print("TESTE DO TRADUTOR GPT-4 MINI")
     print("="*60)
-    print("\nBeneficios:")
-    print("- JSON de 15KB -> 1.5KB (90% menor)")
-    print("- Batch de 30 comentarios (vs 15)")
-    print("- Sem erros de truncamento")
-    print("- 10x mais rapido")
-    print("- 90% mais barato")
 
-    response = input("\nIniciar traducao otimizada? (s/n): ")
+    translations = await translator.translate_batch(test_texts)
 
-    if response.lower() != 's':
-        print("Operacao cancelada")
-        return
+    for original, translated in zip(test_texts, translations):
+        print(f"\nOriginal: {original}")
+        print(f"Traduzido: {translated}")
 
-    await translator.process_all_comments()
+    print("="*60)
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # Executar teste se rodar diretamente
+    asyncio.run(test_translator())

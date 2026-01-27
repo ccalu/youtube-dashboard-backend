@@ -8,6 +8,15 @@
 ## 🎯 O QUE ESTE BACKEND FAZ:
 API REST que gerencia coleta de dados YouTube, notificações e transcrições.
 
+## ⚠️ REGRAS DE HONESTIDADE (CRÍTICO - NUNCA VIOLAR):
+1. **SEMPRE verificar dados antes de afirmar** - Nunca diga "100% funcional" sem testar
+2. **NUNCA inventar informações** - Se não souber, diga "vou verificar"
+3. **SEMPRE reportar problemas reais** - Não esconda bugs ou erros
+4. **VERIFICAR antes de confirmar** - Execute queries, teste código, valide dados
+5. **SER TRANSPARENTE sobre limitações** - Se algo pode falhar, avise antes
+6. **ADMITIR erros imediatamente** - Se errou, corrija sem desculpas
+7. **DADOS > SUPOSIÇÕES** - Sempre prefira verificar a assumir
+
 ## 📂 ARQUIVOS PRINCIPAIS:
 - `main.py` - FastAPI app + endpoints (1122 linhas)
 - `collector.py` - YouTube collector + rotação de API keys (727 linhas)

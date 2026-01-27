@@ -57,11 +57,16 @@ class GPTAnalyzer:
 
         logger.info(f"GPTAnalyzer inicializado com modelo: {self.model}")
 
-    def _get_system_prompt(self, canal_name: str = "", subnicho: str = "") -> str:
+    def _get_system_prompt(self, canal_name: str = "", subnicho: str = "", include_response: bool = False) -> str:
         """
         Retorna o system prompt otimizado para análise de comentários.
+
+        Args:
+            canal_name: Nome do canal
+            subnicho: Subnicho do canal
+            include_response: Se True, NÃO gera resposta sugerida (será gerada pelo comments_manager)
         """
-        return f"""Você é um analista especializado em comentários de canais YouTube brasileiros.
+        base_prompt = f"""Você é um analista especializado em comentários de canais YouTube brasileiros.
 
 CONTEXTO DO CANAL:
 - Nome: {canal_name}
@@ -76,9 +81,18 @@ DIRETRIZES IMPORTANTES:
 1. Identifique o sentimento REAL (considere sarcasmo, ironia, contexto brasileiro)
 2. Detecte problemas ESPECÍFICOS (não genéricos)
 3. Priorize comentários que requerem ação imediata
-4. Considere gírias e expressões brasileiras
+4. Considere gírias e expressões brasileiras"""
+
+        if include_response:
+            base_prompt += """
 5. Sugira respostas autênticas e personalizadas (não robotizadas)
-6. Identifique oportunidades de conteúdo nas perguntas/sugestões
+6. Identifique oportunidades de conteúdo nas perguntas/sugestões"""
+        else:
+            base_prompt += """
+5. NÃO gerar suggested_response (será gerado posteriormente)
+6. Identifique oportunidades de conteúdo nas perguntas/sugestões"""
+
+        base_prompt += """
 
 PRIORIZAÇÃO (0-100):
 - 90-100: Problemas críticos que impedem visualização
@@ -94,6 +108,8 @@ CATEGORIAS POSSÍVEIS:
 - question: Pergunta genuína
 - suggestion: Sugestão de melhoria ou conteúdo
 - feedback: Feedback geral (pode ser misto)"""
+
+        return base_prompt
 
     def _create_analysis_prompt(self, comments: List[Dict]) -> str:
         """
@@ -172,7 +188,8 @@ IMPORTANTE SOBRE TRADUÇÃO:
         comments: List[Dict],
         video_title: str = "",
         canal_name: str = "",
-        batch_size: int = 15  # Reduzido para evitar erros de JSON
+        batch_size: int = 15,  # Reduzido para evitar erros de JSON
+        include_response: bool = True  # Se False, não gera suggested_response
     ) -> List[Dict]:
         """
         Analisa um lote de comentários usando GPT.
@@ -202,7 +219,7 @@ IMPORTANTE SOBRE TRADUÇÃO:
 
             try:
                 # Fazer a análise do batch
-                batch_analysis = await self._analyze_single_batch(batch, video_title, canal_name)
+                batch_analysis = await self._analyze_single_batch(batch, video_title, canal_name, include_response)
                 logger.info(f"✅ Batch {batch_num} analisado: {len(batch_analysis)} respostas retornadas")
 
                 # Combinar comentários originais com análise
@@ -292,7 +309,8 @@ IMPORTANTE SOBRE TRADUÇÃO:
         self,
         batch: List[Dict],
         video_title: str,
-        canal_name: str
+        canal_name: str,
+        include_response: bool = True
     ) -> List[Dict]:
         """
         Analisa um único batch de comentários.
@@ -307,7 +325,7 @@ IMPORTANTE SOBRE TRADUÇÃO:
 
             # Preparar mensagens
             messages = [
-                {"role": "system", "content": self._get_system_prompt(canal_name)},
+                {"role": "system", "content": self._get_system_prompt(canal_name, include_response=include_response)},
                 {"role": "user", "content": self._create_analysis_prompt(batch)}
             ]
 
