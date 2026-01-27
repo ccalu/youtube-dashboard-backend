@@ -2394,7 +2394,7 @@ class SupabaseClient:
             today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
             novos_hoje = self.supabase.table('video_comments').select(
                 'id', count='exact', head=True
-            ).gte('created_at', today.isoformat()).execute()
+            ).gte('updated_at', today.isoformat()).execute()
 
             # Comentários aguardando resposta (com suggested_response mas não respondidos)
             aguardando = self.supabase.table('video_comments').select(
