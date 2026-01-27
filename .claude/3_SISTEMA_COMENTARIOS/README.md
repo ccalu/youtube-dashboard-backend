@@ -17,7 +17,7 @@ Sistema completo de gestão de comentários para canais YouTube, com foco em **r
 O sistema foi criado para:
 1. **Coletar** comentários de TODOS os 63 canais
 2. **Traduzir** comentários em outras línguas para PT
-3. **Gerar sugestões** de resposta via GPT
+3. **Gerar sugestões de resposta** personalizadas via GPT (não análises)
 4. **Gerenciar respostas** apenas para os 9 canais monetizados
 5. **Analisar sentimento** e categorizar comentários
 
@@ -31,8 +31,8 @@ O sistema foi criado para:
    ├─> Tradução automática (se não PT)
    └─> Análise de sentimento
 
-3. SUGESTÃO
-   └─> GPT gera resposta personalizada
+3. SUGESTÃO DE RESPOSTA
+   └─> GPT gera sugestão de resposta personalizada (gpt_response_suggester.py)
 
 4. GESTÃO
    ├─> Dashboard mostra comentários dos monetizados

@@ -1027,7 +1027,7 @@ class YouTubeCollector:
         Mantém compatibilidade com scripts existentes
         """
         try:
-            from gpt_analyzer import GPTAnalyzer
+            from gpt_response_suggester import GPTAnalyzer
             analyzer = GPTAnalyzer()
 
             # Chamar analyze_batch com parâmetros padrão

@@ -16,6 +16,7 @@ API REST que gerencia coleta de dados YouTube, notificações e transcrições.
 5. **SER TRANSPARENTE sobre limitações** - Se algo pode falhar, avise antes
 6. **ADMITIR erros imediatamente** - Se errou, corrija sem desculpas
 7. **DADOS > SUPOSIÇÕES** - Sempre prefira verificar a assumir
+8. **DOCUMENTAR APÓS FINALIZAR** - Toda feature completa DEVE ser documentada imediatamente
 
 ## 📂 ARQUIVOS PRINCIPAIS:
 - `main.py` - FastAPI app + endpoints (1122 linhas)

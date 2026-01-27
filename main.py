@@ -1493,7 +1493,7 @@ async def get_comments_stats():
     try:
         # Importar database_comments se ainda não foi importado
         from database_comments import CommentsDB
-        from gpt_analyzer import GPTAnalyzer
+        from gpt_response_suggester import GPTAnalyzer
 
         comments_db = CommentsDB()
         gpt_analyzer = GPTAnalyzer()
@@ -2876,7 +2876,7 @@ async def run_collection_job():
 
                 # Obter métricas do GPT analyzer (se foi usado)
                 try:
-                    from gpt_analyzer import GPTAnalyzer
+                    from gpt_response_suggester import GPTAnalyzer
                     gpt_analyzer = GPTAnalyzer()
                     gpt_metrics = gpt_analyzer.get_daily_metrics()
 

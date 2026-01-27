@@ -20,7 +20,7 @@
 - Funções em database.py para todas operações
 - Coleta automática via YouTube API
 - Sistema de tradução automática
-- Geração de sugestões via GPT
+- Geração de sugestões de resposta via GPT (não análises)
 
 **Frontend:**
 - Componente React completo (527 linhas)
@@ -32,7 +32,7 @@
 - Scripts de coleta e processamento
 - Tradução em batch
 - Análise de sentimento
-- Geração de sugestões
+- Geração de sugestões de resposta personalizadas
 
 ### Números Alcançados
 - **5.761** comentários coletados total
@@ -41,10 +41,13 @@
 - **1.854** com sugestões de resposta prontas
 - **0** respondidos (aguardando início)
 
-### Correção Importante (27/01)
-- Função `get_comments_summary()` corrigida
-- Agora filtra APENAS comentários dos monetizados
-- Clareza: Coleta de TODOS os canais, respostas só monetizados
+### Correções Importantes (27/01)
+- Função `get_comments_summary()` corrigida - filtra APENAS monetizados
+- Arquivo renomeado: `gpt_analyzer.py` → `gpt_response_suggester.py` (clareza)
+- Código morto removido: `log_gpt_analysis()` nunca era usado
+- Imports atualizados em `main.py` e `collector.py`
+- Documentação clarificada: sistema gera "sugestões de resposta", não "análises"
+- Nova regra em CLAUDE.md: "DOCUMENTAR APÓS FINALIZAR" (regra #8)
 
 ### Documentação Criada
 ```
