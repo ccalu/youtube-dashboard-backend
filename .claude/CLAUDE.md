@@ -68,6 +68,16 @@ python main.py
 - `GET /api/subniche-trends` - Tendências por subnicho
 - `GET /api/system-stats` - Estatísticas do sistema
 
+### 💬 Sistema de Comentários (NOVO!):
+- `GET /api/comentarios/resumo` - Resumo dos comentários (canais monetizados)
+- `GET /api/comentarios/monetizados` - Lista canais monetizados com stats
+- `GET /api/canais/{id}/videos-com-comentarios` - Vídeos com comentários
+- `GET /api/videos/{id}/comentarios-paginados` - Comentários paginados
+- `PATCH /api/comentarios/{id}/marcar-respondido` - Marcar como respondido
+- `POST /api/collect-comments/{canal_id}` - Coletar comentários
+
+**Documentação completa:** `.claude/3_SISTEMA_COMENTARIOS/`
+
 Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 
 ## 🔧 PARA CLAUDE CODE:
@@ -77,6 +87,40 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 - Pode criar novos endpoints
 - Pode melhorar lógica existente
 - SEMPRE fazer backup antes de mudanças grandes
+
+## 🆕 ATUALIZAÇÕES RECENTES (27/01/2025):
+
+### 💬 SISTEMA DE COMENTÁRIOS - 100% Funcional
+**Desenvolvido:** 23-27/01/2025
+**Status:** ✅ Completo e documentado
+
+**O que foi implementado:**
+1. **Tabela `video_comments`:** 38 campos para gestão completa
+2. **6 novos endpoints:** API completa para comentários
+3. **Coleta automática:** 5.761 comentários coletados
+4. **Tradução automática:** 99.9% traduzidos para PT
+5. **Sugestões GPT:** 1.854 respostas prontas
+6. **Frontend React:** Componente completo para Lovable
+
+**Números:**
+- 63 canais monitorados (tipo="nosso")
+- 9 canais monetizados (foco das respostas)
+- 3.152 comentários em monetizados
+- 0 respondidos (aguardando início)
+
+**Documentação:** `.claude/3_SISTEMA_COMENTARIOS/`
+- README.md - Visão geral
+- ENDPOINTS.md - API completa
+- BANCO_DADOS.md - Estrutura tabela
+- IMPLEMENTACAO.md - Timeline
+- FRONTEND.md - Componente React
+
+**Correção importante (27/01):**
+- Função `get_comments_summary()` corrigida
+- Agora filtra APENAS comentários dos monetizados
+- Evita confusão entre coleta (todos) e resposta (monetizados)
+
+---
 
 ## 🆕 ATUALIZAÇÕES RECENTES (23/01/2026):
 

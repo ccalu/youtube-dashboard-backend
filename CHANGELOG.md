@@ -5,6 +5,64 @@
 
 ---
 
+## [27/01/2025] - Sistema de Comentários Completo
+
+### 💬 Nova Feature: Gestão de Comentários YouTube
+
+**Desenvolvimento:** 23-27/01/2025
+**Status:** ✅ 100% Funcional e Documentado
+
+### O que foi implementado
+
+**Backend:**
+- Tabela `video_comments` com 38 campos no Supabase
+- 6 novos endpoints na API para gestão completa
+- Funções em database.py para todas operações
+- Coleta automática via YouTube API
+- Sistema de tradução automática
+- Geração de sugestões via GPT
+
+**Frontend:**
+- Componente React completo (527 linhas)
+- Interface de 3 níveis: Canais → Vídeos → Comentários
+- Paginação e filtros inteligentes
+- Ações: copiar sugestão, marcar respondido
+
+**Scripts de Automação:**
+- Scripts de coleta e processamento
+- Tradução em batch
+- Análise de sentimento
+- Geração de sugestões
+
+### Números Alcançados
+- **5.761** comentários coletados total
+- **3.152** em canais monetizados (foco)
+- **99.9%** traduzidos para português
+- **1.854** com sugestões de resposta prontas
+- **0** respondidos (aguardando início)
+
+### Correção Importante (27/01)
+- Função `get_comments_summary()` corrigida
+- Agora filtra APENAS comentários dos monetizados
+- Clareza: Coleta de TODOS os canais, respostas só monetizados
+
+### Documentação Criada
+```
+.claude/3_SISTEMA_COMENTARIOS/
+├── README.md           # Visão geral do sistema
+├── ENDPOINTS.md        # Documentação da API
+├── BANCO_DADOS.md      # Estrutura da tabela
+├── IMPLEMENTACAO.md    # Timeline de desenvolvimento
+└── FRONTEND.md         # Componente React
+```
+
+### Arquivos Modificados
+- `database.py` - 6 novas funções (+400 linhas)
+- `main.py` - 6 novos endpoints (+200 linhas)
+- `.claude/CLAUDE.md` - Atualizado com novo sistema
+
+---
+
 ## [23/01/2026] - Otimização Crítica: Materialized Views + Cache 24h
 
 ### Performance Revolucionária Alcançada

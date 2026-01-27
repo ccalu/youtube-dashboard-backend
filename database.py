@@ -2378,6 +2378,7 @@ class SupabaseClient:
     def get_comments_summary(self) -> Dict:
         """
         Retorna resumo geral dos comentários para o dashboard
+        APENAS para canais monetizados (subnicho='Monetizados')
         """
         try:
             # Total de canais monetizados
@@ -2385,27 +2386,43 @@ class SupabaseClient:
                 'id', count='exact', head=True
             ).eq('tipo', 'nosso').eq('subnicho', 'Monetizados').execute()
 
-            # Total de comentários
+            # Buscar IDs dos canais monetizados para filtrar comentários
+            canal_ids_result = self.supabase.table('canais_monitorados').select(
+                'id'
+            ).eq('tipo', 'nosso').eq('subnicho', 'Monetizados').execute()
+
+            canal_ids = [c['id'] for c in (canal_ids_result.data or [])]
+
+            if not canal_ids:
+                # Se não há canais monetizados, retorna zeros
+                return {
+                    'canais_monetizados': 0,
+                    'total_comentarios': 0,
+                    'novos_hoje': 0,
+                    'aguardando_resposta': 0
+                }
+
+            # Total de comentários APENAS dos canais monetizados
             total_comments = self.supabase.table('video_comments').select(
                 'id', count='exact', head=True
-            ).execute()
+            ).in_('canal_id', canal_ids).execute()
 
-            # Comentários novos hoje
+            # Comentários novos hoje APENAS dos canais monetizados
             today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
             novos_hoje = self.supabase.table('video_comments').select(
                 'id', count='exact', head=True
-            ).gte('updated_at', today.isoformat()).execute()
+            ).in_('canal_id', canal_ids).gte('updated_at', today.isoformat()).execute()
 
-            # Comentários aguardando resposta (com suggested_response mas não respondidos)
+            # Comentários aguardando resposta APENAS dos canais monetizados
             aguardando = self.supabase.table('video_comments').select(
                 'id', count='exact', head=True
-            ).not_.is_('suggested_response', 'null').eq('is_responded', False).execute()
+            ).in_('canal_id', canal_ids).not_.is_('suggested_response', 'null').eq('is_responded', False).execute()
 
             return {
                 'canais_monetizados': monetizados.count,
-                'total_comentarios': total_comments.count,
-                'novos_hoje': novos_hoje.count,
-                'aguardando_resposta': aguardando.count
+                'total_comentarios': total_comments.count if total_comments.count else 0,
+                'novos_hoje': novos_hoje.count if novos_hoje.count else 0,
+                'aguardando_resposta': aguardando.count if aguardando.count else 0
             }
         except Exception as e:
             logger.error(f"Error getting comments summary: {e}")
