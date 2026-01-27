@@ -2219,3 +2219,199 @@ class SupabaseClient:
         except Exception as e:
             logger.error(f"❌ Erro ao buscar comentários do vídeo: {e}")
             return []
+
+    # ==================== NOVAS FUNÇÕES PARA ABA COMENTÁRIOS ====================
+
+    def get_monetized_channels_with_comments(self) -> List[Dict]:
+        """
+        Retorna canais monetizados com contagem de comentários
+        """
+        try:
+            # Buscar canais monetizados
+            canais = self.supabase.table('canais_monitorados').select(
+                'id, nome_canal, subnicho, lingua, url_canal'
+            ).eq('tipo', 'nosso').eq('subnicho', 'Monetizados').execute()
+
+            result = []
+            for canal in canais.data:
+                # Contar total de comentários do canal
+                total = self.supabase.table('video_comments').select(
+                    'id', count='exact', head=True
+                ).eq('canal_id', canal['id']).execute()
+
+                # Contar comentários com resposta sugerida (aguardando resposta)
+                com_resposta = self.supabase.table('video_comments').select(
+                    'id', count='exact', head=True
+                ).eq('canal_id', canal['id']).not_.is_('suggested_response', 'null').eq('is_responded', False).execute()
+
+                # Buscar último comentário
+                ultimo = self.supabase.table('video_comments').select(
+                    'created_at'
+                ).eq('canal_id', canal['id']).order('created_at', desc=True).limit(1).execute()
+
+                result.append({
+                    'id': canal['id'],
+                    'nome_canal': canal['nome_canal'],
+                    'subnicho': canal['subnicho'],
+                    'lingua': canal['lingua'],
+                    'url_canal': canal['url_canal'],
+                    'total_comentarios': total.count,
+                    'comentarios_pendentes': com_resposta.count,
+                    'ultimo_comentario': ultimo.data[0]['created_at'] if ultimo.data else None
+                })
+
+            return result
+        except Exception as e:
+            logger.error(f"Error fetching monetized channels: {e}")
+            return []
+
+    def get_videos_with_comments_count(self, canal_id: int, limit: int = 50) -> List[Dict]:
+        """
+        Retorna vídeos de um canal com contagem de comentários
+        """
+        try:
+            # Buscar vídeos do canal
+            videos = self.supabase.table('videos_historico').select(
+                'id, titulo, views_atuais, data_publicacao, video_id'
+            ).eq('canal_id', canal_id).order('data_publicacao', desc=True).limit(limit).execute()
+
+            result = []
+            for video in videos.data:
+                # Contar comentários do vídeo
+                total = self.supabase.table('video_comments').select(
+                    'id', count='exact', head=True
+                ).eq('video_id', video['video_id']).execute()
+
+                # Contar comentários pendentes (com resposta mas não respondidos)
+                pendentes = self.supabase.table('video_comments').select(
+                    'id', count='exact', head=True
+                ).eq('video_id', video['video_id']).not_.is_('suggested_response', 'null').eq('is_responded', False).execute()
+
+                result.append({
+                    'video_id': video['video_id'],
+                    'titulo': video['titulo'],
+                    'views': video['views_atuais'],
+                    'data_publicacao': video['data_publicacao'],
+                    'total_comentarios': total.count,
+                    'comentarios_pendentes': pendentes.count,
+                    'thumbnail': f"https://i.ytimg.com/vi/{video['video_id']}/mqdefault.jpg"
+                })
+
+            return result
+        except Exception as e:
+            logger.error(f"Error fetching videos with comments: {e}")
+            return []
+
+    def get_video_comments_paginated(self, video_id: str, page: int = 1, limit: int = 10) -> Dict:
+        """
+        Retorna comentários de um vídeo com paginação (TOP 10 primeiro)
+        """
+        try:
+            offset = (page - 1) * limit
+
+            # Buscar comentários ordenados por likes (mais relevantes primeiro)
+            comments = self.supabase.table('video_comments').select(
+                'id, comment_id, author_name, comment_text_original, comment_text_pt, '
+                'is_translated, like_count, suggested_response, is_responded, published_at'
+            ).eq('video_id', video_id).order('like_count', desc=True).range(offset, offset + limit - 1).execute()
+
+            # Contar total de comentários
+            total = self.supabase.table('video_comments').select(
+                'id', count='exact', head=True
+            ).eq('video_id', video_id).execute()
+
+            # Processar comentários
+            processed_comments = []
+            for comment in comments.data:
+                # Usar tradução se existir, senão usar original
+                text_to_show = comment['comment_text_pt'] if comment['comment_text_pt'] else comment['comment_text_original']
+
+                processed_comments.append({
+                    'id': comment['id'],
+                    'comment_id': comment['comment_id'],
+                    'author_name': comment['author_name'],
+                    'comment_text': text_to_show,
+                    'comment_text_original': comment['comment_text_original'],
+                    'comment_text_pt': comment['comment_text_pt'],
+                    'is_translated': comment['is_translated'],
+                    'like_count': comment['like_count'],
+                    'suggested_response': comment['suggested_response'],
+                    'is_responded': comment['is_responded'],
+                    'published_at': comment['published_at']
+                })
+
+            return {
+                'comentarios': processed_comments,
+                'pagination': {
+                    'page': page,
+                    'limit': limit,
+                    'total': total.count,
+                    'total_pages': (total.count + limit - 1) // limit
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error fetching video comments: {e}")
+            return {'comentarios': [], 'pagination': {}}
+
+    def mark_comment_as_responded(self, comment_id: str, actual_response: str = None) -> bool:
+        """
+        Marca um comentário como respondido
+        """
+        try:
+            update_data = {
+                'is_responded': True,
+                'responded_at': datetime.utcnow().isoformat()
+            }
+
+            if actual_response:
+                update_data['actual_response'] = actual_response
+
+            self.supabase.table('video_comments').update(
+                update_data
+            ).eq('comment_id', comment_id).execute()
+
+            return True
+        except Exception as e:
+            logger.error(f"Error marking comment as responded: {e}")
+            return False
+
+    def get_comments_summary(self) -> Dict:
+        """
+        Retorna resumo geral dos comentários para o dashboard
+        """
+        try:
+            # Total de canais monetizados
+            monetizados = self.supabase.table('canais_monitorados').select(
+                'id', count='exact', head=True
+            ).eq('tipo', 'nosso').eq('subnicho', 'Monetizados').execute()
+
+            # Total de comentários
+            total_comments = self.supabase.table('video_comments').select(
+                'id', count='exact', head=True
+            ).execute()
+
+            # Comentários novos hoje
+            today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+            novos_hoje = self.supabase.table('video_comments').select(
+                'id', count='exact', head=True
+            ).gte('created_at', today.isoformat()).execute()
+
+            # Comentários aguardando resposta (com suggested_response mas não respondidos)
+            aguardando = self.supabase.table('video_comments').select(
+                'id', count='exact', head=True
+            ).not_.is_('suggested_response', 'null').eq('is_responded', False).execute()
+
+            return {
+                'canais_monetizados': monetizados.count,
+                'total_comentarios': total_comments.count,
+                'novos_hoje': novos_hoje.count,
+                'aguardando_resposta': aguardando.count
+            }
+        except Exception as e:
+            logger.error(f"Error getting comments summary: {e}")
+            return {
+                'canais_monetizados': 0,
+                'total_comentarios': 0,
+                'novos_hoje': 0,
+                'aguardando_resposta': 0
+            }

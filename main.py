@@ -995,7 +995,7 @@ async def get_canal_engagement(canal_id: int, page: int = 1, limit: int = 10):
                     'insight_text': comment.get('insight_text', ''),
                     'suggested_action': comment.get('suggested_action'),
                     'sentiment_category': comment.get('sentiment_category', ''),
-                    'suggested_reply': comment.get('suggested_reply', '')  # Adicionar resposta sugerida
+                    'suggested_response': comment.get('suggested_response', '')  # Resposta sugerida do banco
                 }
                 formatted_comments.append(formatted_comment)
 
@@ -1067,6 +1067,106 @@ async def get_canal_engagement(canal_id: int, page: int = 1, limit: int = 10):
 
     except Exception as e:
         logger.error(f"❌ Erro ao buscar engagement do canal {canal_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ======== ENDPOINTS DE COMENTÁRIOS PARA FRONTEND ========
+
+@app.get("/api/comentarios/monetizados")
+async def get_monetized_channels_comments():
+    """
+    Lista canais monetizados com estatísticas de comentários.
+
+    Returns:
+        Lista de canais com total de comentários, vídeos e engagement
+    """
+    try:
+        result = db.get_monetized_channels_with_comments()
+        return result
+    except Exception as e:
+        logger.error(f"Erro ao buscar canais monetizados: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/canais/{canal_id}/videos-com-comentarios")
+async def get_canal_videos_with_comments(canal_id: int, limit: int = 50):
+    """
+    Lista vídeos de um canal com contagem de comentários.
+
+    Args:
+        canal_id: ID do canal
+        limit: Número máximo de vídeos a retornar (padrão: 50)
+
+    Returns:
+        Lista de vídeos com estatísticas de comentários
+    """
+    try:
+        result = db.get_videos_with_comments_count(canal_id, limit)
+        return result
+    except Exception as e:
+        logger.error(f"Erro ao buscar vídeos do canal {canal_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/videos/{video_id}/comentarios-paginados")
+async def get_video_comments_paginated(video_id: str, page: int = 1, limit: int = 10):
+    """
+    Busca comentários de um vídeo com paginação.
+
+    Args:
+        video_id: ID do vídeo no YouTube
+        page: Número da página (padrão: 1)
+        limit: Comentários por página (padrão: 10)
+
+    Returns:
+        Comentários paginados com sugestões de resposta
+    """
+    try:
+        result = db.get_video_comments_paginated(video_id, page, limit)
+        return result
+    except Exception as e:
+        logger.error(f"Erro ao buscar comentários do vídeo {video_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/api/comentarios/{comment_id}/marcar-respondido")
+async def mark_comment_responded(comment_id: str, body: dict = {}):
+    """
+    Marca um comentário como respondido.
+
+    Args:
+        comment_id: ID do comentário
+        body: JSON com 'actual_response' opcional
+
+    Returns:
+        Status da operação
+    """
+    try:
+        actual_response = body.get('actual_response')
+        success = db.mark_comment_as_responded(comment_id, actual_response)
+
+        if success:
+            return {"success": True, "message": "Comentário marcado como respondido"}
+        else:
+            raise HTTPException(status_code=404, detail="Comentário não encontrado")
+    except Exception as e:
+        logger.error(f"Erro ao marcar comentário {comment_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/comentarios/resumo")
+async def get_comments_summary():
+    """
+    Retorna resumo geral dos comentários.
+
+    Returns:
+        Estatísticas gerais dos comentários
+    """
+    try:
+        result = db.get_comments_summary()
+        return result
+    except Exception as e:
+        logger.error(f"Erro ao buscar resumo de comentários: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
