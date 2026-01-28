@@ -2167,10 +2167,10 @@ class SupabaseClient:
                     'problems_count': problem_count
                 },
                 'videos_summary': videos_list,  # TODOS os vídeos com comentários
-                'problem_comments': problem_comments[:20],  # Top 20 problemas
-                'positive_comments': positive_comments[:20],  # Top 20 positivos
-                'negative_comments': negative_comments[:20],  # Top 20 negativos
-                'actionable_comments': problem_comments[:20]  # Problemas são acionáveis
+                'problem_comments': problem_comments,  # TODOS os problemas (sem limite)
+                'positive_comments': positive_comments,  # TODOS os positivos (sem limite)
+                'negative_comments': negative_comments,  # TODOS os negativos (sem limite)
+                'actionable_comments': problem_comments  # TODOS os problemas são acionáveis (sem limite)
             }
 
         except Exception as e:
