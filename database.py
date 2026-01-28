@@ -823,29 +823,11 @@ class SupabaseClient:
                 logger.warning(f"Materialized View não disponível: {mv_error}")
 
             # ========================================
-            # FALLBACK SIMPLES: Para canais minerados, retornar valores padrão
+            # FALLBACK: Retornar vazio (melhor que mentir com dados falsos)
             # ========================================
-            # Isso é temporário até a MV funcionar
-            try:
-                logger.info("📊 Usando fallback simples para stats de vídeos...")
-
-                # Buscar todos os canais
-                canais_response = self.supabase.table("canais_monitorados")\
-                    .select("id")\
-                    .execute()
-
-                result = {}
-                for canal in canais_response.data:
-                    # Para canais minerados, usar valores padrão não-zero para evitar problemas de UI
-                    result[canal["id"]] = {
-                        "total_videos": 10,  # Valor padrão para evitar zero
-                        "total_views": 1000  # Valor padrão para evitar zero
-                    }
-
-                logger.info(f"⚠️ Fallback: Retornando valores padrão para {len(result)} canais")
-                return result
-            except:
-                pass
+            # Se MV não está disponível e RPC falhar, retornar vazio
+            # A coleta futura preencherá os dados reais
+            logger.warning("⚠️ MV e RPC não disponíveis - retornando vazio (sem dados fictícios)")
 
             # ========================================
             # MÉTODO 2: RPC QUERY SQL (Railway)
