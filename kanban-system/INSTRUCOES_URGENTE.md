@@ -16,10 +16,11 @@ Eu já integrei TUDO no `main.py`:
    - Entre no seu projeto Supabase
    - Vá em SQL Editor (menu lateral)
 
-2. **Copie TODO o conteúdo do arquivo:**
+2. **USE O ARQUIVO CORRIGIDO:**
    ```
-   kanban-system\EXECUTE_SQL_NOW.sql
+   kanban-system\EXECUTE_SQL_CORRIGIDO.sql
    ```
+   ⚠️ **IMPORTANTE: Use o arquivo CORRIGIDO, não o anterior!**
 
 3. **Cole no SQL Editor e clique em RUN**
 
