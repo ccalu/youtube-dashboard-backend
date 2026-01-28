@@ -2236,18 +2236,18 @@ class SupabaseClient:
             for canal in canais.data:
                 # Contar total de comentários do canal
                 total = self.supabase.table('video_comments').select(
-                    'id', count='exact', head=True
+                    'id', count='exact'
                 ).eq('canal_id', canal['id']).execute()
 
                 # Contar comentários com resposta sugerida (aguardando resposta)
                 com_resposta = self.supabase.table('video_comments').select(
-                    'id', count='exact', head=True
+                    'id', count='exact'
                 ).eq('canal_id', canal['id']).not_.is_('suggested_response', 'null').eq('is_responded', False).execute()
 
                 # Buscar último comentário
                 ultimo = self.supabase.table('video_comments').select(
-                    'created_at'
-                ).eq('canal_id', canal['id']).order('created_at', desc=True).limit(1).execute()
+                    'published_at'
+                ).eq('canal_id', canal['id']).order('published_at', desc=True).limit(1).execute()
 
                 result.append({
                     'id': canal['id'],
@@ -2257,7 +2257,7 @@ class SupabaseClient:
                     'url_canal': canal['url_canal'],
                     'total_comentarios': total.count,
                     'comentarios_pendentes': com_resposta.count,
-                    'ultimo_comentario': ultimo.data[0]['created_at'] if ultimo.data else None
+                    'ultimo_comentario': ultimo.data[0]['published_at'] if ultimo.data else None
                 })
 
             return result
@@ -2279,12 +2279,12 @@ class SupabaseClient:
             for video in videos.data:
                 # Contar comentários do vídeo
                 total = self.supabase.table('video_comments').select(
-                    'id', count='exact', head=True
+                    'id', count='exact'
                 ).eq('video_id', video['video_id']).execute()
 
                 # Contar comentários pendentes (com resposta mas não respondidos)
                 pendentes = self.supabase.table('video_comments').select(
-                    'id', count='exact', head=True
+                    'id', count='exact'
                 ).eq('video_id', video['video_id']).not_.is_('suggested_response', 'null').eq('is_responded', False).execute()
 
                 result.append({
@@ -2317,7 +2317,7 @@ class SupabaseClient:
 
             # Contar total de comentários
             total = self.supabase.table('video_comments').select(
-                'id', count='exact', head=True
+                'id', count='exact'
             ).eq('video_id', video_id).execute()
 
             # Processar comentários
@@ -2383,7 +2383,7 @@ class SupabaseClient:
         try:
             # Total de canais monetizados
             monetizados = self.supabase.table('canais_monitorados').select(
-                'id', count='exact', head=True
+                'id', count='exact'
             ).eq('tipo', 'nosso').eq('subnicho', 'Monetizados').execute()
 
             # Buscar IDs dos canais monetizados para filtrar comentários
@@ -2404,18 +2404,18 @@ class SupabaseClient:
 
             # Total de comentários APENAS dos canais monetizados
             total_comments = self.supabase.table('video_comments').select(
-                'id', count='exact', head=True
+                'id', count='exact'
             ).in_('canal_id', canal_ids).execute()
 
             # Comentários novos hoje APENAS dos canais monetizados
             today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
             novos_hoje = self.supabase.table('video_comments').select(
-                'id', count='exact', head=True
+                'id', count='exact'
             ).in_('canal_id', canal_ids).gte('updated_at', today.isoformat()).execute()
 
             # Comentários aguardando resposta APENAS dos canais monetizados
             aguardando = self.supabase.table('video_comments').select(
-                'id', count='exact', head=True
+                'id', count='exact'
             ).in_('canal_id', canal_ids).not_.is_('suggested_response', 'null').eq('is_responded', False).execute()
 
             return {
