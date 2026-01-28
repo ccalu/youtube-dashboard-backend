@@ -45,7 +45,7 @@ async def get_kanban_structure(db_client):
             .select("*")\
             .eq("tipo", "nosso")\
             .order("subnicho", desc=False)\
-            .order("nome", desc=False)\
+            .order("nome_canal", desc=False)\
             .execute()
 
         # Separar monetizados e não monetizados
@@ -55,8 +55,26 @@ async def get_kanban_structure(db_client):
         for canal in canais.data:
             # Calcular dias no status
             if canal.get("kanban_status_since"):
-                status_date = datetime.fromisoformat(canal["kanban_status_since"].replace("Z", "+00:00"))
-                dias_no_status = (datetime.now(timezone.utc) - status_date).days
+                try:
+                    # Tentar vários formatos de data
+                    date_str = canal["kanban_status_since"]
+                    if "Z" in date_str:
+                        date_str = date_str.replace("Z", "+00:00")
+
+                    # Adicionar zeros se necessário para microsegundos
+                    if "." in date_str:
+                        parts = date_str.split(".")
+                        microsec_part = parts[1].split("+")[0]
+                        # Garantir 6 dígitos nos microsegundos
+                        if len(microsec_part) < 6:
+                            microsec_part = microsec_part.ljust(6, '0')
+                        date_str = f"{parts[0]}.{microsec_part}+00:00"
+
+                    status_date = datetime.fromisoformat(date_str)
+                    dias_no_status = (datetime.now(timezone.utc) - status_date).days
+                except Exception as e:
+                    logger.warning(f"Erro ao processar data: {e}")
+                    dias_no_status = 0
             else:
                 dias_no_status = 0
 
@@ -83,7 +101,7 @@ async def get_kanban_structure(db_client):
 
             canal_info = {
                 "id": canal["id"],
-                "nome": canal["nome"],
+                "nome": canal["nome_canal"],
                 "subnicho": canal["subnicho"],
                 "lingua": canal.get("lingua", ""),
                 "url_canal": canal.get("url_canal", ""),
@@ -149,8 +167,26 @@ async def get_kanban_board(db_client, canal_id: int):
         # Calcular dias no status
         dias_no_status = 0
         if canal.data.get("kanban_status_since"):
-            status_date = datetime.fromisoformat(canal.data["kanban_status_since"].replace("Z", "+00:00"))
-            dias_no_status = (datetime.now(timezone.utc) - status_date).days
+            try:
+                # Tentar vários formatos de data
+                date_str = canal.data["kanban_status_since"]
+                if "Z" in date_str:
+                    date_str = date_str.replace("Z", "+00:00")
+
+                # Adicionar zeros se necessário para microsegundos
+                if "." in date_str:
+                    parts = date_str.split(".")
+                    microsec_part = parts[1].split("+")[0]
+                    # Garantir 6 dígitos nos microsegundos
+                    if len(microsec_part) < 6:
+                        microsec_part = microsec_part.ljust(6, '0')
+                    date_str = f"{parts[0]}.{microsec_part}+00:00"
+
+                status_date = datetime.fromisoformat(date_str)
+                dias_no_status = (datetime.now(timezone.utc) - status_date).days
+            except Exception as e:
+                logger.warning(f"Erro ao processar data: {e}")
+                dias_no_status = 0
 
         # Definir colunas baseado se é monetizado ou não
         if canal.data.get("monetizado"):
@@ -228,7 +264,7 @@ async def get_kanban_board(db_client, canal_id: int):
         return {
             "canal": {
                 "id": canal.data["id"],
-                "nome": canal.data["nome"],
+                "nome": canal.data["nome_canal"],
                 "subnicho": canal.data["subnicho"],
                 "monetizado": canal.data.get("monetizado", False),
                 "status_atual": canal.data.get("kanban_status"),
@@ -253,7 +289,7 @@ async def move_kanban_status(db_client, canal_id: int, new_status: str):
     try:
         # Verificar se o canal existe e é nosso
         canal = db_client.supabase.table("canais_monitorados")\
-            .select("id, nome, kanban_status")\
+            .select("id, nome_canal, kanban_status")\
             .eq("id", canal_id)\
             .eq("tipo", "nosso")\
             .single()\
@@ -299,7 +335,7 @@ async def create_kanban_note(db_client, canal_id: int, note_text: str, note_colo
     try:
         # Verificar se o canal existe e é nosso
         canal = db_client.supabase.table("canais_monitorados")\
-            .select("id, nome")\
+            .select("id, nome_canal")\
             .eq("id", canal_id)\
             .eq("tipo", "nosso")\
             .single()\

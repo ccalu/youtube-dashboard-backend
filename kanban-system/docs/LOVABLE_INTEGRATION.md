@@ -239,6 +239,68 @@ const mockStructure = {
 - [ ] Testar histórico
 - [ ] Deploy e teste em produção
 
+## ⚠️ CORREÇÕES IMPORTANTES (28/01/2025)
+
+### Campo Nome do Canal
+**ATENÇÃO:** O banco de dados usa `nome_canal`, não `nome`!
+
+```javascript
+// ❌ INCORRETO (arquivo de referência antigo)
+canal.nome
+
+// ✅ CORRETO (como está implementado no main.py)
+canal.nome_canal
+```
+
+**No frontend, o backend retorna como `nome` no JSON**, mas internamente usa `nome_canal`:
+```javascript
+// Response da API (exemplo)
+{
+  "id": 123,
+  "nome": "Dark Stories",  // <- backend mapeia nome_canal → nome
+  "subnicho": "Terror"
+}
+```
+
+### Tratamento de Datas com Microsegundos
+O Supabase pode retornar timestamps com precisão variável de microsegundos. O backend trata isso automaticamente:
+
+```javascript
+// Formatos aceitos (todos funcionam):
+"2026-01-28T20:18:36.63386+00:00"    // 5 dígitos microsegundos
+"2026-01-28T20:18:36.633860+00:00"   // 6 dígitos (padrão)
+"2026-01-28T20:18:36.6+00:00"        // 1 dígito
+"2026-01-28T20:18:36Z"                // Sem microsegundos
+
+// O backend converte automaticamente para formato padrão
+```
+
+**No frontend, use tratamento robusto:**
+```javascript
+const formatDate = (dateStr) => {
+  try {
+    // Remove Z e adiciona timezone se necessário
+    if (dateStr.includes('Z')) {
+      dateStr = dateStr.replace('Z', '+00:00');
+    }
+    return new Date(dateStr);
+  } catch (error) {
+    console.warn('Data inválida:', dateStr);
+    return new Date();
+  }
+};
+```
+
+### Diferenças Entre Arquivos de Referência e Código Real
+
+| Arquivo | Propósito | Status |
+|---------|-----------|--------|
+| `main.py` | Código REAL em produção | ✅ 100% Correto |
+| `kanban_endpoints.py` | Arquivo de referência | ⚠️ Desatualizado |
+| `LOVABLE_INTEGRATION.md` | Esta documentação | ✅ Atualizada agora |
+
+**IMPORTANTE:** Sempre siga o código do `main.py` como referência definitiva!
+
 ## 🆘 Troubleshooting
 
 ### Erro: "Canal não encontrado"
