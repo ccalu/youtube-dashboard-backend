@@ -2056,6 +2056,107 @@ async def reset_suspended_keys():
         logger.error(f"Error resetting suspended keys: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/refresh-mv")
+async def refresh_materialized_view():
+    """
+    🔄 Força refresh da Materialized View mv_dashboard_completo.
+
+    Use este endpoint quando:
+    - inscritos_diff estiver mostrando 0 para muitos canais
+    - Após coleta manual
+    - Para garantir dados atualizados
+    """
+    try:
+        logger.info("=" * 60)
+        logger.info("🔄 REFRESH MANUAL DA MATERIALIZED VIEW")
+        logger.info(f"Hora: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info("=" * 60)
+
+        # Tentar método 1: Via RPC (se existir)
+        try:
+            response = db.supabase.rpc("refresh_all_dashboard_mvs").execute()
+            if response.data:
+                logger.info("✅ Refresh via RPC executado com sucesso")
+                # Limpar cache após refresh
+                cache_cleared = clear_all_cache()
+                return {
+                    "success": True,
+                    "method": "rpc",
+                    "message": "Materialized View atualizada via RPC",
+                    "data": response.data,
+                    "cache_cleared": cache_cleared['entries_cleared']
+                }
+        except Exception as rpc_error:
+            logger.warning(f"RPC não disponível: {rpc_error}")
+
+        # Método 2: Verificar dados disponíveis e limpar cache
+        try:
+            # Verificar dados de hoje e ontem
+            hoje = datetime.now(timezone.utc).date()
+            ontem = hoje - timedelta(days=1)
+
+            # Contar registros disponíveis
+            hoje_count = db.supabase.table('dados_canais_historico') \
+                .select('id', count='exact') \
+                .gte('data_coleta', hoje.isoformat() + 'T00:00:00') \
+                .lte('data_coleta', hoje.isoformat() + 'T23:59:59') \
+                .execute()
+
+            ontem_count = db.supabase.table('dados_canais_historico') \
+                .select('id', count='exact') \
+                .gte('data_coleta', ontem.isoformat() + 'T00:00:00') \
+                .lte('data_coleta', ontem.isoformat() + 'T23:59:59') \
+                .execute()
+
+            logger.info(f"📊 Dados disponíveis - Hoje: {hoje_count.count}, Ontem: {ontem_count.count}")
+
+            # Se não há dados suficientes
+            if (hoje_count.count or 0) == 0 or (ontem_count.count or 0) == 0:
+                return {
+                    "success": False,
+                    "method": "data_check",
+                    "message": "Dados insuficientes para calcular inscritos_diff. Execute uma coleta primeiro.",
+                    "stats": {
+                        "dados_hoje": hoje_count.count or 0,
+                        "dados_ontem": ontem_count.count or 0
+                    }
+                }
+
+            # Limpar cache para forçar recálculo
+            cache_cleared = clear_all_cache()
+            logger.info(f"🧹 Cache limpo: {cache_cleared['entries_cleared']} entradas")
+
+            # Forçar atualização via database.py
+            mv_result = await db.refresh_all_dashboard_mvs()
+
+            return {
+                "success": True,
+                "method": "force_refresh",
+                "message": "Cache limpo e MV atualizada. Dados serão recalculados.",
+                "stats": {
+                    "dados_hoje": hoje_count.count or 0,
+                    "dados_ontem": ontem_count.count or 0,
+                    "cache_limpo": cache_cleared['entries_cleared']
+                },
+                "mv_result": mv_result
+            }
+
+        except Exception as fallback_error:
+            logger.error(f"Erro no refresh: {fallback_error}")
+            return {
+                "success": False,
+                "error": str(fallback_error),
+                "message": "Execute o SQL manualmente no Supabase: REFRESH MATERIALIZED VIEW CONCURRENTLY mv_dashboard_completo;"
+            }
+
+    except Exception as e:
+        logger.error(f"❌ Erro crítico no refresh da MV: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Erro ao tentar atualizar Materialized View"
+        }
+
 @app.get("/api/coletas/historico")
 async def get_coletas_historico(limit: Optional[int] = 20):
     try:

@@ -1111,7 +1111,7 @@ class SupabaseClient:
                         'engagement_rate': canal.get('engagement_rate', 0.0),
 
                         # Growth metrics
-                        'inscritos_diff': canal.get('inscritos_diff', 0),
+                        'inscritos_diff': canal.get('inscritos_diff'),  # FIX: Remove default 0 to preserve None
                         'views_diff_24h': canal.get('views_diff_24h', 0),
                         'views_diff_7d': canal.get('views_diff_7d', 0),
                         'views_diff_30d': canal.get('views_diff_30d', 0),
