@@ -5,6 +5,47 @@
 
 ---
 
+## [28/01/2025] - Correção Crítica do Sistema de Comentários
+
+### 🔥 Fixes Críticos: Limites de Coleta Removidos
+
+**Data:** 28/01/2025
+**Problema:** Coleta de comentários estava limitada e incompleta
+**Status:** ✅ Corrigido e pronto para deploy
+
+### Problemas Resolvidos
+
+1. **Limite de 20 vídeos REMOVIDO**
+   - Antes: Processava apenas 20 vídeos mais recentes
+   - Agora: Processa TODOS os vídeos dos últimos 30 dias
+   - Arquivo: `main.py` linha 2676
+
+2. **Limite reduzido de 500 para 100 comentários**
+   - Antes: 500 comentários por vídeo (desnecessário)
+   - Agora: 100 comentários por vídeo (otimizado)
+   - Arquivo: `collector.py` linha 964
+
+3. **Bug de tradução corrigido**
+   - Problema: Comentários em PT marcados como traduzidos incorretamente
+   - Solução: 588 comentários corrigidos
+   - Script: `fix_translation_issue.py` criado e executado
+
+4. **Script de coleta forçada criado**
+   - Arquivo: `force_complete_collection.py`
+   - Permite forçar coleta manual completa
+   - Processa TODOS os canais sem limites
+
+### Impacto das Mudanças
+- De: ~3 comentários por canal (limitado)
+- Para: Centenas de comentários por canal (completo)
+- Quota API: Uso eficiente (100 vs 500 comentários)
+
+### Scripts Novos
+- `fix_translation_issue.py` - Corrige traduções incorretas
+- `force_complete_collection.py` - Força coleta completa manual
+
+---
+
 ## [27/01/2025] - Sistema de Comentários Completo
 
 ### 💬 Nova Feature: Gestão de Comentários YouTube

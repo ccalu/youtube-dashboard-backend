@@ -2673,7 +2673,7 @@ async def run_collection_job():
                         if channel_id:
                             # Adaptar estrutura dos vídeos para a função de coleta
                             videos_adapted = []
-                            for video in videos_data[:20]:  # Limitar a 20 vídeos mais recentes
+                            for video in videos_data:  # Processar TODOS os vídeos dos últimos 30 dias
                                 videos_adapted.append({
                                     'videoId': video.get('video_id'),
                                     'title': video.get('titulo'),

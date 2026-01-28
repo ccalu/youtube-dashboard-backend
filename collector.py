@@ -960,8 +960,8 @@ class YouTubeCollector:
                 if not video_id:
                     continue
 
-                # Buscar comentários (limitado a 500 por vídeo para economizar)
-                comments = await self.get_video_comments(video_id, video_title, max_results=500)
+                # Buscar comentários (limitado a 100 por vídeo para economizar)
+                comments = await self.get_video_comments(video_id, video_title, max_results=100)
 
                 if comments:
                     # Filtrar comentários se for coleta incremental
