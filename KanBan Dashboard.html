@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema KanBan para Gestão de Canais YouTube</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a24;
+            --bg-card: #16161f;
+            --text-primary: #e8e8ed;
+            --text-secondary: #a0a0b0;
+            --text-muted: #6b6b7b;
+            --accent: #00d4aa;
+            --accent-dim: rgba(0, 212, 170, 0.15);
+            --accent-glow: rgba(0, 212, 170, 0.3);
+            --warning: #ff6b6b;
+            --warning-dim: rgba(255, 107, 107, 0.15);
+            --highlight: #ffd93d;
+            --highlight-dim: rgba(255, 217, 61, 0.1);
+            --purple: #a78bfa;
+            --purple-dim: rgba(167, 139, 250, 0.15);
+            --orange: #ff9f43;
+            --orange-dim: rgba(255, 159, 67, 0.15);
+            --blue: #54a0ff;
+            --blue-dim: rgba(84, 160, 255, 0.15);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-accent: rgba(0, 212, 170, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.8;
+            font-size: 16px;
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 300px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            padding: 2rem 1.5rem;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sidebar-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--accent);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .sidebar-subtitle {
+            font-size: 1rem;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .nav-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .nav-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+        }
+
+        .nav-link {
+            display: block;
+            padding: 0.6rem 0.75rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            margin-bottom: 0.25rem;
+        }
+
+        .nav-link:hover {
+            background: var(--accent-dim);
+            color: var(--accent);
+        }
+
+        /* Main content */
+        .main {
+            flex: 1;
+            margin-left: 300px;
+            padding: 3rem 4rem;
+            max-width: 1000px;
+        }
+
+        /* Typography */
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            line-height: 1.2;
+        }
+
+        h1 .accent {
+            color: var(--accent);
+        }
+
+        h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-top: 3.5rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--accent);
+            display: inline-block;
+        }
+
+        h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        h4 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        p {
+            margin-bottom: 1.5rem;
+            color: var(--text-secondary);
+        }
+
+        /* Insight boxes */
+        .insight-box {
+            background: linear-gradient(135deg, var(--accent-dim) 0%, transparent 100%);
+            border-left: 3px solid var(--accent);
+            padding: 1.25rem 1.5rem;
+            margin: 2rem 0;
+            border-radius: 0 8px 8px 0;
+            font-weight: 500;
+            color: var(--text-primary);
+            font-size: 1.05rem;
+        }
+
+        .insight-box.warning {
+            background: linear-gradient(135deg, var(--warning-dim) 0%, transparent 100%);
+            border-left-color: var(--warning);
+        }
+
+        .insight-box.highlight {
+            background: linear-gradient(135deg, var(--highlight-dim) 0%, transparent 100%);
+            border-left-color: var(--highlight);
+        }
+
+        .insight-box.purple {
+            background: linear-gradient(135deg, var(--purple-dim) 0%, transparent 100%);
+            border-left-color: var(--purple);
+        }
+
+        .insight-box.orange {
+            background: linear-gradient(135deg, var(--orange-dim) 0%, transparent 100%);
+            border-left-color: var(--orange);
+        }
+
+        .insight-box.blue {
+            background: linear-gradient(135deg, var(--blue-dim) 0%, transparent 100%);
+            border-left-color: var(--blue);
+        }
+
+        /* Highlight card */
+        .highlight-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-accent);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2.5rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .highlight-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent), transparent);
+        }
+
+        .highlight-card .label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--accent);
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .highlight-card p {
+            color: var(--text-primary);
+            font-size: 1.1rem;
+            margin-bottom: 0;
+        }
+
+        /* Divider */
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, var(--accent), transparent);
+            margin: 3rem 0;
+        }
+
+        /* Meta info */
+        .meta {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Kanban visual */
+        .kanban-visual {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            overflow-x: auto;
+        }
+
+        .kanban-columns {
+            display: flex;
+            gap: 1rem;
+            min-width: 600px;
+        }
+
+        .kanban-column {
+            flex: 1;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 1rem;
+            min-width: 140px;
+        }
+
+        .kanban-column-header {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+            padding: 0.5rem;
+            border-radius: 4px;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .kanban-column-header.yellow {
+            background: var(--highlight-dim);
+            color: var(--highlight);
+        }
+
+        .kanban-column-header.green {
+            background: var(--accent-dim);
+            color: var(--accent);
+        }
+
+        .kanban-column-header.orange {
+            background: var(--orange-dim);
+            color: var(--orange);
+        }
+
+        .kanban-column-header.blue {
+            background: var(--blue-dim);
+            color: var(--blue);
+        }
+
+        .kanban-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.75rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        /* Navigation tree */
+        .nav-tree {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem 2rem;
+            margin: 2rem 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .nav-tree .folder {
+            color: var(--accent);
+        }
+
+        .nav-tree .subfolder {
+            color: var(--highlight);
+        }
+
+        .nav-tree .channel {
+            color: var(--text-primary);
+        }
+
+        /* Tags */
+        .tag {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-right: 0.5rem;
+        }
+
+        .tag.yellow {
+            background: var(--highlight-dim);
+            color: var(--highlight);
+        }
+
+        .tag.green {
+            background: var(--accent-dim);
+            color: var(--accent);
+        }
+
+        .tag.orange {
+            background: var(--orange-dim);
+            color: var(--orange);
+        }
+
+        .tag.blue {
+            background: var(--blue-dim);
+            color: var(--blue);
+        }
+
+        /* Channel list visual */
+        .channel-list {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .channel-list-header {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .channel-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            margin-bottom: 0.75rem;
+        }
+
+        .channel-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .channel-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .channel-flag {
+            font-size: 1.5rem;
+        }
+
+        .channel-name {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .channel-status {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .channel-date {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* Checklist */
+        .checklist {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .checklist-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 0.5rem 0;
+            color: var(--text-secondary);
+        }
+
+        .checklist-box {
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--border);
+            border-radius: 4px;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        /* Final statement */
+        .final-statement {
+            background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-tertiary) 100%);
+            border: 2px solid var(--accent);
+            border-radius: 16px;
+            padding: 2.5rem;
+            margin: 3rem 0;
+            text-align: center;
+        }
+
+        .final-statement .big-text {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .final-statement p {
+            color: var(--text-primary);
+            font-size: 1.15rem;
+            margin-bottom: 0;
+        }
+
+        /* Phase indicator */
+        .phase-indicator {
+            display: flex;
+            gap: 0.5rem;
+            margin: 2rem 0;
+        }
+
+        .phase {
+            flex: 1;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid transparent;
+        }
+
+        .phase.active {
+            border-color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        .phase-number {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+        }
+
+        .phase.active .phase-number {
+            color: var(--accent);
+        }
+
+        .phase-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .phase.active .phase-name {
+            color: var(--text-primary);
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .sidebar {
+                display: none;
+            }
+            .main {
+                margin-left: 0;
+                padding: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">Especificação Técnica</div>
+                <div class="sidebar-subtitle">Sistema KanBan YouTube</div>
+            </div>
+
+            <nav class="nav-section">
+                <div class="nav-label">Contexto</div>
+                <a href="#problema" class="nav-link">O Problema Atual</a>
+                <a href="#solucao" class="nav-link">A Solução KanBan</a>
+            </nav>
+
+            <nav class="nav-section">
+                <div class="nav-label">Arquitetura</div>
+                <a href="#navegacao" class="nav-link">Estrutura de Navegação</a>
+                <a href="#niveis" class="nav-link">Os 5 Níveis</a>
+            </nav>
+
+            <nav class="nav-section">
+                <div class="nav-label">KanBan</div>
+                <a href="#nao-monetizados" class="nav-link">Canais Não Monetizados</a>
+                <a href="#monetizados" class="nav-link">Canais Monetizados</a>
+            </nav>
+
+            <nav class="nav-section">
+                <div class="nav-label">Sistema</div>
+                <a href="#notas" class="nav-link">Sistema de Notas</a>
+                <a href="#tags" class="nav-link">Sistema de Tags</a>
+            </nav>
+
+            <nav class="nav-section">
+                <div class="nav-label">Uso</div>
+                <a href="#fluxo" class="nav-link">Fluxo de Uso</a>
+                <a href="#casos" class="nav-link">Casos de Uso</a>
+            </nav>
+
+            <nav class="nav-section">
+                <div class="nav-label">Evolução</div>
+                <a href="#fases" class="nav-link">Fases do Projeto</a>
+                <a href="#conclusao" class="nav-link">Conclusão</a>
+            </nav>
+        </aside>
+
+        <main class="main">
+            <h1><span class="accent">📊</span> SISTEMA KANBAN PARA GESTÃO DE CANAIS YOUTUBE</h1>
+
+            <p class="meta">Documento de Especificação Técnica e Estratégica • Fase 1: Base Fundacional</p>
+
+            <section id="problema">
+                <h2>O PROBLEMA ATUAL</h2>
+
+                <p>Atualmente operamos <strong>50+ canais faceless</strong> distribuídos em <strong>8 idiomas diferentes</strong> e <strong>múltiplos subnichos</strong>. Com esse volume de operação, enfrentamos desafios críticos de visibilidade:</p>
+
+                <div class="insight-box warning">
+                    <strong>Falta de clareza sobre o status de cada canal</strong> — Não sabemos rapidamente em que fase cada canal está
+                </div>
+
+                <div class="insight-box warning">
+                    <strong>Perda de contexto histórico</strong> — Esquecemos o que foi testado, quando e por que
+                </div>
+
+                <div class="insight-box warning">
+                    <strong>Decisões estratégicas lentas</strong> — Sem visão consolidada, demoramos para identificar necessidade de mudanças
+                </div>
+
+                <div class="insight-box warning">
+                    <strong>Dificuldade de comunicação entre sócios</strong> — Cada pessoa tem visão fragmentada da operação
+                </div>
+
+                <div class="insight-box warning">
+                    <strong>Impossibilidade de identificar padrões</strong> — Não conseguimos ver quais estratégias funcionam em escala
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <section id="solucao">
+                <h2>A SOLUÇÃO: SISTEMA KANBAN</h2>
+
+                <p>Este sistema é uma <strong>ferramenta de gestão visual</strong> que permite a todos os sócios (e futuramente a sistemas automatizados) enxergarem <strong>em tempo real</strong>:</p>
+
+                <div class="insight-box">✅ O que está acontecendo com cada canal</div>
+                <div class="insight-box">✅ Qual fase do ciclo de vida cada canal está atravessando</div>
+                <div class="insight-box">✅ Quais micro-nichos estão sendo testados em cada canal</div>
+                <div class="insight-box">✅ Há quanto tempo um canal está em determinada fase</div>
+                <div class="insight-box">✅ Quais decisões estratégicas precisam ser tomadas</div>
+
+                <div class="phase-indicator">
+                    <div class="phase active">
+                        <div class="phase-number">Fase 1</div>
+                        <div class="phase-name">Base Fundacional</div>
+                    </div>
+                    <div class="phase">
+                        <div class="phase-number">Fase 2</div>
+                        <div class="phase-name">Métricas & Alertas</div>
+                    </div>
+                    <div class="phase">
+                        <div class="phase-number">Fase 3</div>
+                        <div class="phase-name">Inteligência Artificial</div>
+                    </div>
+                    <div class="phase">
+                        <div class="phase-number">Fase 4</div>
+                        <div class="phase-name">Automação Total</div>
+                    </div>
+                </div>
+
+                <div class="highlight-card">
+                    <div class="label">Fase 1 — O Que Estamos Construindo Agora</div>
+                    <p>Organização visual e controle estratégico manual. Este sistema serve como <strong>fundamento/base</strong> para todas as evoluções futuras.</p>
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <section id="navegacao">
+                <h2>ESTRUTURA DE NAVEGAÇÃO</h2>
+
+                <p>O sistema possui <strong>5 níveis hierárquicos</strong> de navegação:</p>
+
+                <div class="nav-tree">
+                    <span class="folder">Dashboard</span><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;└─ <span class="folder">Área "KanBan"</span><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ <span class="subfolder">MONETIZADOS</span><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├─ Subnicho 1 (ex: Relatos de Guerra)<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├─ <span class="channel">Canal Português</span><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├─ <span class="channel">Canal Inglês</span><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└─ <span class="channel">Canal Espanhol</span><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├─ Subnicho 2 (ex: Reis Perversos)<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└─ Subnicho 3 (ex: Mistérios)<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ <span class="subfolder">NÃO MONETIZADOS</span><br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├─ Subnicho 1 (ex: Guerras e Civilizações)<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├─ <span class="channel">Canal Inglês</span> → [KANBAN]<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├─ <span class="channel">Canal Espanhol</span> → [KANBAN]<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└─ <span class="channel">Canal Português</span> → [KANBAN]<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─ Subnicho 2 (ex: Mansões)
+                </div>
+
+                <div class="insight-box highlight">
+                    <strong>⚠️ IMPORTANTE:</strong> Um mesmo subnicho pode aparecer nas <strong>duas áreas</strong> simultaneamente se tiver canais monetizados E canais não monetizados.
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <section id="niveis">
+                <h2>OS 5 NÍVEIS DE NAVEGAÇÃO</h2>
+
+                <h4>NÍVEL 1: Dashboard Principal</h4>
+                <p>Ponto de entrada. Usuário clica em "KanBan" para acessar o sistema.</p>
+
+                <h4>NÍVEL 2: Ramificação Primária</h4>
+                <p>Duas áreas principais: <span class="tag green">MONETIZADOS</span> e <span class="tag yellow">NÃO MONETIZADOS</span></p>
+
+                <h4>NÍVEL 3: Lista de Subnichos</h4>
+                <p>Todos os subnichos daquela categoria (ex: Guerras e Civilizações, Mansões, Relatos de Guerra...)</p>
+
+                <h4>NÍVEL 4: Lista de Canais do Subnicho</h4>
+                <p>Todos os canais daquele subnicho com suas tags de status visíveis.</p>
+
+                <div class="channel-list">
+                    <div class="channel-list-header">GUERRAS E CIVILIZAÇÕES (Não Monetizados)</div>
+                    
+                    <div class="channel-item">
+                        <div class="channel-info">
+                            <span class="channel-flag">🇬🇧</span>
+                            <span class="channel-name">Inglês</span>
+                        </div>
+                        <div class="channel-status">
+                            <span class="tag yellow">Em Teste Inicial</span>
+                            <span class="channel-date">desde 28/01 (há 5d)</span>
+                        </div>
+                    </div>
+
+                    <div class="channel-item">
+                        <div class="channel-info">
+                            <span class="channel-flag">🇪🇸</span>
+                            <span class="channel-name">Espanhol</span>
+                        </div>
+                        <div class="channel-status">
+                            <span class="tag green">Demonstrando Tração</span>
+                            <span class="channel-date">desde 15/01 (há 18d)</span>
+                        </div>
+                    </div>
+
+                    <div class="channel-item">
+                        <div class="channel-info">
+                            <span class="channel-flag">🇵🇹</span>
+                            <span class="channel-name">Português</span>
+                        </div>
+                        <div class="channel-status">
+                            <span class="tag orange">Em Andamento p/ Monetizar</span>
+                            <span class="channel-date">desde 10/12 (há 49d)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h4>NÍVEL 5: KanBan Individual do Canal</h4>
+                <p>Ao clicar em um canal específico, abre-se o KanBan desse canal.</p>
+            </section>
+
+            <div class="divider"></div>
+
+            <section id="nao-monetizados">
+                <h2>KANBAN: CANAIS NÃO MONETIZADOS</h2>
+
+                <p>Para canais que ainda não atingiram monetização, o KanBan possui <strong>4 colunas</strong>:</p>
+
+                <div class="kanban-visual">
+                    <div class="kanban-columns">
+                        <div class="kanban-column">
+                            <div class="kanban-column-header yellow">🟡 EM TESTE INICIAL</div>
+                            <div class="kanban-card">
+                                Canal testando micro-nichos pela primeira vez
+                            </div>
+                        </div>
+                        <div class="kanban-column">
+                            <div class="kanban-column-header green">🟢 DEMONSTRANDO TRAÇÃO</div>
+                            <div class="kanban-card">
+                                Sinais positivos, vídeos viralizando
+                            </div>
+                        </div>
+                        <div class="kanban-column">
+                            <div class="kanban-column-header orange">🟠 EM ANDAMENTO</div>
+                            <div class="kanban-card">
+                                Caminhando para 1K inscritos e 4K horas
+                            </div>
+                        </div>
+                        <div class="kanban-column">
+                            <div class="kanban-column-header blue">🔵 MONETIZADO</div>
+                            <div class="kanban-card">
+                                Atingiu requisitos de monetização
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Definição de Cada Coluna</h3>
+
+                <div class="insight-box highlight">
+                    <strong>1. EM TESTE INICIAL 🟡</strong><br>
+                    Canal testando micro-nichos pela primeira vez. Ainda não sabemos o que funciona.<br>
+                    <em>Critério de saída:</em> Algum micro-nicho começar a mostrar tração.
+                </div>
+
+                <div class="insight-box">
+                    <strong>2. DEMONSTRANDO TRAÇÃO 🟢</strong><br>
+                    Canal mostrando sinais positivos. Alguns vídeos viralizaram ou performance consistente.<br>
+                    <em>Critério de saída:</em> Performance se sustenta por 2-4 semanas consecutivas.
+                </div>
+
+                <div class="insight-box orange">
+                    <strong>3. EM ANDAMENTO PARA MONETIZAR 🟠</strong><br>
+                    Canal com performance consistente. Caminhando para 1.000 inscritos e 4.000 horas.<br>
+                    <em>Critério de saída:</em> Atingir requisitos de monetização.
+                </div>
+
+                <div class="insight-box blue">
+                    <strong>4. MONETIZADO 🔵</strong><br>
+                    Canal atingiu monetização.<br>
+                    <em>Ação automática:</em> Move para área "MONETIZADOS" com Kanban diferente.
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <section id="monetizados">
+                <h2>KANBAN: CANAIS MONETIZADOS</h2>
+
+                <p>Para canais já monetizados, o KanBan possui <strong>3 colunas</strong>:</p>
+
+                <div class="kanban-visual">
+                    <div class="kanban-columns">
+                        <div class="kanban-column">
+                            <div class="kanban-column-header green">🟢 EM CRESCIMENTO</div>
+                            <div class="kanban-card">
+                                Canal saudável e escalando
+                            </div>
+                        </div>
+                        <div class="kanban-column">
+                            <div class="kanban-column-header yellow">🟡 EM TESTES NOVOS</div>
+                            <div class="kanban-card">
+                                Perdeu tração, testando novas estratégias
+                            </div>
+                        </div>
+                        <div class="kanban-column">
+                            <div class="kanban-column-header blue">🔵 CANAL CONSTANTE</div>
+                            <div class="kanban-card">
+                                Estável, performance previsível
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="insight-box">
+                    <strong>EM CRESCIMENTO 🟢</strong> — Canal saudável e escalando. Views, inscritos e faturamento aumentando consistentemente.
+                </div>
+
+                <div class="insight-box highlight">
+                    <strong>EM TESTES NOVOS 🟡</strong> — Canal que estava funcionando mas perdeu tração. Necessidade de renovar estratégia de conteúdo.
+                </div>
+
+                <div class="insight-box blue">
+                    <strong>CANAL CONSTANTE 🔵</strong> — Canal estável. Não está crescendo mas também não está morrendo. Performance previsível.
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <section id="notas">
+                <h2>SISTEMA DE NOTAS</h2>
+
+                <p>Anotações de texto livre que explicam <strong>por que o canal está naquela coluna</strong> e <strong>o que está sendo feito</strong>.</p>
+
+                <div class="highlight-card">
+                    <div class="label">Exemplo de Nota Completa</div>
+                    <p style="font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; white-space: pre-line;">
+📝 NOTA — 28/01/2026 às 14:35
+
+30 vídeos agendados (1 por dia durante próximo mês).
+
+Micro-nichos sendo testados:
+• BIZÂNCIO — Conexão máxima com Roma (validado em ES)
+• ANGLO-SAXÕES — Heritage direto da língua inglesa
+• CRUZADAS ESQUECIDAS — Cristianismo vs Islã (validado em PT)
+
+Objetivo: Validar qual micro-nicho tem melhor CTR e retenção até 28/02/2026.
+Próxima revisão: 14/02/2026</p>
+                </div>
+
+                <h3>Quando Criar Notas</h3>
+                <div class="insight-box">✅ Ao mover canal para nova coluna (explicar motivo da mudança)</div>
+                <div class="insight-box">✅ Ao iniciar novos testes (documentar o que está sendo testado)</div>
+                <div class="insight-box">✅ Quando tomar decisão estratégica importante</div>
+                <div class="insight-box">✅ Ao identificar padrões de performance (positivos ou negativos)</div>
+            </section>
+
+            <div class="divider"></div>
+
+            <section id="tags">
+                <h2>SISTEMA DE TAGS</h2>
+
+                <p>Indicadores visuais coloridos que mostram <strong>em qual coluna do Kanban o canal está</strong> sem precisar abrir o Kanban.</p>
+
+                <h3>Para Canais NÃO Monetizados</h3>
+                <p>
+                    <span class="tag yellow">🟡 Em Teste Inicial</span>
+                    <span class="tag green">🟢 Demonstrando Tração</span>
+                    <span class="tag orange">🟠 Em Andamento</span>
+                    <span class="tag blue">🔵 Monetizado</span>
+                </p>
+
+                <h3>Para Canais Monetizados</h3>
+                <p>
+                    <span class="tag green">🟢 Em Crescimento</span>
+                    <span class="tag yellow">🟡 Em Testes Novos</span>
+                    <span class="tag blue">🔵 Canal Constante</span>
+                </p>
+
+                <div class="insight-box highlight">
+                    Tags mostram <strong>há quantos dias</strong> o canal está naquela coluna, permitindo identificar canais "travados" em uma fase por muito tempo.
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <section id="fluxo">
+                <h2>FLUXO DE USO PRÁTICO</h2>
+
+                <h3>Cenário 1: Criando um Novo Canal</h3>
+                
+                <div class="checklist">
+                    <div class="checklist-item">
+                        <div class="checklist-box"></div>
+                        <span><strong>Passo 1:</strong> Criar canal no YouTube (ex: Guerras e Civilizações - Inglês)</span>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checklist-box"></div>
+                        <span><strong>Passo 2:</strong> Navegar: Dashboard → KanBan → NÃO MONETIZADOS → Subnicho</span>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checklist-box"></div>
+                        <span><strong>Passo 3:</strong> Clicar em "+ Adicionar Canal" e selecionar idioma</span>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checklist-box"></div>
+                        <span><strong>Passo 4:</strong> Posicionar canal na coluna "EM TESTE INICIAL"</span>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checklist-box"></div>
+                        <span><strong>Passo 5:</strong> Criar primeira nota documentando os testes</span>
+                    </div>
+                </div>
+
+                <h3>Cenário 2: Canal Mostrando Tração</h3>
+                
+                <div class="insight-box">
+                    <strong>Situação:</strong> Após 15 dias, canal tem 3 vídeos de Bizâncio com 40K-60K views cada.
+                </div>
+
+                <div class="checklist">
+                    <div class="checklist-item">
+                        <div class="checklist-box"></div>
+                        <span>Abrir Kanban do canal</span>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checklist-box"></div>
+                        <span>Arrastar card de <span class="tag yellow">Em Teste Inicial</span> → <span class="tag green">Demonstrando Tração</span></span>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checklist-box"></div>
+                        <span>Adicionar nota explicando a movimentação e os resultados</span>
+                    </div>
+                </div>
+
+                <h3>Cenário 3: Canal Monetizado Perdendo Tração</h3>
+                
+                <div class="insight-box warning">
+                    <strong>Situação:</strong> Canal Relatos de Guerra (PT) monetizado está com queda de views há 3 semanas.
+                </div>
+
+                <div class="checklist">
+                    <div class="checklist-item">
+                        <div class="checklist-box"></div>
+                        <span>Navegar: Dashboard → KanBan → MONETIZADOS → Relatos de Guerra → Português</span>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checklist-box"></div>
+                        <span>Arrastar de <span class="tag green">Em Crescimento</span> → <span class="tag yellow">Em Testes Novos</span></span>
+                    </div>
+                    <div class="checklist-item">
+                        <div class="checklist-box"></div>
+                        <span>Documentar hipótese do problema e novos testes planejados</span>
+                    </div>
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <section id="casos">
+                <h2>CASOS DE USO IMPORTANTES</h2>
+
+                <h3>🔍 Identificar Canais Travados</h3>
+                <p>Canais que estão há muito tempo na mesma coluna sem progressão.</p>
+                
+                <div class="channel-list">
+                    <div class="channel-item">
+                        <div class="channel-info">
+                            <span class="channel-flag">🇫🇷</span>
+                            <span class="channel-name">Francês</span>
+                        </div>
+                        <div class="channel-status">
+                            <span class="tag yellow">Em Teste Inicial</span>
+                            <span class="channel-date" style="color: var(--warning);">desde 15/12 (há 44 dias) ⚠️</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="insight-box warning">
+                    <strong>Ação:</strong> Revisar estratégia. Testes não estão funcionando há mais de 40 dias.
+                </div>
+
+                <h3>📋 Replicar Estratégia Vencedora</h3>
+                <p>Canal Espanhol validou micro-nicho "Bizâncio". Queremos replicar em outros idiomas.</p>
+                
+                <div class="insight-box">
+                    <strong>Ação:</strong> Abrir Kanban do canal Espanhol → Ler notas detalhadas sobre o que funcionou → Criar notas similares nos canais de outros idiomas → Acompanhar resultados.
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <section id="fases">
+                <h2>VISÃO DE EVOLUÇÃO FUTURA</h2>
+
+                <div class="highlight-card">
+                    <div class="label">Fase 1 — Atual: Base Fundacional</div>
+                    <p>✅ Organização visual completa<br>
+                    ✅ Sistema de notas e contexto<br>
+                    ✅ Controle manual estratégico<br>
+                    ✅ Visibilidade em tempo real para todos os sócios</p>
+                </div>
+
+                <div class="insight-box purple">
+                    <strong>Fase 2 — Métricas e Alertas</strong><br>
+                    🔔 Canal há >30 dias na mesma coluna<br>
+                    🔔 Canal com queda de views >40%<br>
+                    📊 Views médias, CTR, retenção por canal
+                </div>
+
+                <div class="insight-box highlight">
+                    <strong>Fase 3 — Inteligência Artificial</strong><br>
+                    🤖 Agentes IA analisando padrões<br>
+                    📈 Detectar saturação de tema antes de acontecer<br>
+                    📝 Relatórios automáticos semanais
+                </div>
+
+                <div class="insight-box">
+                    <strong>Fase 4 — Clawdbot e Automação</strong><br>
+                    🔄 Clawdbot estratégico por canal<br>
+                    ⚙️ Automação de decisões simples<br>
+                    🧠 Sistema de aprendizado contínuo
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <section id="conclusao">
+                <h2>POR QUE ESTA BASE É CRÍTICA</h2>
+
+                <div class="insight-box warning">
+                    <strong>❌ Sem fundamentos sólidos, automação é inútil.</strong><br>
+                    IA sem dados estruturados gera sugestões genéricas. Alertas sem contexto são ignorados. Métricas sem organização causam paralisia.
+                </div>
+
+                <div class="insight-box">
+                    <strong>✅ Este sistema Kanban é a ESTRUTURA</strong> que permitirá tudo o mais no futuro:<br>
+                    • Define vocabulário comum<br>
+                    • Cria processos padronizados<br>
+                    • Estabelece cultura de documentação<br>
+                    • Gera dados estruturados para futura IA
+                </div>
+
+                <div class="final-statement">
+                    <div class="big-text">FUNDAÇÃO PRIMEIRO. AUTOMAÇÃO DEPOIS.</div>
+                    <p>Sistema orgânico, útil desde o dia 1, que evolui naturalmente conforme nossa operação cresce e amadurece.</p>
+                </div>
+
+                <div class="highlight-card">
+                    <div class="label">Declaração Final</div>
+                    <p><strong>Sem este sistema:</strong> Voando às cegas com 50+ canais, tomando decisões baseadas em memória falha e intuição.</p>
+                    <p style="margin-top: 1rem; margin-bottom: 0;"><strong>Com este sistema:</strong> Clareza cristalina, decisões baseadas em dados documentados, e fundamento para escalar com inteligência.</p>
+                </div>
+            </section>
+        </main>
+    </div>
+</body>
+</html>

@@ -1013,12 +1013,24 @@ async def get_canal_engagement(canal_id: int, page: int = 1, limit: int = 10):
             if video_comments:
                 logger.info(f"🔍 Engagement - Video {video_id}: {len(video_comments)} comentários totais")
 
-            # Garantir que sempre tem um título (fallback com ID do vídeo)
-            video_title = (
-                video_info.get('titulo') or
-                video_data.get('video_title') or
-                f"Vídeo {video_id[:8]}..." if video_id else "Vídeo sem título"
-            )
+            # Garantir que sempre tem um título válido
+            # Prioridade: 1) videos_historico, 2) video_comments (se houver), 3) fallback genérico
+            video_title = video_info.get('titulo', '').strip()
+
+            if not video_title and video_comments:
+                # Tentar buscar título do primeiro comentário (que tem video_title)
+                first_comment_with_title = next((c for c in video_comments if c.get('video_title')), None)
+                if first_comment_with_title:
+                    video_title = first_comment_with_title.get('video_title', '').strip()
+
+            if not video_title:
+                video_title = video_data.get('video_title', '').strip()
+
+            if not video_title and video_id:
+                video_title = f"Vídeo {video_id[:8]}..."
+
+            if not video_title:
+                video_title = "Vídeo sem título"
 
             # UNIFICAÇÃO DE CONTAGENS: Buscar contagem do YouTube para comparação
             youtube_comment_count = video_info.get('comentarios', 0)  # Da tabela videos_historico
