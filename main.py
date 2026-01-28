@@ -953,13 +953,15 @@ async def get_canal_engagement(canal_id: int, page: int = 1, limit: int = 10):
         videos_from_db = []
         if video_ids:
             # Buscar vídeos do canal para obter views, título e data de publicação
-            videos_from_db = await db.get_videos_by_canal(canal_id, limit=200)  # Aumentado limite para garantir que pegamos todos
+            # Removido limite para garantir que pegamos TODOS os vídeos
+            videos_from_db = await db.get_videos_by_canal(canal_id, limit=None)
 
-        # Criar mapa de vídeos para acesso rápido
+        # Criar mapa de vídeos para acesso rápido (mapear TODOS, sem filtro)
         videos_map = {}
         for video in videos_from_db:
-            if video.get('video_id') in video_ids:
-                videos_map[video['video_id']] = video
+            video_id = video.get('video_id')
+            if video_id:  # Apenas verificar se tem ID
+                videos_map[video_id] = video
 
         # Aplicar paginação
         offset = (page - 1) * limit
@@ -1011,12 +1013,28 @@ async def get_canal_engagement(canal_id: int, page: int = 1, limit: int = 10):
             if video_comments:
                 logger.info(f"🔍 Engagement - Video {video_id}: {len(video_comments)} comentários totais")
 
+            # Garantir que sempre tem um título (fallback com ID do vídeo)
+            video_title = (
+                video_info.get('titulo') or
+                video_data.get('video_title') or
+                f"Vídeo {video_id[:8]}..." if video_id else "Vídeo sem título"
+            )
+
+            # UNIFICAÇÃO DE CONTAGENS: Buscar contagem do YouTube para comparação
+            youtube_comment_count = video_info.get('comentarios', 0)  # Da tabela videos_historico
+            analyzed_comment_count = len(formatted_comments)  # Comentários que analisamos
+            coverage_pct = (analyzed_comment_count / youtube_comment_count * 100) if youtube_comment_count > 0 else 0
+
             videos_data.append({
                 'video_id': video_id,
-                'video_title': video_info.get('titulo') or video_data.get('video_title', ''),  # Prioriza título do DB
+                'video_title': video_title,  # Sempre terá um título
                 'published_days_ago': safe_days_diff(video_info.get('data_publicacao', '')),  # Calcula dias desde publicação
                 'views': video_info.get('views_atuais', 0),  # Views reais do banco
-                'total_comments': video_data.get('total_comments', 0),
+                'total_comments': video_data.get('total_comments', 0),  # Mantido para compatibilidade
+                # NOVO: Campos unificados de contagem
+                'total_comments_youtube': youtube_comment_count,  # Contagem do YouTube (videos_historico)
+                'total_comments_analyzed': analyzed_comment_count,  # Contagem analisada (video_comments)
+                'coverage_pct': round(coverage_pct, 1),  # Porcentagem de cobertura
                 'positive_count': 0,  # Removido análise de sentimentos
                 'negative_count': 0,  # Removido análise de sentimentos
                 'has_problems': False,  # Removido análise de sentimentos
@@ -1027,7 +1045,7 @@ async def get_canal_engagement(canal_id: int, page: int = 1, limit: int = 10):
                 'negative_comments': negative_comments,  # Array vazio
                 'neutral_comments': neutral_comments,  # Array vazio
                 # NOVO: Array único com TODOS os comentários
-                'all_comments': formatted_comments[:20]  # Top 20 comentários (ordenados por likes)
+                'all_comments': formatted_comments  # TODOS os comentários do vídeo (sem limite)
             })
 
         # Agrupar problemas por tipo (usando comentários com problema)
@@ -1038,11 +1056,36 @@ async def get_canal_engagement(canal_id: int, page: int = 1, limit: int = 10):
             'technical': []
         }
 
+        # Contadores por tipo de problema
+        actionable_breakdown = {
+            'audio': 0,
+            'video': 0,
+            'content': 0,
+            'technical': 0,
+            'other': 0
+        }
+
+        # Vídeos que precisam de ação (com problemas)
+        videos_needing_action = set()
+
         for comment in engagement_data.get('problem_comments', []):
             problem_type = comment.get('problem_type', 'other')
+            video_title = comment.get('video_title', '')
+
+            # Adicionar vídeo à lista de ação necessária
+            if video_title:
+                videos_needing_action.add(video_title)
+
+            # Contar por tipo
+            if problem_type in actionable_breakdown:
+                actionable_breakdown[problem_type] += 1
+            else:
+                actionable_breakdown['other'] += 1
+
+            # Adicionar ao grupo apropriado
             if problem_type in problems_grouped:
                 problems_grouped[problem_type].append({
-                    'video_title': comment.get('video_title', ''),
+                    'video_title': video_title,
                     'author': comment.get('author_name', ''),
                     'text_pt': comment.get('comment_text_pt', comment.get('comment_text', '')),
                     'specific_issue': comment.get('problem_description', ''),
@@ -1053,8 +1096,23 @@ async def get_canal_engagement(canal_id: int, page: int = 1, limit: int = 10):
         total_videos = len(engagement_data.get('videos_summary', []))
         total_pages = (total_videos + limit - 1) // limit
 
+        # Calcular totais de cobertura para o summary
+        total_youtube_comments = sum(v['total_comments_youtube'] for v in videos_data)
+        total_analyzed_comments = sum(v['total_comments_analyzed'] for v in videos_data)
+        overall_coverage = (total_analyzed_comments / total_youtube_comments * 100) if total_youtube_comments > 0 else 0
+
+        # Melhorar o summary com detalhes de actionable e cobertura
+        enhanced_summary = engagement_data['summary'].copy()
+        enhanced_summary['actionable_breakdown'] = actionable_breakdown
+        enhanced_summary['videos_needing_action'] = list(videos_needing_action)
+        enhanced_summary['videos_needing_action_count'] = len(videos_needing_action)
+        # NOVO: Campos de cobertura unificados
+        enhanced_summary['total_comments_youtube'] = total_youtube_comments
+        enhanced_summary['total_comments_analyzed'] = total_analyzed_comments
+        enhanced_summary['overall_coverage_pct'] = round(overall_coverage, 1)
+
         return {
-            'summary': engagement_data['summary'],
+            'summary': enhanced_summary,
             'videos': videos_data,  # Vídeos paginados com comentários
             'problems_grouped': problems_grouped,
             'pagination': {

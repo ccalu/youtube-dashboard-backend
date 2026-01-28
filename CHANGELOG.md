@@ -5,6 +5,45 @@
 
 ---
 
+## [28/01/2025 - v2] - Correções Adicionais do Engagement Endpoint
+
+### 🔥 Fixes nos Endpoints de Comentários
+
+**Data:** 28/01/2025 15:30
+**Problema:** Lovable reportou 3 problemas no engagement endpoint
+**Status:** ✅ Corrigido e pronto para deploy
+
+### Problemas Resolvidos
+
+1. **Array all_comments limitado a 20 itens**
+   - Antes: `'all_comments': formatted_comments[:20]`
+   - Agora: `'all_comments': formatted_comments` (sem limite)
+   - Arquivo: `main.py` linha 1039
+
+2. **Campo video_title retornando null**
+   - Adicionado fallback com ID do vídeo quando título não existe
+   - Arquivo: `main.py` linhas 1016-1021
+
+3. **Contagem de comentários inconsistente entre endpoints**
+   - Adicionados campos unificados:
+     - `total_comments_youtube`: contagem do YouTube (videos_historico)
+     - `total_comments_analyzed`: contagem analisada (video_comments)
+     - `coverage_pct`: porcentagem de cobertura
+     - `overall_coverage_pct`: cobertura geral no summary
+   - Arquivo: `main.py` linhas 1023-1112
+
+4. **Campo actionable_count sem detalhes**
+   - Adicionado `actionable_breakdown` com contagem por tipo (audio, video, content, technical, other)
+   - Adicionado `videos_needing_action` com lista de vídeos
+   - Adicionado `videos_needing_action_count` com total
+   - Arquivo: `main.py` linhas 1042-1108
+
+### Scripts Criados/Atualizados
+- `fix_database_schema.py` - Adiciona coluna translation_updated_at
+- `force_complete_collection.py` - Coleta forçada sem limites
+
+---
+
 ## [28/01/2025] - Correção Crítica do Sistema de Comentários
 
 ### 🔥 Fixes Críticos: Limites de Coleta Removidos
