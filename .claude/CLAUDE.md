@@ -215,6 +215,34 @@ Novos campos disponíveis (calculados automaticamente):
 
 ## 🆕 ATUALIZAÇÕES RECENTES (29/01/2026):
 
+### Reorganização Completa do Projeto ✅
+**Desenvolvido:** 29/01/2026
+**Status:** ✅ Projeto limpo e organizado
+
+**O que foi feito:**
+1. **Limpeza de arquivos temporários:**
+   - 11 arquivos de teste/temporários deletados
+   - Scripts SQL movidos para pasta apropriada
+   - Código órfão movido para /legacy/
+
+2. **Nova estrutura de pastas:**
+   - `/scripts/maintenance/` - Scripts de manutenção
+   - `/scripts/database/` - Arquivos SQL
+   - `/scripts/tests/` - Scripts de teste
+   - `/frontend/tsx/` - Componentes React/TypeScript
+   - `/legacy/` - Código descontinuado
+
+3. **Documentação criada:**
+   - `ESTRUTURA_PROJETO.md` - Guia completo da estrutura
+   - READMEs em cada pasta nova
+   - Regras claras de onde salvar novos arquivos
+
+**IMPORTANTE - Arquivos que NUNCA devem sair do ROOT:**
+- main.py, database.py, collector.py, notifier.py
+- financeiro.py, analytics.py, comments_logs.py
+- agents_endpoints.py, monetization_endpoints.py
+- gpt_response_suggester.py
+
 ### Sistema Kanban - Endpoint de Movimentação ✅
 **Desenvolvido:** 29/01/2026
 **Status:** ✅ 100% funcional e testado
@@ -233,7 +261,6 @@ Novos campos disponíveis (calculados automaticamente):
 3. **Tipo `note_moved` no histórico:**
    - Constraint atualizada no Supabase
    - Registro detalhado de movimentações
-   - SQL: `update_kanban_history_constraint.sql`
 
 4. **Correção Reinos Sombrios:**
    - Status corrigido para `canal_constante`
