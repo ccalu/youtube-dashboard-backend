@@ -2657,6 +2657,11 @@ async def get_keywords_analysis(subniche: str = None, days: int = 30):
     🚀 OTIMIZADO: Usa tabela pré-calculada (atualizada diariamente)
     Fallback para tempo real se tabela vazia
     """
+    # DESATIVADO - Sistema de análise removido (aba excluída do dashboard)
+    raise HTTPException(
+        status_code=503,
+        detail="Sistema de análise foi desativado. Aba removida do dashboard."
+    )
     try:
         if days not in [7, 15, 30]:
             raise HTTPException(status_code=400, detail="days deve ser 7, 15 ou 30")
@@ -2695,6 +2700,11 @@ async def get_title_patterns_analysis(subniche: str, days: int = 30):
     🚀 OTIMIZADO: Usa tabela pré-calculada (atualizada diariamente)
     Fallback para tempo real se tabela vazia
     """
+    # DESATIVADO - Sistema de análise removido (aba excluída do dashboard)
+    raise HTTPException(
+        status_code=503,
+        detail="Sistema de análise foi desativado. Aba removida do dashboard."
+    )
     try:
         if days not in [7, 15, 30]:
             raise HTTPException(status_code=400, detail="days deve ser 7, 15 ou 30")
@@ -2729,6 +2739,11 @@ async def get_top_channels_analysis(subniche: str, days: int = 30):
     🚀 OTIMIZADO: Usa tabela pré-calculada quando disponível
     Fallback para tempo real com filtro de período
     """
+    # DESATIVADO - Sistema de análise removido (aba excluída do dashboard)
+    raise HTTPException(
+        status_code=503,
+        detail="Sistema de análise foi desativado. Aba removida do dashboard."
+    )
     try:
         if days not in [7, 15, 30]:
             raise HTTPException(status_code=400, detail="days deve ser 7, 15 ou 30")
@@ -2777,6 +2792,11 @@ async def get_subniche_trends():
     🚀 OTIMIZADO: Retorna os 3 períodos em uma única chamada
     Dados atualizados diariamente durante coleta
     """
+    # DESATIVADO - Sistema de análise removido (aba excluída do dashboard)
+    raise HTTPException(
+        status_code=503,
+        detail="Sistema de análise foi desativado. Aba removida do dashboard."
+    )
     try:
         # Buscar os 3 períodos de uma vez (otimização frontend)
         trends = await db.get_all_subniche_trends()
@@ -2811,12 +2831,23 @@ async def get_latest_weekly_report():
 async def generate_weekly_report_endpoint():
     """Força a geração de um novo relatório semanal"""
     try:
-        from report_generator import ReportGenerator
+        # PROTEÇÃO: report_generator.py pode não existir se analyzer.py estiver faltando
+        try:
+            from report_generator import ReportGenerator
+        except ImportError as e:
+            logger.warning(f"⚠️ Report generator não disponível: {e}")
+            raise HTTPException(
+                status_code=503,
+                detail="Sistema de relatórios indisponível (módulo analyzer.py não encontrado)"
+            )
+
         logger.info("🔄 Starting weekly report generation...")
         generator = ReportGenerator(db.supabase)
         report = generator.generate_weekly_report()
         logger.info("✅ Weekly report generated successfully")
         return {"message": "Relatório gerado com sucesso", "report": report}
+    except HTTPException:
+        raise  # Re-levanta a HTTPException
     except Exception as e:
         logger.error(f"Error generating weekly report: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -2824,30 +2855,20 @@ async def generate_weekly_report_endpoint():
 @app.post("/api/analysis/run-daily")
 async def run_daily_analysis():
     """Executa análises diárias manualmente"""
-    try:
-        await run_daily_analysis_job()
-        return {"message": "Análise diária executada com sucesso"}
-    except Exception as e:
-        logger.error(f"Error running daily analysis: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    # DESATIVADO - Sistema de análise removido (aba excluída do dashboard)
+    raise HTTPException(
+        status_code=503,
+        detail="Sistema de análise foi desativado. Aba removida do dashboard."
+    )
 
 @app.post("/api/analysis/run-gaps")
 async def run_gap_analysis():
     """Executa análise de gaps manualmente"""
-    try:
-        from analyzer import Analyzer, save_analysis_to_db
-        logger.info("🔄 Starting gap analysis...")
-        analyzer = Analyzer(db.supabase)
-        subniches = await db.get_all_subniches()
-        gaps_found = {}
-        for subniche in subniches:
-            gaps = analyzer.analyze_gaps(subniche)
-            save_analysis_to_db(db.supabase, 'gaps', gaps, subniche=subniche)
-            gaps_found[subniche] = len(gaps)
-        return {"message": "Análise de gaps executada com sucesso", "gaps_found": gaps_found}
-    except Exception as e:
-        logger.error(f"Error running gap analysis: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    # DESATIVADO - Sistema de análise removido (aba excluída do dashboard)
+    raise HTTPException(
+        status_code=503,
+        detail="Sistema de análise foi desativado. Aba removida do dashboard."
+    )
 
 
 async def run_collection_job():
@@ -3348,9 +3369,25 @@ async def run_collection_job():
             logger.warning(f"⚠️ Falha ao atualizar MVs/Cache: {mv_error}")
             logger.warning("Dashboard continuará funcionando com dados anteriores")
 
-        # Run daily analysis
-        await run_daily_analysis_job()
-        
+        # =====================================================================
+        # ANÁLISE DIÁRIA DESATIVADA (aba removida do dashboard)
+        # Código preservado para referência futura
+        # =====================================================================
+        # await run_daily_analysis_job()  # DESATIVADO - analyzer.py não existe
+
+        # =====================================================================
+        # BUILD ENGAGEMENT CACHE - Movido para cá (roda SEMPRE após coleta)
+        # Não depende mais da análise diária
+        # =====================================================================
+        try:
+            logger.info("🔄 INICIANDO BUILD DO CACHE DE ENGAJAMENTO")
+            from engagement_preprocessor import build_engagement_cache
+            cache_result = await build_engagement_cache()
+            logger.info(f"✅ ENGAGEMENT CACHE ATUALIZADO: {cache_result.get('processed', 0)}/{cache_result.get('total', 0)} canais processados")
+        except Exception as cache_error:
+            logger.error(f"❌ Erro ao construir cache de engajamento: {cache_error}")
+            # Não falha o job principal se o cache falhar
+
     except Exception as e:
         logger.error("=" * 80)
         logger.error(f"❌ COLLECTION JOB FAILED: {e}")
@@ -3376,6 +3413,15 @@ async def run_collection_job():
 # CRON JOBS - Daily Analysis + Weekly Report
 # =========================================================================
 
+"""
+=====================================================================
+FUNÇÕES DE ANÁLISE DESATIVADAS
+Aba "Análise" removida do dashboard - código preservado para referência
+=====================================================================
+"""
+
+# DESATIVADO - analyzer.py não existe
+'''
 async def run_daily_analysis_job():
     """Executa análises diárias após a coleta de dados"""
     try:
@@ -3466,6 +3512,7 @@ async def weekly_report_scheduler():
         except Exception as e:
             logger.error(f"❌ Weekly scheduler error: {e}")
             await asyncio.sleep(3600)
+'''
 
 
 async def schedule_spreadsheet_scanner():
@@ -3522,7 +3569,7 @@ async def startup_event():
     if is_railway:
         logger.info("📅 Scheduling daily collection (NO startup collection)")
         asyncio.create_task(schedule_daily_collection())
-        asyncio.create_task(weekly_report_scheduler())
+        # asyncio.create_task(weekly_report_scheduler())  # DESATIVADO - Sistema de análise removido
         asyncio.create_task(schedule_spreadsheet_scanner())
 
         # Upload Queue Worker (isolado - falha não afeta main app)
