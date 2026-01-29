@@ -431,14 +431,16 @@ class SupabaseClient:
                         canal["engagement_rate"] = h_hoje.get("engagement_rate") or 0.0
                         canal["videos_publicados_7d"] = h_hoje.get("videos_publicados_7d") or 0
 
-                        # 🆕 Calcular diferença de inscritos (hoje vs ontem)
+                        # 🆕 Calcular diferença de inscritos (hoje vs ontem) - APENAS PARA CANAIS "NOSSOS"
                         # FIX: Buscar especificamente o registro de ontem (não assumir que [1] é ontem)
-                        data_ontem_str = (datetime.now(timezone.utc).date() - timedelta(days=1)).isoformat()
-                        if data_ontem_str in historico_por_canal[item["id"]]:
-                            h_ontem = historico_por_canal[item["id"]][data_ontem_str]
-                            inscritos_hoje = h_hoje.get("inscritos") or 0
-                            inscritos_ontem = h_ontem.get("inscritos") or 0
-                            canal["inscritos_diff"] = inscritos_hoje - inscritos_ontem
+                        # FIX 2: Calcular inscritos_diff apenas para canais tipo="nosso"
+                        if item.get("tipo") == "nosso":
+                            data_ontem_str = (datetime.now(timezone.utc).date() - timedelta(days=1)).isoformat()
+                            if data_ontem_str in historico_por_canal[item["id"]]:
+                                h_ontem = historico_por_canal[item["id"]][data_ontem_str]
+                                inscritos_hoje = h_hoje.get("inscritos") or 0
+                                inscritos_ontem = h_ontem.get("inscritos") or 0
+                                canal["inscritos_diff"] = inscritos_hoje - inscritos_ontem
 
                         # 🆕 NOVO: Calcular views_growth_7d (comparar com ~7 dias atrás)
                         hoje_date = datetime.now(timezone.utc).date()
@@ -2072,6 +2074,7 @@ class SupabaseClient:
                     'suggested_action': comment.get('suggested_action', ''),
                     'published_at': comment.get('published_at'),
                     'created_at': comment.get('published_at'),  # Data real do comentário no YouTube
+                    'collected_at': datetime.now(timezone.utc).isoformat(),  # Data de coleta no banco (NOVO)
                     'updated_at': datetime.now(timezone.utc).isoformat()  # Data de atualização no banco
                 }
                 records.append(record)
@@ -2432,7 +2435,7 @@ class SupabaseClient:
             today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
             novos_hoje = self.supabase.table('video_comments').select(
                 'id', count='exact'
-            ).in_('canal_id', canal_ids).gte('created_at', today.isoformat()).execute()
+            ).in_('canal_id', canal_ids).gte('collected_at', today.isoformat()).execute()
 
             # Comentários aguardando resposta APENAS dos canais monetizados
             aguardando = self.supabase.table('video_comments').select(

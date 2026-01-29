@@ -16,16 +16,39 @@ youtube-dashboard-backend/
 │       ├── TabelaCanais.tsx        # Componente da tabela de canais
 │       └── README.md
 │
-├── 📂 scripts/                      # Scripts auxiliares
-│   ├── 📂 maintenance/              # Scripts de manutenção
-│   │   ├── remove_banned_channels.py
-│   │   ├── sync.py
+├── 📂 scripts/                      # Scripts auxiliares organizados
+│   ├── 📂 maintenance/              # Scripts de manutenção e diagnóstico
+│   │   ├── remove_banned_channels.py    # Remove canais banidos
+│   │   ├── sync.py                      # Sincroniza com GitHub/Railway
+│   │   ├── check_dashboard_health.py    # Diagnóstico do dashboard
+│   │   ├── diagnostico_mv_completo.py   # Diagnóstico da Materialized View
+│   │   ├── test_coleta.py               # Diagnóstico do sistema de coleta
+│   │   ├── verificar_remocao.py         # Verifica operações de remoção
 │   │   └── README.md
 │   │
 │   ├── 📂 database/                 # Scripts SQL
+│   │   ├── [arquivos .sql]
 │   │   └── README.md
 │   │
-│   └── 📂 tests/                    # Scripts de teste (não ativos)
+│   ├── 📂 examples/                 # Código de exemplo/referência
+│   │   ├── refresh_mv_endpoint.py       # Exemplo de endpoint para MV
+│   │   └── README.md
+│   │
+│   ├── 📂 manual/                   # Scripts para execução manual
+│   │   ├── force_complete_collection.py # Força coleta completa
+│   │   ├── run_collection_now.py        # Coleta manual simplificada
+│   │   ├── force_mv_refresh.py          # Refresh manual da MV
+│   │   └── README.md
+│   │
+│   ├── 📂 operations/               # Operações pontuais
+│   │   ├── remove_canais_problematicos.py  # Remove canais específicos
+│   │   ├── desativar_canais_problematicos.py # Desativa canais
+│   │   └── README.md
+│   │
+│   └── 📂 tests/                    # Scripts de teste
+│       ├── test_endpoints.py            # Testa endpoints da API
+│       ├── test_inscritos_diff.py       # Testa inscritos_diff
+│       ├── test_canais_nossos.py        # Testa aba Tabela
 │       └── README.md
 │
 ├── 📂 legacy/                       # Código legado/descontinuado
