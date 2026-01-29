@@ -11,6 +11,11 @@ WORKFLOW CORRETO:
 Este script corrige TODO o workflow de uma vez.
 """
 
+import sys
+import os
+# Adiciona o diretório pai ao path para permitir imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import asyncio
 import logging
 from datetime import datetime
