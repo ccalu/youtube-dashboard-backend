@@ -608,18 +608,24 @@ class SupabaseClient:
 
         Args:
             canal_id: ID do canal
-            limit: Quantidade de vídeos a retornar (padrão: 20)
+            limit: Quantidade de vídeos a retornar (padrão: 20, None = todos)
 
         Returns:
             Lista de vídeos ordenados por data de publicação (mais recente primeiro)
         """
         try:
+            # Tratamento de limit
+            if limit is None:
+                query_limit = 10000  # Limite prático do Supabase
+            else:
+                query_limit = limit * 2  # Margem para deduplicação
+
             # Buscar vídeos mais recentes deste canal
             response = self.supabase.table("videos_historico")\
                 .select("*")\
                 .eq("canal_id", canal_id)\
                 .order("data_publicacao", desc=True)\
-                .limit(limit * 2)\
+                .limit(query_limit)\
                 .execute()
 
             if not response.data:
@@ -645,8 +651,14 @@ class SupabaseClient:
             # Ordenar por data de publicação (mais recente primeiro)
             videos.sort(key=lambda x: x.get("data_publicacao", ""), reverse=True)
 
-            logger.info(f"✅ Encontrados {len(videos)} vídeos únicos para canal {canal_id}")
-            return videos[:limit]
+            # Aplicar limit final
+            if limit is None:
+                result = videos  # Retornar todos
+            else:
+                result = videos[:limit]  # Aplicar limite
+
+            logger.info(f"✅ Encontrados {len(result)} vídeos únicos para canal {canal_id}")
+            return result
 
         except Exception as e:
             logger.error(f"Erro ao buscar vídeos do canal {canal_id}: {e}")

@@ -916,8 +916,17 @@ async def get_canal_engagement(canal_id: int, page: int = 1, limit: int = 10):
 
         logger.info(f"✅ Buscando engagement do canal próprio: {canal.get('nome_canal')} (ID: {canal_id})")
 
-        # Buscar dados de engajamento do banco
-        engagement_data = await db.get_canal_engagement_data(canal_id)
+        # PRIMEIRO: Tentar buscar do cache
+        from engagement_preprocessor import EngagementPreprocessor
+        preprocessor = EngagementPreprocessor(db)
+        engagement_data = await preprocessor.get_cached_engagement(canal_id)
+
+        # Se não tem cache válido, buscar dados em tempo real
+        if not engagement_data:
+            logger.info(f"⚠️ Cache miss para canal {canal_id}, buscando dados em tempo real...")
+            engagement_data = await db.get_canal_engagement_data(canal_id)
+        else:
+            logger.info(f"✅ Usando cache para canal {canal_id} (processado em {engagement_data.get('_cache_metadata', {}).get('processing_time_ms', 0)}ms)")
 
         # Se não há dados ainda, organizar resposta vazia estruturada
         if not engagement_data or engagement_data['summary']['total_comments'] == 0:
@@ -1773,12 +1782,12 @@ async def get_comments_management():
             canal_id = canal['id']
             canal_nome = canal['nome_canal']
 
-            # Buscar vídeos recentes do canal
+            # Buscar MAIS vídeos para garantir encontrar 10 com comentários
             videos_response = db.supabase.table('videos_historico')\
                 .select('video_id, titulo, views_atuais, data_publicacao')\
                 .eq('canal_id', canal_id)\
                 .order('data_publicacao', desc=True)\
-                .limit(5)\
+                .limit(50)\
                 .execute()
 
             if not videos_response.data:
@@ -1791,7 +1800,12 @@ async def get_comments_management():
                 'videos': []
             }
 
+            videos_with_comments_count = 0  # Contador para parar em 10 vídeos com comentários
+
             for video in videos_response.data:
+                # Parar após encontrar 10 vídeos com comentários
+                if videos_with_comments_count >= 10:
+                    break
                 video_id = video['video_id']
 
                 # Buscar comentários do vídeo
@@ -1808,6 +1822,9 @@ async def get_comments_management():
 
                 if not comments_response.data:
                     continue
+
+                # Incrementar contador de vídeos com comentários
+                videos_with_comments_count += 1
 
                 # Processar comentários com o gerenciador para gerar respostas únicas
                 processed_comments = comments_manager.process_comments_batch(comments_response.data)
@@ -2021,6 +2038,58 @@ async def force_notifier():
         logger.error(f"❌ Erro ao executar notifier: {e}")
         import traceback
         logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/force-cache-rebuild")
+async def force_cache_rebuild(canal_id: Optional[int] = None):
+    """
+    🔄 Força reconstrução do cache de engajamento.
+
+    Útil para testes ou após correções manuais.
+
+    Args:
+        canal_id: ID específico do canal ou None para todos
+
+    Returns:
+        Estatísticas do processamento
+    """
+    try:
+        logger.info(f"🔄 FORÇANDO REBUILD DO CACHE (canal_id: {canal_id or 'TODOS'})")
+
+        from engagement_preprocessor import EngagementPreprocessor
+        preprocessor = EngagementPreprocessor(db)
+
+        result = await preprocessor.force_rebuild_cache(canal_id)
+
+        logger.info(f"✅ Cache rebuild concluído: {result}")
+
+        return {
+            "status": "success",
+            "result": result,
+            "message": f"Cache reconstruído: {result['processed']}/{result['total']} canais processados"
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Erro ao reconstruir cache: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/cache-stats")
+async def get_cache_stats():
+    """
+    📊 Retorna estatísticas do cache de engajamento.
+    """
+    try:
+        from engagement_preprocessor import EngagementPreprocessor
+        preprocessor = EngagementPreprocessor(db)
+
+        stats = await preprocessor.get_cache_stats()
+
+        return stats
+
+    except Exception as e:
+        logger.error(f"❌ Erro ao obter estatísticas do cache: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 # ⬆️⬆️⬆️ ATÉ AQUI ⬆️⬆️⬆️
 
@@ -3102,16 +3171,17 @@ async def run_collection_job():
                     logger.info(f"📝 Processando {comentarios_total} novos comentários...")
                     logger.info("=" * 80)
 
-                    # Importar e executar automação em background
+                    # Importar e executar automação (aguardar conclusão)
                     from post_collection_automation import PostCollectionAutomation
                     automation = PostCollectionAutomation()
 
-                    # Criar task assíncrona para não bloquear o fluxo
-                    asyncio.create_task(automation.run(only_recent=True))
+                    # AGUARDAR automação completar antes de continuar
+                    logger.info("🔄 Aguardando automação pós-coleta...")
+                    await automation.run(only_recent=True)
 
-                    logger.info("✅ Automação pós-coleta iniciada em background")
-                    logger.info("   → Traduzindo comentários não-PT")
-                    logger.info("   → Gerando respostas TOP 10 (canais monetizados)")
+                    logger.info("✅ Automação pós-coleta CONCLUÍDA")
+                    logger.info("   → Comentários traduzidos")
+                    logger.info("   → Respostas geradas")
 
                 except Exception as e:
                     logger.error(f"❌ Erro ao iniciar automação pós-coleta: {e}")
@@ -3330,6 +3400,20 @@ async def run_daily_analysis_job():
         logger.info(f"OK - Tendencias de {len(subniches)} subnichos calculadas (7d, 15d, 30d)")
 
         logger.info("OK - DAILY ANALYSIS COMPLETED")
+
+        # =====================================================================
+        # ÚLTIMO STEP: BUILD ENGAGEMENT CACHE
+        # Executa APÓS todas as análises e processamentos
+        # =====================================================================
+        try:
+            logger.info("🔄 INICIANDO BUILD DO CACHE DE ENGAJAMENTO (ÚLTIMO STEP)")
+            from engagement_preprocessor import build_engagement_cache
+            cache_result = await build_engagement_cache()
+            logger.info(f"✅ ENGAGEMENT CACHE ATUALIZADO: {cache_result.get('processed', 0)}/{cache_result.get('total', 0)} canais processados")
+        except Exception as cache_error:
+            logger.error(f"❌ Erro ao construir cache de engajamento: {cache_error}")
+            # Não falha o job principal se o cache falhar
+
     except Exception as e:
         logger.error(f"ERRO - DAILY ANALYSIS FAILED: {e}")
 
