@@ -2070,7 +2070,9 @@ class SupabaseClient:
                     'insight_text': comment.get('insight_text', ''),
                     'action_required': comment.get('action_required', False),
                     'suggested_action': comment.get('suggested_action', ''),
-                    'published_at': comment.get('published_at')
+                    'published_at': comment.get('published_at'),
+                    'created_at': comment.get('published_at'),  # Data real do comentário no YouTube
+                    'updated_at': datetime.now(timezone.utc).isoformat()  # Data de atualização no banco
                 }
                 records.append(record)
 
@@ -2430,7 +2432,7 @@ class SupabaseClient:
             today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
             novos_hoje = self.supabase.table('video_comments').select(
                 'id', count='exact'
-            ).in_('canal_id', canal_ids).gte('updated_at', today.isoformat()).execute()
+            ).in_('canal_id', canal_ids).gte('created_at', today.isoformat()).execute()
 
             # Comentários aguardando resposta APENAS dos canais monetizados
             aguardando = self.supabase.table('video_comments').select(
