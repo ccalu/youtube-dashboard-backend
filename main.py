@@ -215,6 +215,16 @@ class KanbanNoteUpdateRequest(BaseModel):
 class KanbanReorderNotesRequest(BaseModel):
     note_positions: List[Dict[str, int]]
 
+class KanbanMoveNoteRequest(BaseModel):
+    """Request para mover uma nota para outra coluna"""
+    stage_id: Optional[str] = None  # Compatibilidade com Lovable
+    coluna_id: Optional[str] = None  # Nome usado no backend
+
+    @property
+    def target_column(self) -> Optional[str]:
+        """Retorna o ID da coluna de destino (aceita ambos os nomes)"""
+        return self.stage_id or self.coluna_id
+
 # ========================================
 # INICIALIZAÇÃO
 # ========================================
@@ -4647,6 +4657,64 @@ async def delete_kanban_note(note_id: int):
         logger.error(f"Erro ao deletar nota: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+async def move_note_to_column(note_id: int, target_column: str):
+    """
+    Move uma nota para outra coluna.
+    """
+    try:
+        # Buscar nota atual
+        nota_atual = db.supabase.table("kanban_notes")\
+            .select("*")\
+            .eq("id", note_id)\
+            .single()\
+            .execute()
+
+        if not nota_atual.data:
+            raise HTTPException(status_code=404, detail="Nota não encontrada")
+
+        old_column = nota_atual.data.get("coluna_id")
+
+        # Atualizar coluna da nota
+        result = db.supabase.table("kanban_notes")\
+            .update({"coluna_id": target_column})\
+            .eq("id", note_id)\
+            .execute()
+
+        if not result.data:
+            raise HTTPException(status_code=400, detail="Erro ao mover nota")
+
+        # Buscar informações do canal para o histórico
+        canal = db.supabase.table("canais_monitorados")\
+            .select("nome_canal")\
+            .eq("id", nota_atual.data["canal_id"])\
+            .single()\
+            .execute()
+
+        # Registrar no histórico
+        db.supabase.table("kanban_history").insert({
+            "canal_id": nota_atual.data["canal_id"],
+            "action_type": "note_moved",
+            "description": f"Nota movida de {old_column or 'sem coluna'} para {target_column}",
+            "details": {
+                "note_id": note_id,
+                "from_column": old_column,
+                "to_column": target_column,
+                "note_color": nota_atual.data["note_color"]
+            }
+        }).execute()
+
+        return {
+            "success": True,
+            "message": "Nota movida com sucesso",
+            "data": result.data[0]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao mover nota: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 async def reorder_kanban_notes(canal_id: int, note_positions: List[Dict[str, int]]):
     """
     Reordena as notas de um canal.
@@ -4760,6 +4828,14 @@ async def kanban_update_note_endpoint(note_id: int, request: KanbanNoteUpdateReq
 async def kanban_delete_note_endpoint(note_id: int):
     """Deleta uma nota"""
     return await delete_kanban_note(note_id)
+
+@app.patch("/api/kanban/note/{note_id}/move")
+async def kanban_move_note_endpoint(note_id: int, request: KanbanMoveNoteRequest):
+    """Move uma nota para outra coluna (compatível com stage_id e coluna_id)"""
+    target_column = request.target_column
+    if not target_column:
+        raise HTTPException(status_code=400, detail="stage_id ou coluna_id é obrigatório")
+    return await move_note_to_column(note_id, target_column)
 
 @app.patch("/api/kanban/canal/{canal_id}/reorder-notes")
 async def kanban_reorder_notes_endpoint(canal_id: int, request: KanbanReorderNotesRequest):
