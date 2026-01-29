@@ -213,6 +213,40 @@ Novos campos disponíveis (calculados automaticamente):
 
 ---
 
+## 🆕 ATUALIZAÇÕES RECENTES (29/01/2026):
+
+### Sistema Kanban - Endpoint de Movimentação ✅
+**Desenvolvido:** 29/01/2026
+**Status:** ✅ 100% funcional e testado
+
+**O que foi implementado:**
+1. **Novo endpoint `/api/kanban/note/{id}/move`:**
+   - Move notas entre colunas (drag & drop)
+   - Aceita `stage_id` (Lovable) ou `coluna_id` (backend)
+   - Resolve erro 404 no frontend
+
+2. **Campo `coluna_id` nas notas:**
+   - Notas podem existir em qualquer coluna
+   - Independente do status do canal
+   - Suporte ao "Card Principal"
+
+3. **Tipo `note_moved` no histórico:**
+   - Constraint atualizada no Supabase
+   - Registro detalhado de movimentações
+   - SQL: `update_kanban_history_constraint.sql`
+
+4. **Correção Reinos Sombrios:**
+   - Status corrigido para `canal_constante`
+   - Consistência com monetizado=true
+
+**Testes realizados:**
+- ✅ 63 canais com Kanban configurado
+- ✅ Movimentação real testada (canal 875)
+- ✅ Sistema salvando tudo corretamente
+- ✅ 13 canais com mudanças em 24h
+
+---
+
 ## 📜 ATUALIZAÇÕES ANTERIORES (17/01/2026):
 
 ### 1. Otimização do Sistema de Coleta (50% menos API calls)

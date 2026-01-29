@@ -130,7 +130,8 @@ Cria uma nova nota para o canal.
 ```json
 {
   "note_text": "Testando micro-nicho de Império Bizantino",
-  "note_color": "yellow"
+  "note_color": "yellow",
+  "coluna_id": "em_teste_inicial"  // opcional - define coluna específica
 }
 ```
 
@@ -173,6 +174,32 @@ Deleta uma nota.
 {
   "success": true,
   "message": "Nota deletada com sucesso"
+}
+```
+
+#### PATCH `/api/kanban/note/{note_id}/move`
+Move uma nota para outra coluna (drag & drop entre colunas).
+
+**Request Body:**
+```json
+{
+  "stage_id": "demonstrando_tracao"  // ou "coluna_id" - aceita ambos
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Nota movida com sucesso",
+  "data": {
+    "id": 1,
+    "canal_id": 1,
+    "note_text": "Texto da nota",
+    "note_color": "yellow",
+    "coluna_id": "demonstrando_tracao",
+    "position": 1
+  }
 }
 ```
 
@@ -233,6 +260,7 @@ Remove um item do histórico (soft delete).
 - `note_added` - Nota adicionada
 - `note_edited` - Nota editada
 - `note_deleted` - Nota removida
+- `note_moved` - Nota movida entre colunas
 - `note_reordered` - Notas reordenadas
 - `canal_created` - Canal criado no sistema
 

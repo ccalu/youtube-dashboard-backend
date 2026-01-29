@@ -5,6 +5,53 @@
 
 ---
 
+## [29/01/2026 - v4] - Sistema Kanban: Endpoint de Movimentação e Compatibilidade
+
+### 🚀 Nova Feature: Drag & Drop Entre Colunas
+
+**Data:** 29/01/2026 14:30
+**Status:** ✅ Implementado e testado
+**Desenvolvedor:** Claude com Cellibs
+**Propósito:** Resolver erro 404 no Lovable e adicionar movimentação de notas
+
+### Implementações Principais
+
+1. **Novo Endpoint de Movimentação**
+   - `PATCH /api/kanban/note/{id}/move` - Move notas entre colunas
+   - Compatibilidade total com drag & drop do frontend
+   - Histórico detalhado de movimentações
+
+2. **Compatibilidade stage_id ↔ coluna_id**
+   - Frontend usa `stage_id` (Lovable)
+   - Backend usa `coluna_id` (Supabase)
+   - Property `target_column` aceita ambos os nomes
+   - Classe `KanbanMoveNoteRequest` com compatibilidade dupla
+
+3. **Campo coluna_id Adicionado**
+   - Notas podem existir em qualquer coluna
+   - Independente do status do canal
+   - Suporte ao "Card Principal" que define status
+
+4. **Atualizações no Histórico**
+   - Tipo `note_moved` adicionado ao constraint
+   - Registro detalhado de movimentações
+   - SQL executado: `update_kanban_history_constraint.sql`
+
+5. **Correção Status Reinos Sombrios**
+   - Canal monetizado com status inconsistente
+   - Corrigido para `canal_constante`
+   - ID 875 agora com status correto
+
+### Testes Realizados
+
+- ✅ 63 canais com status Kanban configurado
+- ✅ Sistema salvando todas mudanças corretamente
+- ✅ Movimentação real testada (canal 875)
+- ✅ Histórico funcionando com note_moved
+- ✅ 13 canais com mudanças nas últimas 24h
+
+---
+
 ## [28/01/2025 - v3] - Sistema Kanban 100% Integrado e Testado
 
 ### 🚀 Nova Feature: Sistema Kanban Completo
