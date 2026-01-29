@@ -205,10 +205,12 @@ class KanbanMoveStatusRequest(BaseModel):
 class KanbanNoteRequest(BaseModel):
     note_text: str
     note_color: str = "yellow"
+    coluna_id: Optional[str] = None  # Campo para permitir notas em qualquer coluna
 
 class KanbanNoteUpdateRequest(BaseModel):
     note_text: Optional[str] = None
     note_color: Optional[str] = None
+    coluna_id: Optional[str] = None  # Permite mover nota entre colunas
 
 class KanbanReorderNotesRequest(BaseModel):
     note_positions: List[Dict[str, int]]
@@ -4492,9 +4494,10 @@ async def move_kanban_status(canal_id: int, new_status: str):
         logger.error(f"Erro ao mover status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-async def create_kanban_note(canal_id: int, note_text: str, note_color: str = "yellow"):
+async def create_kanban_note(canal_id: int, note_text: str, note_color: str = "yellow", coluna_id: Optional[str] = None):
     """
     Cria uma nova nota para um canal.
+    Agora suporta coluna_id para permitir notas em qualquer coluna.
     """
     try:
         # Verificar se o canal existe e é nosso
@@ -4520,13 +4523,19 @@ async def create_kanban_note(canal_id: int, note_text: str, note_color: str = "y
         if last_note.data:
             next_position = last_note.data[0]["position"] + 1
 
-        # Criar nota
-        nota = db.supabase.table("kanban_notes").insert({
+        # Criar nota com suporte a coluna_id
+        nota_data = {
             "canal_id": canal_id,
             "note_text": note_text,
             "note_color": note_color,
             "position": next_position
-        }).execute()
+        }
+
+        # Adicionar coluna_id se fornecido
+        if coluna_id:
+            nota_data["coluna_id"] = coluna_id
+
+        nota = db.supabase.table("kanban_notes").insert(nota_data).execute()
 
         # Registrar no histórico
         db.supabase.table("kanban_history").insert({
@@ -4547,9 +4556,10 @@ async def create_kanban_note(canal_id: int, note_text: str, note_color: str = "y
         logger.error(f"Erro ao criar nota: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-async def update_kanban_note(note_id: int, note_text: Optional[str] = None, note_color: Optional[str] = None):
+async def update_kanban_note(note_id: int, note_text: Optional[str] = None, note_color: Optional[str] = None, coluna_id: Optional[str] = None):
     """
     Atualiza uma nota existente.
+    Agora suporta mover nota entre colunas com coluna_id.
     """
     try:
         # Buscar nota atual
@@ -4568,6 +4578,8 @@ async def update_kanban_note(note_id: int, note_text: Optional[str] = None, note
             update_fields["note_text"] = note_text
         if note_color is not None:
             update_fields["note_color"] = note_color
+        if coluna_id is not None:
+            update_fields["coluna_id"] = coluna_id
 
         # Atualizar nota
         result = db.supabase.table("kanban_notes")\
@@ -4737,12 +4749,12 @@ async def kanban_move_status_endpoint(canal_id: int, request: KanbanMoveStatusRe
 @app.post("/api/kanban/canal/{canal_id}/note")
 async def kanban_create_note_endpoint(canal_id: int, request: KanbanNoteRequest):
     """Cria uma nova nota para o canal"""
-    return await create_kanban_note(canal_id, request.note_text, request.note_color)
+    return await create_kanban_note(canal_id, request.note_text, request.note_color, request.coluna_id)
 
 @app.patch("/api/kanban/note/{note_id}")
 async def kanban_update_note_endpoint(note_id: int, request: KanbanNoteUpdateRequest):
     """Atualiza uma nota existente"""
-    return await update_kanban_note(note_id, request.note_text, request.note_color)
+    return await update_kanban_note(note_id, request.note_text, request.note_color, request.coluna_id)
 
 @app.delete("/api/kanban/note/{note_id}")
 async def kanban_delete_note_endpoint(note_id: int):

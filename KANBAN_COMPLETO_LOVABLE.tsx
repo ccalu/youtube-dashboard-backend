@@ -1,6 +1,12 @@
 /**
  * SISTEMA KANBAN - ARQUIVO COMPLETO PARA LOVABLE
  *
+ * ⚠️ ATUALIZAÇÃO IMPORTANTE (29/01/2025):
+ * - Adicionado CARD PRINCIPAL do canal (com borda especial e emoji do subnicho)
+ * - O CARD PRINCIPAL define o status ao ser movido entre colunas
+ * - As NOTAS agora podem estar em QUALQUER coluna (independente do status)
+ * - Reinos Sombrios agora aparece nos MONETIZADOS (total: 10 canais)
+ *
  * INSTRUÇÕES IMPORTANTES:
  * 1. Este componente deve ser adicionado em "Ferramentas", ABAIXO de "Histórico de Coletas"
  * 2. O LAYOUT DEVE SER IDÊNTICO À ABA "TABELA" - mesmos cards, cores, emojis, estrutura expansível
