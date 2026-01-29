@@ -1353,7 +1353,7 @@ async def collect_canal_comments(canal_id: int):
             raise HTTPException(status_code=400, detail="URL do canal inválida para coleta")
 
         # Coletar comentários
-        from comment_analyzer import CommentAnalyzer
+        from scripts.comentarios.comment_analyzer import CommentAnalyzer
         analyzer = CommentAnalyzer()
 
         comments_data = await collector.get_all_channel_comments(
@@ -1601,7 +1601,7 @@ async def get_comments_stats():
     """
     try:
         # Importar database_comments se ainda não foi importado
-        from database_comments import CommentsDB
+        from scripts.database_comments import CommentsDB
         from gpt_response_suggester import GPTAnalyzer
 
         comments_db = CommentsDB()
@@ -1766,7 +1766,7 @@ async def get_comments_management():
     """
     try:
         # Importar o gerenciador de respostas
-        from comments_manager import comments_manager
+        from scripts.comments_manager import comments_manager
 
         # Buscar canais monetizados
         monetized_response = db.supabase.table('canais_monitorados')\
@@ -2987,7 +2987,7 @@ async def run_collection_job():
                                 # Inicializar CommentsDB uma vez só (na primeira vez que precisar)
                                 if comments_db is None:
                                     logger.info("💾 Inicializando CommentsDB...")
-                                    from database_comments import CommentsDB
+                                    from scripts.database_comments import CommentsDB
                                     comments_db = CommentsDB()
                                     logger.info("✅ CommentsDB inicializado")
 
@@ -3162,7 +3162,7 @@ async def run_collection_job():
         # Registrar métricas GPT se comentários foram analisados
         if comentarios_total > 0:
             try:
-                from database_comments import CommentsDB
+                from scripts.database_comments import CommentsDB
                 comments_db = CommentsDB()
 
                 # Obter métricas do GPT analyzer (se foi usado)
