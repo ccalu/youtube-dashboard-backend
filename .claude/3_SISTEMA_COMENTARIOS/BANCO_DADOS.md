@@ -69,12 +69,15 @@ Armazena todos os comentários coletados dos vídeos do YouTube, incluindo tradu
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
 | `published_at` | TIMESTAMP | Data de publicação no YouTube |
-| `collected_at` | TIMESTAMP | Data da coleta |
+| `created_at` | TIMESTAMP | Data de publicação no YouTube (auto Supabase) |
+| `collected_at` | TIMESTAMP | **Data quando NÓS coletamos** (NOVO - 29/01/2026) |
 | `analyzed_at` | TIMESTAMP | Data da análise |
 | `reviewed_at` | TIMESTAMP | Data da revisão |
 | `responded_at` | TIMESTAMP | Data da resposta |
 | `resolved_at` | TIMESTAMP | Data da resolução |
 | `updated_at` | TIMESTAMP | Última atualização |
+
+> **IMPORTANTE (29/01/2026):** Campo `collected_at` adicionado para diferenciar quando o comentário foi publicado no YouTube (`published_at`) de quando foi coletado pelo nosso sistema (`collected_at`). Usado para filtro "novos hoje".
 
 ### Campos Adicionais
 | Campo | Tipo | Descrição |
@@ -92,6 +95,7 @@ Armazena todos os comentários coletados dos vídeos do YouTube, incluindo tradu
 5. **INDEX:** `is_responded`
 6. **INDEX:** `published_at`
 7. **INDEX:** `priority_score`
+8. **INDEX:** `collected_at DESC` (NOVO - 29/01/2026)
 
 ## 🔗 Relacionamentos
 

@@ -5,6 +5,66 @@
 
 ---
 
+## [29/01/2026 - v5] - Correções Críticas: Sistema de Comentários
+
+### 🔧 Correções Críticas Implementadas
+
+**Data:** 29/01/2026 (tarde)
+**Status:** ✅ 100% corrigido e testado
+**Desenvolvedor:** Claude com Cellibs
+**Propósito:** Corrigir problemas críticos no dashboard de comentários
+
+### Problemas Corrigidos
+
+1. **inscritos_diff calculado para TODOS os canais**
+   - **Problema:** Calculando para 287+ canais (nossos + minerados)
+   - **Correção:** Agora calcula APENAS para tipo="nosso" (63 canais)
+   - **Arquivo:** `database.py` linha 437
+   - **Código:** `if item.get("tipo") == "nosso":`
+   - **Impacto:** Economia de 78% no processamento
+
+2. **"Comentários novos hoje" sempre mostrando 0**
+   - **Problema:** Filtro usava `created_at` (data publicação YouTube)
+   - **Correção:** Criado campo `collected_at` (data de coleta)
+   - **Arquivo:** `database.py` linha 2438
+   - **SQL:** `add_collected_at_column.sql` executado no Supabase
+   - **Impacto:** Dashboard agora mostra dados reais
+
+3. **Novo campo collected_at adicionado**
+   - **Tabela:** `video_comments`
+   - **Campos de data:**
+     - `published_at` - Quando foi publicado no YouTube
+     - `created_at` - Cópia do published_at (Supabase auto)
+     - `collected_at` - Quando NÓS coletamos (NOVO)
+   - **Status:** 5.785 comentários já com collected_at preenchido
+   - **Índice:** Criado para melhor performance
+
+### Testes e Verificação
+
+- ✅ Script `verify_fixes.py` criado e executado
+- ✅ 63 canais tipo="nosso" com inscritos_diff
+- ✅ 0 canais tipo="minerado" com inscritos_diff
+- ✅ 100% dos comentários com collected_at
+- ✅ Filtro "novos hoje" funcionando corretamente
+
+### Arquivos Criados/Modificados
+
+- **Modificados:**
+  - `database.py` - 3 correções principais
+  - `.claude/CLAUDE.md` - Documentação atualizada
+
+- **Criados:**
+  - `add_collected_at_column.sql` - Script SQL para Supabase
+  - `verify_fixes.py` - Script de verificação
+
+### Impacto na Coleta Diária (30/01 às 08:00 UTC)
+
+- Comentários novos aparecerão corretamente
+- inscritos_diff apenas para canais "nossos"
+- 1.7k comentários aguardando resposta serão processados
+
+---
+
 ## [29/01/2026 - v4] - Sistema Kanban: Endpoint de Movimentação e Compatibilidade
 
 ### 🚀 Nova Feature: Drag & Drop Entre Colunas

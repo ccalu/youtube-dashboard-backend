@@ -272,6 +272,44 @@ Novos campos disponíveis (calculados automaticamente):
 - ✅ Sistema salvando tudo corretamente
 - ✅ 13 canais com mudanças em 24h
 
+### Correções Críticas - Sistema de Comentários ✅
+**Desenvolvido:** 29/01/2026 (tarde)
+**Status:** ✅ 100% corrigido e testado
+
+**PROBLEMAS CORRIGIDOS:**
+
+1. **inscritos_diff calculado para TODOS os canais (ERRO):**
+   - **Problema:** Estava calculando para 287+ canais (nossos + minerados)
+   - **Correção:** Agora calcula APENAS para canais tipo="nosso" (63 canais)
+   - **Código:** `database.py` linha 437: `if item.get("tipo") == "nosso":`
+   - **Impacto:** Economia de processamento e dados corretos
+
+2. **"Comentários novos hoje" sempre mostrando 0:**
+   - **Problema:** Filtro usava `created_at` (data de publicação no YouTube)
+   - **Correção:** Criado campo `collected_at` (data de coleta no banco)
+   - **Código:** `database.py` linha 2438: `.gte('collected_at', today)`
+   - **SQL:** `add_collected_at_column.sql` executado no Supabase
+   - **Impacto:** Dashboard mostra corretamente comentários coletados no dia
+
+3. **Campo collected_at adicionado:**
+   - **Tabela:** `video_comments` agora tem 3 campos de data:
+     - `published_at` - Quando foi publicado no YouTube
+     - `created_at` - Cópia do published_at (Supabase auto)
+     - `collected_at` - Quando NÓS coletamos (NOVO)
+   - **Status:** 5.785 comentários já com collected_at preenchido
+   - **Índice:** Criado para melhor performance de filtros
+
+**Verificação realizada:**
+- Script `verify_fixes.py` criado e testado
+- Confirmou todas as correções funcionando
+- SQL executado com sucesso no Supabase
+
+**Números confirmados:**
+- 63 canais tipo="nosso" (inscritos_diff)
+- 0 canais tipo="minerado" com inscritos_diff
+- 5.785 comentários com collected_at
+- Filtro "novos hoje" configurado corretamente
+
 ---
 
 ## 📜 ATUALIZAÇÕES ANTERIORES (17/01/2026):
