@@ -2376,63 +2376,27 @@ async def get_favoritos_videos():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/canais/{canal_id}")
-async def delete_canal(canal_id: int):
-    """
-    Deleta permanentemente um canal e todos os dados relacionados.
-    ATENÇÃO: Esta operação é IRREVERSÍVEL!
-
-    Remove:
-    - Canal da tabela principal
-    - Todo histórico de dados do canal
-    - Todos os vídeos coletados
-    - Comentários dos vídeos
-    - Notificações relacionadas
-    - Favoritos relacionados
-    """
+async def delete_canal(canal_id: int, permanent: bool = False):
     try:
-        # Deletar permanentemente o canal
-        await db.delete_canal_permanently(canal_id)
+        if permanent:
+            try:
+                notif_response = db.supabase.table("notificacoes").delete().eq("canal_id", canal_id).execute()
+                deleted_count = len(notif_response.data) if notif_response.data else 0
+                logger.info(f"Deleted {deleted_count} notifications for canal {canal_id}")
+            except Exception as e:
+                logger.warning(f"Error deleting notifications for canal {canal_id}: {e}")
 
-        # Invalidar cache global para atualização imediata no dashboard
-        global dashboard_cache, tabela_cache, cache_timestamp_dashboard, cache_timestamp_tabela
-        dashboard_cache = None
-        tabela_cache = None
-        cache_timestamp_dashboard = None
-        cache_timestamp_tabela = None
-        logger.info(f"Cache invalidated after deleting canal {canal_id}")
-
-        return {"message": "Canal deletado permanentemente com sucesso"}
+            await db.delete_canal_permanently(canal_id)
+            return {"message": "Canal deletado permanentemente"}
+        else:
+            response = db.supabase.table("canais_monitorados").update({
+                "status": "inativo"
+            }).eq("id", canal_id).execute()
+            return {"message": "Canal desativado", "canal": response.data}
     except Exception as e:
-        logger.error(f"Error deleting canal {canal_id}: {e}")
+        logger.error(f"Error deleting canal: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.patch("/api/canais/{canal_id}/desativar")
-async def desativar_canal(canal_id: int):
-    """
-    Desativa um canal temporariamente (para de coletar, mas mantém histórico).
-    Use este endpoint se quiser parar de coletar dados de um canal
-    mas manter todo o histórico existente.
-
-    Para reativar, mude o status para 'ativo' através do endpoint PATCH /api/canais/{id}
-    """
-    try:
-        response = db.supabase.table("canais_monitorados").update({
-            "status": "inativo",
-            "ativo": False
-        }).eq("id", canal_id).execute()
-
-        if not response.data:
-            raise HTTPException(status_code=404, detail=f"Canal {canal_id} não encontrado")
-
-        # Invalidar cache para atualização no dashboard
-        global dashboard_cache, tabela_cache
-        dashboard_cache = None
-        tabela_cache = None
-
-        return {"message": "Canal desativado com sucesso", "canal": response.data[0]}
-    except Exception as e:
-        logger.error(f"Error deactivating canal {canal_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/notificacoes")
 async def get_notificacoes_nao_vistas():
