@@ -154,8 +154,8 @@ class EngagementPreprocessor:
                 'all_comments': engagement_data.get('all_comments', [])
             }
 
-            # Calcular expiração (24h a partir de agora)
-            expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+            # Calcular expiração (6h a partir de agora)
+            expires_at = datetime.now(timezone.utc) + timedelta(hours=6)
 
             # Salvar no cache (upsert para atualizar se já existe)
             cache_response = self.db.supabase.table('engagement_cache').upsert({

@@ -434,6 +434,7 @@ class SupabaseClient:
                         # 🆕 Calcular diferença de inscritos (hoje vs ontem) - APENAS PARA CANAIS "NOSSOS"
                         # FIX: Buscar especificamente o registro de ontem (não assumir que [1] é ontem)
                         # FIX 2: Calcular inscritos_diff apenas para canais tipo="nosso"
+                        # FIX 3: Sempre definir inscritos_diff (0 se não houver dados de ontem)
                         if item.get("tipo") == "nosso":
                             data_ontem_str = (datetime.now(timezone.utc).date() - timedelta(days=1)).isoformat()
                             if data_ontem_str in historico_por_canal[item["id"]]:
@@ -441,6 +442,9 @@ class SupabaseClient:
                                 inscritos_hoje = h_hoje.get("inscritos") or 0
                                 inscritos_ontem = h_ontem.get("inscritos") or 0
                                 canal["inscritos_diff"] = inscritos_hoje - inscritos_ontem
+                            else:
+                                # Se não houver dados de ontem, mostrar 0 (não deixar indefinido)
+                                canal["inscritos_diff"] = 0
 
                         # 🆕 NOVO: Calcular views_growth_7d (comparar com ~7 dias atrás)
                         hoje_date = datetime.now(timezone.utc).date()
@@ -1292,6 +1296,17 @@ class SupabaseClient:
 
     async def delete_canal_permanently(self, canal_id: int):
         try:
+            # Primeiro buscar todos os video_ids do canal
+            videos_result = self.supabase.table("videos_historico").select("video_id").eq("canal_id", canal_id).execute()
+
+            # Deletar comentários de todos os vídeos do canal
+            if videos_result.data:
+                video_ids = [video['video_id'] for video in videos_result.data]
+                # Deletar em lotes de 100 para evitar timeout
+                for i in range(0, len(video_ids), 100):
+                    batch = video_ids[i:i+100]
+                    self.supabase.table("video_comments").delete().in_("video_id", batch).execute()
+
             # Ordem de deleção (respeitar foreign keys)
             self.supabase.table("videos_historico").delete().eq("canal_id", canal_id).execute()
             self.supabase.table("dados_canais_historico").delete().eq("canal_id", canal_id).execute()

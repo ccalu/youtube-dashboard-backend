@@ -57,9 +57,9 @@ import hashlib
 from functools import wraps
 import json
 
-# Cache global com TTL de 24 horas
+# Cache global com TTL de 6 horas
 dashboard_cache = {}
-CACHE_DURATION = timedelta(hours=24)  # Cache de 24 horas (só atualiza após coleta)
+CACHE_DURATION = timedelta(hours=6)  # Cache de 6 horas (atualiza 4x por dia)
 
 def get_cache_key(endpoint: str, params: dict = None) -> str:
     """
@@ -2376,25 +2376,62 @@ async def get_favoritos_videos():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/canais/{canal_id}")
-async def delete_canal(canal_id: int, permanent: bool = False):
+async def delete_canal(canal_id: int):
+    """
+    Deleta permanentemente um canal e todos os dados relacionados.
+    ATENÇÃO: Esta operação é IRREVERSÍVEL!
+
+    Remove:
+    - Canal da tabela principal
+    - Todo histórico de dados do canal
+    - Todos os vídeos coletados
+    - Comentários dos vídeos
+    - Notificações relacionadas
+    - Favoritos relacionados
+    """
     try:
-        if permanent:
-            try:
-                notif_response = db.supabase.table("notificacoes").delete().eq("canal_id", canal_id).execute()
-                deleted_count = len(notif_response.data) if notif_response.data else 0
-                logger.info(f"Deleted {deleted_count} notifications for canal {canal_id}")
-            except Exception as e:
-                logger.warning(f"Error deleting notifications for canal {canal_id}: {e}")
-            
-            await db.delete_canal_permanently(canal_id)
-            return {"message": "Canal deletado permanentemente"}
-        else:
-            response = db.supabase.table("canais_monitorados").update({
-                "status": "inativo"
-            }).eq("id", canal_id).execute()
-            return {"message": "Canal desativado", "canal": response.data}
+        # Deletar permanentemente o canal
+        await db.delete_canal_permanently(canal_id)
+
+        # Invalidar cache global para atualização imediata no dashboard
+        global dashboard_cache, tabela_cache, cache_timestamp_dashboard, cache_timestamp_tabela
+        dashboard_cache = None
+        tabela_cache = None
+        cache_timestamp_dashboard = None
+        cache_timestamp_tabela = None
+        logger.info(f"Cache invalidated after deleting canal {canal_id}")
+
+        return {"message": "Canal deletado permanentemente com sucesso"}
     except Exception as e:
-        logger.error(f"Error deleting canal: {e}")
+        logger.error(f"Error deleting canal {canal_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/api/canais/{canal_id}/desativar")
+async def desativar_canal(canal_id: int):
+    """
+    Desativa um canal temporariamente (para de coletar, mas mantém histórico).
+    Use este endpoint se quiser parar de coletar dados de um canal
+    mas manter todo o histórico existente.
+
+    Para reativar, mude o status para 'ativo' através do endpoint PATCH /api/canais/{id}
+    """
+    try:
+        response = db.supabase.table("canais_monitorados").update({
+            "status": "inativo",
+            "ativo": False
+        }).eq("id", canal_id).execute()
+
+        if not response.data:
+            raise HTTPException(status_code=404, detail=f"Canal {canal_id} não encontrado")
+
+        # Invalidar cache para atualização no dashboard
+        global dashboard_cache, tabela_cache
+        dashboard_cache = None
+        tabela_cache = None
+
+        return {"message": "Canal desativado com sucesso", "canal": response.data[0]}
+    except Exception as e:
+        logger.error(f"Error deactivating canal {canal_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/notificacoes")
@@ -2532,6 +2569,38 @@ async def marcar_todas_notificacoes_vistas(
         }
     except Exception as e:
         logger.error(f"Error marking all notificacoes as vistas: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/cache/clear")
+async def clear_all_cache():
+    """
+    Limpa todo o cache do dashboard e força atualização das Materialized Views.
+    Use este endpoint após deletar canais para forçar atualização imediata.
+    """
+    try:
+        # Limpar cache global
+        global dashboard_cache, tabela_cache, cache_timestamp_dashboard, cache_timestamp_tabela
+        dashboard_cache = None
+        tabela_cache = None
+        cache_timestamp_dashboard = None
+        cache_timestamp_tabela = None
+
+        # Forçar refresh das MVs
+        try:
+            await db.refresh_all_dashboard_mvs()
+            mv_refreshed = True
+        except Exception as e:
+            logger.warning(f"Could not refresh MVs: {e}")
+            mv_refreshed = False
+
+        return {
+            "message": "Cache limpo com sucesso",
+            "cache_cleared": True,
+            "mv_refreshed": mv_refreshed,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error clearing cache: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/notificacoes/stats")

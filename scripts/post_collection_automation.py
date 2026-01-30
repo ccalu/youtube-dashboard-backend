@@ -68,13 +68,15 @@ class PostCollectionAutomation:
         try:
             # ETAPA 1: Buscar nossos canais
             nossos_canais = self.db.supabase.table('canais_monitorados').select(
-                'id, nome_canal, subnicho'
+                'id, nome_canal, subnicho, is_monetized'
             ).eq('tipo', 'nosso').execute()
 
             canal_ids = [c['id'] for c in nossos_canais.data] if nossos_canais.data else []
+
+            # Identificar monetizados (por is_monetized=true OU subnicho='Monetizados')
             monetizados_ids = [
                 c['id'] for c in nossos_canais.data
-                if c.get('subnicho') == 'Monetizados'
+                if c.get('is_monetized', False) or c.get('subnicho') == 'Monetizados'
             ] if nossos_canais.data else []
 
             logger.info(f"Canais nossos: {len(canal_ids)}")
@@ -90,39 +92,54 @@ class PostCollectionAutomation:
 
             logger.info(f"Comentários para processar: {len(comments)}")
 
-            # ETAPA 3: Separar por tipo de processamento
+            # ETAPA 3: Identificar comentários que precisam tradução (TODOS os nossos canais)
             comments_to_translate = []
-            comments_for_responses = []
 
             for comment in comments:
                 text_original = (comment.get('comment_text_original') or '').strip()
                 text_pt = (comment.get('comment_text_pt') or '').strip()
 
-                if text_original:
-                    # Precisa traduzir?
-                    if not text_pt or text_pt in ['null', 'texto traduzido ou original']:
-                        comments_to_translate.append(comment)
+                # Traduzir TODOS os comentários sem tradução (todos os nossos canais)
+                if text_original and (not text_pt or text_pt in ['null', 'texto traduzido ou original']):
+                    comments_to_translate.append(comment)
 
-                    # Precisa gerar resposta? (só canais monetizados)
-                    if comment['canal_id'] in monetizados_ids:
+            logger.info(f"Para traduzir: {len(comments_to_translate)}")
+
+            # ETAPA 4: Traduzir PRIMEIRO (aguarda completar totalmente)
+            if comments_to_translate:
+                logger.info("INICIANDO TRADUÇÃO DE TODOS OS COMENTÁRIOS...")
+                await self._translate_comments(comments_to_translate)
+                logger.info("TRADUÇÃO COMPLETA! ✅")
+
+            # ETAPA 5: APÓS tradução completa, buscar comentários para gerar respostas
+            # (apenas canais monetizados)
+            comments_for_responses = []
+
+            if monetizados_ids:
+                # Re-buscar comentários dos canais monetizados para pegar traduções atualizadas
+                monetized_comments = await self._fetch_comments(monetizados_ids, only_recent)
+
+                for comment in monetized_comments:
+                    text_original = (comment.get('comment_text_original') or '').strip()
+                    text_pt = (comment.get('comment_text_pt') or '').strip()
+
+                    if text_original:
+                        # Usar texto traduzido se disponível, senão usar original
                         comment['text_for_response'] = text_pt if text_pt and text_pt not in ['null', 'texto traduzido ou original'] else text_original
                         comments_for_responses.append(comment)
 
-            logger.info(f"Para traduzir: {len(comments_to_translate)}")
-            logger.info(f"Para gerar resposta: {len(comments_for_responses)}")
+            logger.info(f"Para gerar resposta (monetizados): {len(comments_for_responses)}")
 
-            # ETAPA 4: Traduzir se necessário
-            if comments_to_translate:
-                await self._translate_comments(comments_to_translate)
-
-            # ETAPA 5: Gerar respostas TOP 10
+            # ETAPA 6: Gerar respostas TOP 10 (apenas após tradução completa)
             if comments_for_responses:
+                logger.info("INICIANDO GERAÇÃO DE RESPOSTAS (APENAS MONETIZADOS)...")
                 await self._generate_responses(comments_for_responses)
+                logger.info("RESPOSTAS GERADAS! ✅")
 
             self.stats['end_time'] = datetime.utcnow()
             duration = (self.stats['end_time'] - self.stats['start_time']).total_seconds()
 
-            # ETAPA 6: Log final
+            # ETAPA 7: Log final
             logger.info("\n" + "="*60)
             logger.info("AUTOMAÇÃO COMPLETA!")
             logger.info("="*60)
