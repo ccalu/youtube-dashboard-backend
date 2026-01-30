@@ -5,6 +5,87 @@
 
 ---
 
+## [30/01/2026 - v6] - Grande Reorganização e Otimização de MVs
+
+### 🧹 Reorganização Massiva do Dashboard
+
+**Data:** 30/01/2026
+**Status:** ✅ Completo
+**Desenvolvedor:** Claude com Cellibs
+**Propósito:** Limpar dashboard e focar em nichos essenciais
+
+### Mudanças Implementadas
+
+1. **Remoção de 4 subnichos completos (117 canais)**
+   - **Psicologia & Mindset:** 62 canais deletados
+   - **Empreendedorismo:** 29 canais deletados
+   - **Historia Reconstruida:** 1 canal deletado
+   - **Notícias e Atualidade:** 12 canais deletados
+   - **Total removido:** 104 canais minerados + 13 nossos
+
+2. **Reorganização dos canais nossos**
+   - **Antes:** 50 canais nossos (misturados)
+   - **Depois:** 26 canais nossos (focados)
+   - **Movidos para Desmonetizados:** 2 canais
+   - **Deletados permanentemente:** 24 canais
+   - **Distribuição final:**
+     - Monetizados: 8 canais
+     - Desmonetizados: 14 canais
+     - Relatos de Guerra: 2 canais
+     - Historias Sombrias: 1 canal
+     - Terror: 1 canal
+
+3. **Estado final do sistema**
+   - **Total antes:** 304 canais
+   - **Total depois:** 232 canais (26 nossos + 206 minerados)
+   - **Redução:** 72 canais (-24%)
+   - **Performance:** Dashboard mais rápido e focado
+
+### Correção Crítica: Endpoint DELETE
+
+**Problema:** Endpoint modificado causava erro 500 em produção
+**Solução:**
+- Revertido para versão original com parâmetro `permanent`
+- Removido endpoint `/desativar` desnecessário
+- Criado script separado `update_materialized_views.py`
+- **Commit:** d7f3517
+
+### Otimização de Materialized Views
+
+**Solução Simplificada Implementada:**
+1. **Botão "Atualizar" no dashboard:**
+   - Chama `POST /api/cache/clear`
+   - Atualiza MVs automaticamente
+   - Limpa cache do servidor
+   - Dashboard sincronizado em ~3 segundos
+
+2. **Endpoint `/api/cache/clear` melhorado:**
+   - Limpa cache global (Dashboard + Tabela)
+   - Força refresh das MVs com `refresh_all_dashboard_mvs()`
+   - Tratamento de erro robusto
+   - Retorna status detalhado
+
+3. **Integração com Lovable:**
+   - Frontend configurado para chamar endpoint correto
+   - Feedback visual durante atualização
+   - Toast de sucesso/erro
+   - Reload automático dos dados
+
+### Scripts de Manutenção Criados
+
+- `delete_subnichos.py` - Remove subnichos completos com backup
+- `reorganizar_canais.py` - Reorganiza canais nossos
+- `update_materialized_views.py` - Atualiza MVs manualmente
+- `force_refresh_mv.py` - Força refresh simples das MVs
+
+### Arquivos de Backup Gerados
+
+- `backup_canais_removidos_*.json` - Backup dos deletados
+- `backup_reorganizacao_*.json` - Backup da reorganização
+- `backup_minerados_removidos_*.json` - Backup dos minerados
+
+---
+
 ## [29/01/2026 - v5] - Correções Críticas: Sistema de Comentários
 
 ### 🔧 Correções Críticas Implementadas

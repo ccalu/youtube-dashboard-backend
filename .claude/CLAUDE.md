@@ -213,6 +213,85 @@ Novos campos disponíveis (calculados automaticamente):
 
 ---
 
+## 🆕 ATUALIZAÇÕES RECENTES (30/01/2026):
+
+### Grande Reorganização de Canais - Limpeza do Dashboard ✅
+**Desenvolvido:** 30/01/2026
+**Status:** ✅ Dashboard limpo e organizado
+
+**O que foi feito:**
+1. **Remoção de 4 subnichos completos (117 canais):**
+   - Psicologia & Mindset: 62 canais removidos
+   - Empreendedorismo: 29 canais removidos
+   - Historia Reconstruida: 1 canal removido
+   - Notícias e Atualidade: 12 canais removidos
+   - Guerras/Civilizações/Terror: 24 canais nossos reorganizados
+
+2. **Reorganização dos canais nossos (de 50 para 26):**
+   - Mantidos apenas canais específicos de nichos dark
+   - 2 canais movidos para Desmonetizados
+   - 24 canais não essenciais removidos
+   - Foco em: Monetizados (8), Relatos de Guerra (2), Historias Sombrias (1), Terror (1), Desmonetizados (14)
+
+3. **Estado final do sistema:**
+   - **Antes:** 304 canais totais (misturados)
+   - **Depois:** 232 canais (26 nossos + 206 minerados)
+   - **Redução:** 72 canais (-24%)
+   - Dashboard mais limpo e focado
+
+4. **Scripts criados para manutenção:**
+   - `delete_subnichos.py` - Remove subnichos completos
+   - `reorganizar_canais.py` - Reorganiza canais nossos
+   - `update_materialized_views.py` - Atualiza MVs manualmente
+   - Todos com backup automático antes de mudanças
+
+### Correção Crítica: Endpoint DELETE Revertido ✅
+**Desenvolvido:** 30/01/2026
+**Status:** ✅ Erro 500 corrigido
+
+**Problema identificado:**
+- Endpoint DELETE modificado causava erro 500 em produção
+- Erro: "argument of type 'NoneType' is not iterable"
+- Dashboard não conseguia deletar canais
+
+**Solução implementada:**
+1. **Revertido DELETE para versão original:**
+   - Mantém parâmetro `permanent` (false=desativa, true=deleta)
+   - Removido endpoint `/desativar` desnecessário
+   - Commit: `d7f3517`
+
+2. **Script separado para MVs:**
+   - `update_materialized_views.py` criado
+   - Não interfere com endpoints de produção
+   - Pode ser executado manualmente quando necessário
+
+### Otimização de Materialized Views - Solução Simplificada ✅
+**Desenvolvido:** 30/01/2026
+**Status:** ✅ Dashboard sempre atualizado
+
+**Solução implementada (SIMPLES E EFETIVA):**
+1. **Botão "Atualizar" no dashboard agora:**
+   - Chama `POST /api/cache/clear`
+   - Atualiza Materialized Views
+   - Limpa cache do servidor
+   - Dashboard mostra dados corretos imediatamente
+
+2. **Endpoint `/api/cache/clear` já faz tudo:**
+   - ✅ Limpa cache global (Dashboard + Tabela)
+   - ✅ Força refresh das MVs (`refresh_all_dashboard_mvs()`)
+   - ✅ Tratamento de erro (não quebra se MV falhar)
+   - ✅ Retorna status da operação
+
+3. **Integração com Lovable configurada:**
+   - Frontend atualizado para chamar endpoint correto
+   - Feedback visual durante atualização
+   - Toast de sucesso/erro
+   - Recarrega dados automaticamente
+
+**Resultado:** Qualquer mudança no sistema → Clique no botão Atualizar → Dashboard sincronizado!
+
+---
+
 ## 🆕 ATUALIZAÇÕES RECENTES (29/01/2026):
 
 ### Reorganização Completa do Projeto ✅
