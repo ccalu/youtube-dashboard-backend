@@ -204,9 +204,9 @@ class ChannelAnalytics:
                     if month_ago.get('views_30d', 0) > 0:
                         metricas['growth_30d'] = ((metricas['views_30d'] - month_ago['views_30d']) / month_ago['views_30d']) * 100
 
-                # Diferença de inscritos
-                if len(historico) >= 2:
-                    metricas['inscritos_diff'] = latest.get('inscritos', 0) - historico[-2].get('inscritos', 0)
+                # Diferença de inscritos - usar valor salvo do banco
+                # O valor já foi calculado e salvo durante a coleta
+                metricas['inscritos_diff'] = latest.get('inscritos_diff', 0)
 
             # Engagement rate dos vídeos
             if videos:
