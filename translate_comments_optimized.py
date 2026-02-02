@@ -102,14 +102,15 @@ FORMATO DE RESPOSTA:
                         if isinstance(translations, list):
                             translated.extend(translations)
                         else:
-                            # Fallback se não for lista
-                            logger.warning("Resposta não é uma lista, usando textos originais")
-                            translated.extend(sub_batch)
+                            # Se não for lista, erro
+                            logger.error(f"Resposta não é uma lista: {type(translations)}")
+                            raise Exception(f"Formato inesperado da resposta GPT: {type(translations)}")
 
                     except json.JSONDecodeError as e:
                         logger.error(f"Erro ao fazer parse do JSON de tradução: {e}")
-                        # Em caso de erro, usar textos originais
-                        translated.extend(sub_batch)
+                        logger.error(f"Conteúdo recebido: {content[:500]}")
+                        # Propagar erro para retry funcionar
+                        raise Exception(f"Erro ao parsear resposta do GPT: {e}")
 
                     # Log de progresso
                     logger.info(f"[TRADUTOR GPT] Traduzidos {len(sub_batch)} textos")
@@ -120,16 +121,16 @@ FORMATO DE RESPOSTA:
 
                 except Exception as e:
                     logger.error(f"Erro na chamada GPT-4 Mini: {e}")
-                    # Em caso de erro, adicionar textos originais
-                    translated.extend(sub_batch)
+                    # Propagar erro para o sistema de retry funcionar
+                    raise
 
             logger.info(f"[TRADUTOR GPT] Total traduzido: {len(translated)} textos")
             return translated
 
         except Exception as e:
             logger.error(f"Erro crítico no tradutor: {e}")
-            # Retornar textos originais em caso de erro crítico
-            return texts
+            # Propagar erro ao invés de retornar textos originais
+            raise
 
     async def translate_single(self, text: str) -> str:
         """

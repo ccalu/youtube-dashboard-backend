@@ -3674,12 +3674,24 @@ async def schedule_daily_collection():
 # 🌐 TRADUÇÃO AUTOMÁTICA DE COMENTÁRIOS
 # ========================================
 
+# Dicionário para controle de lock (evita tradução duplicada)
+canais_em_traducao = set()
+
 async def traduzir_comentarios_canal(canal_id: int):
     """
-    Traduz comentários não traduzidos de um canal em background.
-    Chamado automaticamente após coleta de comentários.
+    Traduz TODOS os comentários não traduzidos de um canal em background.
+    Processa em loop até não haver mais pendentes.
     NÃO traduz comentários de canais em português.
+    Sistema de lock previne duplicação.
     """
+    # Verificar se já está em tradução
+    if canal_id in canais_em_traducao:
+        logger.info(f"⚠️ Canal {canal_id} já está sendo traduzido, pulando...")
+        return
+
+    # Marcar canal como em tradução
+    canais_em_traducao.add(canal_id)
+
     try:
         logger.info(f"🌐 Iniciando verificação de tradução para canal {canal_id}")
 
@@ -3701,66 +3713,95 @@ async def traduzir_comentarios_canal(canal_id: int):
             logger.info(f"🇧🇷 Canal {canal['nome_canal']} é em português - tradução não necessária")
             return
 
-        logger.info(f"🌍 Canal {canal['nome_canal']} ({lingua}) - iniciando tradução")
+        logger.info(f"🌍 Canal {canal['nome_canal']} ({lingua}) - iniciando tradução completa")
 
         # Importar tradutor
         from translate_comments_optimized import OptimizedTranslator
         translator = OptimizedTranslator()
 
-        # Buscar comentários não traduzidos
-        response = db.supabase.table('video_comments')\
-            .select('id, comment_text_original')\
-            .eq('canal_id', canal_id)\
-            .eq('is_translated', False)\
-            .limit(50)\
-            .execute()
+        total_traduzidos = 0
+        rodadas = 0
 
-        if not response.data:
-            logger.info(f"✅ Nenhum comentário pendente de tradução para canal {canal_id}")
-            return
+        # Loop até traduzir TODOS os comentários
+        while True:
+            rodadas += 1
 
-        comentarios = response.data
-        logger.info(f"📝 {len(comentarios)} comentários para traduzir")
+            # Buscar próximo lote de comentários não traduzidos
+            response = db.supabase.table('video_comments')\
+                .select('id, comment_text_original')\
+                .eq('canal_id', canal_id)\
+                .eq('is_translated', False)\
+                .limit(50)\
+                .execute()
 
-        # Processar em lotes de 20
-        batch_size = 20
-        traduzidos = 0
+            if not response.data:
+                logger.info(f"✅ Todos os comentários do canal {canal_id} foram traduzidos!")
+                break
 
-        for i in range(0, len(comentarios), batch_size):
-            batch = comentarios[i:i+batch_size]
-            textos_originais = [c['comment_text_original'] for c in batch]
+            comentarios = response.data
+            logger.info(f"📝 Rodada {rodadas}: {len(comentarios)} comentários para traduzir")
 
-            try:
-                # Traduzir batch
-                textos_traduzidos = await translator.translate_batch(textos_originais)
+            # Processar em lotes de 20
+            batch_size = 20
+            traduzidos_rodada = 0
 
-                # Atualizar no banco
-                for j, comentario in enumerate(batch):
-                    if j < len(textos_traduzidos):
-                        texto_traduzido = textos_traduzidos[j]
+            for i in range(0, len(comentarios), batch_size):
+                batch = comentarios[i:i+batch_size]
+                textos_originais = [c['comment_text_original'] for c in batch]
 
-                        # Sempre atualizar após processar (mesmo se texto não mudou)
-                        if texto_traduzido:
-                            db.supabase.table('video_comments')\
-                                .update({
-                                    'comment_text_pt': texto_traduzido,
-                                    'is_translated': True
-                                })\
-                                .eq('id', comentario['id'])\
-                                .execute()
+                # Tentar traduzir com retry (até 3 tentativas)
+                for tentativa in range(3):
+                    try:
+                        # Traduzir batch
+                        textos_traduzidos = await translator.translate_batch(textos_originais)
 
-                            traduzidos += 1
+                        # Atualizar no banco
+                        for j, comentario in enumerate(batch):
+                            if j < len(textos_traduzidos):
+                                texto_traduzido = textos_traduzidos[j]
 
-                logger.info(f"✅ Lote {i//batch_size + 1} traduzido: {traduzidos} comentários")
+                                # Só atualizar se recebeu tradução
+                                if texto_traduzido:
+                                    update_result = db.supabase.table('video_comments')\
+                                        .update({
+                                            'comment_text_pt': texto_traduzido,
+                                            'is_translated': True
+                                        })\
+                                        .eq('id', comentario['id'])\
+                                        .execute()
 
-            except Exception as e:
-                logger.error(f"❌ Erro ao traduzir lote: {e}")
-                continue
+                                    if update_result.data:
+                                        traduzidos_rodada += 1
 
-        logger.info(f"🌐 Tradução concluída: {traduzidos} comentários traduzidos para canal {canal_id}")
+                        logger.info(f"✅ Lote {i//batch_size + 1} traduzido: {traduzidos_rodada} comentários")
+                        break  # Sucesso, sai do loop de retry
+
+                    except Exception as e:
+                        if tentativa < 2:
+                            logger.warning(f"⚠️ Erro ao traduzir lote (tentativa {tentativa + 1}/3): {e}")
+                            await asyncio.sleep(5 * (tentativa + 1))  # 5s, 10s
+                        else:
+                            logger.error(f"❌ Erro após 3 tentativas no lote: {e}")
+                            break  # Pula este lote após 3 falhas
+
+                # Rate limiting entre batches
+                await asyncio.sleep(2)
+
+            total_traduzidos += traduzidos_rodada
+            logger.info(f"📊 Rodada {rodadas} concluída: {traduzidos_rodada} traduzidos (Total: {total_traduzidos})")
+
+            # Se não traduziu nenhum nesta rodada (todos falharam), parar para evitar loop infinito
+            if traduzidos_rodada == 0:
+                logger.warning(f"⚠️ Nenhum comentário traduzido nesta rodada, parando...")
+                break
+
+        logger.info(f"🎉 Tradução COMPLETA do canal {canal_id}: {total_traduzidos} comentários traduzidos em {rodadas} rodadas")
 
     except Exception as e:
         logger.error(f"❌ Erro na tradução automática do canal {canal_id}: {e}")
+    finally:
+        # Remover lock do canal
+        canais_em_traducao.discard(canal_id)
 
 
 # ========================================
