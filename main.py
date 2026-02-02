@@ -1280,7 +1280,7 @@ async def get_comments_summary():
 
 
 @app.post("/api/collect-comments/{canal_id}")
-async def collect_canal_comments(canal_id: int):
+async def collect_canal_comments(canal_id: int, background_tasks: BackgroundTasks):
     """
     💬 Coleta comentários de todos os vídeos de um canal.
 
@@ -1379,6 +1379,14 @@ async def collect_canal_comments(canal_id: int):
 
         logger.info(f"✅ Coleta concluída: {saved_count}/{total_comments} comentários salvos")
 
+        # 🔄 TRADUÇÃO AUTOMÁTICA EM BACKGROUND
+        if saved_count > 0:
+            try:
+                logger.info(f"🌐 Iniciando tradução automática de comentários em background...")
+                background_tasks.add_task(traduzir_comentarios_canal, canal_id)
+            except Exception as e:
+                logger.warning(f"⚠️ Não foi possível iniciar tradução automática: {e}")
+
         return {
             'success': True,
             'canal': canal.get('nome_canal'),
@@ -1386,7 +1394,7 @@ async def collect_canal_comments(canal_id: int):
             'total_videos': len(videos),
             'total_comments': total_comments,
             'comments_saved': saved_count,
-            'message': f'Coleta concluída com sucesso! {saved_count} comentários analisados e salvos.'
+            'message': f'Coleta concluída com sucesso! {saved_count} comentários analisados e salvos. Tradução iniciada em background.'
         }
 
     except HTTPException:
@@ -3657,6 +3665,79 @@ async def schedule_daily_collection():
         except Exception as e:
             logger.error(f"❌ Scheduled collection failed: {e}")
             await asyncio.sleep(3600)
+
+
+# ========================================
+# 🌐 TRADUÇÃO AUTOMÁTICA DE COMENTÁRIOS
+# ========================================
+
+async def traduzir_comentarios_canal(canal_id: int):
+    """
+    Traduz comentários não traduzidos de um canal em background.
+    Chamado automaticamente após coleta de comentários.
+    """
+    try:
+        logger.info(f"🌐 Iniciando tradução de comentários do canal {canal_id}")
+
+        # Importar tradutor
+        from translate_comments_optimized import OptimizedTranslator
+        translator = OptimizedTranslator()
+
+        # Buscar comentários não traduzidos
+        response = db.supabase.table('video_comments')\
+            .select('id, comment_text_original')\
+            .eq('canal_id', canal_id)\
+            .eq('is_translated', False)\
+            .limit(50)\
+            .execute()
+
+        if not response.data:
+            logger.info(f"✅ Nenhum comentário pendente de tradução para canal {canal_id}")
+            return
+
+        comentarios = response.data
+        logger.info(f"📝 {len(comentarios)} comentários para traduzir")
+
+        # Processar em lotes de 20
+        batch_size = 20
+        traduzidos = 0
+
+        for i in range(0, len(comentarios), batch_size):
+            batch = comentarios[i:i+batch_size]
+            textos_originais = [c['comment_text_original'] for c in batch]
+
+            try:
+                # Traduzir batch
+                textos_traduzidos = await translator.translate_batch(textos_originais)
+
+                # Atualizar no banco
+                for j, comentario in enumerate(batch):
+                    if j < len(textos_traduzidos):
+                        texto_traduzido = textos_traduzidos[j]
+
+                        # Atualizar se tradução diferente do original
+                        if texto_traduzido and texto_traduzido != comentario['comment_text_original']:
+                            db.supabase.table('video_comments')\
+                                .update({
+                                    'comment_text_pt': texto_traduzido,
+                                    'is_translated': True
+                                })\
+                                .eq('id', comentario['id'])\
+                                .execute()
+
+                            traduzidos += 1
+
+                logger.info(f"✅ Lote {i//batch_size + 1} traduzido: {traduzidos} comentários")
+
+            except Exception as e:
+                logger.error(f"❌ Erro ao traduzir lote: {e}")
+                continue
+
+        logger.info(f"🌐 Tradução concluída: {traduzidos} comentários traduzidos para canal {canal_id}")
+
+    except Exception as e:
+        logger.error(f"❌ Erro na tradução automática do canal {canal_id}: {e}")
+
 
 # ========================================
 # 💰 ENDPOINTS FINANCEIRO
