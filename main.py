@@ -2552,8 +2552,8 @@ async def clear_all_cache():
     try:
         # Limpar cache global
         global dashboard_cache, tabela_cache, cache_timestamp_dashboard, cache_timestamp_tabela
-        dashboard_cache = None
-        tabela_cache = None
+        dashboard_cache = {}
+        tabela_cache = {}
         cache_timestamp_dashboard = None
         cache_timestamp_tabela = None
 
