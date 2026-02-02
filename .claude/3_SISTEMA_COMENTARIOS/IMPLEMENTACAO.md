@@ -31,6 +31,21 @@
 - ✅ Criação do componente React completo
 - ✅ Documentação completa do sistema
 
+### 29/01/2026 - Correções Críticas
+- ✅ Adicionado campo `collected_at` para rastreamento de coleta
+- ✅ Corrigido cálculo de "novos hoje" (usa collected_at, não published_at)
+- ✅ Sistema Kanban implementado
+- ✅ Correção de flags is_translated para comentários PT
+
+### 02/02/2026 - Otimizações Finais
+- ✅ **Sistema TOP 20 vídeos por views implementado**
+- ✅ Redução de 65% no uso de API quota
+- ✅ Canais PT não gastam tokens GPT (11 canais otimizados)
+- ✅ 100% dos comentários traduzidos (0 pendentes)
+- ✅ Sistema de retry com 3 tentativas
+- ✅ Lock anti-duplicação de traduções
+- ✅ Total: 6.264 comentários coletados
+
 ## 🎯 Decisões Técnicas
 
 ### 1. Por que Supabase?
@@ -72,15 +87,17 @@
 **Erro:** Pensava que era só para monetizados
 **Esclarecimento:** Coleta de TODOS, resposta só monetizados
 
-## 📊 Métricas de Desenvolvimento
+## 📊 Métricas de Desenvolvimento (Atualizado 02/02/2026)
 
-- **Tempo total:** 5 dias
-- **Linhas de código:** ~2.000
+- **Tempo total:** 10 dias (desenvolvimento + otimizações)
+- **Linhas de código:** ~3.500
 - **Endpoints criados:** 6
-- **Scripts auxiliares:** 8
-- **Comentários processados:** 5.761
-- **Taxa de tradução:** 99.9%
-- **Taxa de sugestão:** 32%
+- **Scripts auxiliares:** 15+
+- **Comentários processados:** 6.264
+- **Taxa de tradução:** 100%
+- **Taxa de sugestão:** 29.7%
+- **Economia de API:** 65% (TOP 20 vídeos)
+- **Economia de tokens:** 28% (11 canais PT)
 
 ## 🔧 Stack Tecnológica
 

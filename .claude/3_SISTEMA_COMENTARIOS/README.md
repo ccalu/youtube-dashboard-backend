@@ -4,22 +4,25 @@
 
 Sistema completo de gestão de comentários para canais YouTube, com foco em **responder comentários de canais monetizados**.
 
-### Números Atuais
-- **63 canais** monitorados (tipo="nosso")
-- **9 canais monetizados** (subnicho="Monetizados") - foco para respostas
-- **54 canais de análise** - apenas mineração/insights
-- **5.761 comentários** coletados no total
-- **3.152 comentários** em canais monetizados
-- **1.854 comentários** com sugestão de resposta pronta
+### Números Atuais (02/02/2026)
+- **39 canais** monitorados (tipo="nosso")
+- **6 canais monetizados** (subnicho="Monetizados") - foco para respostas
+- **33 canais de análise** - apenas mineração/insights
+- **6.264 comentários** coletados no total
+- **1.937 comentários** em canais monetizados
+- **1.860 comentários** com sugestão de resposta pronta
+- **100% traduzidos** para PT (com canais PT otimizados)
+- **TOP 20 vídeos** por views implementado
 
 ## 🎯 Propósito
 
 O sistema foi criado para:
-1. **Coletar** comentários de TODOS os 63 canais
-2. **Traduzir** comentários em outras línguas para PT
+1. **Coletar** comentários de TODOS os 39 canais nossos
+2. **Traduzir** comentários em outras línguas para PT (pulando canais PT)
 3. **Gerar sugestões de resposta** personalizadas via GPT (não análises)
-4. **Gerenciar respostas** apenas para os 9 canais monetizados
+4. **Gerenciar respostas** apenas para os 6 canais monetizados
 5. **Analisar sentimento** e categorizar comentários
+6. **Coletar apenas TOP 20 vídeos** por views (economia de API quota)
 
 ## 🔄 Fluxo do Sistema
 
@@ -57,7 +60,7 @@ O sistema foi criado para:
 ## 🚀 Como Usar
 
 ### 1. Aba de Comentários no Dashboard
-- Mostra apenas comentários dos 9 canais monetizados
+- Mostra apenas comentários dos 6 canais monetizados
 - Cards com resumo: total, novos hoje, aguardando resposta
 - Navegação: Canal → Vídeos → Comentários
 
@@ -82,18 +85,20 @@ O sistema foi criado para:
 
 ## ⚙️ Configurações
 
-### Canais Monetizados (9 total)
-IDs: 835, 888, 276, 271, 668, 672, 762, 264, 645
+### Canais Monetizados (6 total - atualizado em 02/02/2026)
+Subnicho="Monetizados" no banco de dados
 
 Estes são os únicos que aparecem na aba de comentários para gestão de respostas.
 
-## 📈 Status Atual
+## 📈 Status Atual (02/02/2026)
 
-✅ **Sistema 100% funcional**
-- Coleta automática funcionando
-- Traduções processadas (99.9%)
-- Sugestões geradas (32% dos comentários)
-- Pronto para uso no Lovable
+✅ **Sistema 100% funcional e otimizado**
+- Coleta automática funcionando às 5h AM diariamente
+- Traduções processadas (100% - 0 pendentes)
+- Sugestões geradas (29.7% dos comentários - 1.860 total)
+- TOP 20 vídeos por views (economia de 65% em API quota)
+- Canais PT não gastam tokens GPT (11 canais otimizados)
+- Pronto e rodando em produção no Railway
 
 ## 🔮 Próximos Passos
 

@@ -5,10 +5,13 @@
 ### Descrição
 Armazena todos os comentários coletados dos vídeos do YouTube, incluindo traduções, análises de sentimento e sugestões de resposta.
 
-### Total de Registros
-- **5.785** comentários (27/01/2025)
-- **5.761** dos nossos canais
-- **3.152** em canais monetizados
+### Total de Registros (Atualizado em 02/02/2026)
+- **6.264** comentários total
+- **6.264** dos nossos canais (100% tipo="nosso")
+- **1.937** em canais monetizados
+- **100%** traduzidos (is_translated=true)
+- **1.860** com sugestões GPT
+- **0** pendentes de tradução
 
 ## 🔧 Estrutura da Tabela
 

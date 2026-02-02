@@ -89,25 +89,29 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 - Pode melhorar lógica existente
 - SEMPRE fazer backup antes de mudanças grandes
 
-## 🆕 ATUALIZAÇÕES RECENTES (27/01/2025):
+## 🆕 ATUALIZAÇÕES RECENTES (02/02/2026):
 
-### 💬 SISTEMA DE COMENTÁRIOS - 100% Funcional
+### 💬 SISTEMA DE COMENTÁRIOS - 100% Funcional e Otimizado
 **Desenvolvido:** 23-27/01/2025
-**Status:** ✅ Completo e documentado
+**Otimizado:** 02/02/2026
+**Status:** ✅ Completo, testado e em produção
 
 **O que foi implementado:**
 1. **Tabela `video_comments`:** 38 campos para gestão completa
 2. **6 novos endpoints:** API completa para comentários
-3. **Coleta automática:** 5.761 comentários coletados
-4. **Tradução automática:** 99.9% traduzidos para PT
-5. **Sugestões GPT:** 1.854 respostas prontas
+3. **Coleta automática:** 6.264 comentários coletados
+4. **Tradução automática:** 100% traduzidos para PT
+5. **Sugestões GPT:** 1.860 respostas prontas
 6. **Frontend React:** Componente completo para Lovable
+7. **TOP 20 vídeos:** Sistema implementado - coleta apenas os 20 vídeos com mais views
 
-**Números:**
-- 63 canais monitorados (tipo="nosso")
-- 9 canais monetizados (foco das respostas)
-- 3.152 comentários em monetizados
+**Números atualizados (02/02/2026):**
+- 39 canais monitorados (tipo="nosso")
+- 6 canais monetizados (foco das respostas)
+- 1.937 comentários em monetizados
 - 0 respondidos (aguardando início)
+- 11 canais em português (não gastam tokens GPT)
+- 100% dos comentários traduzidos
 
 **Documentação:** `.claude/3_SISTEMA_COMENTARIOS/`
 - README.md - Visão geral
