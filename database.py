@@ -2346,49 +2346,107 @@ class SupabaseClient:
             logger.error(f"Error fetching monetized channels: {e}")
             return []
 
-    def get_videos_with_comments_count(self, canal_id: int, limit: int = 100) -> List[Dict]:
+    def get_videos_with_comments_count(self, canal_id: int, limit: int = 10) -> List[Dict]:
         """
-        Retorna vídeos de um canal com contagem de comentários
-        Aumentado limite para 100 para mostrar mais vídeos
+        Retorna TOP vídeos de um canal com contagem de comentários
+        Nova abordagem: busca diretamente dos comentários para evitar duplicatas
         """
         try:
-            # Buscar vídeos do canal diretamente (sem usar IN que pode causar erro 500)
-            videos = self.supabase.table('videos_historico').select(
-                'id, titulo, views_atuais, data_publicacao, video_id'
-            ).eq('canal_id', canal_id).order('views_atuais', desc=True).limit(limit).execute()
+            # 1. Buscar TODOS os comentários do canal
+            comments_data = self.supabase.table('video_comments').select(
+                'video_id, video_title'
+            ).eq('canal_id', canal_id).execute()
 
-            # Verificar quais vídeos têm comentários
-            if not videos.data:
+            if not comments_data.data:
                 return []
 
+            # 2. Agrupar por video_id e contar comentários
+            from collections import Counter
+            video_counts = Counter([c['video_id'] for c in comments_data.data])
+
+            # 3. Criar dict com títulos únicos
+            video_titles = {}
+            for comment in comments_data.data:
+                if comment['video_id'] not in video_titles:
+                    video_titles[comment['video_id']] = comment.get('video_title', 'Sem título')
+
+            # 4. Ordenar por quantidade de comentários (TOP 10 ou limit)
+            top_videos = video_counts.most_common(limit)
+
+            # 5. Buscar dados adicionais dos vídeos e montar resultado
             result = []
-            for video in videos.data:
-                # Contar comentários do vídeo
-                total = self.supabase.table('video_comments').select(
+            for video_id, comment_count in top_videos:
+                # Buscar views e título mais recentes do videos_historico
+                video_data = self.supabase.table('videos_historico').select(
+                    'views_atuais, data_publicacao, titulo'
+                ).eq('video_id', video_id).order('data_coleta', desc=True).limit(1).execute()
+
+                # Obter dados do vídeo
+                if video_data.data:
+                    views = video_data.data[0].get('views_atuais', 0)
+                    data_pub = video_data.data[0].get('data_publicacao')
+                    # Priorizar título do videos_historico se disponível
+                    titulo_hist = video_data.data[0].get('titulo')
+                else:
+                    views = 0
+                    data_pub = None
+                    titulo_hist = None
+
+                # Usar título do video_comments se não tiver no historico
+                titulo_final = titulo_hist or video_titles.get(video_id)
+
+                # Se ainda não tiver título, buscar via API do YouTube ou usar fallback
+                if not titulo_final or titulo_final == 'None':
+                    titulo_final = f"Vídeo {video_id}"
+
+                # Contar comentários pendentes
+                pendentes = self.supabase.table('video_comments').select(
                     'id', count='exact'
-                ).eq('video_id', video['video_id']).execute()
+                ).eq('video_id', video_id).not_.is_('suggested_response', 'null').eq('is_responded', False).execute()
 
-                # Só adicionar vídeos que têm comentários
-                if total.count > 0:
-                    # Contar comentários pendentes (com resposta mas não respondidos)
-                    pendentes = self.supabase.table('video_comments').select(
-                        'id', count='exact'
-                    ).eq('video_id', video['video_id']).not_.is_('suggested_response', 'null').eq('is_responded', False).execute()
+                result.append({
+                    'video_id': video_id,
+                    'titulo': titulo_final,
+                    'views': views,
+                    'data_publicacao': self._safe_date_format(data_pub) if data_pub else None,
+                    'total_comentarios': comment_count,
+                    'comentarios_pendentes': pendentes.count,
+                    'thumbnail': f"https://i.ytimg.com/vi/{video_id}/mqdefault.jpg"
+                })
 
-                    result.append({
-                        'video_id': video['video_id'],
-                        'titulo': video['titulo'],
-                        'views': video['views_atuais'],
-                        'data_publicacao': video['data_publicacao'],
-                        'total_comentarios': total.count,
-                        'comentarios_pendentes': pendentes.count,
-                        'thumbnail': f"https://i.ytimg.com/vi/{video['video_id']}/mqdefault.jpg"
-                    })
-
+            logger.info(f"Retornando {len(result)} vídeos únicos com comentários para canal {canal_id}")
             return result
         except Exception as e:
             logger.error(f"Error fetching videos with comments: {e}")
             return []
+
+    def _safe_date_format(self, date_str):
+        """
+        Helper function to safely format dates and avoid RangeError in frontend
+        Garantir formato ISO 8601 sempre válido
+        """
+        if not date_str:
+            return datetime.now(timezone.utc).isoformat()
+        try:
+            # Se é string vazia, retorna data atual
+            if date_str == '':
+                return datetime.now(timezone.utc).isoformat()
+
+            # Tentar parsear e reformatar
+            if 'T' not in str(date_str):
+                date_str = str(date_str).replace(' ', 'T')
+
+            # Adicionar timezone se não tiver
+            date_str = str(date_str)
+            if not date_str.endswith('Z') and '+' not in date_str and '-' not in date_str[-6:]:
+                date_str = date_str + 'Z'
+
+            # Validar parseando
+            dt = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            return dt.isoformat()
+        except Exception as e:
+            logger.warning(f"Date parsing error for '{date_str}': {e}")
+            return datetime.now(timezone.utc).isoformat()
 
     def get_video_comments_paginated(self, video_id: str, page: int = 1, limit: int = 10) -> Dict:
         """
