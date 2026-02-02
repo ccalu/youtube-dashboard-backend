@@ -2071,17 +2071,32 @@ class SupabaseClient:
     # Added by Claude Code - 2026-01-19
     # =========================================================================
 
-    async def save_video_comments(self, video_id: str, canal_id: int, comments: List[Dict]) -> bool:
+    async def save_video_comments(self, video_id: str, canal_id: int, comments: List[Dict], canal_lingua: str = None) -> bool:
         """
         Salva comentários analisados no banco de dados
+        Se o canal for em português, marca automaticamente como traduzido
         """
         try:
             if not comments:
                 return True
 
+            # Verificar se canal é em português
+            is_portuguese = False
+            if canal_lingua:
+                lingua_lower = canal_lingua.lower()
+                is_portuguese = 'portug' in lingua_lower or lingua_lower in ['portuguese', 'português', 'pt', 'pt-br']
+
             # Preparar dados para inserção
             records = []
-            for comment in comments:
+            for comment in comments[:100]:  # Limitar a 100 comentários por vídeo
+                # Se canal é português, copiar original para PT e marcar como traduzido
+                if is_portuguese:
+                    comment_text_pt = comment.get('comment_text_original', '')
+                    is_translated = True
+                else:
+                    comment_text_pt = comment.get('comment_text_pt', '')
+                    is_translated = comment.get('is_translated', False)
+
                 record = {
                     'comment_id': comment.get('comment_id'),
                     'video_id': video_id,
@@ -2090,9 +2105,9 @@ class SupabaseClient:
                     'author_name': comment.get('author_name', 'Anônimo'),
                     'author_channel_id': comment.get('author_channel_id', ''),
                     'comment_text_original': comment.get('comment_text_original', ''),
-                    'comment_text_pt': comment.get('comment_text_pt', ''),
+                    'comment_text_pt': comment_text_pt,
                     'original_language': comment.get('original_language', 'unknown'),
-                    'is_translated': comment.get('is_translated', False),
+                    'is_translated': is_translated,
                     'like_count': comment.get('like_count', 0),
                     'reply_count': comment.get('reply_count', 0),
                     'is_reply': comment.get('is_reply', False),

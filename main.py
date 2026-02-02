@@ -1365,6 +1365,9 @@ async def collect_canal_comments(canal_id: int, background_tasks: BackgroundTask
         total_comments = comments_data.get('total_comments', 0)
         comments_by_video = comments_data.get('comments_by_video', {})
 
+        # Obter língua do canal
+        canal_lingua = canal.get('lingua', '')
+
         # Analisar e salvar comentários por vídeo
         saved_count = 0
         for video_id, comments in comments_by_video.items():
@@ -1372,8 +1375,8 @@ async def collect_canal_comments(canal_id: int, background_tasks: BackgroundTask
                 # Analisar lote de comentários
                 analyzed_comments = await analyzer.analyze_comment_batch(comments)
 
-                # Salvar no banco
-                success = await db.save_video_comments(video_id, canal_id, analyzed_comments)
+                # Salvar no banco (passando a língua do canal)
+                success = await db.save_video_comments(video_id, canal_id, analyzed_comments, canal_lingua)
                 if success:
                     saved_count += len(analyzed_comments)
 
@@ -3675,9 +3678,30 @@ async def traduzir_comentarios_canal(canal_id: int):
     """
     Traduz comentários não traduzidos de um canal em background.
     Chamado automaticamente após coleta de comentários.
+    NÃO traduz comentários de canais em português.
     """
     try:
-        logger.info(f"🌐 Iniciando tradução de comentários do canal {canal_id}")
+        logger.info(f"🌐 Iniciando verificação de tradução para canal {canal_id}")
+
+        # Verificar língua do canal
+        canal_response = db.supabase.table('canais_monitorados')\
+            .select('nome_canal, lingua')\
+            .eq('id', canal_id)\
+            .execute()
+
+        if not canal_response.data:
+            logger.error(f"❌ Canal {canal_id} não encontrado")
+            return
+
+        canal = canal_response.data[0]
+        lingua = canal.get('lingua', '').lower()
+
+        # Se canal é português, pular tradução
+        if 'portug' in lingua or lingua in ['portuguese', 'português', 'pt', 'pt-br']:
+            logger.info(f"🇧🇷 Canal {canal['nome_canal']} é em português - tradução não necessária")
+            return
+
+        logger.info(f"🌍 Canal {canal['nome_canal']} ({lingua}) - iniciando tradução")
 
         # Importar tradutor
         from translate_comments_optimized import OptimizedTranslator
@@ -3715,8 +3739,8 @@ async def traduzir_comentarios_canal(canal_id: int):
                     if j < len(textos_traduzidos):
                         texto_traduzido = textos_traduzidos[j]
 
-                        # Atualizar se tradução diferente do original
-                        if texto_traduzido and texto_traduzido != comentario['comment_text_original']:
+                        # Sempre atualizar após processar (mesmo se texto não mudou)
+                        if texto_traduzido:
                             db.supabase.table('video_comments')\
                                 .update({
                                     'comment_text_pt': texto_traduzido,
