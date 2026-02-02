@@ -1318,13 +1318,15 @@ async def collect_canal_comments(canal_id: int, background_tasks: BackgroundTask
 
         logger.info(f"🎯 Iniciando coleta de comentários do canal próprio: {canal.get('nome_canal')} (ID: {canal_id})")
 
-        # Buscar vídeos do canal
+        # Buscar vídeos do canal (TOP 20 mais recentes)
         videos_response = db.supabase.table("videos")\
             .select("video_id, titulo, views_atuais, data_publicacao")\
             .eq("canal_id", canal_id)\
             .order("data_publicacao", desc=True)\
             .limit(20)\
             .execute()
+
+        logger.info(f"📹 Encontrados {len(videos_response.data) if videos_response.data else 0} vídeos para coletar comentários")
 
         if not videos_response.data:
             return {
