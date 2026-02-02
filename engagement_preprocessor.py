@@ -140,8 +140,8 @@ class EngagementPreprocessor:
             # Calcular tempo de processamento
             processing_time_ms = int((datetime.now() - start_time).total_seconds() * 1000)
 
-            # Contar totais
-            total_comments = len(engagement_data.get('all_comments', []))
+            # Contar totais - usar o summary que sempre existe
+            total_comments = engagement_data.get('summary', {}).get('total_comments', 0)
             total_videos = len(engagement_data.get('videos_summary', []))
 
             # Preparar dados para cache
@@ -151,7 +151,7 @@ class EngagementPreprocessor:
                 'actionable_comments': engagement_data.get('actionable_comments', []),
                 'positive_comments': engagement_data.get('positive_comments', []),
                 'negative_comments': engagement_data.get('negative_comments', []),
-                'all_comments': engagement_data.get('all_comments', [])
+                'problem_comments': engagement_data.get('problem_comments', [])
             }
 
             # Calcular expiração (6h a partir de agora)
