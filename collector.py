@@ -944,16 +944,21 @@ class YouTubeCollector:
             comments_by_video = {}
             latest_comment_timestamp = None
 
-            # Coletar TODOS os vídeos (sem limite) - ordenados do mais recente para o mais antigo
-            recent_videos = sorted(videos, key=lambda x: x.get('publishedAt', ''), reverse=True)
+            # TOP 20 vídeos por views - sempre os mais relevantes
+            # Primeiro ordenar por views (maior para menor), depois pegar TOP 20
+            top_20_videos = sorted(videos, key=lambda x: int(x.get('viewCount', 0)), reverse=True)[:20]
+
+            # Log informativo
+            total_views = sum(int(v.get('viewCount', 0)) for v in top_20_videos)
+            logger.info(f"📊 TOP 20 vídeos de {canal_name}: {total_views:,} views totais")
 
             # Log da coleta incremental se aplicável
             if last_collected_timestamp:
                 logger.info(f"📊 Coleta INCREMENTAL para {canal_name} - Comentários após {last_collected_timestamp}")
             else:
-                logger.info(f"📊 Coleta COMPLETA de comentários de {len(recent_videos)} vídeos de {canal_name}")
+                logger.info(f"📊 Coleta COMPLETA de comentários de TOP {len(top_20_videos)} vídeos de {canal_name}")
 
-            for video in recent_videos:
+            for video in top_20_videos:
                 video_id = video.get('videoId')
                 video_title = video.get('title', 'Sem título')
 
