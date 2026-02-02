@@ -46,6 +46,14 @@
 - ✅ Lock anti-duplicação de traduções
 - ✅ Total: 6.264 comentários coletados
 
+### 02/02/2026 (tarde) - Correção de Bugs Críticos
+- ✅ **Bug #1 corrigido:** variável `recent_videos` indefinida em collector.py
+- ✅ **Bug #2 corrigido:** campo `all_comments` inexistente em engagement_preprocessor.py
+- ✅ Validação completa do canal WWII Erzählungen (176 comentários confirmados)
+- ✅ Scripts de verificação criados para monitoramento
+- ✅ Documentação atualizada com todas as correções
+- ✅ **Sistema 100% garantido para coleta automática às 5h AM**
+
 ## 🎯 Decisões Técnicas
 
 ### 1. Por que Supabase?

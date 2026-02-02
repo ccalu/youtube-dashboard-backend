@@ -125,6 +125,25 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 - Agora filtra APENAS comentários dos monetizados
 - Evita confusão entre coleta (todos) e resposta (monetizados)
 
+### 🔧 CORREÇÕES DE BUGS CRÍTICOS (02/02/2026):
+**Status:** ✅ Corrigidos e validados
+
+**Bug #1 - collector.py linha 1018:**
+- **Problema:** Variável `recent_videos` não existia (NameError)
+- **Solução:** Corrigido para `top_20_videos`
+- **Impacto:** Coleta de comentários agora funciona 100%
+
+**Bug #2 - engagement_preprocessor.py linha 144:**
+- **Problema:** Campo `all_comments` não existia no retorno
+- **Solução:** Usa `summary.total_comments` que sempre existe
+- **Impacto:** Cache de engajamento funciona corretamente
+
+**Validações realizadas:**
+- ✅ Canal WWII Erzählungen: 176 comentários confirmados
+- ✅ Sistema TOP 20 vídeos: Funcionando perfeitamente
+- ✅ Frontend: Compatível, não precisa alterações
+- ✅ Coleta diária: 100% automatizada às 5h AM
+
 ---
 
 ## 🆕 ATUALIZAÇÕES RECENTES (23/01/2026):

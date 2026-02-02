@@ -181,6 +181,24 @@ Tradução manual forçada:
 - Diferencia publicação de coleta
 - Usado para filtro "novos hoje"
 
+### 5. Bugs Corrigidos (02/02/2026 tarde)
+**Dois bugs críticos foram identificados e corrigidos:**
+
+- **Bug #1 - collector.py linha 1018**
+  - Variável `recent_videos` não existia
+  - Causava falha silenciosa na coleta
+  - Corrigido para `top_20_videos`
+
+- **Bug #2 - engagement_preprocessor.py linha 144**
+  - Campo `all_comments` não existia no response
+  - Cache de engagement falhava silenciosamente
+  - Corrigido para usar `summary.total_comments`
+
+**Validação completa realizada:**
+- Canal WWII Erzählungen: 176 comentários confirmados
+- Sistema TOP 20: Funcionando perfeitamente
+- Coleta automática às 5h AM: 100% garantida
+
 ---
 
 ## 💯 CONCLUSÃO

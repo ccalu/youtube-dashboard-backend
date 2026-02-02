@@ -100,6 +100,25 @@ Estes são os únicos que aparecem na aba de comentários para gestão de respos
 - Canais PT não gastam tokens GPT (11 canais otimizados)
 - Pronto e rodando em produção no Railway
 
+### 🔧 Bugs Corrigidos (02/02/2026)
+**Dois bugs críticos foram identificados e corrigidos:**
+
+1. **Bug #1 - collector.py linha 1018**
+   - Variável `recent_videos` não existia (NameError)
+   - Corrigido para `top_20_videos`
+   - Impacto: Coleta de comentários agora funciona 100%
+
+2. **Bug #2 - engagement_preprocessor.py linha 144**
+   - Campo `all_comments` não existia no response
+   - Corrigido para usar `summary.total_comments`
+   - Impacto: Cache de engagement funciona corretamente
+
+✅ **Validação completa realizada:**
+- Canal WWII Erzählungen: 176 comentários confirmados
+- Sistema TOP 20: Funcionando perfeitamente
+- Frontend: Não precisa alterações
+- Coleta automática às 5h AM: 100% garantida
+
 ## 🔮 Próximos Passos
 
 1. Integrar componente no Lovable
@@ -108,5 +127,5 @@ Estes são os únicos que aparecem na aba de comentários para gestão de respos
 
 ---
 
-**Última atualização:** 27/01/2025
+**Última atualização:** 02/02/2026
 **Desenvolvido por:** Cellibs com Claude

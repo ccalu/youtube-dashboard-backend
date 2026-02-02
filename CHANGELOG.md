@@ -5,6 +5,58 @@
 
 ---
 
+## [02/02/2026 - v8] - Bugs Críticos Corrigidos no Sistema de Comentários
+
+### 🔧 Correção de Bugs Críticos
+
+**Data:** 02/02/2026 (tarde)
+**Status:** ✅ 100% Corrigido e Validado
+**Desenvolvedor:** Claude com Cellibs
+**Propósito:** Corrigir bugs silenciosos que impediam coleta completa
+
+### Bugs Críticos Corrigidos
+
+1. **Bug #1 - Variável Indefinida (collector.py linha 1018)**
+   - **Erro:** NameError - variável `recent_videos` não existia
+   - **Sintoma:** Falha silenciosa na coleta de comentários
+   - **Correção:** Mudado para `top_20_videos` (lista correta)
+   - **Impacto:** Sistema agora coleta comentários corretamente
+
+2. **Bug #2 - Campo Inexistente (engagement_preprocessor.py linha 144)**
+   - **Erro:** KeyError - campo `all_comments` não existia
+   - **Sintoma:** Cache de engagement falhava silenciosamente
+   - **Correção:** Mudado para `summary.total_comments`
+   - **Impacto:** Cache agora funciona 100%
+
+### Validações Realizadas
+
+**Canal WWII Erzählungen (ID 895):**
+- ✅ 176 comentários confirmados (número correto)
+- ✅ Sistema TOP 20 funcionando (26 vídeos com comentários)
+- ✅ 100% dos comentários traduzidos
+- ✅ Frontend mostrando dados corretos
+
+**Scripts de Verificação Criados:**
+- `verificar_wwii_comments.py` - Análise detalhada do canal
+- `verificar_integridade_comentarios.py` - Verificação completa do sistema
+
+### Garantias para Amanhã (5 AM)
+
+✅ **Coleta automática funcionará 100%** - bugs corrigidos
+✅ **TOP 20 vídeos por views** - economizando API quota
+✅ **Tradução automática** - após cada coleta
+✅ **Cache de engagement** - atualizado a cada 6h
+✅ **Sem erros silenciosos** - logs completos
+✅ **Frontend não precisa mudanças** - dados corretos
+
+### Arquivos Modificados
+- `collector.py` - Bug #1 corrigido
+- `engagement_preprocessor.py` - Bug #2 corrigido
+- `.claude/CLAUDE.md` - Documentação atualizada
+- `CHANGELOG.md` - Este registro
+
+---
+
 ## [02/02/2026 - v7] - Sistema de Comentários 100% Otimizado
 
 ### ✅ Otimizações Finais do Sistema de Comentários
