@@ -1353,28 +1353,6 @@ async def generate_comment_response(comment_id: int):
         else:
             logger.info(f"✅ OPENAI_API_KEY encontrada: {api_key[:10]}...{api_key[-4:] if len(api_key) > 14 else '***'}")
 
-        # Inicializar GPT
-        try:
-            logger.info("🤖 Inicializando GPTAnalyzer...")
-            from gpt_response_suggester import GPTAnalyzer
-            analyzer = GPTAnalyzer()
-            logger.info("✅ GPTAnalyzer inicializado com sucesso")
-        except ValueError as e:
-            logger.error(f"❌ Erro ValueError ao inicializar GPTAnalyzer: {str(e)}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Erro ao configurar OpenAI: {str(e)}"
-            )
-        except ImportError as e:
-            logger.error(f"❌ Erro ImportError: {str(e)}")
-            raise HTTPException(
-                status_code=500,
-                detail="Erro ao importar GPTAnalyzer. Verifique se o arquivo gpt_response_suggester.py existe"
-            )
-        except Exception as e:
-            logger.error(f"❌ Erro inesperado ao inicializar GPTAnalyzer: {type(e).__name__}: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Erro ao inicializar GPT: {type(e).__name__}: {str(e)}")
-
         # Prompt SIMPLES - deixar o GPT detectar o idioma e responder adequadamente
         prompt = f"""Você é o dono de um canal do YouTube.
 Responda este comentário de forma educada, relevante e natural.
@@ -1393,44 +1371,72 @@ Comentário: "{comment_text}"
 
 Resposta (no mesmo idioma do comentário):"""
 
-        # Chamar GPT para gerar resposta
+        # Chamar OpenAI API diretamente via HTTP (igual aos agents que funcionam!)
         try:
-            logger.info(f"📤 Chamando OpenAI API para gerar resposta...")
+            logger.info(f"📤 Chamando OpenAI API diretamente via HTTP...")
             logger.info(f"   Modelo: gpt-4o-mini")
             logger.info(f"   Tamanho do comentário: {len(comment_text)} caracteres")
 
-            response = analyzer.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
+            import requests
+
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+
+            payload = {
+                "model": "gpt-4o-mini",
+                "messages": [
                     {"role": "system", "content": "Você é um criador de conteúdo respondendo comentários no seu canal. Sempre responda no mesmo idioma do comentário."},
                     {"role": "user", "content": prompt}
                 ],
-                temperature=0.7,
-                max_tokens=200
+                "temperature": 0.7,
+                "max_tokens": 300  # Aumentado para não cortar respostas
+            }
+
+            logger.info("🚀 Fazendo requisição HTTP para api.openai.com...")
+            response = requests.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=30  # 30 segundos como você pediu
             )
 
-            suggested_response = response.choices[0].message.content.strip()
-            logger.info(f"✅ Resposta gerada com sucesso: {len(suggested_response)} caracteres")
+            if response.status_code == 200:
+                result = response.json()
+                suggested_response = result["choices"][0]["message"]["content"].strip()
+                logger.info(f"✅ Resposta gerada com sucesso: {len(suggested_response)} caracteres")
+            else:
+                logger.error(f"❌ Erro da API OpenAI: Status {response.status_code}")
+                logger.error(f"   Resposta: {response.text}")
 
-        except Exception as e:
-            logger.error(f"❌ Erro ao chamar OpenAI API para comentário {comment_id}")
-            logger.error(f"   Tipo do erro: {type(e).__name__}")
-            logger.error(f"   Mensagem: {str(e)}")
+                error_msg = f"Erro da OpenAI (Status {response.status_code})"
+                if response.status_code == 401:
+                    error_msg = "Chave da API inválida ou expirada"
+                elif response.status_code == 429:
+                    error_msg = "Limite de requisições excedido. Tente em alguns segundos"
+                elif response.status_code == 500:
+                    error_msg = "Erro interno da OpenAI. Tente novamente"
 
-            # Mensagens mais específicas baseadas no tipo de erro
-            error_detail = str(e)
-            if "api_key" in error_detail.lower():
-                error_detail = "Chave da API OpenAI inválida ou expirada"
-            elif "rate" in error_detail.lower():
-                error_detail = "Limite de requisições da OpenAI excedido. Tente novamente em alguns segundos"
-            elif "quota" in error_detail.lower():
-                error_detail = "Quota da OpenAI excedida. Verifique seu plano"
-            elif "timeout" in error_detail.lower():
-                error_detail = "Timeout na chamada da OpenAI. Tente novamente"
+                raise HTTPException(status_code=500, detail=error_msg)
 
+        except requests.exceptions.Timeout:
+            logger.error("❌ Timeout na chamada para OpenAI (30 segundos)")
             raise HTTPException(
                 status_code=500,
-                detail=f"Erro ao gerar resposta: {error_detail}"
+                detail="Timeout na comunicação com OpenAI. Tente novamente"
+            )
+        except requests.exceptions.RequestException as e:
+            logger.error(f"❌ Erro de conexão com OpenAI: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Erro de conexão com OpenAI: {str(e)}"
+            )
+        except Exception as e:
+            logger.error(f"❌ Erro inesperado: {type(e).__name__}: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Erro ao gerar resposta: {str(e)}"
             )
 
         # Salvar resposta no banco
