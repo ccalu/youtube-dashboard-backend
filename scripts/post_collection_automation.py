@@ -22,7 +22,6 @@ from datetime import datetime, timedelta
 from typing import Dict, List
 from database import SupabaseClient
 from translate_comments_optimized import OptimizedTranslator
-from comments_manager import comments_manager
 from dotenv import load_dotenv
 
 # Configurar logging
@@ -42,11 +41,9 @@ class PostCollectionAutomation:
     def __init__(self):
         self.db = SupabaseClient()
         self.translator = OptimizedTranslator()
-        self.response_manager = comments_manager
         self.stats = {
             'new_comments': 0,
             'translated': 0,
-            'responses_generated': 0,
             'errors': 0,
             'start_time': None,
             'end_time': None
@@ -111,33 +108,9 @@ class PostCollectionAutomation:
                 await self._translate_comments(comments_to_translate)
                 logger.info("TRADUÇÃO COMPLETA! ✅")
 
-            # ETAPA 5: APÓS tradução completa, buscar comentários para gerar respostas
-            # (apenas canais monetizados)
-            comments_for_responses = []
-
-            if monetizados_ids:
-                # Re-buscar comentários dos canais monetizados para pegar traduções atualizadas
-                monetized_comments = await self._fetch_comments(monetizados_ids, only_recent)
-
-                for comment in monetized_comments:
-                    text_original = (comment.get('comment_text_original') or '').strip()
-                    text_pt = (comment.get('comment_text_pt') or '').strip()
-
-                    if text_original:
-                        # Usar texto traduzido se disponível, senão usar original
-                        comment['text_for_response'] = text_pt if text_pt and text_pt not in ['null', 'texto traduzido ou original'] else text_original
-                        comments_for_responses.append(comment)
-
-            logger.info(f"Para gerar resposta (monetizados): {len(comments_for_responses)}")
-
-            # ETAPA 6: DESATIVADO - Geração automática de respostas removida (03/02/2026)
-            # Agora as respostas são geradas sob demanda via endpoint /api/comentarios/{id}/gerar-resposta
-            # if comments_for_responses:
-            #     logger.info("INICIANDO GERAÇÃO DE RESPOSTAS (APENAS MONETIZADOS)...")
-            #     await self._generate_responses(comments_for_responses)
-            #     logger.info("RESPOSTAS GERADAS! ✅")
-
-            logger.info("⚠️ Geração automática de respostas DESATIVADA - use o botão no dashboard")
+            # Sistema de respostas automáticas REMOVIDO (03/02/2026)
+            # Respostas agora são geradas sob demanda via endpoint /api/comentarios/{id}/gerar-resposta
+            logger.info("✅ Tradução concluída - respostas devem ser geradas via dashboard")
 
             self.stats['end_time'] = datetime.utcnow()
             duration = (self.stats['end_time'] - self.stats['start_time']).total_seconds()
@@ -148,7 +121,6 @@ class PostCollectionAutomation:
             logger.info("="*60)
             logger.info(f"Comentários processados: {self.stats['new_comments']}")
             logger.info(f"Traduzidos: {self.stats['translated']}")
-            logger.info(f"Respostas geradas: {self.stats['responses_generated']}")
             logger.info(f"Erros: {self.stats['errors']}")
             logger.info(f"Tempo total: {duration:.1f} segundos")
             logger.info("="*60)
@@ -241,61 +213,6 @@ class PostCollectionAutomation:
 
             except Exception as e:
                 logger.error(f"Erro ao traduzir batch: {e}")
-                self.stats['errors'] += 1
-
-    async def _generate_responses(self, comments: List[Dict]):
-        """Gera respostas para TOP 10 comentários por vídeo"""
-        logger.info("Gerando respostas TOP 10...")
-
-        # Agrupar por vídeo
-        comments_by_video = {}
-        for comment in comments:
-            video_id = comment.get('video_id')
-            if video_id not in comments_by_video:
-                comments_by_video[video_id] = []
-            comments_by_video[video_id].append(comment)
-
-        # Processar cada vídeo
-        for video_id, video_comments in comments_by_video.items():
-            # TOP 10 por likes
-            video_comments.sort(key=lambda x: x.get('like_count', 0), reverse=True)
-            top_10 = video_comments[:10]
-
-            comments_for_response = []
-            for comment in top_10:
-                text = comment.get('text_for_response', '')
-                if text and text.strip():
-                    comments_for_response.append({
-                        'comment_id': comment['comment_id'],
-                        'comment_text': text,
-                        'author_name': comment.get('author_name', 'Usuário'),
-                        'like_count': comment.get('like_count', 0),
-                        'video_id': video_id
-                    })
-
-            if not comments_for_response:
-                continue
-
-            try:
-                # Gerar respostas
-                processed = self.response_manager.process_comments_batch(comments_for_response)
-
-                # Salvar respostas
-                for item in processed:
-                    if item.get('suggested_reply'):
-                        self.db.supabase.table('video_comments').update({
-                            'suggested_response': item['suggested_reply'],
-                            'response_tone': 'friendly',
-                            'requires_response': True,
-                            'updated_at': datetime.utcnow().isoformat()
-                        }).eq('comment_id', item['comment_id']).execute()
-
-                        self.stats['responses_generated'] += 1
-
-                logger.info(f"Vídeo {video_id[:8]}: {len(processed)} respostas geradas")
-
-            except Exception as e:
-                logger.error(f"Erro ao gerar respostas: {e}")
                 self.stats['errors'] += 1
 
 

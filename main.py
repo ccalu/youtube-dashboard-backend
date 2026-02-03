@@ -1889,123 +1889,20 @@ async def get_comments_stats():
 @app.get("/api/comments/management")
 async def get_comments_management():
     """
-    💬 Retorna comentários dos canais monetizados para gestão de respostas.
+    💬 ENDPOINT REMOVIDO - Sistema antigo de respostas automáticas
 
-    Endpoint para a aba "Comentários" na seção Ferramentas do dashboard.
-    Gera respostas únicas e humanizadas para cada comentário.
-
-    Query params:
-        - canal_id: ID do canal específico (opcional)
-        - limit: Número máximo de comentários por vídeo (padrão: 10)
-        - sentiment: Filtrar por sentimento (positive/negative/neutral)
-        - requires_response: Se true, apenas comentários que precisam resposta
+    Este endpoint foi removido em 03/02/2026.
+    Use o novo endpoint: POST /api/comentarios/{comment_id}/gerar-resposta
 
     Returns:
-        JSON com canais monetizados e seus comentários com respostas sugeridas únicas
+        JSON com mensagem de depreciação
     """
-    try:
-        # Importar o gerenciador de respostas
-        from scripts.comments_manager import comments_manager
-
-        # Buscar canais monetizados
-        monetized_response = db.supabase.table('canais_monitorados')\
-            .select('id, nome_canal, url_canal, status')\
-            .eq('subnicho', 'Monetizados')\
-            .eq('status', 'ativo')\
-            .execute()
-
-        if not monetized_response.data:
-            return {
-                'success': True,
-                'message': 'Nenhum canal monetizado encontrado',
-                'canais': [],
-                'total_comments': 0
-            }
-
-        result = {
-            'success': True,
-            'canais': [],
-            'total_comments': 0,
-            'total_responses_generated': 0
-        }
-
-        for canal in monetized_response.data:
-            canal_id = canal['id']
-            canal_nome = canal['nome_canal']
-
-            # Buscar MAIS vídeos para garantir encontrar 10 com comentários
-            videos_response = db.supabase.table('videos_historico')\
-                .select('video_id, titulo, views_atuais, data_publicacao')\
-                .eq('canal_id', canal_id)\
-                .order('data_publicacao', desc=True)\
-                .limit(50)\
-                .execute()
-
-            if not videos_response.data:
-                continue
-
-            canal_data = {
-                'id': canal_id,
-                'nome': canal_nome,
-                'url': canal['url_canal'],
-                'videos': []
-            }
-
-            videos_with_comments_count = 0  # Contador para parar em 10 vídeos com comentários
-
-            for video in videos_response.data:
-                # Parar após encontrar 10 vídeos com comentários
-                if videos_with_comments_count >= 10:
-                    break
-                video_id = video['video_id']
-
-                # Buscar comentários do vídeo
-                comments_query = db.supabase.table('video_comments')\
-                    .select('*')\
-                    .eq('video_id', video_id)\
-                    .order('priority_score', desc=True)\
-                    .limit(10)
-
-                # Aplicar filtros adicionais se fornecidos
-                # (sentiment, requires_response, etc)
-
-                comments_response = comments_query.execute()
-
-                if not comments_response.data:
-                    continue
-
-                # Incrementar contador de vídeos com comentários
-                videos_with_comments_count += 1
-
-                # Processar comentários com o gerenciador para gerar respostas únicas
-                processed_comments = comments_manager.process_comments_batch(comments_response.data)
-
-                video_data = {
-                    'id': video_id,
-                    'titulo': video['titulo'],
-                    'views': video['views_atuais'],
-                    'data_publicacao': video['data_publicacao'],
-                    'url': f"https://youtube.com/watch?v={video_id}",
-                    'comments': processed_comments,
-                    'total_comments': len(processed_comments)
-                }
-
-                canal_data['videos'].append(video_data)
-                result['total_comments'] += len(processed_comments)
-                result['total_responses_generated'] += len(processed_comments)
-
-            if canal_data['videos']:
-                canal_data['total_videos'] = len(canal_data['videos'])
-                result['canais'].append(canal_data)
-
-        # Resetar cache do gerenciador periodicamente (a cada requisição para garantir unicidade)
-        comments_manager.reset_cache()
-
-        return result
-
-    except Exception as e:
-        logger.error(f"Erro ao buscar comentários para gestão: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    return {
+        'status': 'deprecated',
+        'message': 'Endpoint removido. Use POST /api/comentarios/{comment_id}/gerar-resposta para gerar respostas sob demanda.',
+        'migration_date': '2026-02-03',
+        'new_endpoint': '/api/comentarios/{comment_id}/gerar-resposta'
+    }
 
 
 @app.get("/api/videos")
