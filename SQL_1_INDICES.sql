@@ -1,10 +1,11 @@
 -- ============================================================
--- SQL CORRIGIDO - EXECUTE ESTE NO SUPABASE AGORA!
+-- SQL 1 - CRIAR ÍNDICES DE PERFORMANCE
+-- EXECUTE ESTE PRIMEIRO!
 -- Data: 03/02/2026
 -- ============================================================
--- CORREÇÕES APLICADAS:
--- • resposta_sugerida_gpt → suggested_response
--- • foi_respondido → is_responded
+-- Campos verificados contra schema real do banco:
+-- • video_comments: suggested_response, is_responded, published_at
+-- • videos_historico: views_atuais, data_coleta
 -- ============================================================
 
 -- 1. Índice para filtros de canal + respostas sugeridas
@@ -12,11 +13,11 @@ CREATE INDEX IF NOT EXISTS idx_video_comments_canal_resposta
 ON video_comments(canal_id, suggested_response)
 WHERE suggested_response IS NOT NULL;
 
--- 2. Índice para buscar último comentário por canal
+-- 2. Índice para ordenação por data de publicação
 CREATE INDEX IF NOT EXISTS idx_video_comments_canal_published
 ON video_comments(canal_id, published_at DESC);
 
--- 3. Índice para contagem de comentários por vídeo
+-- 3. Índice composto para contagem de comentários por vídeo
 CREATE INDEX IF NOT EXISTS idx_video_comments_video_canal
 ON video_comments(video_id, canal_id);
 
@@ -25,27 +26,18 @@ CREATE INDEX IF NOT EXISTS idx_video_comments_pendentes
 ON video_comments(canal_id, is_responded, suggested_response)
 WHERE is_responded = false;
 
--- 5. Índice para busca de vídeos por canal
-CREATE INDEX IF NOT EXISTS idx_videos_historico_canal_data
-ON videos_historico(canal_id, data_coleta DESC, views_atuais DESC);
-
--- 6. Otimizar tabelas
-VACUUM ANALYZE video_comments;
-VACUUM ANALYZE videos_historico;
+-- NOTA: O índice idx_videos_historico_canal_data já existe, não precisa recriar
 
 -- ============================================================
 -- VERIFICAÇÃO - Execute após criar os índices:
 -- ============================================================
-
 SELECT
-    indexname,
-    tablename,
-    pg_size_pretty(pg_relation_size(indexname::regclass)) as size
+    COUNT(*) as indices_criados,
+    STRING_AGG(indexname, ', ') as nomes
 FROM pg_indexes
-WHERE tablename IN ('video_comments', 'videos_historico')
-AND indexname LIKE 'idx_%'
-ORDER BY indexname;
+WHERE tablename = 'video_comments'
+AND indexname LIKE 'idx_video_comments_%';
 
 -- ============================================================
--- FIM - Aba de comentários agora será 50x mais rápida!
+-- RESULTADO ESPERADO: 4 novos índices criados
 -- ============================================================
