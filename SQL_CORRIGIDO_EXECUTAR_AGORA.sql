@@ -27,7 +27,7 @@ WHERE is_responded = false;
 
 -- 5. Índice para busca de vídeos por canal
 CREATE INDEX IF NOT EXISTS idx_videos_historico_canal_data
-ON videos_historico(canal_id, data_coleta DESC, video_views DESC);
+ON videos_historico(canal_id, data_coleta DESC, views_atuais DESC);
 
 -- 6. Otimizar tabelas
 VACUUM ANALYZE video_comments;

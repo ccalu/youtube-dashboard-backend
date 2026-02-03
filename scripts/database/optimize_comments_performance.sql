@@ -26,7 +26,7 @@ WHERE is_responded = false;
 
 -- 5. Índice para busca rápida de vídeos por canal
 CREATE INDEX IF NOT EXISTS idx_videos_historico_canal_data
-ON videos_historico(canal_id, data_coleta DESC, video_views DESC);
+ON videos_historico(canal_id, data_coleta DESC, views_atuais DESC);
 
 -- ============================================
 -- ESTATÍSTICAS PARA VERIFICAR MELHORIA
