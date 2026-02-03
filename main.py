@@ -1356,23 +1356,20 @@ async def generate_comment_response(comment_id: int):
         api_key = api_key.strip().replace('\n', '').replace('\r', '').replace(' ', '').replace('\t', '')
         logger.info(f"✅ OPENAI_API_KEY encontrada e sanitizada: {api_key[:10]}...{api_key[-4:] if len(api_key) > 14 else '***'}")
 
-        # Prompt SIMPLES - deixar o GPT detectar o idioma e responder adequadamente
-        prompt = f"""Você é o dono de um canal do YouTube.
-Responda este comentário de forma educada, relevante e natural.
+        # Prompt humanizado - resposta natural e genuína
+        prompt = f"""You're responding to a YouTube comment on your channel.
 
-IMPORTANTE:
-- Responda no MESMO IDIOMA do comentário
-- Seja genuíno e específico ao conteúdo do comentário
-- Use 1-3 frases no máximo
-- Se for elogio: agradeça
-- Se for crítica: reconheça e seja compreensivo
-- Se for pergunta: responda diretamente
-- Se for sugestão: considere e agradeça
+BE HUMAN AND NATURAL:
+- Sometimes 1 sentence is perfect (for simple thanks or acknowledgments)
+- Sometimes 2-3 sentences work better (for questions or discussions)
+- NEVER force long responses - be genuine
+- Match the commenter's energy and tone
+- Use the EXACT SAME LANGUAGE as the comment
 
-Autor: {comment_data.get('author_name', 'Usuário')}
-Comentário: "{comment_text}"
+Comment from {comment_data.get('author_name', 'User')}:
+"{comment_text}"
 
-Resposta (no mesmo idioma do comentário):"""
+Your natural response:"""
 
         # Chamar OpenAI API diretamente via HTTP (igual aos agents que funcionam!)
         try:
@@ -1390,11 +1387,10 @@ Resposta (no mesmo idioma do comentário):"""
             payload = {
                 "model": "gpt-4o-mini",
                 "messages": [
-                    {"role": "system", "content": "Você é um criador de conteúdo respondendo comentários no seu canal. Sempre responda no mesmo idioma do comentário."},
+                    {"role": "system", "content": "You are a YouTube channel owner responding to comments. IMPORTANT: Always respond in the EXACT SAME LANGUAGE as the comment. Be natural and human - sometimes 1 sentence is perfect, sometimes 2-3 sentences work better. Never force long responses. Be genuine, not robotic."},
                     {"role": "user", "content": prompt}
                 ],
-                "temperature": 0.7,
-                "max_tokens": 300  # Aumentado para não cortar respostas
+                "temperature": 0.7
             }
 
             logger.info("🚀 Fazendo requisição HTTP para api.openai.com...")
