@@ -1356,7 +1356,7 @@ async def generate_comment_response(comment_id: int):
         api_key = api_key.strip().replace('\n', '').replace('\r', '').replace(' ', '').replace('\t', '')
         logger.info(f"✅ OPENAI_API_KEY encontrada e sanitizada: {api_key[:10]}...{api_key[-4:] if len(api_key) > 14 else '***'}")
 
-        # Prompt humanizado - resposta natural e genuína
+        # Prompt humanizado - resposta natural e genuína com contexto
         prompt = f"""You're responding to a YouTube comment on your channel.
 
 BE HUMAN AND NATURAL:
@@ -1365,6 +1365,13 @@ BE HUMAN AND NATURAL:
 - NEVER force long responses - be genuine
 - Match the commenter's energy and tone
 - Use the EXACT SAME LANGUAGE as the comment
+
+HOW TO RESPOND:
+- If it's praise/compliment: thank them genuinely
+- If it's criticism: acknowledge it and be understanding
+- If it's a question: answer it directly
+- If it's a suggestion: consider it and thank them
+- If it's just "Thanks!": a simple "You're welcome!" is perfect
 
 Comment from {comment_data.get('author_name', 'User')}:
 "{comment_text}"
