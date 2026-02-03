@@ -2299,48 +2299,70 @@ class SupabaseClient:
     def get_monetized_channels_with_comments(self) -> List[Dict]:
         """
         Retorna canais monetizados com contagem de comentários
+        OTIMIZADO: De 24 queries para 3 queries totais
         """
         try:
-            # Buscar canais monetizados
+            # 1. Buscar canais monetizados (1 query)
             canais = self.supabase.table('canais_monitorados').select(
                 'id, nome_canal, subnicho, lingua, url_canal'
             ).eq('tipo', 'nosso').eq('subnicho', 'Monetizados').execute()
 
+            if not canais.data:
+                return []
+
+            canal_ids = [c['id'] for c in canais.data]
+
+            # 2. Buscar TODOS os comentários dos canais monetizados de uma vez (1 query)
+            all_comments = self.supabase.table('video_comments').select(
+                'canal_id, video_id, published_at, suggested_response, is_responded'
+            ).in_('canal_id', canal_ids).execute()
+
+            # 3. Processar dados em memória (sem queries adicionais)
+            stats_by_canal = {}
+            for canal_id in canal_ids:
+                stats_by_canal[canal_id] = {
+                    'total_comentarios': 0,
+                    'comentarios_pendentes': 0,
+                    'ultimo_comentario': None,
+                    'video_ids': set()
+                }
+
+            # Processar todos os comentários de uma vez
+            for comment in all_comments.data:
+                canal_id = comment['canal_id']
+                stats = stats_by_canal[canal_id]
+
+                # Contar total
+                stats['total_comentarios'] += 1
+
+                # Contar pendentes (tem sugestão mas não foi respondido)
+                if comment.get('suggested_response') and not comment.get('is_responded', False):
+                    stats['comentarios_pendentes'] += 1
+
+                # Atualizar último comentário
+                if not stats['ultimo_comentario'] or comment['published_at'] > stats['ultimo_comentario']:
+                    stats['ultimo_comentario'] = comment['published_at']
+
+                # Adicionar video_id único
+                stats['video_ids'].add(comment['video_id'])
+
+            # 4. Montar resultado final
             result = []
             for canal in canais.data:
-                # Contar total de comentários do canal
-                total = self.supabase.table('video_comments').select(
-                    'id', count='exact'
-                ).eq('canal_id', canal['id']).execute()
-
-                # Contar comentários com resposta sugerida (aguardando resposta)
-                com_resposta = self.supabase.table('video_comments').select(
-                    'id', count='exact'
-                ).eq('canal_id', canal['id']).not_.is_('suggested_response', 'null').eq('is_responded', False).execute()
-
-                # Buscar último comentário
-                ultimo = self.supabase.table('video_comments').select(
-                    'published_at'
-                ).eq('canal_id', canal['id']).order('published_at', desc=True).limit(1).execute()
-
-                # Contar vídeos únicos com comentários
-                videos_query = self.supabase.table('video_comments').select(
-                    'video_id'
-                ).eq('canal_id', canal['id']).execute()
-                total_videos = len(set([v['video_id'] for v in videos_query.data])) if videos_query.data else 0
-
+                stats = stats_by_canal[canal['id']]
                 result.append({
                     'id': canal['id'],
                     'nome_canal': canal['nome_canal'],
                     'subnicho': canal['subnicho'],
                     'lingua': canal['lingua'],
                     'url_canal': canal['url_canal'],
-                    'total_comentarios': total.count,
-                    'total_videos': total_videos,  # Novo campo adicionado
-                    'comentarios_pendentes': com_resposta.count,
-                    'ultimo_comentario': self._safe_date_format(ultimo.data[0]['published_at']) if ultimo.data else None
+                    'total_comentarios': stats['total_comentarios'],
+                    'total_videos': len(stats['video_ids']),
+                    'comentarios_pendentes': stats['comentarios_pendentes'],
+                    'ultimo_comentario': self._safe_date_format(stats['ultimo_comentario']) if stats['ultimo_comentario'] else None
                 })
 
+            logger.info(f"✅ Canais monetizados carregados: {len(result)} canais, 3 queries totais")
             return result
         except Exception as e:
             logger.error(f"Error fetching monetized channels: {e}")
@@ -2349,72 +2371,74 @@ class SupabaseClient:
     def get_videos_with_comments_count(self, canal_id: int, limit: int = 10) -> List[Dict]:
         """
         Retorna TOP vídeos de um canal com contagem de comentários
-        Nova abordagem: busca diretamente dos comentários para evitar duplicatas
+        OTIMIZADO: De 100+ queries para 3 queries totais
         """
         try:
-            # 1. Buscar TODOS os comentários do canal
+            # 1. Buscar TODOS os comentários do canal (1 query)
             comments_data = self.supabase.table('video_comments').select(
-                'video_id, video_title'
+                'video_id, video_title, suggested_response, is_responded'
             ).eq('canal_id', canal_id).execute()
 
             if not comments_data.data:
                 return []
 
-            # 2. Agrupar por video_id e contar comentários
-            from collections import Counter
-            video_counts = Counter([c['video_id'] for c in comments_data.data])
+            # 2. Processar dados em memória
+            from collections import Counter, defaultdict
+            video_stats = defaultdict(lambda: {
+                'total': 0,
+                'pendentes': 0,
+                'titulo': None
+            })
 
-            # 3. Criar dict com títulos únicos
-            video_titles = {}
+            # Contar e processar comentários
             for comment in comments_data.data:
-                if comment['video_id'] not in video_titles:
-                    video_titles[comment['video_id']] = comment.get('video_title', 'Sem título')
+                video_id = comment['video_id']
+                video_stats[video_id]['total'] += 1
 
-            # 4. Ordenar por quantidade de comentários (TOP 10 ou limit)
-            top_videos = video_counts.most_common(limit)
+                # Contar pendentes
+                if comment.get('suggested_response') and not comment.get('is_responded', False):
+                    video_stats[video_id]['pendentes'] += 1
 
-            # 5. Buscar dados adicionais dos vídeos e montar resultado
+                # Guardar título se ainda não tiver
+                if not video_stats[video_id]['titulo'] and comment.get('video_title'):
+                    video_stats[video_id]['titulo'] = comment['video_title']
+
+            # 3. Ordenar por total de comentários e pegar TOP
+            top_videos = sorted(video_stats.items(), key=lambda x: x[1]['total'], reverse=True)[:limit]
+            video_ids = [v[0] for v in top_videos]
+
+            # 4. Buscar dados dos vídeos de uma vez (1 query)
+            videos_data = {}
+            if video_ids:
+                historico = self.supabase.table('videos_historico').select(
+                    'video_id, views_atuais, data_publicacao, titulo'
+                ).in_('video_id', video_ids).order('data_coleta', desc=False).execute()
+
+                # Agrupar por video_id (pegar o mais recente)
+                for video in historico.data:
+                    vid_id = video['video_id']
+                    if vid_id not in videos_data or video.get('data_coleta') > videos_data[vid_id].get('data_coleta', ''):
+                        videos_data[vid_id] = video
+
+            # 5. Montar resultado final
             result = []
-            for video_id, comment_count in top_videos:
-                # Buscar views e título mais recentes do videos_historico
-                video_data = self.supabase.table('videos_historico').select(
-                    'views_atuais, data_publicacao, titulo'
-                ).eq('video_id', video_id).order('data_coleta', desc=True).limit(1).execute()
+            for video_id, stats in top_videos:
+                video_info = videos_data.get(video_id, {})
 
-                # Obter dados do vídeo
-                if video_data.data:
-                    views = video_data.data[0].get('views_atuais', 0)
-                    data_pub = video_data.data[0].get('data_publicacao')
-                    # Priorizar título do videos_historico se disponível
-                    titulo_hist = video_data.data[0].get('titulo')
-                else:
-                    views = 0
-                    data_pub = None
-                    titulo_hist = None
-
-                # Usar título do video_comments se não tiver no historico
-                titulo_final = titulo_hist or video_titles.get(video_id)
-
-                # Se ainda não tiver título, buscar via API do YouTube ou usar fallback
-                if not titulo_final or titulo_final == 'None':
-                    titulo_final = f"Vídeo {video_id}"
-
-                # Contar comentários pendentes
-                pendentes = self.supabase.table('video_comments').select(
-                    'id', count='exact'
-                ).eq('video_id', video_id).not_.is_('suggested_response', 'null').eq('is_responded', False).execute()
+                # Usar título do historico se disponível, senão dos comentários
+                titulo = video_info.get('titulo') or stats['titulo'] or f"Vídeo {video_id}"
 
                 result.append({
                     'video_id': video_id,
-                    'titulo': titulo_final,
-                    'views': views,
-                    'data_publicacao': self._safe_date_format(data_pub) if data_pub else None,
-                    'total_comentarios': comment_count,
-                    'comentarios_pendentes': pendentes.count,
+                    'titulo': titulo,
+                    'views': video_info.get('views_atuais', 0),
+                    'data_publicacao': self._safe_date_format(video_info.get('data_publicacao')) if video_info.get('data_publicacao') else None,
+                    'total_comentarios': stats['total'],
+                    'comentarios_pendentes': stats['pendentes'],
                     'thumbnail': f"https://i.ytimg.com/vi/{video_id}/mqdefault.jpg"
                 })
 
-            logger.info(f"Retornando {len(result)} vídeos únicos com comentários para canal {canal_id}")
+            logger.info(f"✅ Vídeos carregados: {len(result)} vídeos, 2 queries totais")
             return result
         except Exception as e:
             logger.error(f"Error fetching videos with comments: {e}")

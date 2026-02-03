@@ -61,6 +61,10 @@ import json
 dashboard_cache = {}
 CACHE_DURATION = timedelta(hours=6)  # Cache de 6 horas (atualiza 4x por dia)
 
+# Cache específico para comentários - 5 minutos (atualiza frequentemente)
+comments_cache = {}
+COMMENTS_CACHE_DURATION = timedelta(minutes=5)
+
 def get_cache_key(endpoint: str, params: dict = None) -> str:
     """
     Gera chave única para o cache baseada no endpoint e parâmetros.
@@ -1185,12 +1189,27 @@ async def get_canal_engagement(canal_id: int, page: int = 1, limit: int = 10):
 async def get_monetized_channels_comments():
     """
     Lista canais monetizados com estatísticas de comentários.
+    OTIMIZADO: Cache de 5 minutos + queries agregadas
 
     Returns:
         Lista de canais com total de comentários, vídeos e engagement
     """
     try:
+        # Verificar cache
+        cache_key = get_cache_key('comentarios_monetizados')
+        if cache_key in comments_cache:
+            cached_data, cached_time = comments_cache[cache_key]
+            if datetime.now(timezone.utc) - cached_time < COMMENTS_CACHE_DURATION:
+                logger.info("📦 Retornando canais monetizados do cache")
+                return cached_data
+
+        # Buscar dados (função otimizada com apenas 3 queries)
         result = db.get_monetized_channels_with_comments()
+
+        # Salvar no cache
+        comments_cache[cache_key] = (result, datetime.now(timezone.utc))
+        logger.info(f"💾 Cache atualizado para canais monetizados: {len(result)} canais")
+
         return result
     except Exception as e:
         logger.error(f"Erro ao buscar canais monetizados: {str(e)}")
@@ -1201,6 +1220,7 @@ async def get_monetized_channels_comments():
 async def get_canal_videos_with_comments(canal_id: int, limit: int = 50):
     """
     Lista vídeos de um canal com contagem de comentários.
+    OTIMIZADO: Cache de 5 minutos + query única
 
     Args:
         canal_id: ID do canal
@@ -1210,7 +1230,21 @@ async def get_canal_videos_with_comments(canal_id: int, limit: int = 50):
         Lista de vídeos com estatísticas de comentários
     """
     try:
+        # Verificar cache
+        cache_key = get_cache_key('videos_comentarios', {'canal_id': canal_id, 'limit': limit})
+        if cache_key in comments_cache:
+            cached_data, cached_time = comments_cache[cache_key]
+            if datetime.now(timezone.utc) - cached_time < COMMENTS_CACHE_DURATION:
+                logger.info(f"📦 Retornando vídeos do canal {canal_id} do cache")
+                return cached_data
+
+        # Buscar dados (função otimizada com apenas 2 queries)
         result = db.get_videos_with_comments_count(canal_id, limit)
+
+        # Salvar no cache
+        comments_cache[cache_key] = (result, datetime.now(timezone.utc))
+        logger.info(f"💾 Cache atualizado para vídeos do canal {canal_id}: {len(result)} vídeos")
+
         return result
     except Exception as e:
         logger.error(f"Erro ao buscar vídeos do canal {canal_id}: {str(e)}")
@@ -1279,14 +1313,18 @@ async def generate_comment_response(comment_id: int):
     Returns:
         JSON com resposta sugerida
     """
+    logger.info(f"📝 Gerando resposta para comentário ID: {comment_id} (tipo: {type(comment_id)})")
+
     try:
         # Buscar apenas o comentário (sem joins desnecessários)
+        logger.info(f"Buscando comentário {comment_id} no banco...")
         comment = db.supabase.table('video_comments').select(
             'id, author_name, comment_text_original, comment_text_pt'
         ).eq('id', comment_id).execute()
 
         if not comment.data:
-            raise HTTPException(status_code=404, detail="Comentário não encontrado")
+            logger.error(f"❌ Comentário {comment_id} não encontrado no banco")
+            raise HTTPException(status_code=404, detail=f"Comentário {comment_id} não encontrado")
 
         comment_data = comment.data[0]
 
@@ -2561,9 +2599,10 @@ async def clear_all_cache():
     """
     try:
         # Limpar cache global
-        global dashboard_cache, tabela_cache, cache_timestamp_dashboard, cache_timestamp_tabela
+        global dashboard_cache, tabela_cache, cache_timestamp_dashboard, cache_timestamp_tabela, comments_cache
         dashboard_cache = {}
         tabela_cache = {}
+        comments_cache = {}  # Limpar cache de comentários também
         cache_timestamp_dashboard = None
         cache_timestamp_tabela = None
 
@@ -2575,9 +2614,12 @@ async def clear_all_cache():
             logger.warning(f"Could not refresh MVs: {e}")
             mv_refreshed = False
 
+        logger.info("🧹 Cache limpo: Dashboard, Tabela e Comentários")
+
         return {
             "message": "Cache limpo com sucesso",
             "cache_cleared": True,
+            "comments_cache_cleared": True,
             "mv_refreshed": mv_refreshed,
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
