@@ -30,7 +30,7 @@ O erro "VACUUM cannot run inside a transaction block" ocorre quando tentamos exe
 
 ## 📋 PASSO 2: OTIMIZAR AS TABELAS
 
-### Arquivo: `SQL_2_VACUUM.sql`
+### Arquivo: `SQL_2_ALTERNATIVA_ANALYZE.sql`
 
 **AGUARDE 10 SEGUNDOS após executar o PASSO 1**
 
@@ -38,13 +38,20 @@ O erro "VACUUM cannot run inside a transaction block" ocorre quando tentamos exe
 
 2. **LIMPE TUDO** (delete o SQL anterior)
 
-3. **Cole APENAS o conteúdo do arquivo `SQL_2_VACUUM.sql`**
+3. **Cole este comando simples:**
+
+```sql
+ANALYZE video_comments;
+ANALYZE videos_historico;
+```
 
 4. **Clique em RUN**
 
 5. **Resultado esperado:**
-   - VACUUM executado em video_comments
-   - VACUUM executado em videos_historico
+   - Estatísticas atualizadas para video_comments
+   - Estatísticas atualizadas para videos_historico
+
+**Nota:** O VACUUM não funciona no SQL Editor do Supabase (sempre roda em transação), mas o Supabase faz AUTOVACUUM automaticamente. O ANALYZE é suficiente!
 
 ---
 
