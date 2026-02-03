@@ -1334,19 +1334,39 @@ async def generate_comment_response(comment_id: int):
         if not comment_text or not comment_text.strip():
             raise HTTPException(status_code=400, detail="Comentário sem texto para análise")
 
-        # Inicializar GPT
-        try:
-            from gpt_response_suggester import GPTAnalyzer
-            analyzer = GPTAnalyzer()
-        except ValueError as e:
-            logger.error(f"Erro ao inicializar GPTAnalyzer: {str(e)}")
+        # Verificar se OPENAI_API_KEY está configurada
+        logger.info("🔑 Verificando OPENAI_API_KEY...")
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            logger.error("❌ OPENAI_API_KEY não encontrada nas variáveis de ambiente")
             raise HTTPException(
                 status_code=500,
-                detail="OPENAI_API_KEY não configurada no servidor. Configure no Railway."
+                detail="OPENAI_API_KEY não está configurada no Railway. Adicione em Settings > Variables"
+            )
+        else:
+            logger.info(f"✅ OPENAI_API_KEY encontrada: {api_key[:10]}...{api_key[-4:] if len(api_key) > 14 else '***'}")
+
+        # Inicializar GPT
+        try:
+            logger.info("🤖 Inicializando GPTAnalyzer...")
+            from gpt_response_suggester import GPTAnalyzer
+            analyzer = GPTAnalyzer()
+            logger.info("✅ GPTAnalyzer inicializado com sucesso")
+        except ValueError as e:
+            logger.error(f"❌ Erro ValueError ao inicializar GPTAnalyzer: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Erro ao configurar OpenAI: {str(e)}"
+            )
+        except ImportError as e:
+            logger.error(f"❌ Erro ImportError: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="Erro ao importar GPTAnalyzer. Verifique se o arquivo gpt_response_suggester.py existe"
             )
         except Exception as e:
-            logger.error(f"Erro inesperado ao inicializar GPTAnalyzer: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Erro ao inicializar GPT: {str(e)}")
+            logger.error(f"❌ Erro inesperado ao inicializar GPTAnalyzer: {type(e).__name__}: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Erro ao inicializar GPT: {type(e).__name__}: {str(e)}")
 
         # Prompt SIMPLES - deixar o GPT detectar o idioma e responder adequadamente
         prompt = f"""Você é o dono de um canal do YouTube.
@@ -1368,6 +1388,10 @@ Resposta (no mesmo idioma do comentário):"""
 
         # Chamar GPT para gerar resposta
         try:
+            logger.info(f"📤 Chamando OpenAI API para gerar resposta...")
+            logger.info(f"   Modelo: gpt-4o-mini")
+            logger.info(f"   Tamanho do comentário: {len(comment_text)} caracteres")
+
             response = analyzer.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
@@ -1379,12 +1403,27 @@ Resposta (no mesmo idioma do comentário):"""
             )
 
             suggested_response = response.choices[0].message.content.strip()
+            logger.info(f"✅ Resposta gerada com sucesso: {len(suggested_response)} caracteres")
 
         except Exception as e:
-            logger.error(f"Erro ao chamar OpenAI API para comentário {comment_id}: {str(e)}")
+            logger.error(f"❌ Erro ao chamar OpenAI API para comentário {comment_id}")
+            logger.error(f"   Tipo do erro: {type(e).__name__}")
+            logger.error(f"   Mensagem: {str(e)}")
+
+            # Mensagens mais específicas baseadas no tipo de erro
+            error_detail = str(e)
+            if "api_key" in error_detail.lower():
+                error_detail = "Chave da API OpenAI inválida ou expirada"
+            elif "rate" in error_detail.lower():
+                error_detail = "Limite de requisições da OpenAI excedido. Tente novamente em alguns segundos"
+            elif "quota" in error_detail.lower():
+                error_detail = "Quota da OpenAI excedida. Verifique seu plano"
+            elif "timeout" in error_detail.lower():
+                error_detail = "Timeout na chamada da OpenAI. Tente novamente"
+
             raise HTTPException(
                 status_code=500,
-                detail=f"Erro ao gerar resposta com GPT: {str(e)}"
+                detail=f"Erro ao gerar resposta: {error_detail}"
             )
 
         # Salvar resposta no banco
@@ -1423,6 +1462,99 @@ async def get_comments_summary():
     except Exception as e:
         logger.error(f"Erro ao buscar resumo de comentários: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/test-openai")
+async def test_openai_configuration():
+    """
+    Endpoint de diagnóstico para verificar configuração da OpenAI.
+    Use para debugar problemas com geração de respostas.
+    """
+    diagnostico = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "checks": {}
+    }
+
+    # 1. Verificar se OPENAI_API_KEY existe
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        diagnostico["checks"]["api_key_exists"] = False
+        diagnostico["error"] = "OPENAI_API_KEY não está configurada nas variáveis de ambiente"
+        diagnostico["solution"] = "Adicione OPENAI_API_KEY no Railway em Settings > Variables"
+        return diagnostico
+
+    diagnostico["checks"]["api_key_exists"] = True
+    diagnostico["checks"]["api_key_format"] = f"{api_key[:10]}...{api_key[-4:] if len(api_key) > 14 else '***'}"
+
+    # 2. Verificar formato da chave
+    if not api_key.startswith(("sk-", "sk-proj-")):
+        diagnostico["checks"]["api_key_valid_format"] = False
+        diagnostico["warning"] = "OPENAI_API_KEY não começa com 'sk-' ou 'sk-proj-'"
+    else:
+        diagnostico["checks"]["api_key_valid_format"] = True
+
+    # 3. Tentar inicializar GPTAnalyzer
+    try:
+        from gpt_response_suggester import GPTAnalyzer
+        analyzer = GPTAnalyzer()
+        diagnostico["checks"]["gpt_analyzer_init"] = True
+    except ImportError as e:
+        diagnostico["checks"]["gpt_analyzer_init"] = False
+        diagnostico["checks"]["import_error"] = str(e)
+        diagnostico["error"] = "Não foi possível importar GPTAnalyzer"
+        return diagnostico
+    except Exception as e:
+        diagnostico["checks"]["gpt_analyzer_init"] = False
+        diagnostico["checks"]["init_error"] = f"{type(e).__name__}: {str(e)}"
+        diagnostico["error"] = f"Erro ao inicializar GPTAnalyzer: {str(e)}"
+        return diagnostico
+
+    # 4. Fazer uma chamada de teste simples
+    try:
+        response = analyzer.client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "user", "content": "Responda apenas: OK"}
+            ],
+            max_tokens=10,
+            temperature=0
+        )
+        test_response = response.choices[0].message.content.strip()
+        diagnostico["checks"]["api_call_test"] = True
+        diagnostico["checks"]["test_response"] = test_response
+    except Exception as e:
+        diagnostico["checks"]["api_call_test"] = False
+        diagnostico["checks"]["api_error"] = f"{type(e).__name__}: {str(e)}"
+
+        # Interpretar erro comum
+        error_str = str(e).lower()
+        if "api_key" in error_str or "authentication" in error_str:
+            diagnostico["error"] = "Chave da API inválida ou expirada"
+            diagnostico["solution"] = "Verifique se a chave está correta e ativa em https://platform.openai.com/api-keys"
+        elif "rate" in error_str:
+            diagnostico["error"] = "Limite de rate da API excedido"
+            diagnostico["solution"] = "Aguarde alguns segundos e tente novamente"
+        elif "quota" in error_str or "insufficient" in error_str:
+            diagnostico["error"] = "Quota da OpenAI excedida ou créditos insuficientes"
+            diagnostico["solution"] = "Verifique seu saldo em https://platform.openai.com/usage"
+        else:
+            diagnostico["error"] = f"Erro na API: {str(e)}"
+
+    # 5. Resumo final
+    all_checks_passed = all(
+        v for k, v in diagnostico["checks"].items()
+        if isinstance(v, bool) and not k.startswith("api_key_format")
+    )
+
+    if all_checks_passed:
+        diagnostico["status"] = "✅ TUDO FUNCIONANDO"
+        diagnostico["message"] = "OpenAI está configurada corretamente e funcionando"
+    else:
+        diagnostico["status"] = "❌ PROBLEMAS DETECTADOS"
+        if "error" not in diagnostico:
+            diagnostico["error"] = "Verifique os detalhes acima"
+
+    return diagnostico
 
 
 @app.post("/api/collect-comments/{canal_id}")
