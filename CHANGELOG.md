@@ -5,6 +5,69 @@
 
 ---
 
+## [03/02/2026 - v9] - Reescrita Completa da Função de Vídeos com Comentários
+
+### 🚀 Correção Estrutural Profunda
+
+**Data:** 02/02/2026 (18:08) - Documentação: 03/02/2026
+**Status:** ✅ 100% Validado
+**Desenvolvedor:** Claude com Cellibs
+**Propósito:** Resolver duplicatas e vídeos faltantes na aba de comentários
+
+### Problema Raiz Descoberto
+
+**Função:** `get_videos_with_comments_count()` (database.py:2349-2419)
+
+**ANTES (commit d3db5ba - 17:36):**
+- Buscava de `videos_historico` (tabela temporal com duplicatas)
+- Retornava apenas 2 vídeos quando deveria retornar 10
+- Títulos NULL em alguns casos
+- RangeError por datas mal formatadas
+
+**DEPOIS (commit 6239352 - 18:08):**
+- Busca diretamente de `video_comments` (fonte única)
+- Usa `Counter` do Python para eliminar duplicatas
+- Ordena por quantidade de comentários (TOP 10)
+- Zero duplicatas garantido
+
+### Mudanças Técnicas Implementadas
+
+1. **Reescrita completa de `get_videos_with_comments_count()`**
+   - Query inicial: `video_comments` → agrupa por video_id → ordena por comentários
+   - Antes: `videos_historico` → filtra com comentários → duplicatas
+
+2. **Nova helper function: `_safe_date_format()` (linha 2423-2448)**
+   - Trata datas NULL, vazias, mal formatadas
+   - Sempre retorna ISO 8601 válido com timezone
+   - Evita RangeError no frontend
+
+3. **Campo `total_videos` adicionado**
+   - Número de vídeos únicos com comentários
+
+4. **Chave mudada: `comentarios` → `comments`**
+   - Compatibilidade com frontend Lovable
+
+### Validação Final (100% aprovado)
+
+**Script:** `scripts/tests/validar_sistema_comentarios.py`
+
+✅ **9/9 testes passaram:**
+- Resumo com filtro 30 dias
+- Campo total_videos presente
+- 10 vídeos únicos retornados
+- Sem duplicatas
+- Títulos válidos
+- Chave 'comments' correta
+- Datas sem RangeError
+- Mistérios Arquivados: 61 vídeos únicos
+
+### Documentação Atualizada
+
+- `.claude/3_SISTEMA_COMENTARIOS/ENDPOINTS.md` - Reescrita completa documentada
+- `.claude/CLAUDE.md` - Correções adicionadas
+
+---
+
 ## [02/02/2026 - v8] - Bugs Críticos Corrigidos no Sistema de Comentários
 
 ### 🔧 Correção de Bugs Críticos
