@@ -1313,7 +1313,11 @@ async def generate_comment_response(comment_id: int):
     Returns:
         JSON com resposta sugerida
     """
-    logger.info(f"📝 Gerando resposta para comentário ID: {comment_id} (tipo: {type(comment_id)})")
+    logger.info("="*80)
+    logger.info("🚨🚨🚨 ENDPOINT GERAR RESPOSTA CHAMADO! 🚨🚨🚨")
+    logger.info(f"Comentário ID recebido: {comment_id}")
+    logger.info(f"Tipo do ID: {type(comment_id)}")
+    logger.info("="*80)
 
     try:
         # Buscar apenas o comentário (sem joins desnecessários)
@@ -1327,11 +1331,14 @@ async def generate_comment_response(comment_id: int):
             raise HTTPException(status_code=404, detail=f"Comentário {comment_id} não encontrado")
 
         comment_data = comment.data[0]
+        logger.info(f"✅ Comentário encontrado! Autor: {comment_data.get('author_name', 'N/A')}")
 
         # Pegar o texto do comentário (preferir original para detectar idioma correto)
         comment_text = comment_data.get('comment_text_original') or comment_data.get('comment_text_pt')
+        logger.info(f"📝 Texto do comentário ({len(comment_text) if comment_text else 0} chars): {comment_text[:100] if comment_text else 'VAZIO'}...")
 
         if not comment_text or not comment_text.strip():
+            logger.error("❌ Comentário sem texto!")
             raise HTTPException(status_code=400, detail="Comentário sem texto para análise")
 
         # Verificar se OPENAI_API_KEY está configurada
@@ -1441,10 +1448,16 @@ Resposta (no mesmo idioma do comentário):"""
             "generated_at": datetime.now(timezone.utc).isoformat()
         }
 
-    except HTTPException:
+    except HTTPException as he:
+        logger.error(f"❌ HTTPException capturada: {he.status_code} - {he.detail}")
         raise
     except Exception as e:
-        logger.error(f"Erro ao gerar resposta para comentário {comment_id}: {str(e)}")
+        logger.error("="*80)
+        logger.error(f"❌❌❌ ERRO INESPERADO NO ENDPOINT! ❌❌❌")
+        logger.error(f"Tipo: {type(e).__name__}")
+        logger.error(f"Mensagem: {str(e)}")
+        logger.error(f"Comentário ID: {comment_id}")
+        logger.error("="*80)
         raise HTTPException(status_code=500, detail=str(e))
 
 
