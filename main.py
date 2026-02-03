@@ -1308,8 +1308,18 @@ async def generate_comment_response(comment_id: int):
         video_info = video.data[0] if video.data else {}
 
         # Importar e usar GPTAnalyzer com contexto completo
-        from gpt_response_suggester import GPTAnalyzer
-        analyzer = GPTAnalyzer()
+        try:
+            from gpt_response_suggester import GPTAnalyzer
+            analyzer = GPTAnalyzer()
+        except ValueError as e:
+            logger.error(f"Erro ao inicializar GPTAnalyzer: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail="OPENAI_API_KEY não configurada no servidor. Configure no Railway."
+            )
+        except Exception as e:
+            logger.error(f"Erro inesperado ao inicializar GPTAnalyzer: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Erro ao inicializar GPT: {str(e)}")
 
         # Preparar contexto completo
         context = {
@@ -1354,17 +1364,25 @@ async def generate_comment_response(comment_id: int):
         """
 
         # Chamar GPT para gerar resposta
-        response = analyzer.client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "Você é um criador de conteúdo brasileiro respondendo comentários no seu canal."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7,
-            max_tokens=200
-        )
+        try:
+            response = analyzer.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "Você é um criador de conteúdo brasileiro respondendo comentários no seu canal."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=200
+            )
 
-        suggested_response = response.choices[0].message.content.strip()
+            suggested_response = response.choices[0].message.content.strip()
+
+        except Exception as e:
+            logger.error(f"Erro ao chamar OpenAI API para comentário {comment_id}: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Erro ao gerar resposta com GPT: {str(e)}"
+            )
 
         # Salvar resposta no banco
         db.supabase.table('video_comments').update({

@@ -79,8 +79,28 @@ class OAuthManager:
             client_secret=client_secret
         )
 
-        # 5. Renova se expirado
-        if credentials.expired and credentials.refresh_token:
+        # 4.1. Define expiry do token para verificação correta
+        expiry_str = oauth.get('token_expiry')
+        if expiry_str:
+            try:
+                # Parse da data de expiração
+                if 'Z' in expiry_str or '+' in expiry_str:
+                    expiry = datetime.fromisoformat(expiry_str.replace('Z', '+00:00'))
+                else:
+                    expiry = datetime.fromisoformat(expiry_str).replace(tzinfo=timezone.utc)
+                # Remove timezone para compatibilidade com Google Auth (espera naive datetime)
+                credentials.expiry = expiry.replace(tzinfo=None)
+                logger.debug(f"[{channel_id}] Token expira em: {credentials.expiry}")
+            except Exception as e:
+                logger.warning(f"[{channel_id}] Erro ao parsear token_expiry: {e}")
+                # Se não conseguir parsear, considera expirado para forçar refresh
+                credentials.expiry = datetime.now() - timedelta(hours=1)
+
+        # 5. Renova se expirado (ou se está prestes a expirar em 5 minutos)
+        if credentials.expired or (
+            credentials.expiry and
+            credentials.expiry < datetime.now() + timedelta(minutes=5)
+        ):
             logger.info(f"[{channel_id}] ⚠️ Token expirado, renovando...")
 
             credentials.refresh(Request())
