@@ -1,0 +1,30 @@
+{
+  "canal": {
+    "id": 89,
+    "channel_id": "UCiMgKMWsYH8a8EFp94TClIQ",
+    "channel_name": "전쟁의 목소리",
+    "proxy_id": null,
+    "proxy_name": null,
+    "is_monetized": false,
+    "created_at": "2026-02-03T17:53:16.267799",
+    "updated_at": "2026-02-03T17:53:16.267799",
+    "monetization_start_date": null,
+    "total_subscribers": 0,
+    "total_videos": 0,
+    "performance_score": 0.0,
+    "last_analytics_update": null,
+    "subnicho": "Relatos de Guerra",
+    "lingua": "ko",
+    "proxy_url": null,
+    "projeto_api": null,
+    "is_active": true,
+    "default_playlist_id": "PLe-V17oPwzExLhmRHSL9MITHkeaLadY-x",
+    "spreadsheet_id": "16VWyE0zuAvJOeiGtXVPSIuPKyJ7SQuc-ghZP2opZhFk",
+    "show_monetization_history": true,
+    "last_scan_at": null,
+    "last_scan_status": null,
+    "upload_automatico": true
+  },
+  "tokens": null,
+  "credenciais": null
+}
