@@ -37,6 +37,9 @@ from yt_uploader.database import (
 )
 from yt_uploader.sheets import update_upload_status_in_sheet
 
+# Daily Upload Automation
+from daily_uploader import schedule_daily_uploader
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -3832,6 +3835,17 @@ async def startup_event():
             logger.info("✅ Upload queue worker scheduled")
         except Exception as e:
             logger.warning(f"⚠️ Upload worker disabled: {e}")
+
+        # Daily YouTube Upload System (isolado - falha não afeta main app)
+        if os.environ.get("DAILY_UPLOAD_ENABLED", "").lower() == "true":
+            try:
+                asyncio.create_task(schedule_daily_uploader())
+                logger.info("✅ Daily YouTube upload scheduler started")
+                logger.info("📅 Upload scheduled for 5:30 AM daily")
+            except Exception as e:
+                logger.warning(f"⚠️ Daily upload scheduler disabled: {e}")
+        else:
+            logger.info("📌 Daily upload system disabled (set DAILY_UPLOAD_ENABLED=true to enable)")
 
         logger.info("✅ Schedulers started (Railway environment + Scanner + Upload Worker)")
     else:
