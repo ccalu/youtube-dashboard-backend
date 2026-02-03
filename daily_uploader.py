@@ -26,10 +26,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Cliente Supabase
+# Cliente Supabase (usa SERVICE_ROLE_KEY para bypass RLS)
 supabase = create_client(
     os.getenv("SUPABASE_URL"),
-    os.getenv("SUPABASE_KEY")
+    os.getenv("SUPABASE_SERVICE_ROLE_KEY")  # Mudado de SUPABASE_KEY para SERVICE_ROLE_KEY
 )
 
 # Cache de planilhas (evita spam no Google Sheets)

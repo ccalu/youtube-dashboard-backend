@@ -2530,7 +2530,7 @@ class SupabaseClient:
             logger.error(f"Error fetching video comments: {e}")
             return {'comments': [], 'pagination': {}}
 
-    def mark_comment_as_responded(self, comment_id: str, actual_response: str = None) -> bool:
+    def mark_comment_as_responded(self, comment_id: int, actual_response: str = None) -> bool:
         """
         Marca um comentário como respondido
         """
@@ -2540,12 +2540,13 @@ class SupabaseClient:
                 'responded_at': datetime.utcnow().isoformat()
             }
 
-            if actual_response:
-                update_data['actual_response'] = actual_response
+            # Campo 'actual_response' não existe na tabela - ignorar por enquanto
+            # if actual_response:
+            #     update_data['actual_response'] = actual_response
 
             self.supabase.table('video_comments').update(
                 update_data
-            ).eq('comment_id', comment_id).execute()
+            ).eq('id', comment_id).execute()
 
             return True
         except Exception as e:

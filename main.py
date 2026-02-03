@@ -1239,12 +1239,12 @@ async def get_video_comments_paginated(video_id: str, page: int = 1, limit: int 
 
 
 @app.patch("/api/comentarios/{comment_id}/marcar-respondido")
-async def mark_comment_responded(comment_id: str, body: dict = {}):
+async def mark_comment_responded(comment_id: int, body: dict = {}):
     """
     Marca um comentário como respondido.
 
     Args:
-        comment_id: ID do comentário
+        comment_id: ID do comentário (database ID)
         body: JSON com 'actual_response' opcional
 
     Returns:
@@ -1264,7 +1264,7 @@ async def mark_comment_responded(comment_id: str, body: dict = {}):
 
 
 @app.post("/api/comentarios/{comment_id}/gerar-resposta")
-async def generate_comment_response(comment_id: str):
+async def generate_comment_response(comment_id: int):
     """
     Gera resposta personalizada para um comentário específico.
 
@@ -1275,7 +1275,7 @@ async def generate_comment_response(comment_id: str):
     - Tom personalizado por canal
 
     Args:
-        comment_id: ID do comentário
+        comment_id: ID do comentário (database ID)
 
     Returns:
         JSON com resposta sugerida e metadados
@@ -1286,7 +1286,7 @@ async def generate_comment_response(comment_id: str):
             'id, comment_id, video_id, canal_id, author_name, '
             'comment_text_original, comment_text_pt, like_count, '
             'published_at, is_reply, parent_comment_id'
-        ).eq('comment_id', comment_id).execute()
+        ).eq('id', comment_id).execute()
 
         if not comment.data:
             raise HTTPException(status_code=404, detail="Comentário não encontrado")
@@ -1372,7 +1372,7 @@ async def generate_comment_response(comment_id: str):
             'response_tone': 'friendly',
             'response_generated_at': datetime.utcnow().isoformat(),
             'updated_at': datetime.utcnow().isoformat()
-        }).eq('comment_id', comment_id).execute()
+        }).eq('id', comment_id).execute()
 
         return {
             "success": True,
