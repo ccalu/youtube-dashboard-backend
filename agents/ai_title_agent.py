@@ -32,6 +32,9 @@ class AITitleAgent(BaseAgent):
         super().__init__(db_client)
 
         self.api_key = openai_api_key or os.environ.get("OPENAI_API_KEY")
+        if self.api_key:
+            # Sanitizar API key para evitar problemas com whitespace/newlines
+            self.api_key = self.api_key.strip().replace('\n', '').replace('\r', '').replace(' ', '').replace('\t', '')
         self.model = "gpt-4o-mini"
         self.max_tokens = 1500
         self.temperature = 0.8  # Mais criativo para titulos

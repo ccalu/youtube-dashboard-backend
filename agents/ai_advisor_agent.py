@@ -36,7 +36,10 @@ class AIAdvisorAgent(BaseAgent):
 
         # API Key da OpenAI
         self.api_key = openai_api_key or os.environ.get("OPENAI_API_KEY")
-        if not self.api_key:
+        if self.api_key:
+            # Sanitizar API key para evitar problemas com whitespace/newlines
+            self.api_key = self.api_key.strip().replace('\n', '').replace('\r', '').replace(' ', '').replace('\t', '')
+        else:
             logger.warning("OPENAI_API_KEY nao configurada - AI Advisor desabilitado")
 
         # Configuracoes

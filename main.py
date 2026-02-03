@@ -1350,8 +1350,11 @@ async def generate_comment_response(comment_id: int):
                 status_code=500,
                 detail="OPENAI_API_KEY não está configurada no Railway. Adicione em Settings > Variables"
             )
-        else:
-            logger.info(f"✅ OPENAI_API_KEY encontrada: {api_key[:10]}...{api_key[-4:] if len(api_key) > 14 else '***'}")
+
+        # Sanitizar API key: remover espaços, tabs, newlines, etc
+        # Railway às vezes adiciona formatação às variáveis de ambiente
+        api_key = api_key.strip().replace('\n', '').replace('\r', '').replace(' ', '').replace('\t', '')
+        logger.info(f"✅ OPENAI_API_KEY encontrada e sanitizada: {api_key[:10]}...{api_key[-4:] if len(api_key) > 14 else '***'}")
 
         # Prompt SIMPLES - deixar o GPT detectar o idioma e responder adequadamente
         prompt = f"""Você é o dono de um canal do YouTube.
@@ -1501,6 +1504,9 @@ async def test_openai_configuration():
         diagnostico["error"] = "OPENAI_API_KEY não está configurada nas variáveis de ambiente"
         diagnostico["solution"] = "Adicione OPENAI_API_KEY no Railway em Settings > Variables"
         return diagnostico
+
+    # Sanitizar API key: remover espaços, tabs, newlines, etc
+    api_key = api_key.strip().replace('\n', '').replace('\r', '').replace(' ', '').replace('\t', '')
 
     diagnostico["checks"]["api_key_exists"] = True
     diagnostico["checks"]["api_key_format"] = f"{api_key[:10]}...{api_key[-4:] if len(api_key) > 14 else '***'}"
