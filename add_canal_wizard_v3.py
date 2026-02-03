@@ -223,7 +223,7 @@ def fazer_oauth(client_id, client_secret, channel_id):
         redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
         scope = " ".join([
             "https://www.googleapis.com/auth/youtube.upload",
-            "https://www.googleapis.com/auth/youtube.readonly",
+            "https://www.googleapis.com/auth/youtube",  # Necessário para gerenciar playlists
             "https://www.googleapis.com/auth/spreadsheets"
         ])
 

@@ -70,13 +70,18 @@ class OAuthManager:
                 "Migre para yt_channel_credentials para isolamento total."
             )
 
-        # 4. Cria objeto Credentials
+        # 4. Cria objeto Credentials com scopes completos
         credentials = Credentials(
             token=oauth.get('access_token'),
             refresh_token=oauth.get('refresh_token'),
             token_uri="https://oauth2.googleapis.com/token",
             client_id=client_id,
-            client_secret=client_secret
+            client_secret=client_secret,
+            scopes=[
+                'https://www.googleapis.com/auth/youtube.upload',
+                'https://www.googleapis.com/auth/youtube',
+                'https://www.googleapis.com/auth/spreadsheets'
+            ]
         )
 
         # 4.1. Define expiry do token para verificação correta

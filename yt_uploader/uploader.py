@@ -191,8 +191,14 @@ class YouTubeUploader:
                     ).execute()
                     logger.info(f"[{channel_id}] ✅ Vídeo adicionado à playlist")
                 except Exception as e:
-                    logger.warning(f"[{channel_id}] ⚠️ Erro ao adicionar à playlist: {str(e)}")
-                    # Não falha upload se playlist der erro
+                    error_msg = str(e)
+                    if "403" in error_msg and "Insufficient" in error_msg:
+                        logger.error(f"[{channel_id}] ❌ ERRO DE PERMISSÃO: OAuth sem scope para playlists!")
+                        logger.error(f"[{channel_id}] ❌ Execute: python reauth_channel_oauth.py")
+                        logger.error(f"[{channel_id}] ❌ Para corrigir as permissões do canal")
+                    else:
+                        logger.error(f"[{channel_id}] ❌ Erro ao adicionar à playlist: {error_msg}")
+                    # Não falha upload se playlist der erro, mas loga como erro para visibilidade
 
             return {
                 'success': True,
