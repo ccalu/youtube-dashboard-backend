@@ -2425,25 +2425,47 @@ class SupabaseClient:
         Helper function to safely format dates and avoid RangeError in frontend
         Garantir formato ISO 8601 sempre válido
         """
-        if not date_str:
+        if not date_str or date_str == '':
             return datetime.now(timezone.utc).isoformat()
+
         try:
-            # Se é string vazia, retorna data atual
-            if date_str == '':
-                return datetime.now(timezone.utc).isoformat()
-
-            # Tentar parsear e reformatar
-            if 'T' not in str(date_str):
-                date_str = str(date_str).replace(' ', 'T')
-
-            # Adicionar timezone se não tiver
             date_str = str(date_str)
-            if not date_str.endswith('Z') and '+' not in date_str and '-' not in date_str[-6:]:
-                date_str = date_str + 'Z'
 
-            # Validar parseando
-            dt = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            # Adicionar 'T' se não tiver
+            if 'T' not in date_str:
+                date_str = date_str.replace(' ', 'T')
+
+            # Verificar se tem timezone
+            has_tz = False
+            if date_str.endswith('Z'):
+                has_tz = True
+            elif '+' in date_str.split('T')[-1]:  # Apenas após o T
+                has_tz = True
+            elif len(date_str) > 19 and date_str[-6] in ['+', '-'] and ':' in date_str[-6:]:
+                has_tz = True
+
+            # Se não tem timezone, adicionar
+            if not has_tz:
+                # Tratar microsegundos com muitos dígitos (ex: .98135 -> .981350)
+                if '.' in date_str:
+                    parts = date_str.split('.')
+                    # Garantir 6 dígitos para microsegundos
+                    microseconds = parts[1][:6].ljust(6, '0')
+                    date_str = f"{parts[0]}.{microseconds}"
+                date_str = date_str + '+00:00'
+
+            # Parsear e reformatar
+            if date_str.endswith('Z'):
+                dt = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            else:
+                dt = datetime.fromisoformat(date_str)
+
+            # Retornar sempre com timezone
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+
             return dt.isoformat()
+
         except Exception as e:
             logger.warning(f"Date parsing error for '{date_str}': {e}")
             return datetime.now(timezone.utc).isoformat()
@@ -2472,9 +2494,13 @@ class SupabaseClient:
                 # Usar tradução se existir, senão usar original
                 text_to_show = comment['comment_text_pt'] if comment['comment_text_pt'] else comment['comment_text_original']
 
-                # Tratar datas NULL para evitar RangeError no frontend
-                published_date = comment.get('published_at') or comment.get('collected_at') or datetime.now(timezone.utc).isoformat()
-                collected_date = comment.get('collected_at') or comment.get('published_at') or datetime.now(timezone.utc).isoformat()
+                # Usar _safe_date_format para garantir datas válidas e evitar RangeError
+                published_date = self._safe_date_format(
+                    comment.get('published_at') or comment.get('collected_at')
+                )
+                collected_date = self._safe_date_format(
+                    comment.get('collected_at') or comment.get('published_at')
+                )
 
                 processed_comments.append({
                     'id': comment['id'],
@@ -2529,18 +2555,18 @@ class SupabaseClient:
     def get_comments_summary(self) -> Dict:
         """
         Retorna resumo geral dos comentários para o dashboard
-        APENAS para canais monetizados (subnicho='Monetizados')
+        APENAS para canais monetizados (monetizado=True)
         """
         try:
             # Total de canais monetizados
             monetizados = self.supabase.table('canais_monitorados').select(
                 'id', count='exact'
-            ).eq('tipo', 'nosso').eq('subnicho', 'Monetizados').execute()
+            ).eq('tipo', 'nosso').eq('monetizado', True).execute()
 
             # Buscar IDs dos canais monetizados para filtrar comentários
             canal_ids_result = self.supabase.table('canais_monitorados').select(
                 'id'
-            ).eq('tipo', 'nosso').eq('subnicho', 'Monetizados').execute()
+            ).eq('tipo', 'nosso').eq('monetizado', True).execute()
 
             canal_ids = [c['id'] for c in (canal_ids_result.data or [])]
 
