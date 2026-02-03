@@ -20,18 +20,18 @@ def get_channel(channel_id: str) -> Optional[Dict]:
         .select('*')\
         .eq('channel_id', channel_id)\
         .eq('is_active', True)\
-        .single()\
+        .limit(1)\
         .execute()
-    return result.data if result.data else None
+    return result.data[0] if result.data else None
 
 def get_oauth_tokens(channel_id: str) -> Optional[Dict]:
     """Busca tokens OAuth de um canal"""
     result = supabase.table('yt_oauth_tokens')\
         .select('*')\
         .eq('channel_id', channel_id)\
-        .single()\
+        .limit(1)\
         .execute()
-    return result.data if result.data else None
+    return result.data[0] if result.data else None
 
 def create_upload(channel_id: str, video_url: str, titulo: str,
                   descricao: str, subnicho: str,
@@ -104,9 +104,9 @@ def get_upload_by_id(upload_id: int) -> Optional[Dict]:
     result = supabase.table('yt_upload_queue')\
         .select('*')\
         .eq('id', upload_id)\
-        .single()\
+        .limit(1)\
         .execute()
-    return result.data if result.data else None
+    return result.data[0] if result.data else None
 
 def get_proxy_credentials(proxy_name: str) -> Optional[Dict]:
     """
@@ -125,10 +125,10 @@ def get_proxy_credentials(proxy_name: str) -> Optional[Dict]:
         result = supabase.table('yt_proxy_credentials')\
             .select('client_id, client_secret')\
             .eq('proxy_name', proxy_name)\
-            .single()\
+            .limit(1)\
             .execute()
 
-        return result.data if result.data else None
+        return result.data[0] if result.data else None
     except Exception as e:
         logger.error(f"Erro ao buscar credenciais do proxy {proxy_name}: {e}")
         return None
@@ -155,12 +155,12 @@ def get_channel_credentials(channel_id: str) -> Optional[Dict]:
         result = supabase.table('yt_channel_credentials')\
             .select('client_id, client_secret')\
             .eq('channel_id', channel_id)\
-            .single()\
+            .limit(1)\
             .execute()
 
         if result.data:
             logger.debug(f"Credenciais encontradas para canal {channel_id}")
-            return result.data
+            return result.data[0]
         else:
             logger.warning(f"Nenhuma credencial encontrada para canal {channel_id}")
             return None

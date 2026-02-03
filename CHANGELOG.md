@@ -5,6 +5,45 @@
 
 ---
 
+## [03/02/2026 - v10] - Cleanup Completo do Sistema de Respostas Automáticas
+
+### 🧹 Remoção do Sistema Antigo e Implementação de Geração Sob Demanda
+
+**Data:** 03/02/2026
+**Status:** ✅ Deploy realizado
+**Desenvolvedor:** Claude com Cellibs
+**Commits:** 75ae2be + 6239b50
+
+### Mudanças Principais
+
+**REMOVIDO (Sistema Antigo):**
+- ❌ 1,860 respostas automáticas em lote do banco de dados
+- ❌ `comments_manager.py` (276 linhas - sistema de templates)
+- ❌ `scripts/workflow_comments_fixed.py` (arquivo teste)
+- ❌ Função `_generate_responses()` em `post_collection_automation.py`
+- ❌ Endpoint `/api/comments/management` (substituído por deprecated)
+- ❌ Geração automática durante coleta diária
+
+**MANTIDO (Sistema Novo):**
+- ✅ `gpt_response_suggester.py` - Core GPT para respostas contextualizadas
+- ✅ Endpoint `POST /api/comentarios/{comment_id}/gerar-resposta`
+- ✅ Geração sob demanda via botão no dashboard
+- ✅ Respostas em PT-BR natural com contexto completo
+- ✅ Sistema de tradução automática
+
+### Impacto
+- **Código reduzido:** 500+ linhas removidas
+- **Performance:** Sem processamento desnecessário em batch
+- **Qualidade:** Respostas contextualizadas vs templates genéricos
+- **Controle:** Usuário decide quando gerar respostas
+
+### Verificação
+- Total de comentários: 6,315
+- Respostas antigas removidas: 1,860
+- Sistema novo: 100% funcional
+
+---
+
 ## [03/02/2026 - v9] - Reescrita Completa da Função de Vídeos com Comentários
 
 ### 🚀 Correção Estrutural Profunda
