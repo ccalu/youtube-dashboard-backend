@@ -10,74 +10,66 @@ Backend API para o Dashboard de Mineracao YouTube da Content Factory.
 
 ---
 
-## ESTRUTURA DE PASTAS
+## ESTRUTURA DE PASTAS (Reorganização v2 - 03/02/2026)
 
 ```
-/docs/
+youtube-dashboard-backend/
 │
-├── DNA/                        # Documentos Fundacionais
-│   ├── DNA-CELLIBS.html       # Sistemas & Inteligencia de Dados
-│   └── DNA-MICHA-V2.html      # Desenvolvimento de Conteudo
+├── 📁 _features/               # Funcionalidades isoladas
+│   ├── agents/                # Sistema de agentes IA
+│   ├── yt_uploader/           # Sistema de upload YouTube
+│   ├── frontend-code/         # Componentes React/TypeScript
+│   ├── kanban-system/         # Sistema Kanban
+│   ├── monetization_dashboard/ # Dashboard de monetização
+│   └── [outras features]      # Outras funcionalidades
 │
-├── 1_CONTEXTO_NEGOCIO/         # Visao geral do negocio
-│   ├── 01_CONTENT_FACTORY_VISAO_GERAL.md
-│   ├── 02_PIPELINE_PRODUCAO_OVERVIEW.md
-│   └── 03_DASHBOARD_PROPOSTA_VALOR.md
+├── 📁 _development/            # Ferramentas de desenvolvimento
+│   ├── scripts/               # Scripts organizados por categoria
+│   │   ├── maintenance/       # Manutenção do sistema
+│   │   ├── database/          # Scripts SQL
+│   │   ├── tests/             # Scripts de teste
+│   │   └── [outros]           # Outros scripts
+│   ├── utilities/             # Ferramentas utilitárias
+│   ├── guides/                # Guias e instruções
+│   ├── prompts/               # Templates de prompts IA
+│   └── templates/             # Templates diversos
 │
-├── 2_DASHBOARD_TECNICO/        # Documentacao tecnica
-│   ├── 04_ARQUITETURA_SISTEMA.md
-│   ├── 05_DATABASE_SCHEMA.md
-│   ├── 06_YOUTUBE_COLLECTOR.md
-│   ├── 07_NOTIFICACOES_INTELIGENTES.md
-│   ├── 08_API_ENDPOINTS_COMPLETA.md
-│   ├── 09_MONETIZACAO_SISTEMA.md
-│   ├── 10_SISTEMA_FINANCEIRO.md
-│   ├── 11_YOUTUBE_UPLOADER.md
-│   ├── SUPABASE_COMPLETO.md   # Guia completo do banco
-│   └── FRONTEND_COMPLETO.md   # Documentacao do frontend
+├── 📁 _database/               # Banco de dados
+│   ├── database/              # Scripts de banco
+│   └── databasemigrations/    # Migrations
 │
-├── 3_OPERACIONAL/              # Guias operacionais
-│   ├── 12_INTEGRACAO_GOOGLE_APIS.md
-│   ├── 13_DEPLOY_RAILWAY.md
-│   ├── 14_TROUBLESHOOTING.md
-│   ├── CONVERT_TO_FULL_CLONE.md
-│   └── SETUP_NOVO_PC.md
+├── 📁 _runtime/                # Arquivos gerados em runtime
+│   ├── logs/                  # Logs do sistema
+│   ├── reports/               # Relatórios
+│   └── *.json/*.db            # Arquivos de dados
 │
-├── frontend-code/              # Codigo React/TypeScript
+├── 📁 _archives/               # Backups e código antigo
+│   ├── referencia/            # Documentação de referência
+│   │   ├── 1_CONTEXTO_NEGOCIO/
+│   │   ├── 2_DASHBOARD_TECNICO/
+│   │   ├── 3_OPERACIONAL/
+│   │   └── documentacao-completa/
+│   ├── legacy/                # Código descontinuado
+│   ├── legacy-docs/           # Docs antigas
+│   └── backups/               # Backups diversos
 │
-├── database/                   # Banco de dados
-│   ├── migrations/            # Scripts SQL
-│   └── snapshots/             # Backups JSON
+├── 📌 Arquivos Python no ROOT (22 essenciais)
+│   ├── main.py                # FastAPI server
+│   ├── database.py            # Supabase client
+│   ├── collector.py           # YouTube collector
+│   ├── notifier.py            # Notificações
+│   ├── financeiro.py          # Sistema financeiro
+│   ├── analytics.py           # Analytics
+│   ├── monetization_*.py      # Monetização
+│   └── [outros core]          # Outros essenciais
 │
-├── scripts/                    # Scripts utilitarios
-│   ├── google-apps-script-*.js
-│   ├── INICIAR_DASHBOARD.ps1
-│   └── *.py (migrations)
-│
-├── referencia/                 # Documentacao de referencia
-│   ├── documentacao-completa/ # 16 docs detalhados
-│   ├── htmls/                 # HTMLs grandes
-│   └── fluxos/                # Diagramas de fluxo
-│
-├── archive/                    # Historico/backups
-│   ├── changelog/
-│   ├── mini-steps/
-│   ├── org-max/
-│   └── docs-backup/
-│
-├── utils/                      # Scripts utilitarios
-│   ├── verificacao/           # Scripts de verificacao
-│   ├── setup/                 # Scripts de configuracao
-│   └── one-time/              # Scripts de uso unico
-│
-└── [Codigo Python na raiz]     # Backend FastAPI (so essenciais)
-    ├── main.py                # Entry point
-    ├── collector.py           # YouTube collector
-    ├── database.py            # Supabase client
-    ├── notifier.py            # Notificacoes
-    ├── monetization_*.py      # Monetizacao
-    ├── financeiro.py          # Financeiro
-    └── yt_uploader/           # Sistema upload
+└── 📁 Configs e Docs ROOT
+    ├── .claude/               # Configuração Claude Code
+    ├── README.md              # Este arquivo
+    ├── CHANGELOG.md           # Histórico de mudanças
+    ├── ESTRUTURA_PROJETO.md   # Estrutura detalhada
+    ├── requirements.txt       # Dependências
+    └── .env                   # Variáveis de ambiente
 ```
 
 ---

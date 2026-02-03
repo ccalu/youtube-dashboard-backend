@@ -29,8 +29,8 @@ def init_agents_router(db_client, collector=None, output_dir: str = None):
     """
     global orchestrator, scheduler
 
-    from agents.orchestrator import AgentOrchestrator
-    from agents.scheduler import AgentScheduler
+    from _features.agents.orchestrator import AgentOrchestrator
+    from _features.agents.scheduler import AgentScheduler
 
     # Definir diretorio de saida
     if not output_dir:

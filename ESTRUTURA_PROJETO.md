@@ -1,213 +1,220 @@
-# Estrutura do Projeto - YouTube Dashboard Backend
+# ESTRUTURA DO PROJETO - YouTube Dashboard Backend
 
-## 📁 Organização de Diretórios
+**Última atualização:** 03/02/2026 (Reorganização v2)
+
+## 📂 ESTRUTURA PRINCIPAL
 
 ```
 youtube-dashboard-backend/
 │
-├── 📂 .claude/                      # Documentação para Claude Code
-│   ├── CLAUDE.md                    # Instruções principais
-│   ├── 2_DASHBOARD_TECNICO/         # Docs técnicas do dashboard
-│   ├── 3_SISTEMA_COMENTARIOS/       # Docs do sistema de comentários
-│   └── kanban-system/               # Docs do sistema Kanban
+├── 📌 ARQUIVOS PYTHON NO ROOT (22 arquivos essenciais)
+│   ├── main.py                        # FastAPI server principal
+│   ├── database.py                    # Cliente Supabase
+│   ├── collector.py                   # Coletor YouTube
+│   ├── notifier.py                    # Sistema de notificações
+│   ├── financeiro.py                  # Endpoints financeiros
+│   ├── analytics.py                   # Analytics de canais
+│   ├── comments_logs.py               # Logs de comentários
+│   ├── agents_endpoints.py            # Endpoints dos agentes IA
+│   ├── monetization_endpoints.py      # Endpoints de monetização
+│   ├── monetization_collector.py      # Coletor de monetização
+│   ├── monetization_oauth_collector.py # OAuth para monetização
+│   ├── gpt_response_suggester.py      # Sugestões de respostas GPT
+│   ├── engagement_preprocessor.py     # Preprocessador de engajamento
+│   ├── daily_uploader.py              # Sistema de upload diário
+│   ├── dashboard_daily_uploads.py     # Dashboard Flask para uploads
+│   ├── sheets.py                      # Integração Google Sheets
+│   ├── setup.py                       # Setup inicial
+│   ├── add_canal_wizard_v2.py        # Wizard para adicionar canais (v2)
+│   ├── add_canal_wizard_v3.py        # Wizard para adicionar canais (v3)
+│   ├── refresh_oauth_tokens.py        # Refresh de tokens OAuth
+│   ├── reauth_channel_oauth.py        # Reautenticação OAuth
+│   └── integrate_daily_upload.py      # Integração upload diário
 │
-├── 📂 frontend/                     # Componentes frontend
-│   └── tsx/                         # Arquivos TypeScript/React
-│       ├── TabelaCanais.tsx        # Componente da tabela de canais
-│       └── README.md
+├── 📁 _features/                      # Funcionalidades isoladas
+│   ├── agents/                        # Sistema de agentes inteligentes
+│   │   ├── orchestrator.py           # Orquestrador principal
+│   │   ├── scheduler.py              # Agendador de tarefas
+│   │   └── [outros agentes]          # Agentes específicos
+│   ├── yt_uploader/                  # Sistema de upload YouTube
+│   │   ├── uploader.py               # Upload principal
+│   │   ├── database.py               # DB do uploader
+│   │   ├── sheets.py                 # Integração com Sheets
+│   │   └── oauth_manager.py          # Gestão OAuth
+│   ├── frontend-code/                # Componentes React/TypeScript
+│   │   └── TabelaCanais.tsx          # Componente da tabela de canais
+│   ├── kanban-system/                # Sistema Kanban completo
+│   ├── monetization_dashboard/       # Dashboard de monetização
+│   ├── trend-monitor/                # Monitor de tendências
+│   ├── discovery/                    # Sistema de descoberta
+│   ├── DNA/                          # DNA dos canais
+│   └── frontend/                     # Frontend adicional
 │
-├── 📂 scripts/                      # Scripts auxiliares organizados
-│   ├── 📂 maintenance/              # Scripts de manutenção e diagnóstico
-│   │   ├── remove_banned_channels.py    # Remove canais banidos
-│   │   ├── sync.py                      # Sincroniza com GitHub/Railway
-│   │   ├── check_dashboard_health.py    # Diagnóstico do dashboard
-│   │   ├── diagnostico_mv_completo.py   # Diagnóstico da Materialized View
-│   │   ├── test_coleta.py               # Diagnóstico do sistema de coleta
-│   │   ├── verificar_remocao.py         # Verifica operações de remoção
-│   │   └── README.md
-│   │
-│   ├── 📂 database/                 # Scripts SQL
-│   │   ├── [arquivos .sql]
-│   │   └── README.md
-│   │
-│   ├── 📂 examples/                 # Código de exemplo/referência
-│   │   ├── refresh_mv_endpoint.py       # Exemplo de endpoint para MV
-│   │   └── README.md
-│   │
-│   ├── 📂 manual/                   # Scripts para execução manual
-│   │   ├── force_complete_collection.py # Força coleta completa
-│   │   ├── run_collection_now.py        # Coleta manual simplificada
-│   │   ├── force_mv_refresh.py          # Refresh manual da MV
-│   │   └── README.md
-│   │
-│   ├── 📂 operations/               # Operações pontuais
-│   │   ├── remove_canais_problematicos.py  # Remove canais específicos
-│   │   ├── desativar_canais_problematicos.py # Desativa canais
-│   │   └── README.md
-│   │
-│   └── 📂 tests/                    # Scripts de teste
-│       ├── test_endpoints.py            # Testa endpoints da API
-│       ├── test_inscritos_diff.py       # Testa inscritos_diff
-│       ├── test_canais_nossos.py        # Testa aba Tabela
-│       └── README.md
+├── 📁 _development/                   # Ferramentas de desenvolvimento
+│   ├── scripts/                      # Scripts organizados
+│   │   ├── maintenance/              # Manutenção do sistema
+│   │   ├── database/                 # Scripts SQL
+│   │   ├── tests/                    # Scripts de teste
+│   │   ├── comentarios/              # Scripts de comentários
+│   │   ├── upload/                   # Scripts de upload
+│   │   ├── manual/                   # Scripts manuais
+│   │   └── utils/                    # Utilitários gerais
+│   ├── utilities/                    # Ferramentas utilitárias
+│   │   ├── validar_sistema.py        # Validação do sistema
+│   │   ├── monitor_sistema.py        # Monitor do sistema
+│   │   ├── sync.py                   # Sincronização
+│   │   └── [outros utilitários]      # Outras ferramentas
+│   ├── guides/                       # Guias e instruções
+│   │   ├── INSTRUCOES_*.md          # Instruções diversas
+│   │   ├── CHECKLIST_FINAL.md       # Checklist de deploy
+│   │   └── COMANDOS_RAPIDOS.md      # Comandos úteis
+│   ├── prompts/                      # Templates de prompts IA
+│   ├── templates/                    # Templates diversos
+│   ├── debug/                        # Scripts de debug
+│   └── .autocoder/                   # Configurações autocoder
 │
-├── 📂 legacy/                       # Código legado/descontinuado
-│   ├── report_generator.py         # Sistema de relatórios (órfão)
-│   └── README.md
+├── 📁 _database/                      # Arquivos de banco de dados
+│   ├── database/                     # Scripts de banco
+│   └── databasemigrations/           # Migrations do banco
 │
-├── 📂 kanban-system/                # Sistema Kanban completo
-│   ├── main.py                      # Servidor principal do Kanban
-│   ├── database.py                  # Conexão Supabase
-│   └── docs/                        # Documentação API
+├── 📁 _runtime/                       # Arquivos gerados em runtime
+│   ├── logs/                         # Logs do sistema
+│   ├── reports/                      # Relatórios gerados
+│   ├── __pycache__/                  # Cache Python
+│   ├── canal_status.json             # Status dos canais
+│   ├── kanban_structure.json         # Estrutura Kanban
+│   ├── assistant.db                  # DB do assistente
+│   └── features.db*                  # DBs de features
 │
-├── 📂 yt_uploader/                  # Sistema de upload YouTube
-│   ├── sheets.py                    # Integração Google Sheets (ativo)
-│   └── ...
+├── 📁 _archives/                      # Backups e código antigo
+│   ├── referencia/                   # Documentação de referência
+│   │   ├── 1_CONTEXTO_NEGOCIO/       # Contexto do negócio
+│   │   ├── 2_DASHBOARD_TECNICO/      # Documentação técnica
+│   │   ├── 3_OPERACIONAL/            # Guias operacionais
+│   │   └── documentacao-completa/    # Docs completos 00-14
+│   ├── legacy/                       # Código descontinuado
+│   ├── legacy-docs/                  # Documentação antiga
+│   ├── correcoes/                    # Correções realizadas
+│   ├── backups/                      # Backups gerais
+│   ├── backup_20012025_fixes/        # Backup de correções Jan/25
+│   ├── backup_limpeza_03022026/      # Backup limpeza 03/02
+│   └── backup_final_cleanup_03022026/ # Backup final 03/02
 │
-└── 📂 [ROOT]                        # Arquivos principais (NÃO MOVER!)
-    ├── main.py                      # FastAPI app principal
-    ├── database.py                  # Cliente Supabase
-    ├── collector.py                 # Coletor YouTube
-    ├── notifier.py                  # Sistema de notificações
-    ├── financeiro.py                # Serviço financeiro
-    ├── analytics.py                 # Analytics de canais
-    ├── agents_endpoints.py          # Router de agents
-    ├── monetization_endpoints.py    # Router de monetização
-    ├── comments_logs.py             # Gerenciador de comentários
-    ├── gpt_response_suggester.py    # Sugestor de respostas GPT
-    ├── requirements.txt             # Dependências Python
-    ├── .env                         # Variáveis de ambiente
-    └── .gitignore                   # Arquivos ignorados
+├── 📁 Configuração e Docs ROOT
+│   ├── .claude/                      # Configuração Claude Code
+│   │   └── CLAUDE.md                 # Instruções para Claude
+│   ├── README.md                     # README principal
+│   ├── CHANGELOG.md                  # Histórico de mudanças
+│   ├── ESTRUTURA_PROJETO.md          # Este arquivo
+│   ├── requirements.txt              # Dependências Python
+│   ├── runtime.txt                   # Versão Python (Railway)
+│   ├── Procfile                      # Config deploy (Railway)
+│   ├── .env                          # Variáveis de ambiente (local)
+│   ├── .gitignore                    # Ignorar no git
+│   └── .git/                         # Versionamento git
+│
+└── 📁 Sistema (não mexer)
+    └── __pycache__/                   # Cache Python (ROOT)
 ```
 
-## ⚠️ REGRAS CRÍTICAS - NUNCA VIOLAR
+## 🎯 ONDE SALVAR NOVOS ARQUIVOS
 
-### 🔴 ARQUIVOS QUE NUNCA DEVEM SER MOVIDOS DO ROOT:
-1. **main.py** - App principal FastAPI
-2. **database.py** - Cliente Supabase usado por todos
-3. **collector.py** - Coletor YouTube
-4. **notifier.py** - Sistema de notificações
-5. **financeiro.py** - Importado diretamente no main.py
-6. **analytics.py** - Analytics de canais
-7. **agents_endpoints.py** - Router FastAPI
-8. **monetization_endpoints.py** - Router FastAPI
-9. **comments_logs.py** - Gerenciador de logs
-10. **gpt_response_suggester.py** - Tem imports dinâmicos
+### ✅ SEMPRE NO ROOT:
+- **Endpoints novos:** `*_endpoints.py`
+- **Serviços core:** Arquivos que main.py importa diretamente
+- **Wizards:** Scripts interativos de configuração
 
-### 📂 ONDE SALVAR NOVOS ARQUIVOS:
+### ✅ EM _features/:
+- **Nova funcionalidade isolada:** Criar pasta própria
+- **Frontend components:** Em `frontend-code/`
+- **Sistema com múltiplos arquivos:** Pasta dedicada
 
-#### 1. **Scripts de Teste/Temporários**
-   - **Local:** `/scripts/tests/`
-   - **Exemplos:** test_*.py, verificar_*.py, testar_*.py
-   - **Nota:** Limpar periodicamente
+### ✅ EM _development/:
+- **Scripts de manutenção:** `scripts/maintenance/`
+- **Scripts SQL:** `scripts/database/`
+- **Testes:** `scripts/tests/`
+- **Utilitários:** `utilities/`
+- **Documentação técnica:** `guides/`
 
-#### 2. **Scripts de Manutenção**
-   - **Local:** `/scripts/maintenance/`
-   - **Exemplos:** fix_*.py, update_*.py, cleanup_*.py
-   - **Nota:** Manter apenas scripts ativos
+### ✅ EM _archives/:
+- **Código antigo/deprecated:** `legacy/`
+- **Backups antes de mudanças grandes:** `backups/`
+- **Documentação histórica:** `legacy-docs/`
 
-#### 3. **Scripts SQL**
-   - **Local:** `/scripts/database/`
-   - **Exemplos:** *.sql
-   - **Nota:** Organizar por funcionalidade
+### ⚠️ NUNCA MOVER DO ROOT:
+```python
+# Estes arquivos DEVEM ficar no ROOT:
+CORE_FILES = [
+    'main.py',
+    'database.py',
+    'collector.py',
+    'notifier.py',
+    'financeiro.py',
+    'analytics.py',
+    'comments_logs.py',
+    'agents_endpoints.py',
+    'monetization_endpoints.py',
+    'gpt_response_suggester.py',
+    'engagement_preprocessor.py',
+    'daily_uploader.py',
+    'sheets.py'
+]
+```
 
-#### 4. **Componentes Frontend**
-   - **Local:** `/frontend/tsx/`
-   - **Exemplos:** *.tsx, *.jsx
-   - **Nota:** Componentes React/TypeScript
+## 📊 ESTATÍSTICAS DA ESTRUTURA
 
-#### 5. **Código Descontinuado**
-   - **Local:** `/legacy/`
-   - **Exemplos:** Sistemas órfãos, código antigo
-   - **Nota:** Mantido apenas para referência
+- **Total de arquivos Python no ROOT:** 22 (apenas essenciais)
+- **Pastas organizadoras:** 5 (_features, _development, _database, _runtime, _archives)
+- **Redução de complexidade:** De 32+ pastas → 6 pastas principais
+- **Imports atualizados:** Apenas 2 arquivos precisaram de ajustes
 
-#### 6. **Sistema Kanban**
-   - **Local:** `/kanban-system/`
-   - **Nota:** Sistema completo isolado
+## 🔄 HISTÓRICO DE REORGANIZAÇÕES
 
-#### 7. **Novos Endpoints/Routers**
-   - **Local:** ROOT (se for router FastAPI)
-   - **Padrão:** *_endpoints.py
-   - **Motivo:** main.py espera routers no root
+### v2.0 - 03/02/2026 (ATUAL)
+- Criação de 5 pastas organizadoras com prefixo "_"
+- Movimentação de 32+ pastas para estrutura hierárquica
+- Limpeza de 15+ arquivos temporários de verificação/tradução
+- Documentação totalmente atualizada
+- Sistema 100% funcional verificado
 
-## 🔄 HISTÓRICO DE REORGANIZAÇÃO (29/01/2026)
+### v1.0 - 29/01/2026
+- Primeira organização básica
+- Criação de pastas scripts/, utilities/
+- Limpeza inicial de arquivos temporários
 
-### ✅ VERIFICAÇÃO FINAL DE INTEGRIDADE:
-- **main.py:** 100% funcional, respondendo requisições
-- **Todos os imports:** Funcionando corretamente
-- **Arquivos movidos:** 15 scripts organizados em pastas apropriadas
-- **Arquivos deletados:** 7 scripts de fix já executados
-- **Módulos auxiliares:** translate_comments_optimized.py e comments_manager.py na raiz
-- **Scripts de automação:** Funcionando com sys.path adicionado
+### v0.1 - Janeiro/2026
+- Estrutura inicial sem organização
+- 32+ pastas no ROOT
+- Mistura de código, docs e backups
 
-## 🔄 HISTÓRICO DE REORGANIZAÇÃO (29/01/2026)
+## 🚀 NOVO DESENVOLVIMENTO
 
-### Arquivos Deletados (11):
-- test_move_endpoint.py
-- teste_movimentacao.py
-- verificar_kanban.py
-- test_kanban.py
-- fix_translation_issue.py
-- add_translation_field.sql
-- fix_mv_100_CORRETO.sql
-- update_kanban_history_constraint.sql
-- fix_comments_table.sql
-- create_engagement_cache_table.sql
-- add_coluna_id_kanban.sql
+Ao criar novos arquivos, pergunte-se:
 
-### Arquivos Movidos:
-- **report_generator.py** → `/legacy/` (órfão, dependia de analyzer.py deletado)
-- **remove_banned_channels.py** → `/scripts/maintenance/`
-- **sync.py** → `/scripts/maintenance/`
-- **TabelaCanais.tsx** → `/frontend/tsx/`
-
-### Arquivos Mantidos no Root (críticos):
-- Todos os módulos principais importados por main.py
-- Routers FastAPI (*_endpoints.py)
-- Arquivos de configuração (.env, requirements.txt, etc)
+1. **É um endpoint ou serviço core?** → ROOT
+2. **É uma feature isolada?** → _features/nova_pasta/
+3. **É um script de manutenção?** → _development/scripts/
+4. **É documentação?** → _development/guides/ ou ROOT (se principal)
+5. **É código antigo?** → _archives/legacy/
+6. **É gerado automaticamente?** → _runtime/
 
 ## 📝 NOTAS IMPORTANTES
 
-1. **Imports Dinâmicos:** gpt_response_suggester.py usa imports dinâmicos, mover pode quebrar
-2. **Routers FastAPI:** Devem ficar no root para main.py encontrar
-3. **Kanban System:** É um sistema isolado em `/kanban-system/`
-4. **Legacy:** Código em `/legacy/` não é usado, mantido apenas para referência
-5. **Git Recovery:** Todos arquivos deletados podem ser recuperados via git se necessário
+- **Prefixo "_":** Usado para pastas organizadoras aparecerem no topo
+- **ROOT limpo:** Apenas arquivos Python essenciais e configs
+- **Imports:** Usar paths completos (_features.module.file)
+- **Backups:** Sempre criar antes de mudanças grandes
+- **Railway:** Deploy funciona sem alterações
 
-## 🚀 PARA NOVOS DESENVOLVIMENTOS
+## 🔗 DOCUMENTAÇÃO RELACIONADA
 
-### Antes de criar um arquivo, pergunte-se:
-
-1. **É um teste temporário?** → `/scripts/tests/`
-2. **É manutenção/fix?** → `/scripts/maintenance/`
-3. **É SQL?** → `/scripts/database/`
-4. **É componente frontend?** → `/frontend/tsx/`
-5. **É router FastAPI?** → ROOT (obrigatório)
-6. **É módulo core?** → ROOT (se importado por main.py)
-7. **É código antigo?** → `/legacy/`
-
-### Workflow de Limpeza:
-```bash
-# Periodicamente executar
-1. Revisar /scripts/tests/ - deletar testes antigos
-2. Revisar /scripts/maintenance/ - arquivar scripts não usados
-3. Verificar /legacy/ - considerar deletar código muito antigo
-4. Atualizar esta documentação com mudanças
-```
-
-## 📋 CHECKLIST DE SEGURANÇA
-
-Antes de mover QUALQUER arquivo:
-
-- [ ] Verificar se é importado em main.py
-- [ ] Verificar se é router FastAPI
-- [ ] Buscar imports com: `grep -r "from arquivo import" .`
-- [ ] Buscar imports com: `grep -r "import arquivo" .`
-- [ ] Testar localmente após mover
-- [ ] Atualizar esta documentação
+- `.claude/CLAUDE.md` - Instruções gerais do projeto
+- `README.md` - Visão geral do sistema
+- `CHANGELOG.md` - Histórico detalhado de mudanças
+- `_development/guides/` - Guias técnicos específicos
 
 ---
 
-**Última atualização:** 29/01/2026
-**Responsável:** Claude Code + Cellibs
-**Status:** Sistema 100% funcional e organizado
+**Mantido por:** Cellibs (Marcelo)
+**Última revisão:** 03/02/2026
+**Status:** ✅ Estrutura organizada e funcional

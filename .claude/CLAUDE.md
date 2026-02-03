@@ -32,13 +32,23 @@ API REST que gerencia coleta de dados YouTube, notificações e transcrições.
 
 ## ⚠️ CREDENCIAIS LOCAIS (.env):
 - `SUPABASE_URL` - Configurado ✅
-- `SUPABASE_KEY` - Configurado ✅
+- `SUPABASE_KEY` - Configurado ✅ (chave ANON com RLS)
+- `SUPABASE_SERVICE_ROLE_KEY` - Configurado ✅ (bypass RLS)
 - `YOUTUBE_API_KEY_X` - NÃO configuradas localmente (só Railway)
 
 **IMPORTANTE:**
 - Para testar localmente: precisa configurar pelo menos 1 YouTube API key
 - Para produção: usar Railway (já tem tudo configurado)
 - Arquivo .env está em .gitignore (não sobe pro GitHub)
+
+## 🔐 CRÍTICO - VERIFICAÇÃO DE TOKENS OAUTH:
+**SEMPRE use SERVICE_ROLE_KEY para verificar tokens OAuth!**
+- `SUPABASE_KEY` (anon) = RLS ativo = **NÃO mostra tokens**
+- `SERVICE_ROLE_KEY` = Bypass RLS = **MOSTRA todos os tokens**
+- `daily_uploader.py` usa SERVICE_ROLE_KEY = Por isso funciona!
+
+**Para verificar tokens:** `python check_oauth_definitivo.py`
+**Documentação completa:** `VERIFICACAO_TOKENS_OAUTH.md`
 
 ## 🚀 RODAR LOCALMENTE:
 ```bash
@@ -356,8 +366,38 @@ Novos campos disponíveis (calculados automaticamente):
 ## 🆕 ATUALIZAÇÕES RECENTES (29/01/2026):
 
 ### Reorganização Completa do Projeto ✅
-**Desenvolvido:** 29/01/2026
-**Status:** ✅ Projeto limpo e organizado
+**Desenvolvido:** 29/01/2026 (v1) | 03/02/2026 (v2)
+**Status:** ✅ Projeto limpo e totalmente organizado
+
+### 🆕 REORGANIZAÇÃO v2 (03/02/2026):
+**Nova estrutura com 5 pastas organizadoras:**
+
+```
+youtube-dashboard-backend/
+├── _archives/         # Backups, código antigo, documentação histórica
+├── _database/         # Arquivos de banco e migrations
+├── _development/      # Ferramentas de desenvolvimento
+│   ├── scripts/       # Scripts organizados por categoria
+│   ├── utilities/     # Utilitários do sistema
+│   ├── guides/        # Guias e instruções
+│   └── prompts/       # Templates de prompts
+├── _features/         # Funcionalidades isoladas
+│   ├── agents/        # Sistema de agentes IA
+│   ├── yt_uploader/   # Sistema de upload YouTube
+│   ├── frontend-code/ # Componentes React/TypeScript
+│   └── kanban-system/ # Sistema Kanban completo
+├── _runtime/          # Arquivos gerados em runtime
+│   ├── logs/          # Logs do sistema
+│   ├── reports/       # Relatórios gerados
+│   └── *.json/*.db    # Arquivos de dados runtime
+└── [22 arquivos .py]  # Core do backend no ROOT
+```
+
+**Mudanças de imports (apenas 2 arquivos):**
+- `main.py`: yt_uploader → _features.yt_uploader
+- `agents_endpoints.py`: agents → _features.agents
+
+**Resultado:** De 32+ pastas misturadas → 6 pastas super organizadas!
 
 **O que foi feito:**
 1. **Limpeza de arquivos temporários:**
@@ -365,12 +405,12 @@ Novos campos disponíveis (calculados automaticamente):
    - Scripts SQL movidos para pasta apropriada
    - Código órfão movido para /legacy/
 
-2. **Nova estrutura de pastas:**
-   - `/scripts/maintenance/` - Scripts de manutenção
-   - `/scripts/database/` - Arquivos SQL
-   - `/scripts/tests/` - Scripts de teste
-   - `/frontend/tsx/` - Componentes React/TypeScript
-   - `/legacy/` - Código descontinuado
+2. **Nova estrutura de pastas (atualizada 03/02/2026):**
+   - `/_development/scripts/maintenance/` - Scripts de manutenção
+   - `/_development/scripts/database/` - Arquivos SQL
+   - `/_development/scripts/tests/` - Scripts de teste
+   - `/_features/frontend-code/` - Componentes React/TypeScript
+   - `/_archives/legacy/` - Código descontinuado
 
 3. **Documentação criada:**
    - `ESTRUTURA_PROJETO.md` - Guia completo da estrutura
@@ -514,7 +554,7 @@ Agora retorna:
 - Retorna canais `tipo="nosso"` agrupados por subnicho
 - Ordenação por desempenho: **melhor → menor → zero → nulo**
 - Response inclui: `inscritos`, `inscritos_diff` (ganho ontem→hoje), `ultima_coleta`
-- Frontend pronto: `frontend-code/TabelaCanais.tsx` (366 linhas, mobile-first)
+- Frontend pronto: `_features/frontend-code/TabelaCanais.tsx` (366 linhas, mobile-first)
 - Documentação: `INTEGRACAO_ABA_TABELA.md`
 
 **Lógica de Ordenação:**
@@ -539,7 +579,7 @@ Agora retorna:
 - **Configuração:** Railway (variáveis de ambiente)
 
 ### 4. Arquivos de Referência Criados:
-- `frontend-code/TabelaCanais.tsx` - Componente React completo
+- `_features/frontend-code/TabelaCanais.tsx` - Componente React completo
 - `INTEGRACAO_ABA_TABELA.md` - Guia de integração Lovable
 - `FIX_ORDENACAO_TABELA.md` - Documentação técnica do sorting
 - `VALIDACAO_API_KEYS.md` - Validação das 8 novas chaves

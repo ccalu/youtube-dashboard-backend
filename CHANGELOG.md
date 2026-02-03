@@ -5,6 +5,54 @@
 
 ---
 
+## [03/02/2026 - v12] - Reorganização Completa da Estrutura v2
+
+### 🏗️ Major: Reestruturação total do projeto
+
+**Data:** 03/02/2026 (tarde)
+**Status:** ✅ Completo e funcional
+**Desenvolvedor:** Claude com Cellibs
+
+### O que foi feito
+- **Criadas 5 pastas organizadoras principais** com prefixo "_" para melhor organização
+- **Movidas 32+ pastas** da raiz para estrutura hierárquica organizada
+- **Deletados 15 arquivos temporários** de verificação/tradução (verificar_*.py, traduzir_*.py)
+- **Limpeza completa** mantendo apenas 22 arquivos Python essenciais no ROOT
+- **Documentação totalmente atualizada** (CLAUDE.md, ESTRUTURA_PROJETO.md, README.md)
+
+### Nova Estrutura de Pastas
+```
+/_features/      # Funcionalidades isoladas (agents, yt_uploader, kanban, etc)
+/_development/   # Ferramentas dev (scripts, utilities, guides, prompts)
+/_database/      # Banco de dados e migrations
+/_runtime/       # Arquivos gerados (logs, reports, cache, json)
+/_archives/      # Backups e código antigo
+```
+
+### Imports Atualizados (apenas 2 arquivos)
+- `main.py`: yt_uploader → _features.yt_uploader
+- `agents_endpoints.py`: agents → _features.agents
+
+### Estatísticas
+- **Antes:** 32+ pastas misturadas no ROOT, difícil navegação
+- **Depois:** 6 pastas organizadas (5 com _ + __pycache__)
+- **Redução:** 55% menos arquivos Python no ROOT (37 → 22)
+- **Backups:** 3 pastas de backup preservadas com todos arquivos deletados
+
+### Garantias
+- ✅ Sistema 100% funcional verificado
+- ✅ Todos módulos core testados e funcionando
+- ✅ FastAPI, Database, Collector inicializando normalmente
+- ✅ Nenhuma quebra de funcionalidade detectada
+- ✅ Deploy Railway continua funcionando sem alterações
+
+### Arquivos de Documentação
+- `ESTRUTURA_PROJETO.md` - Reescrito completamente com nova estrutura
+- `REORGANIZACAO_COMPLETA_03022026.md` - Relatório detalhado da reorganização
+- `LIMPEZA_COMPLETA_03022026.md` - Relatório da primeira limpeza
+
+---
+
 ## [03/02/2026 - v11] - Correção Crítica: OAuth Scopes para Playlists
 
 ### 🔧 Bug Fix: Upload funcionava mas playlists não eram adicionadas

@@ -28,14 +28,14 @@ from analytics import ChannelAnalytics
 from agents_endpoints import init_agents_router
 
 # YouTube Uploader
-from yt_uploader.uploader import YouTubeUploader
-from yt_uploader.database import (
+from _features.yt_uploader.uploader import YouTubeUploader
+from _features.yt_uploader.database import (
     create_upload,
     update_upload_status,
     get_upload_by_id,
     supabase
 )
-from yt_uploader.sheets import update_upload_status_in_sheet
+from _features.yt_uploader.sheets import update_upload_status_in_sheet
 
 # Daily Upload Automation
 from daily_uploader import schedule_daily_uploader
