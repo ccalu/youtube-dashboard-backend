@@ -38,11 +38,12 @@
 
 ```sql
 -- ÍNDICES PARA PERFORMANCE DA ABA COMENTÁRIOS
+-- CORRIGIDO: Nomes corretos dos campos
 
 -- 1. Índice composto para filtros de canal + status de resposta
 CREATE INDEX IF NOT EXISTS idx_video_comments_canal_resposta
-ON video_comments(canal_id, resposta_sugerida_gpt)
-WHERE resposta_sugerida_gpt IS NOT NULL;
+ON video_comments(canal_id, suggested_response)
+WHERE suggested_response IS NOT NULL;
 
 -- 2. Índice para ordenação por data de publicação (último comentário)
 CREATE INDEX IF NOT EXISTS idx_video_comments_canal_published
@@ -54,8 +55,8 @@ ON video_comments(video_id, canal_id);
 
 -- 4. Índice para filtro de comentários pendentes
 CREATE INDEX IF NOT EXISTS idx_video_comments_pendentes
-ON video_comments(canal_id, foi_respondido, resposta_sugerida_gpt)
-WHERE foi_respondido = false;
+ON video_comments(canal_id, is_responded, suggested_response)
+WHERE is_responded = false;
 
 -- 5. Índice para busca rápida de vídeos por canal
 CREATE INDEX IF NOT EXISTS idx_videos_historico_canal_data
