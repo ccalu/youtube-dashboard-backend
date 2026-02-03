@@ -1268,24 +1268,21 @@ async def generate_comment_response(comment_id: int):
     """
     Gera resposta personalizada para um comentário específico.
 
-    NOVO SISTEMA (03/02/2026):
-    - Geração sob demanda (não automática)
-    - Contexto completo (vídeo, canal, histórico)
-    - Respostas naturais em PT-BR
-    - Tom personalizado por canal
+    SISTEMA SIMPLIFICADO (03/02/2026):
+    - Geração sob demanda
+    - Resposta na mesma língua do comentário
+    - Tom educado como dono do canal
 
     Args:
         comment_id: ID do comentário (database ID)
 
     Returns:
-        JSON com resposta sugerida e metadados
+        JSON com resposta sugerida
     """
     try:
-        # Buscar detalhes do comentário
+        # Buscar apenas o comentário (sem joins desnecessários)
         comment = db.supabase.table('video_comments').select(
-            'id, comment_id, video_id, canal_id, author_name, '
-            'comment_text_original, comment_text_pt, like_count, '
-            'published_at, is_reply, parent_comment_id'
+            'id, author_name, comment_text_original, comment_text_pt'
         ).eq('id', comment_id).execute()
 
         if not comment.data:
@@ -1293,21 +1290,13 @@ async def generate_comment_response(comment_id: int):
 
         comment_data = comment.data[0]
 
-        # Buscar informações do canal
-        canal = db.supabase.table('canais_monitorados').select(
-            'nome_canal, subnicho, monetizado'
-        ).eq('id', comment_data['canal_id']).execute()
+        # Pegar o texto do comentário (preferir original para detectar idioma correto)
+        comment_text = comment_data.get('comment_text_original') or comment_data.get('comment_text_pt')
 
-        canal_info = canal.data[0] if canal.data else {}
+        if not comment_text or not comment_text.strip():
+            raise HTTPException(status_code=400, detail="Comentário sem texto para análise")
 
-        # Buscar informações do vídeo
-        video = db.supabase.table('videos_historico').select(
-            'titulo, views_atuais'
-        ).eq('video_id', comment_data['video_id']).execute()
-
-        video_info = video.data[0] if video.data else {}
-
-        # Importar e usar GPTAnalyzer com contexto completo
+        # Inicializar GPT
         try:
             from gpt_response_suggester import GPTAnalyzer
             analyzer = GPTAnalyzer()
@@ -1321,54 +1310,30 @@ async def generate_comment_response(comment_id: int):
             logger.error(f"Erro inesperado ao inicializar GPTAnalyzer: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Erro ao inicializar GPT: {str(e)}")
 
-        # Preparar contexto completo
-        context = {
-            'canal_name': canal_info.get('nome_canal', ''),
-            'subnicho': canal_info.get('subnicho', ''),
-            'video_title': video_info.get('titulo', ''),
-            'video_views': video_info.get('views_atuais', 0),
-            'comment_likes': comment_data.get('like_count', 0),
-            'is_reply': comment_data.get('is_reply', False)
-        }
+        # Prompt SIMPLES - deixar o GPT detectar o idioma e responder adequadamente
+        prompt = f"""Você é o dono de um canal do YouTube.
+Responda este comentário de forma educada, relevante e natural.
 
-        # Texto do comentário (preferir traduzido se disponível)
-        comment_text = comment_data.get('comment_text_pt') or comment_data.get('comment_text_original')
+IMPORTANTE:
+- Responda no MESMO IDIOMA do comentário
+- Seja genuíno e específico ao conteúdo do comentário
+- Use 1-3 frases no máximo
+- Se for elogio: agradeça
+- Se for crítica: reconheça e seja compreensivo
+- Se for pergunta: responda diretamente
+- Se for sugestão: considere e agradeça
 
-        # Gerar resposta contextualizada
-        prompt = f"""
-        Você é o dono do canal "{context['canal_name']}" do YouTube.
+Autor: {comment_data.get('author_name', 'Usuário')}
+Comentário: "{comment_text}"
 
-        CONTEXTO:
-        - Canal: {context['canal_name']} (nicho: {context['subnicho']})
-        - Vídeo: "{context['video_title']}"
-        - Views do vídeo: {context['video_views']:,}
-        - Autor do comentário: {comment_data['author_name']}
-        - Likes no comentário: {context['comment_likes']}
-
-        COMENTÁRIO:
-        "{comment_text}"
-
-        INSTRUÇÕES:
-        1. Responda como o DONO DO CANAL, de forma natural e autêntica
-        2. Use português brasileiro coloquial (não formal demais)
-        3. Seja específico - mencione detalhes do comentário
-        4. Se for elogio: agradeça genuinamente
-        5. Se for crítica: reconheça e mostre que vai melhorar
-        6. Se for pergunta: responda diretamente
-        7. Se for sugestão: considere e agradeça
-        8. Mantenha entre 1-3 frases (não muito longo)
-        9. NÃO use emojis excessivos (máximo 1-2)
-        10. NÃO seja genérico - personalize para este comentário específico
-
-        RESPOSTA:
-        """
+Resposta (no mesmo idioma do comentário):"""
 
         # Chamar GPT para gerar resposta
         try:
             response = analyzer.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "Você é um criador de conteúdo brasileiro respondendo comentários no seu canal."},
+                    {"role": "system", "content": "Você é um criador de conteúdo respondendo comentários no seu canal. Sempre responda no mesmo idioma do comentário."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7,
@@ -1388,16 +1353,15 @@ async def generate_comment_response(comment_id: int):
         db.supabase.table('video_comments').update({
             'suggested_response': suggested_response,
             'response_tone': 'friendly',
-            'response_generated_at': datetime.utcnow().isoformat(),
-            'updated_at': datetime.utcnow().isoformat()
+            'response_generated_at': datetime.now(timezone.utc).isoformat(),
+            'updated_at': datetime.now(timezone.utc).isoformat()
         }).eq('id', comment_id).execute()
 
         return {
             "success": True,
             "suggested_response": suggested_response,
-            "context": context,
             "comment_text": comment_text,
-            "generated_at": datetime.utcnow().isoformat()
+            "generated_at": datetime.now(timezone.utc).isoformat()
         }
 
     except HTTPException:
