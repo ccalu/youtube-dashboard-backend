@@ -2610,3 +2610,93 @@ class SupabaseClient:
                 'novos_hoje': 0,
                 'aguardando_resposta': 0
             }
+
+    def get_comment_details(self, comment_id: str):
+        """
+        Busca detalhes completos de um comentário específico.
+
+        Args:
+            comment_id: ID do comentário
+
+        Returns:
+            Detalhes do comentário com informações do canal e vídeo
+        """
+        try:
+            # Buscar comentário
+            comment = self.supabase.table('video_comments').select(
+                '*, canais_monitorados!inner(nome_canal, subnicho, monetizado)'
+            ).eq('comment_id', comment_id).execute()
+
+            if not comment.data:
+                return None
+
+            comment_data = comment.data[0]
+
+            # Buscar informações do vídeo
+            video = self.supabase.table('videos_historico').select(
+                'titulo, views_atuais, canal_id'
+            ).eq('video_id', comment_data['video_id']).execute()
+
+            if video.data:
+                comment_data['video_info'] = video.data[0]
+
+            return comment_data
+
+        except Exception as e:
+            logger.error(f"Erro ao buscar detalhes do comentário {comment_id}: {e}")
+            return None
+
+    def get_recent_responses(self, canal_id: int = None, limit: int = 10):
+        """
+        Busca respostas recentemente geradas.
+
+        Args:
+            canal_id: ID do canal (opcional)
+            limit: Número de respostas a retornar
+
+        Returns:
+            Lista de respostas recentes com detalhes
+        """
+        try:
+            query = self.supabase.table('video_comments').select(
+                'comment_id, author_name, comment_text_pt, suggested_response, '
+                'is_responded, updated_at'
+            ).not_.is_('suggested_response', 'null').order('updated_at', desc=True)
+
+            if canal_id:
+                query = query.eq('canal_id', canal_id)
+
+            result = query.limit(limit).execute()
+            return result.data if result.data else []
+
+        except Exception as e:
+            logger.error(f"Erro ao buscar respostas recentes: {e}")
+            return []
+
+    def get_comments_needing_response(self, canal_id: int = None, limit: int = 20):
+        """
+        Busca comentários que precisam de resposta (prioritários).
+
+        Args:
+            canal_id: ID do canal (opcional)
+            limit: Número de comentários a retornar
+
+        Returns:
+            Lista de comentários prioritários para resposta
+        """
+        try:
+            query = self.supabase.table('video_comments').select(
+                'comment_id, author_name, comment_text_pt, comment_text_original, '
+                'like_count, video_id, canal_id, published_at'
+            ).is_('suggested_response', 'null').eq('is_responded', False)
+
+            if canal_id:
+                query = query.eq('canal_id', canal_id)
+
+            # Priorizar por número de likes
+            result = query.order('like_count', desc=True).limit(limit).execute()
+            return result.data if result.data else []
+
+        except Exception as e:
+            logger.error(f"Erro ao buscar comentários para resposta: {e}")
+            return []

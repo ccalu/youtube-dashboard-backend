@@ -15,10 +15,10 @@ from urllib.parse import urlparse, parse_qs
 # Carrega variaveis
 load_dotenv()
 
-# Conecta Supabase
+# Conecta Supabase (usa SERVICE_ROLE_KEY para bypass RLS)
 supabase = create_client(
     os.getenv("SUPABASE_URL"),
-    os.getenv("SUPABASE_KEY")
+    os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
 )
 
 # ============================================================
@@ -559,40 +559,9 @@ def main():
     print(f"\n[OK] Credenciais validadas!")
 
     # ============================================================
-    # PARTE 3: ADICIONAR CANAL NO SUPABASE
+    # PARTE 3: AUTORIZACAO OAUTH (sem salvar ainda!)
     # ============================================================
-    print(f"\n[3/4] ADICIONANDO CANAL NO SUPABASE")
-    print("-" * 80)
-
-    print(f"\n[...] Adicionando canal {channel_name}...")
-    print(f"      Upload automático: ATIVADO")
-    print(f"      Monetizado: {'SIM' if is_monetized else 'NÃO'}")
-    print(f"      Planilha: {spreadsheet_id[:20]}...")
-
-    if not adicionar_canal_v2(
-        channel_id=channel_id,
-        channel_name=channel_name,
-        lingua=lingua,
-        subnicho=subnicho,
-        spreadsheet_id=spreadsheet_id,
-        is_monetized=is_monetized,
-        playlist_id=playlist_id if playlist_id else None
-    ):
-        print("[ERRO] Falha ao adicionar canal! Abortando...")
-        return
-
-    # Salvar credenciais OAuth do canal
-    print(f"[...] Salvando credenciais OAuth do canal...")
-    if not salvar_credenciais_canal(channel_id, client_id, client_secret):
-        print("[ERRO] Falha ao salvar credenciais OAuth!")
-        print("Canal foi adicionado, mas sem credenciais.")
-        return
-    print("[OK] Credenciais OAuth salvas com sucesso!")
-
-    # ============================================================
-    # PARTE 4: OAUTH
-    # ============================================================
-    print(f"\n[4/4] AUTORIZACAO OAUTH")
+    print(f"\n[3/4] AUTORIZACAO OAUTH")
     print("-" * 80)
     print("\nIMPORTANTE:")
     print("- Abra a URL no NAVEGADOR DO PROXY (conta Google do canal)")
@@ -636,46 +605,127 @@ def main():
     tokens = trocar_codigo_por_tokens(code, client_id, client_secret)
     if not tokens:
         print("[ERRO] Falha ao obter tokens! Abortando...")
-        return
-
-    # Salva tokens
-    print(f"[...] Salvando tokens no banco...")
-    if not salvar_tokens(
-        channel_id,
-        tokens['access_token'],
-        tokens['refresh_token'],
-        tokens['expires_in']
-    ):
-        print("[ERRO] Falha ao salvar tokens!")
+        print("\nPressione ENTER para fechar...")
+        input()
         return
 
     # Valida token
     print(f"[...] Validando token com YouTube API...")
     if not validar_token(tokens['access_token']):
-        print("[AVISO] Token pode estar invalido, mas foi salvo")
+        print("[AVISO] Token pode estar invalido!")
+        confirma = input("\nContinuar mesmo assim? (s/n): ").strip().lower()
+        if confirma != 's':
+            print("[!] Abortado pelo usuario.")
+            print("\nPressione ENTER para fechar...")
+            input()
+            return
+
+    # ============================================================
+    # PARTE 4: SALVAR TUDO NO BANCO (ATOMICAMENTE)
+    # ============================================================
+    print(f"\n[4/4] SALVANDO DADOS NO BANCO")
+    print("-" * 80)
+    print("\nSalvando configuração completa do canal...")
+
+    save_success = True
+    canal_saved = False
+    creds_saved = False
+    tokens_saved = False
+
+    try:
+        # 1. Adicionar canal ao banco
+        print(f"\n[1/3] Salvando canal...")
+        if adicionar_canal_v2(
+            channel_id=channel_id,
+            channel_name=channel_name,
+            lingua=lingua,
+            subnicho=subnicho,
+            spreadsheet_id=spreadsheet_id,
+            is_monetized=is_monetized,
+            playlist_id=playlist_id if playlist_id else None
+        ):
+            print(f"    ✓ Canal salvo: {channel_name}")
+            canal_saved = True
+        else:
+            print(f"    ✗ Erro ao salvar canal!")
+            save_success = False
+
+        if save_success:
+            # 2. Salvar credenciais OAuth
+            print(f"\n[2/3] Salvando credenciais...")
+            if salvar_credenciais_canal(channel_id, client_id, client_secret):
+                print(f"    ✓ Credenciais salvas")
+                creds_saved = True
+            else:
+                print(f"    ✗ Erro ao salvar credenciais!")
+                save_success = False
+
+        if save_success:
+            # 3. Salvar tokens OAuth
+            print(f"\n[3/3] Salvando tokens de acesso...")
+            if salvar_tokens(
+                channel_id,
+                tokens['access_token'],
+                tokens['refresh_token'],
+                tokens['expires_in']
+            ):
+                print(f"    ✓ Tokens salvos e válidos")
+                tokens_saved = True
+            else:
+                print(f"    ✗ Erro ao salvar tokens!")
+                save_success = False
+
+    except Exception as e:
+        print(f"\n[ERRO] Falha ao salvar: {e}")
+        save_success = False
+
+    # Verificar resultado final
+    if not save_success:
+        print("\n" + "=" * 80)
+        print("❌ ERRO AO CONFIGURAR CANAL!")
+        print("=" * 80)
+        print("\nAlguns dados podem não ter sido salvos corretamente.")
+        print("Verifique o erro acima e tente novamente.")
+        print("\nPressione ENTER para fechar...")
+        input()
+        return
 
     # ============================================================
     # RESUMO FINAL
     # ============================================================
     print("\n" + "=" * 80)
-    print("✅ CANAL ADICIONADO COM SUCESSO!")
+    print("✅ CANAL CONFIGURADO COM SUCESSO!")
     print("=" * 80)
-    print(f"Canal: {channel_name}")
-    print(f"ID: {channel_id}")
-    print(f"Lingua: {lingua}")
-    print(f"Subnicho: {subnicho}")
-    print(f"Monetizado: {'SIM' if is_monetized else 'NÃO'}")
-    print(f"Upload automático: ATIVADO")
-    print(f"Planilha: Configurada")
+    print()
+    print("📊 DETALHES DO CANAL SALVO:")
+    print(f"  • Canal: {channel_name}")
+    print(f"  • Channel ID: {channel_id}")
+    print(f"  • Língua: {lingua}")
+    print(f"  • Subnicho: {subnicho}")
+    print(f"  • Monetizado: {'SIM' if is_monetized else 'NÃO'}")
+    print(f"  • Upload automático: ATIVADO")
+    print(f"  • Planilha: {spreadsheet_id[:20]}...")
 
     if playlist_id:
-        print(f"Playlist: {playlist_id}")
+        print(f"  • Playlist: {playlist_id}")
 
     print("\n📌 PRÓXIMOS PASSOS:")
-    print("1. Configure a planilha com os vídeos (coluna J = 'done')")
-    print("2. O sistema fará 1 upload por dia automaticamente")
-    print("3. Acompanhe pelo dashboard em localhost:5002")
+    print("  1. Configure a planilha com os vídeos (coluna J = 'done')")
+    print("  2. O sistema fará 1 upload por dia automaticamente")
+    print("  3. Acompanhe pelo dashboard em localhost:5002")
+
     print("\n" + "=" * 80)
+    print("\nPressione ENTER para fechar...")
+    input()
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n\n[!] Operação cancelada pelo usuário.")
+        print("\nPressione ENTER para fechar...")
+        input()
+    except Exception as e:
+        print(f"\n\n❌ ERRO INESPERADO: {e}")
+        print("\nPressione ENTER para fechar...")
+        input()

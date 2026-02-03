@@ -1263,6 +1263,132 @@ async def mark_comment_responded(comment_id: str, body: dict = {}):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/comentarios/{comment_id}/gerar-resposta")
+async def generate_comment_response(comment_id: str):
+    """
+    Gera resposta personalizada para um comentário específico.
+
+    NOVO SISTEMA (03/02/2026):
+    - Geração sob demanda (não automática)
+    - Contexto completo (vídeo, canal, histórico)
+    - Respostas naturais em PT-BR
+    - Tom personalizado por canal
+
+    Args:
+        comment_id: ID do comentário
+
+    Returns:
+        JSON com resposta sugerida e metadados
+    """
+    try:
+        # Buscar detalhes do comentário
+        comment = db.supabase.table('video_comments').select(
+            'id, comment_id, video_id, canal_id, author_name, '
+            'comment_text_original, comment_text_pt, like_count, '
+            'published_at, is_reply, parent_comment_id'
+        ).eq('comment_id', comment_id).execute()
+
+        if not comment.data:
+            raise HTTPException(status_code=404, detail="Comentário não encontrado")
+
+        comment_data = comment.data[0]
+
+        # Buscar informações do canal
+        canal = db.supabase.table('canais_monitorados').select(
+            'nome_canal, subnicho, monetizado'
+        ).eq('id', comment_data['canal_id']).execute()
+
+        canal_info = canal.data[0] if canal.data else {}
+
+        # Buscar informações do vídeo
+        video = db.supabase.table('videos_historico').select(
+            'titulo, views_atuais'
+        ).eq('video_id', comment_data['video_id']).execute()
+
+        video_info = video.data[0] if video.data else {}
+
+        # Importar e usar GPTAnalyzer com contexto completo
+        from gpt_response_suggester import GPTAnalyzer
+        analyzer = GPTAnalyzer()
+
+        # Preparar contexto completo
+        context = {
+            'canal_name': canal_info.get('nome_canal', ''),
+            'subnicho': canal_info.get('subnicho', ''),
+            'video_title': video_info.get('titulo', ''),
+            'video_views': video_info.get('views_atuais', 0),
+            'comment_likes': comment_data.get('like_count', 0),
+            'is_reply': comment_data.get('is_reply', False)
+        }
+
+        # Texto do comentário (preferir traduzido se disponível)
+        comment_text = comment_data.get('comment_text_pt') or comment_data.get('comment_text_original')
+
+        # Gerar resposta contextualizada
+        prompt = f"""
+        Você é o dono do canal "{context['canal_name']}" do YouTube.
+
+        CONTEXTO:
+        - Canal: {context['canal_name']} (nicho: {context['subnicho']})
+        - Vídeo: "{context['video_title']}"
+        - Views do vídeo: {context['video_views']:,}
+        - Autor do comentário: {comment_data['author_name']}
+        - Likes no comentário: {context['comment_likes']}
+
+        COMENTÁRIO:
+        "{comment_text}"
+
+        INSTRUÇÕES:
+        1. Responda como o DONO DO CANAL, de forma natural e autêntica
+        2. Use português brasileiro coloquial (não formal demais)
+        3. Seja específico - mencione detalhes do comentário
+        4. Se for elogio: agradeça genuinamente
+        5. Se for crítica: reconheça e mostre que vai melhorar
+        6. Se for pergunta: responda diretamente
+        7. Se for sugestão: considere e agradeça
+        8. Mantenha entre 1-3 frases (não muito longo)
+        9. NÃO use emojis excessivos (máximo 1-2)
+        10. NÃO seja genérico - personalize para este comentário específico
+
+        RESPOSTA:
+        """
+
+        # Chamar GPT para gerar resposta
+        response = analyzer.client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Você é um criador de conteúdo brasileiro respondendo comentários no seu canal."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=200
+        )
+
+        suggested_response = response.choices[0].message.content.strip()
+
+        # Salvar resposta no banco
+        db.supabase.table('video_comments').update({
+            'suggested_response': suggested_response,
+            'response_tone': 'friendly',
+            'response_generated_at': datetime.utcnow().isoformat(),
+            'updated_at': datetime.utcnow().isoformat()
+        }).eq('comment_id', comment_id).execute()
+
+        return {
+            "success": True,
+            "suggested_response": suggested_response,
+            "context": context,
+            "comment_text": comment_text,
+            "generated_at": datetime.utcnow().isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao gerar resposta para comentário {comment_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/comentarios/resumo")
 async def get_comments_summary():
     """

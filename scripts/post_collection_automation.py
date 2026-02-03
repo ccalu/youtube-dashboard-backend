@@ -130,11 +130,14 @@ class PostCollectionAutomation:
 
             logger.info(f"Para gerar resposta (monetizados): {len(comments_for_responses)}")
 
-            # ETAPA 6: Gerar respostas TOP 10 (apenas após tradução completa)
-            if comments_for_responses:
-                logger.info("INICIANDO GERAÇÃO DE RESPOSTAS (APENAS MONETIZADOS)...")
-                await self._generate_responses(comments_for_responses)
-                logger.info("RESPOSTAS GERADAS! ✅")
+            # ETAPA 6: DESATIVADO - Geração automática de respostas removida (03/02/2026)
+            # Agora as respostas são geradas sob demanda via endpoint /api/comentarios/{id}/gerar-resposta
+            # if comments_for_responses:
+            #     logger.info("INICIANDO GERAÇÃO DE RESPOSTAS (APENAS MONETIZADOS)...")
+            #     await self._generate_responses(comments_for_responses)
+            #     logger.info("RESPOSTAS GERADAS! ✅")
+
+            logger.info("⚠️ Geração automática de respostas DESATIVADA - use o botão no dashboard")
 
             self.stats['end_time'] = datetime.utcnow()
             duration = (self.stats['end_time'] - self.stats['start_time']).total_seconds()
