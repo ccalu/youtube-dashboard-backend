@@ -89,6 +89,44 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 - Pode melhorar lógica existente
 - SEMPRE fazer backup antes de mudanças grandes
 
+## 🆕 ATUALIZAÇÕES RECENTES (03/02/2026):
+
+### 🔧 CORREÇÃO CRÍTICA: OAuth Scopes para Playlists ✅
+**Desenvolvido:** 03/02/2026
+**Status:** ✅ Bug resolvido e sistema 100% funcional
+
+**Problema identificado:**
+- Sistema fazia upload com sucesso, mas não adicionava vídeos às playlists
+- Erro 403: `insufficientPermissions` ao tentar adicionar à playlist
+- Causa: Falta do scope `youtube.force-ssl` na autorização OAuth
+
+**Solução implementada:**
+1. **4 scopes obrigatórios configurados:**
+   - `youtube.upload` - Upload de vídeos
+   - `youtube` - Leitura do canal
+   - `youtube.force-ssl` - **Gerenciar playlists/canal** ⭐ NOVO
+   - `spreadsheets` - Google Sheets
+
+2. **Arquivos corrigidos:**
+   - `yt_uploader/oauth_manager.py` (linha 80-85)
+   - `add_canal_wizard_v2.py` (linha 242-247)
+   - `add_canal_wizard_v3.py` (linha 224-229)
+
+3. **Validação realizada (15:51):**
+   - ✅ Upload funciona perfeitamente
+   - ✅ Playlists são adicionadas corretamente
+   - ✅ Sheets atualizado com status
+   - ✅ Refresh automático de tokens
+
+**Ação necessária:**
+- Canais adicionados antes de 03/02/2026 devem refazer OAuth com wizard v3
+- Aceitar TODAS as permissões durante autorização
+
+**Documentação criada:**
+- `SISTEMA_UPLOAD_COMPLETO_2026.md` - Documentação completa do sistema
+
+---
+
 ## 🆕 ATUALIZAÇÕES RECENTES (02/02/2026):
 
 ### 💬 SISTEMA DE COMENTÁRIOS - 100% Funcional e Otimizado

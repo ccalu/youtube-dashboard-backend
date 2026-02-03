@@ -1,6 +1,6 @@
 # ✅ CHECKLIST FINAL - Sistema de Upload Automático
 
-## 📊 STATUS ATUAL (03/02/2026 - 14:36)
+## 📊 STATUS ATUAL (03/02/2026 - 15:51)
 
 ### Canal Coreano (UCiMgKMWsYH8a8EFp94TClIQ):
 - ✅ Canal configurado no banco
@@ -8,11 +8,27 @@
 - ✅ Playlist configurada: PLe-V17oPwzExLhmRHSL9MITHkeaLadY-x
 - ✅ Spreadsheet configurado: 16VWyE0zuAvJOeiGtXVP...
 - ✅ Credenciais OAuth salvas
-- ❌ Tokens OAuth deletados (aguardando re-autorização)
+- ✅ Tokens OAuth funcionando (re-autorizado com scopes corretos)
+- ✅ **Upload E Playlist funcionando 100%!**
 
 ---
 
-## 🎯 PASSO 1: RE-AUTORIZAR O CANAL COREANO
+## 🔧 CORREÇÃO APLICADA (03/02/2026)
+
+### Bug Resolvido: Playlist não funcionava
+- **Problema:** Upload funcionava mas vídeos não eram adicionados à playlist (erro 403)
+- **Causa:** Falta do scope `youtube.force-ssl` na autorização OAuth
+- **Solução:** Todos os wizards e oauth_manager.py atualizados com os 4 scopes obrigatórios
+
+### OAuth Scopes Obrigatórios (TODOS necessários):
+1. `https://www.googleapis.com/auth/youtube.upload` - Upload de vídeos
+2. `https://www.googleapis.com/auth/youtube` - Leitura do canal
+3. `https://www.googleapis.com/auth/youtube.force-ssl` - **Gerenciar playlists** (CRÍTICO!)
+4. `https://www.googleapis.com/auth/spreadsheets` - Google Sheets
+
+---
+
+## 🎯 PASSO 1: ADICIONAR NOVOS CANAIS
 
 Execute o comando:
 ```bash
@@ -109,9 +125,11 @@ python clear_upload_today.py
 - Normal se a planilha não tem vídeos
 - Adicione vídeos na planilha do Google Sheets
 
-### "OAuth sem scope para playlists"
-- Execute: `python reauth_channel_oauth.py`
-- Ou refaça com o wizard v3
+### "Upload funciona mas playlist não adiciona"
+- **Erro 403:** "insufficientPermissions" ao adicionar à playlist
+- **Causa:** Falta o scope `youtube.force-ssl` na autorização
+- **Solução:** Refazer OAuth com wizard v3 (já corrigido)
+- **Prevenção:** Sempre aceitar TODAS as permissões no OAuth
 
 ### "Token expirado"
 - Normal, o sistema renova automaticamente

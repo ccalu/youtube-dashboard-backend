@@ -5,6 +5,56 @@
 
 ---
 
+## [03/02/2026 - v11] - Correção Crítica: OAuth Scopes para Playlists
+
+### 🔧 Bug Fix: Upload funcionava mas playlists não eram adicionadas
+
+**Data:** 03/02/2026
+**Status:** ✅ Resolvido
+**Desenvolvedor:** Claude com Cellibs
+**Commit:** 595d91c
+
+### Problema Descoberto
+- **Sintoma:** Sistema fazia upload com sucesso, mas vídeos não eram adicionados às playlists
+- **Erro:** `403 insufficientPermissions` ao tentar adicionar vídeo à playlist
+- **Causa raiz:** Falta do scope `youtube.force-ssl` na autorização OAuth
+
+### Scopes Corretos (4 obrigatórios)
+1. `https://www.googleapis.com/auth/youtube.upload` - Upload de vídeos
+2. `https://www.googleapis.com/auth/youtube` - Leitura de dados do canal
+3. `https://www.googleapis.com/auth/youtube.force-ssl` - **Gerenciar playlists** ⭐ CRÍTICO
+4. `https://www.googleapis.com/auth/spreadsheets` - Ler/escrever Google Sheets
+
+### Arquivos Corrigidos
+- `yt_uploader/oauth_manager.py` (linha 80-85) - Adicionados todos os 4 scopes
+- `add_canal_wizard_v2.py` (linha 242-247) - Corrigidos scopes no wizard
+- `add_canal_wizard_v3.py` (linha 224-229) - Corrigidos scopes no wizard
+
+### Timeline da Correção
+- **14:48** - Teste revelou upload OK mas playlist com erro 403
+- **15:20** - Identificado scope faltando (`youtube.force-ssl`)
+- **15:30** - Correção aplicada em todos os arquivos
+- **15:51** - Teste confirmou playlist funcionando 100%
+
+### Impacto
+- Upload: ✅ Já funcionava (mantido)
+- Playlists: ✅ Agora adiciona corretamente (CORRIGIDO)
+- Sheets: ✅ Atualiza status (mantido)
+- OAuth: ✅ Refresh automático (mantido)
+
+### Ação Necessária
+Canais configurados antes de 03/02/2026 devem ser re-autorizados:
+```bash
+python add_canal_wizard_v3.py
+# Channel ID: UCxxxxxxxxx
+# Aceitar TODAS as permissões no OAuth
+```
+
+### Documentação Criada
+- `SISTEMA_UPLOAD_COMPLETO_2026.md` - Documentação completa do sistema
+
+---
+
 ## [03/02/2026 - v10] - Cleanup Completo do Sistema de Respostas Automáticas
 
 ### 🧹 Remoção do Sistema Antigo e Implementação de Geração Sob Demanda
