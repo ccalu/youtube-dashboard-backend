@@ -2338,7 +2338,7 @@ class SupabaseClient:
                     'total_comentarios': total.count,
                     'total_videos': total_videos,  # Novo campo adicionado
                     'comentarios_pendentes': com_resposta.count,
-                    'ultimo_comentario': ultimo.data[0]['published_at'] if ultimo.data else None
+                    'ultimo_comentario': self._safe_date_format(ultimo.data[0]['published_at']) if ultimo.data else None
                 })
 
             return result
