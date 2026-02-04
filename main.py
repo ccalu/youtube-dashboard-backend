@@ -4826,6 +4826,25 @@ async def get_queue_status():
         .in_('status', ['downloading', 'uploading'])\
         .execute()
 
+
+@app.get("/api/yt-upload/channels")
+async def get_upload_channels():
+    """
+    Lista canais com upload automático ativado.
+    Útil para ver qual é o último canal adicionado.
+    """
+    result = supabase.table('yt_channels')\
+        .select('channel_id, channel_name, spreadsheet_id, upload_automatico, is_monetized, created_at')\
+        .eq('is_active', True)\
+        .eq('upload_automatico', True)\
+        .order('created_at', desc=True)\
+        .execute()
+
+    return {
+        'total': len(result.data),
+        'channels': result.data
+    }
+
     completed = supabase.table('yt_upload_queue')\
         .select('*', count='exact')\
         .eq('status', 'completed')\
@@ -4916,6 +4935,160 @@ async def force_upload_for_channel(channel_id: str, background_tasks: Background
         raise
     except Exception as e:
         logger.error(f"Erro ao forcar upload: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/yt-upload/failed")
+async def get_failed_uploads(limit: int = 50):
+    """
+    Lista uploads que falharam (status='failed').
+    Mostra detalhes do erro e quantas tentativas foram feitas.
+    """
+    result = supabase.table('yt_upload_queue')\
+        .select('id, channel_id, titulo, status, error_message, retry_count, created_at, completed_at, spreadsheet_id, sheets_row_number')\
+        .eq('status', 'failed')\
+        .order('completed_at', desc=True)\
+        .limit(limit)\
+        .execute()
+
+    # Enriquece com nome do canal
+    uploads = []
+    for upload in result.data:
+        channel = supabase.table('yt_channels')\
+            .select('channel_name')\
+            .eq('channel_id', upload['channel_id'])\
+            .limit(1)\
+            .execute()
+
+        upload['channel_name'] = channel.data[0]['channel_name'] if channel.data else 'Desconhecido'
+        upload['can_retry'] = (upload.get('retry_count', 0) or 0) < 3
+        uploads.append(upload)
+
+    return {
+        'total': len(uploads),
+        'uploads': uploads
+    }
+
+
+@app.post("/api/yt-upload/retry/{upload_id}")
+async def retry_failed_upload(upload_id: int, background_tasks: BackgroundTasks):
+    """
+    Reprocessa um upload específico que falhou.
+
+    - Verifica se upload existe e está com status='failed'
+    - Verifica se retry_count < 3
+    - Reseta status para 'pending' e processa novamente
+    """
+    try:
+        # Busca upload
+        upload = supabase.table('yt_upload_queue')\
+            .select('*')\
+            .eq('id', upload_id)\
+            .limit(1)\
+            .execute()
+
+        if not upload.data:
+            raise HTTPException(status_code=404, detail=f"Upload {upload_id} não encontrado")
+
+        upload_data = upload.data[0]
+
+        # Verifica status
+        if upload_data['status'] != 'failed':
+            raise HTTPException(
+                status_code=400,
+                detail=f"Upload {upload_id} não está com status 'failed' (atual: {upload_data['status']})"
+            )
+
+        # Verifica retry_count
+        retry_count = upload_data.get('retry_count', 0) or 0
+        if retry_count >= 3:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Upload {upload_id} já atingiu limite de 3 tentativas"
+            )
+
+        # Reseta status para pending
+        supabase.table('yt_upload_queue').update({
+            'status': 'pending',
+            'error_message': None,
+            'started_at': None,
+            'completed_at': None
+        }).eq('id', upload_id).execute()
+
+        logger.info(f"🔁 Retry manual para upload {upload_id} (tentativa {retry_count + 1}/3)")
+
+        # Processa em background
+        background_tasks.add_task(process_upload_task, upload_id)
+
+        return {
+            'status': 'processing',
+            'message': f'Retry iniciado para upload {upload_id}',
+            'upload_id': upload_id,
+            'retry_count': retry_count + 1,
+            'titulo': upload_data['titulo'],
+            'channel_id': upload_data['channel_id']
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao reprocessar upload {upload_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/yt-upload/retry-all-failed")
+async def retry_all_failed_uploads(background_tasks: BackgroundTasks):
+    """
+    Reprocessa TODOS os uploads que falharam e ainda podem ser retentados.
+
+    - Apenas uploads com status='failed' e retry_count < 3
+    - Processa um por vez em sequência
+    """
+    try:
+        # Busca todos os uploads failed que podem ser retentados
+        result = supabase.table('yt_upload_queue')\
+            .select('id, channel_id, titulo, retry_count')\
+            .eq('status', 'failed')\
+            .lt('retry_count', 3)\
+            .execute()
+
+        if not result.data:
+            return {
+                'status': 'no_uploads',
+                'message': 'Nenhum upload com erro elegível para retry',
+                'total': 0
+            }
+
+        # Reseta status de todos para pending
+        upload_ids = [u['id'] for u in result.data]
+
+        for upload_id in upload_ids:
+            supabase.table('yt_upload_queue').update({
+                'status': 'pending',
+                'error_message': None,
+                'started_at': None,
+                'completed_at': None
+            }).eq('id', upload_id).execute()
+
+        logger.info(f"🔁 Retry em massa: {len(upload_ids)} uploads reativados")
+
+        # Processa cada um em background (com delay entre eles)
+        async def process_all():
+            for upload_id in upload_ids:
+                await process_upload_task(upload_id)
+                await asyncio.sleep(5)  # 5s entre uploads
+
+        background_tasks.add_task(process_all)
+
+        return {
+            'status': 'processing',
+            'message': f'Retry iniciado para {len(upload_ids)} uploads',
+            'total': len(upload_ids),
+            'upload_ids': upload_ids
+        }
+
+    except Exception as e:
+        logger.error(f"Erro ao reprocessar uploads em massa: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

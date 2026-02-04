@@ -441,8 +441,23 @@ class SpreadsheetScanner:
                     logger.info(f"        ⏭️  Row {row_number}: Limite de 3 tentativas atingido (ID {record['id']})")
                     return False
 
-                # Se status = 'failed' e retry_count < 3, permite retry
-                # (scanner vai re-adicionar vídeo na fila)
+                # ✅ CORREÇÃO: Se status='failed' e retry_count < 3, fazer UPDATE para retry
+                if record['status'] == 'failed':
+                    # Reativar upload - muda status para 'pending'
+                    self.supabase_client.table('yt_upload_queue').update({
+                        'status': 'pending',
+                        'error_message': None,  # Limpa erro anterior
+                        'started_at': None,
+                        'completed_at': None
+                    }).eq('id', record['id']).execute()
+
+                    logger.info(f"        🔁 Row {row_number}: Retry ativado (ID {record['id']}, tentativa {retry_count + 1}/3)")
+                    return True  # Retorna True pois reativou com sucesso
+
+                # Se status='completed', skip (já foi uploaded com sucesso)
+                if record['status'] == 'completed':
+                    logger.info(f"        ⏭️  Row {row_number}: Já uploaded com sucesso (ID {record['id']})")
+                    return False
 
         except Exception as e:
             logger.error(f"        ❌ Erro ao verificar duplicata: {e}")
