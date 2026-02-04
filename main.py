@@ -4877,22 +4877,28 @@ async def force_upload_for_channel(channel_id: str, background_tasks: Background
         async def run_upload():
             try:
                 uploader = DailyUploader()
+                from datetime import date
 
-                # Buscar video da planilha e fazer upload
-                from _features.yt_uploader.spreadsheet_scanner import SpreadsheetScanner
-                scanner = SpreadsheetScanner()
+                # Usar o mesmo fluxo do daily_uploader que ja funciona
+                logger.info(f"Buscando video pronto para {canal_data['channel_name']}...")
 
-                # Escanear planilha do canal
-                logger.info(f"Escaneando planilha do canal {canal_data['channel_name']}...")
-                videos = scanner.get_next_video_to_upload(canal_data['spreadsheet_id'])
+                # _process_canal_upload ja faz:
+                # 1. Verifica se ja fez upload hoje (opcional para force)
+                # 2. Busca video pronto na planilha via _find_ready_video()
+                # 3. Adiciona na fila e processa
 
-                if not videos:
-                    logger.info(f"Nenhum video pronto para upload em {canal_data['channel_name']}")
-                    return
+                # Usa data de hoje para o registro
+                hoje = date.today()
+                resultado = await uploader._process_canal_upload(canal_data, hoje, retry_attempt=1)
 
-                # Processar upload
-                resultado = await uploader._process_canal_upload(canal_data, None, retry_attempt=1)
                 logger.info(f"Resultado upload {canal_data['channel_name']}: {resultado}")
+
+                if resultado.get('status') == 'sem_video':
+                    logger.warning(f"Nenhum video pronto na planilha de {canal_data['channel_name']}")
+                elif resultado.get('status') == 'erro':
+                    logger.error(f"Erro no upload: {resultado.get('error')}")
+                elif resultado.get('status') == 'sucesso':
+                    logger.info(f"Upload realizado com sucesso: {resultado.get('video_title')}")
 
             except Exception as e:
                 logger.error(f"Erro no upload forcado: {e}")
