@@ -2088,6 +2088,68 @@ async def get_comments_management():
     }
 
 
+@app.post("/api/comments/translate-pending")
+async def translate_pending_comments(background_tasks: BackgroundTasks):
+    """
+    🌐 Traduz todos os comentarios pendentes de traducao.
+
+    Executa em background para nao bloquear a API.
+    Traduz apenas comentarios de canais que NAO sao em portugues.
+
+    Returns:
+        JSON com status e quantidade de comentarios pendentes
+    """
+    try:
+        # Buscar canais nossos que NAO sao em portugues
+        canais_response = db.supabase.table('canais_monitorados')\
+            .select('id, nome_canal, lingua')\
+            .eq('tipo', 'nosso')\
+            .execute()
+
+        if not canais_response.data:
+            return {'status': 'error', 'message': 'Nenhum canal encontrado'}
+
+        # Filtrar canais que precisam traducao (nao sao PT)
+        canais_para_traduzir = []
+        for canal in canais_response.data:
+            lingua = (canal.get('lingua') or '').lower()
+            if 'portug' not in lingua and lingua not in ['portuguese', 'português', 'pt', 'pt-br']:
+                canais_para_traduzir.append(canal)
+
+        # Contar comentarios pendentes
+        total_pendentes = 0
+        for canal in canais_para_traduzir:
+            count_response = db.supabase.table('video_comments')\
+                .select('id', count='exact')\
+                .eq('canal_id', canal['id'])\
+                .eq('is_translated', False)\
+                .execute()
+            total_pendentes += count_response.count if count_response.count else 0
+
+        if total_pendentes == 0:
+            return {
+                'status': 'success',
+                'message': 'Todos os comentarios ja estao traduzidos!',
+                'canais_verificados': len(canais_para_traduzir),
+                'pendentes': 0
+            }
+
+        # Disparar traducao em background para cada canal
+        for canal in canais_para_traduzir:
+            background_tasks.add_task(traduzir_comentarios_canal, canal['id'])
+
+        return {
+            'status': 'processing',
+            'message': f'Traducao iniciada para {len(canais_para_traduzir)} canais',
+            'canais': [c['nome_canal'] for c in canais_para_traduzir],
+            'pendentes_estimados': total_pendentes
+        }
+
+    except Exception as e:
+        logger.error(f"Erro ao iniciar traducao: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/videos")
 async def get_videos(
     nicho: Optional[str] = None,
