@@ -4843,6 +4843,76 @@ async def get_queue_status():
         'failed': failed.count or 0
     }
 
+
+@app.post("/api/yt-upload/force/{channel_id}")
+async def force_upload_for_channel(channel_id: str, background_tasks: BackgroundTasks):
+    """
+    Forca o upload para um canal especifico.
+    Usa o mesmo fluxo do upload automatico das 05:00 AM.
+
+    Args:
+        channel_id: ID do canal do YouTube (UCxxxxxxxxx)
+    """
+    try:
+        from daily_uploader import DailyUploader
+
+        # Verificar se canal existe e tem upload automatico ativo
+        canal = supabase.table('yt_channels')\
+            .select('*')\
+            .eq('channel_id', channel_id)\
+            .execute()
+
+        if not canal.data:
+            raise HTTPException(status_code=404, detail=f"Canal {channel_id} nao encontrado")
+
+        canal_data = canal.data[0]
+
+        if not canal_data.get('upload_automatico'):
+            raise HTTPException(status_code=400, detail=f"Canal {canal_data['channel_name']} nao tem upload automatico ativado")
+
+        if not canal_data.get('spreadsheet_id'):
+            raise HTTPException(status_code=400, detail=f"Canal {canal_data['channel_name']} nao tem planilha configurada")
+
+        # Executar upload em background
+        async def run_upload():
+            try:
+                uploader = DailyUploader()
+
+                # Buscar video da planilha e fazer upload
+                from _features.yt_uploader.spreadsheet_scanner import SpreadsheetScanner
+                scanner = SpreadsheetScanner()
+
+                # Escanear planilha do canal
+                logger.info(f"Escaneando planilha do canal {canal_data['channel_name']}...")
+                videos = scanner.get_next_video_to_upload(canal_data['spreadsheet_id'])
+
+                if not videos:
+                    logger.info(f"Nenhum video pronto para upload em {canal_data['channel_name']}")
+                    return
+
+                # Processar upload
+                resultado = await uploader._process_canal_upload(canal_data, None, retry_attempt=1)
+                logger.info(f"Resultado upload {canal_data['channel_name']}: {resultado}")
+
+            except Exception as e:
+                logger.error(f"Erro no upload forcado: {e}")
+
+        background_tasks.add_task(run_upload)
+
+        return {
+            'status': 'processing',
+            'message': f'Upload iniciado para {canal_data["channel_name"]}',
+            'channel_id': channel_id,
+            'spreadsheet_id': canal_data['spreadsheet_id']
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao forcar upload: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # =====================================================
 # SISTEMA KANBAN - FUNÇÕES
 # =====================================================
