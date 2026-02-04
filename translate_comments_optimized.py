@@ -25,10 +25,13 @@ class OptimizedTranslator:
 
     def __init__(self):
         """Inicializa tradutor"""
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
+        api_key_raw = os.getenv("OPENAI_API_KEY")
+        if not api_key_raw:
             logger.error("OPENAI_API_KEY nao configurada")
             raise ValueError("OPENAI_API_KEY nao configurada")
+
+        # Limpar a chave - remover espacos, quebras de linha, etc.
+        self.api_key = api_key_raw.strip().replace('\n', '').replace('\r', '').replace(' ', '')
 
         self.model = "gpt-4o-mini"
         self.batch_size = 20
