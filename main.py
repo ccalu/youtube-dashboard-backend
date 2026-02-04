@@ -2238,6 +2238,14 @@ async def test_translation():
     Tenta traduzir um texto de teste e retorna o resultado ou erro.
     Util para diagnosticar problemas com a API do OpenAI.
     """
+    import os
+    import traceback
+
+    # Verificar se a chave existe
+    api_key = os.getenv("OPENAI_API_KEY")
+    key_exists = api_key is not None
+    key_prefix = api_key[:10] + "..." if api_key else None
+
     try:
         from translate_comments_optimized import OptimizedTranslator
 
@@ -2250,15 +2258,21 @@ async def test_translation():
             'status': 'success',
             'original': test_text,
             'translated': result[0] if result else None,
-            'message': 'Traducao funcionando corretamente!'
+            'message': 'Traducao funcionando corretamente!',
+            'key_exists': key_exists,
+            'key_prefix': key_prefix
         }
 
     except Exception as e:
         logger.error(f"Erro no teste de traducao: {e}")
+        logger.error(traceback.format_exc())
         return {
             'status': 'error',
             'error': str(e),
-            'message': 'Traducao NAO esta funcionando. Verifique OPENAI_API_KEY no Railway.'
+            'error_type': type(e).__name__,
+            'key_exists': key_exists,
+            'key_prefix': key_prefix,
+            'message': 'Traducao NAO esta funcionando.'
         }
 
 
