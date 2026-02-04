@@ -263,9 +263,19 @@ class SupabaseClient:
     async def update_coleta_log(self, coleta_id: int, status: str, canais_sucesso: int, canais_erro: int, videos_coletados: int, requisicoes_usadas: int = 0, mensagem_erro: Optional[str] = None):
         try:
             data_inicio_response = self.supabase.table("coletas_historico").select("data_inicio").eq("id", coleta_id).execute()
-            
+
             if data_inicio_response.data:
-                data_inicio = datetime.fromisoformat(data_inicio_response.data[0]["data_inicio"].replace('Z', '+00:00'))
+                # Normalizar timestamp para evitar erro de isoformat com microsegundos
+                data_inicio_str = data_inicio_response.data[0]["data_inicio"]
+                data_inicio_str = data_inicio_str.replace('Z', '+00:00')
+                # Normalizar microsegundos para 6 dígitos
+                if '.' in data_inicio_str and '+' in data_inicio_str:
+                    base, rest = data_inicio_str.rsplit('+', 1)
+                    if '.' in base:
+                        main, micro = base.rsplit('.', 1)
+                        micro = micro[:6].ljust(6, '0')
+                        data_inicio_str = f"{main}.{micro}+{rest}"
+                data_inicio = datetime.fromisoformat(data_inicio_str)
                 data_fim = datetime.now(timezone.utc)
                 duracao = int((data_fim - data_inicio).total_seconds())
             else:

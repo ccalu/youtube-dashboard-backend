@@ -1923,7 +1923,7 @@ async def get_comments_stats():
     """
     try:
         # Importar database_comments se ainda não foi importado
-        from scripts.database_comments import CommentsDB
+        from database_comments import CommentsDB
         from gpt_response_suggester import GPTAnalyzer
 
         comments_db = CommentsDB()
@@ -3243,7 +3243,7 @@ async def run_collection_job():
                                 # Inicializar CommentsDB uma vez só (na primeira vez que precisar)
                                 if comments_db is None:
                                     logger.info("💾 Inicializando CommentsDB...")
-                                    from scripts.database_comments import CommentsDB
+                                    from database_comments import CommentsDB
                                     comments_db = CommentsDB()
                                     logger.info("✅ CommentsDB inicializado")
 
@@ -3418,7 +3418,7 @@ async def run_collection_job():
         # Registrar métricas GPT se comentários foram analisados
         if comentarios_total > 0:
             try:
-                from scripts.database_comments import CommentsDB
+                from database_comments import CommentsDB
                 comments_db = CommentsDB()
 
                 # Obter métricas do GPT analyzer (se foi usado)

@@ -143,3 +143,129 @@ class CommentsLogsManager:
                 pass
 
         return stats
+
+    def save_collection_log(self, log_data: Dict[str, Any]) -> bool:
+        """
+        Salva log completo de uma coleta de comentários
+
+        Args:
+            log_data: Dicionário com dados da coleta
+
+        Returns:
+            bool: True se salvou com sucesso
+        """
+        try:
+            collection_id = log_data.get('collection_id', datetime.utcnow().strftime('%Y%m%d_%H%M%S'))
+            log_file = os.path.join(self.logs_dir, f"full_collection_{collection_id}.json")
+
+            # Converter datetime para string se necessário
+            if 'timestamp' in log_data and hasattr(log_data['timestamp'], 'isoformat'):
+                log_data['timestamp'] = log_data['timestamp'].isoformat()
+
+            with open(log_file, 'w', encoding='utf-8') as f:
+                json.dump(log_data, f, ensure_ascii=False, indent=2, default=str)
+
+            return True
+
+        except Exception as e:
+            print(f"Erro ao salvar log de coleta: {e}")
+            return False
+
+    def get_latest_logs(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """
+        Retorna os logs mais recentes
+
+        Args:
+            limit: Número máximo de logs a retornar
+
+        Returns:
+            Lista de logs ordenados por data (mais recente primeiro)
+        """
+        logs = []
+        try:
+            # Listar arquivos de log
+            if not os.path.exists(self.logs_dir):
+                return []
+
+            log_files = [f for f in os.listdir(self.logs_dir) if f.startswith('full_collection_')]
+            log_files.sort(reverse=True)  # Mais recente primeiro
+
+            for log_file in log_files[:limit]:
+                file_path = os.path.join(self.logs_dir, log_file)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        log_data = json.load(f)
+                        logs.append(log_data)
+                except:
+                    pass
+
+        except Exception as e:
+            print(f"Erro ao buscar logs: {e}")
+
+        return logs
+
+    def get_logs_summary(self, days: int = 7) -> Dict[str, Any]:
+        """
+        Retorna resumo dos logs dos últimos dias
+
+        Args:
+            days: Número de dias para incluir
+
+        Returns:
+            Dicionário com resumo
+        """
+        summary = {
+            "total_collections": 0,
+            "total_comments": 0,
+            "total_errors": 0,
+            "canais_processados": set()
+        }
+
+        try:
+            logs = self.get_latest_logs(limit=days * 10)  # Buscar logs suficientes
+
+            for log in logs:
+                summary["total_collections"] += 1
+                summary["total_comments"] += log.get("total_comentarios", 0)
+                summary["total_errors"] += len(log.get("detalhes_erros", []))
+
+                for detalhe in log.get("detalhes_sucesso", []):
+                    if "canal_id" in detalhe:
+                        summary["canais_processados"].add(detalhe["canal_id"])
+
+            summary["canais_processados"] = len(summary["canais_processados"])
+
+        except Exception as e:
+            print(f"Erro ao gerar resumo: {e}")
+
+        return summary
+
+    def get_log_by_id(self, collection_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Busca um log específico pelo ID
+
+        Args:
+            collection_id: ID da coleta
+
+        Returns:
+            Dados do log ou None se não encontrado
+        """
+        try:
+            log_file = os.path.join(self.logs_dir, f"full_collection_{collection_id}.json")
+
+            if os.path.exists(log_file):
+                with open(log_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+
+            # Tentar buscar por prefixo
+            if os.path.exists(self.logs_dir):
+                for f in os.listdir(self.logs_dir):
+                    if collection_id in f:
+                        file_path = os.path.join(self.logs_dir, f)
+                        with open(file_path, 'r', encoding='utf-8') as file:
+                            return json.load(file)
+
+        except Exception as e:
+            print(f"Erro ao buscar log: {e}")
+
+        return None
