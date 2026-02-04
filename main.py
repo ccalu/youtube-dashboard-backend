@@ -2131,7 +2131,8 @@ async def translate_pending_comments(background_tasks: BackgroundTasks):
                 'status': 'success',
                 'message': 'Todos os comentarios ja estao traduzidos!',
                 'canais_verificados': len(canais_para_traduzir),
-                'pendentes': 0
+                'pendentes': 0,
+                'canais_em_traducao': list(canais_em_traducao)
             }
 
         # Disparar traducao em background para cada canal
@@ -2147,6 +2148,85 @@ async def translate_pending_comments(background_tasks: BackgroundTasks):
 
     except Exception as e:
         logger.error(f"Erro ao iniciar traducao: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/comments/translation-status")
+async def get_translation_status():
+    """
+    📊 Retorna status atual da traducao de comentarios.
+
+    Mostra quantos comentarios estao traduzidos vs pendentes,
+    e quais canais estao em processo de traducao.
+    """
+    try:
+        # Buscar canais nossos que NAO sao em portugues
+        canais_response = db.supabase.table('canais_monitorados')\
+            .select('id, nome_canal, lingua')\
+            .eq('tipo', 'nosso')\
+            .execute()
+
+        if not canais_response.data:
+            return {'status': 'error', 'message': 'Nenhum canal encontrado'}
+
+        # Filtrar canais que precisam traducao (nao sao PT)
+        canais_nao_pt = []
+        canais_pt = []
+        for canal in canais_response.data:
+            lingua = (canal.get('lingua') or '').lower()
+            if 'portug' not in lingua and lingua not in ['portuguese', 'português', 'pt', 'pt-br']:
+                canais_nao_pt.append(canal)
+            else:
+                canais_pt.append(canal)
+
+        # Contar comentarios por status
+        stats_por_canal = []
+        total_traduzidos = 0
+        total_pendentes = 0
+
+        for canal in canais_nao_pt:
+            # Traduzidos
+            trad_response = db.supabase.table('video_comments')\
+                .select('id', count='exact')\
+                .eq('canal_id', canal['id'])\
+                .eq('is_translated', True)\
+                .execute()
+            traduzidos = trad_response.count if trad_response.count else 0
+
+            # Pendentes
+            pend_response = db.supabase.table('video_comments')\
+                .select('id', count='exact')\
+                .eq('canal_id', canal['id'])\
+                .eq('is_translated', False)\
+                .execute()
+            pendentes = pend_response.count if pend_response.count else 0
+
+            if traduzidos > 0 or pendentes > 0:
+                stats_por_canal.append({
+                    'canal': canal['nome_canal'],
+                    'lingua': canal.get('lingua', 'desconhecida'),
+                    'traduzidos': traduzidos,
+                    'pendentes': pendentes
+                })
+
+            total_traduzidos += traduzidos
+            total_pendentes += pendentes
+
+        return {
+            'status': 'success',
+            'resumo': {
+                'total_traduzidos': total_traduzidos,
+                'total_pendentes': total_pendentes,
+                'percentual_completo': round(total_traduzidos / (total_traduzidos + total_pendentes) * 100, 1) if (total_traduzidos + total_pendentes) > 0 else 100
+            },
+            'canais_em_traducao': list(canais_em_traducao),
+            'canais_nao_portugues': len(canais_nao_pt),
+            'canais_portugues': len(canais_pt),
+            'detalhes': stats_por_canal
+        }
+
+    except Exception as e:
+        logger.error(f"Erro ao buscar status de traducao: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
