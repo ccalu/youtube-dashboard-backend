@@ -1,40 +1,48 @@
+# -*- coding: utf-8 -*-
 """
-Módulo de Tradução Otimizado usando GPT-4 Mini
-Data: 27/01/2026
-Objetivo: Traduzir comentários usando OpenAI GPT-4 Mini
-Funciona para todas as línguas -> PT-BR
+Modulo de Traducao Otimizado usando GPT-4 Mini
+Data: 04/02/2026
+Objetivo: Traduzir comentarios usando OpenAI GPT-4 Mini
+Funciona para todas as linguas -> PT-BR
 """
 
 import asyncio
 import logging
 import os
 import json
+import httpx
 from typing import List
-from openai import OpenAI
+from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
-# Carregar variáveis de ambiente
+# Carregar variaveis de ambiente
 load_dotenv()
 
+
 class OptimizedTranslator:
-    """Tradutor otimizado usando GPT-4 Mini"""
+    """Tradutor otimizado usando GPT-4 Mini com cliente assincrono"""
 
     def __init__(self):
-        """Inicializa cliente OpenAI"""
+        """Inicializa cliente OpenAI assincrono"""
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
-            logger.error("OPENAI_API_KEY não configurada no .env")
-            raise ValueError("OPENAI_API_KEY não configurada")
+            logger.error("OPENAI_API_KEY nao configurada")
+            raise ValueError("OPENAI_API_KEY nao configurada")
 
-        self.client = OpenAI(api_key=api_key)
-        self.model = "gpt-4o-mini"  # Modelo eficiente para tradução
+        # Usar cliente assincrono com timeout configurado
+        self.client = AsyncOpenAI(
+            api_key=api_key,
+            timeout=httpx.Timeout(60.0, connect=10.0),
+            max_retries=3
+        )
+        self.model = "gpt-4o-mini"  # Modelo eficiente para traducao
         self.batch_size = 20  # Processar 20 textos por vez
 
     async def translate_batch(self, texts: List[str]) -> List[str]:
         """
-        Traduz batch de textos para português brasileiro usando GPT-4 Mini
+        Traduz batch de textos para portugues brasileiro usando GPT-4 Mini
 
         Args:
             texts: Lista de textos para traduzir
@@ -52,46 +60,46 @@ class OptimizedTranslator:
             for i in range(0, len(texts), self.batch_size):
                 sub_batch = texts[i:i + self.batch_size]
 
-                # Criar prompt para tradução em batch
+                # Criar prompt para traducao em batch
                 comments_json = json.dumps(
                     [{"id": idx, "text": text} for idx, text in enumerate(sub_batch)],
                     ensure_ascii=False
                 )
 
-                system_prompt = """Você é um tradutor especializado em adaptar textos para português brasileiro.
+                system_prompt = """Voce e um tradutor especializado em adaptar textos para portugues brasileiro.
 
-TAREFA: Traduza os comentários para PT-BR mantendo o tom e contexto original.
+TAREFA: Traduza os comentarios para PT-BR mantendo o tom e contexto original.
 
 DIRETRIZES:
-1. Se já estiver em português, retorne como está
-2. Adapte gírias e expressões culturais quando possível
-3. Mantenha emojis e formatação
-4. Use linguagem natural brasileira (não tradução literal)
+1. Se ja estiver em portugues, retorne como esta
+2. Adapte girias e expressoes culturais quando possivel
+3. Mantenha emojis e formatacao
+4. Use linguagem natural brasileira (nao traducao literal)
 5. Retorne APENAS um JSON array com os textos traduzidos na mesma ordem
 
 FORMATO DE RESPOSTA:
 ["texto traduzido 1", "texto traduzido 2", ...]"""
 
-                user_prompt = f"Traduza estes comentários para PT-BR:\n{comments_json}"
+                user_prompt = f"Traduza estes comentarios para PT-BR:\n{comments_json}"
 
                 try:
-                    # Fazer chamada para GPT-4 Mini
-                    response = self.client.chat.completions.create(
+                    # Fazer chamada assincrona para GPT-4 Mini
+                    response = await self.client.chat.completions.create(
                         model=self.model,
                         messages=[
                             {"role": "system", "content": system_prompt},
                             {"role": "user", "content": user_prompt}
                         ],
-                        temperature=0.3,  # Baixa temperatura para tradução consistente
+                        temperature=0.3,
                         max_tokens=2000
                     )
 
-                    # Extrair traduções do response
+                    # Extrair traducoes do response
                     content = response.choices[0].message.content.strip()
 
                     # Tentar fazer parse do JSON
                     try:
-                        # Limpar possíveis marcadores de código
+                        # Limpar possiveis marcadores de codigo
                         if content.startswith("```"):
                             content = content.split("```")[1]
                             if content.startswith("json"):
@@ -102,39 +110,34 @@ FORMATO DE RESPOSTA:
                         if isinstance(translations, list):
                             translated.extend(translations)
                         else:
-                            # Se não for lista, erro
-                            logger.error(f"Resposta não é uma lista: {type(translations)}")
+                            logger.error(f"Resposta nao e uma lista: {type(translations)}")
                             raise Exception(f"Formato inesperado da resposta GPT: {type(translations)}")
 
                     except json.JSONDecodeError as e:
-                        logger.error(f"Erro ao fazer parse do JSON de tradução: {e}")
-                        logger.error(f"Conteúdo recebido: {content[:500]}")
-                        # Propagar erro para retry funcionar
+                        logger.error(f"Erro ao fazer parse do JSON de traducao: {e}")
+                        logger.error(f"Conteudo recebido: {content[:500]}")
                         raise Exception(f"Erro ao parsear resposta do GPT: {e}")
 
-                    # Log de progresso
                     logger.info(f"[TRADUTOR GPT] Traduzidos {len(sub_batch)} textos")
 
-                    # Pequena pausa entre batches para não sobrecarregar API
+                    # Pequena pausa entre batches
                     if i + self.batch_size < len(texts):
                         await asyncio.sleep(1)
 
                 except Exception as e:
                     logger.error(f"Erro na chamada GPT-4 Mini: {e}")
-                    # Propagar erro para o sistema de retry funcionar
                     raise
 
             logger.info(f"[TRADUTOR GPT] Total traduzido: {len(translated)} textos")
             return translated
 
         except Exception as e:
-            logger.error(f"Erro crítico no tradutor: {e}")
-            # Propagar erro ao invés de retornar textos originais
+            logger.error(f"Erro critico no tradutor: {e}")
             raise
 
     async def translate_single(self, text: str) -> str:
         """
-        Traduz um único texto para PT-BR
+        Traduz um unico texto para PT-BR
 
         Args:
             text: Texto para traduzir
@@ -149,32 +152,29 @@ FORMATO DE RESPOSTA:
         return result[0] if result else text
 
 
-# Teste rápido
+# Teste rapido
 async def test_translator():
     """Testa o tradutor com alguns exemplos"""
     translator = OptimizedTranslator()
 
     test_texts = [
         "This is amazing! Keep up the great work!",
-        "C'est incroyable, j'adore cette vidéo!",
-        "これは素晴らしいです！",
-        "Este vídeo já está em português",
-        "¡Qué miedo! Me encantó el video"
+        "C'est incroyable, j'adore cette video!",
+        "Este video ja esta em portugues",
     ]
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TESTE DO TRADUTOR GPT-4 MINI")
-    print("="*60)
+    print("=" * 60)
 
     translations = await translator.translate_batch(test_texts)
 
-    for original, translated in zip(test_texts, translations):
+    for original, trans in zip(test_texts, translations):
         print(f"\nOriginal: {original}")
-        print(f"Traduzido: {translated}")
+        print(f"Traduzido: {trans}")
 
-    print("="*60)
+    print("=" * 60)
 
 
 if __name__ == "__main__":
-    # Executar teste se rodar diretamente
     asyncio.run(test_translator())
