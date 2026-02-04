@@ -2230,6 +2230,38 @@ async def get_translation_status():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/comments/test-translation")
+async def test_translation():
+    """
+    🧪 Testa se a traducao esta funcionando.
+
+    Tenta traduzir um texto de teste e retorna o resultado ou erro.
+    Util para diagnosticar problemas com a API do OpenAI.
+    """
+    try:
+        from translate_comments_optimized import OptimizedTranslator
+
+        translator = OptimizedTranslator()
+        test_text = "This is a test message to verify translation is working correctly."
+
+        result = await translator.translate_batch([test_text])
+
+        return {
+            'status': 'success',
+            'original': test_text,
+            'translated': result[0] if result else None,
+            'message': 'Traducao funcionando corretamente!'
+        }
+
+    except Exception as e:
+        logger.error(f"Erro no teste de traducao: {e}")
+        return {
+            'status': 'error',
+            'error': str(e),
+            'message': 'Traducao NAO esta funcionando. Verifique OPENAI_API_KEY no Railway.'
+        }
+
+
 @app.get("/api/videos")
 async def get_videos(
     nicho: Optional[str] = None,
