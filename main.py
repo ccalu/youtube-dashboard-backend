@@ -5092,6 +5092,51 @@ async def retry_all_failed_uploads(background_tasks: BackgroundTasks):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.delete("/api/yt-upload/clear-old-failed")
+async def clear_old_failed_uploads():
+    """
+    Remove uploads antigos que falharam e já atingiram o limite de retry.
+
+    - Deleta uploads com status='failed' e retry_count >= 3
+    - Usado para limpar a fila de uploads antigos que não serão mais retentados
+    """
+    try:
+        # Busca uploads failed com retry_count >= 3
+        result = supabase.table('yt_upload_queue')\
+            .select('id, titulo, channel_id, created_at')\
+            .eq('status', 'failed')\
+            .gte('retry_count', 3)\
+            .execute()
+
+        if not result.data:
+            return {
+                'status': 'no_uploads',
+                'message': 'Nenhum upload antigo com erro para limpar',
+                'deleted': 0
+            }
+
+        # Deleta todos
+        upload_ids = [u['id'] for u in result.data]
+
+        for upload_id in upload_ids:
+            supabase.table('yt_upload_queue')\
+                .delete()\
+                .eq('id', upload_id)\
+                .execute()
+
+        logger.info(f"🗑️ Limpeza: {len(upload_ids)} uploads antigos com erro removidos")
+
+        return {
+            'status': 'success',
+            'message': f'{len(upload_ids)} uploads antigos com erro removidos',
+            'deleted': len(upload_ids)
+        }
+
+    except Exception as e:
+        logger.error(f"Erro ao limpar uploads antigos: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # =====================================================
 # SISTEMA KANBAN - FUNÇÕES
 # =====================================================
