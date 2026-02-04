@@ -148,16 +148,16 @@ def extrair_spreadsheet_id_da_url(url):
 
 def verificar_acesso_planilha(spreadsheet_id):
     """Verifica se consegue acessar a planilha do Google Sheets"""
-    try:
-        import json
-        import gspread
-        from oauth2client.service_account import ServiceAccountCredentials
+    import json
+    import gspread
+    from oauth2client.service_account import ServiceAccountCredentials
 
+    try:
         # Buscar credenciais
         creds_str = os.getenv("GOOGLE_SHEETS_CREDENTIALS_2")
         if not creds_str:
-            print("[AVISO] Não foi possível verificar acesso (credenciais não configuradas localmente)")
-            return True  # Permite continuar (será verificado em produção)
+            print("[AVISO] Nao foi possivel verificar acesso (credenciais nao configuradas localmente)")
+            return True  # Permite continuar (sera verificado em producao)
 
         # Configurar cliente
         creds_dict = json.loads(creds_str)
@@ -168,7 +168,7 @@ def verificar_acesso_planilha(spreadsheet_id):
 
         # Tentar abrir planilha
         sheet = client.open_by_key(spreadsheet_id)
-        print(f"[OK] Planilha acessível: {sheet.title}")
+        print(f"[OK] Planilha acessivel: {sheet.title}")
 
         # Verificar primeira aba
         worksheet = sheet.get_worksheet(0)
@@ -177,17 +177,17 @@ def verificar_acesso_planilha(spreadsheet_id):
         return True
 
     except gspread.SpreadsheetNotFound:
-        print("[ERRO] Planilha não encontrada! Verifique o ID.")
-        print("Possíveis causas:")
+        print("[ERRO] Planilha nao encontrada! Verifique o ID.")
+        print("Possiveis causas:")
         print("  1. ID incorreto")
-        print("  2. Planilha não existe")
-        print("  3. Planilha não está compartilhada com a conta de serviço")
+        print("  2. Planilha nao existe")
+        print("  3. Planilha nao esta compartilhada com a conta de servico")
         return False
     except gspread.APIError as e:
         print(f"[ERRO] Erro da API Google Sheets: {e}")
         return False
     except Exception as e:
-        print(f"[AVISO] Não foi possível verificar acesso: {e}")
+        print(f"[AVISO] Nao foi possivel verificar acesso: {e}")
         # Permite continuar mas avisa
         confirma = input("Deseja continuar mesmo assim? (s/n): ").strip().lower()
         return confirma == 's'
