@@ -674,11 +674,13 @@ DASHBOARD_HTML = """
             if (canal.status === 'erro') {
                 html += `<button class="btn btn-primary" style="font-size: 12px; padding: 4px 8px;"
                          onclick="retryCanal('${canal.channel_id}')">🔁 Retry</button> `;
+                html += `<button class="btn btn-warning" style="font-size: 12px; padding: 4px 8px;"
+                         onclick="uploadNext('${canal.channel_id}')" title="Pula o vídeo com erro e envia o próximo">⏭️ Próximo</button> `;
             }
 
             if (canal.spreadsheet_id) {
-                html += `<button class="btn btn-warning" style="font-size: 12px; padding: 4px 8px;"
-                         onclick="abrirPlanilha('${canal.spreadsheet_id}')">📊 Planilha</button>`;
+                html += `<button class="btn" style="font-size: 12px; padding: 4px 8px; background: #9C27B0; color: white;"
+                         onclick="abrirPlanilha('${canal.spreadsheet_id}')">📊</button>`;
             }
 
             return html || '-';
@@ -811,6 +813,31 @@ DASHBOARD_HTML = """
                 }
             } catch (error) {
                 alert('Erro: ' + error.message);
+            }
+        }
+
+        async function uploadNext(channelId) {
+            if (!confirm('Pular o vídeo com erro e enviar o PRÓXIMO vídeo da fila?')) return;
+
+            showModal('Enviando próximo...', 'Buscando e enviando próximo vídeo na fila...');
+
+            try {
+                const response = await fetch(`/api/daily-uploads/upload-next/${channelId}`, {method: 'POST'});
+                const data = await response.json();
+
+                if (data.success) {
+                    const videoTitle = data.resultado?.video_title || 'Vídeo';
+                    alert(`✅ Próximo vídeo enviado com sucesso!\n\n"${videoTitle}"`);
+                    updateDashboard();
+                } else if (data.resultado?.status === 'sem_video') {
+                    alert('⚠️ Não há próximo vídeo disponível na fila.\n\nVerifique a planilha do canal.');
+                } else {
+                    alert('❌ Erro ao enviar próximo: ' + (data.resultado?.error || data.error || 'Erro desconhecido'));
+                }
+            } catch (error) {
+                alert('Erro: ' + error.message);
+            } finally {
+                closeModal();
             }
         }
 
@@ -1036,6 +1063,36 @@ def force_retry_single(channel_id):
         asyncio.set_event_loop(loop)
         resultado = loop.run_until_complete(
             uploader.retry_single_channel(channel_id, manual=True)
+        )
+
+        return jsonify({
+            'success': resultado.get('status') == 'sucesso',
+            'resultado': resultado
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/daily-uploads/upload-next/<channel_id>', methods=['POST'])
+def upload_next_video(channel_id):
+    """
+    Pula o vídeo com erro atual e faz upload do próximo na fila
+
+    Útil quando o primeiro vídeo está com problema e você quer
+    continuar com o próximo sem precisar consertar o atual.
+    """
+    try:
+        uploader = DailyUploader()
+
+        # Executa upload do próximo
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        resultado = loop.run_until_complete(
+            uploader.upload_next_video(channel_id)
         )
 
         return jsonify({

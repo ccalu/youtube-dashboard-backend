@@ -385,9 +385,9 @@ class DailyUploader:
                 'upload_id': upload_id
             }
 
-    async def _find_ready_video(self, spreadsheet_id: str, channel_name: str) -> Optional[Dict]:
+    async def _find_ready_video(self, spreadsheet_id: str, channel_name: str, skip_count: int = 0) -> Optional[Dict]:
         """
-        Busca primeiro vídeo pronto na planilha
+        Busca vídeo pronto na planilha
 
         Condições:
         - Coluna J (Status) = "done"
@@ -396,6 +396,11 @@ class DailyUploader:
         - Coluna O (Upload) = vazio ou contém "Erro"
         - Coluna A (Name) preenchido
         - Coluna M (Drive URL) preenchido
+
+        Args:
+            spreadsheet_id: ID da planilha Google Sheets
+            channel_name: Nome do canal (para logs)
+            skip_count: Quantos vídeos prontos pular (0 = primeiro, 1 = segundo, etc)
         """
         try:
             # Verifica cache
@@ -404,7 +409,7 @@ class DailyUploader:
                 cache_time, cached_data = SPREADSHEET_CACHE[cache_key]
                 if time.time() - cache_time < CACHE_DURATION:
                     logger.info(f"Usando cache da planilha para {channel_name}")
-                    return self._process_cached_data(cached_data)
+                    return self._process_cached_data(cached_data, skip_count)
 
             # Busca nova se não tem cache
             if not self.sheets_client:
@@ -422,14 +427,20 @@ class DailyUploader:
             SPREADSHEET_CACHE[cache_key] = (time.time(), all_values)
 
             # Processa dados
-            return self._process_cached_data(all_values)
+            return self._process_cached_data(all_values, skip_count)
 
         except Exception as e:
             logger.error(f"Erro ao buscar vídeo pronto: {e}")
             return None
 
-    def _process_cached_data(self, all_values: List[List]) -> Optional[Dict]:
-        """Processa dados da planilha e encontra primeiro vídeo pronto"""
+    def _process_cached_data(self, all_values: List[List], skip_count: int = 0) -> Optional[Dict]:
+        """Processa dados da planilha e encontra vídeo pronto
+
+        Args:
+            all_values: Dados da planilha
+            skip_count: Quantos vídeos prontos pular antes de retornar (0 = primeiro)
+        """
+        videos_found = 0
 
         # Pula header (linha 0)
         for i, row in enumerate(all_values[1:], start=2):
@@ -463,6 +474,10 @@ class DailyUploader:
                 continue  # Pula se já foi uploaded com sucesso
 
             # Vídeo pronto encontrado!
+            # Verifica se deve pular este
+            if videos_found < skip_count:
+                videos_found += 1
+                continue
             # Busca descrição (geralmente coluna B ou C)
             descricao = row[1] if len(row) > 1 else ""
             if not descricao and len(row) > 2:
@@ -689,6 +704,125 @@ class DailyUploader:
             logger.info(f"🔁 RETRY AUTOMÁTICO {retry_attempt}/3")
 
         return await self.execute_daily_upload(retry_attempt)
+
+    async def upload_next_video(self, channel_id: str) -> Dict:
+        """
+        Pula o vídeo com erro atual e faz upload do próximo na fila
+
+        Args:
+            channel_id: ID do canal
+
+        Returns:
+            Dict com status do upload
+        """
+        try:
+            # Busca dados do canal
+            result = self.supabase.table('yt_channels')\
+                .select('*')\
+                .eq('channel_id', channel_id)\
+                .single()\
+                .execute()
+
+            if not result.data:
+                return {
+                    'status': 'erro',
+                    'error': 'Canal não encontrado'
+                }
+
+            canal = result.data
+            channel_name = canal['channel_name']
+            spreadsheet_id = canal.get('spreadsheet_id')
+            hoje = datetime.now().date()
+
+            if not spreadsheet_id:
+                return {
+                    'status': 'erro',
+                    'error': 'Canal sem planilha configurada'
+                }
+
+            # Limpa cache para forçar busca atualizada
+            if spreadsheet_id in SPREADSHEET_CACHE:
+                del SPREADSHEET_CACHE[spreadsheet_id]
+
+            # Busca o PRÓXIMO vídeo (skip_count=1 pula o primeiro)
+            video_pronto = await self._find_ready_video(spreadsheet_id, channel_name, skip_count=1)
+
+            if not video_pronto:
+                logger.info(f"⚠️ Não há próximo vídeo disponível para {channel_name}")
+                return {
+                    'status': 'sem_video',
+                    'channel_id': channel_id,
+                    'channel_name': channel_name,
+                    'message': 'Não há próximo vídeo na fila'
+                }
+
+            logger.info(f"⏭️ Upload Próximo para {channel_name}: '{video_pronto['titulo']}'")
+
+            # Adicionar na fila de upload
+            upload_id = self._add_to_queue(canal, video_pronto)
+
+            if not upload_id:
+                return {
+                    'status': 'erro',
+                    'channel_id': channel_id,
+                    'channel_name': channel_name,
+                    'error': 'Falha ao adicionar na fila'
+                }
+
+            # Processar upload
+            try:
+                from main import process_upload_task
+                result = await process_upload_task(upload_id)
+
+                # Verifica resultado
+                upload_status = self._check_upload_status(upload_id)
+
+                if upload_status == 'completed':
+                    # Registra sucesso
+                    self._registrar_canal_diario(
+                        channel_id=channel_id,
+                        channel_name=channel_name,
+                        data=hoje,
+                        status='sucesso',
+                        erro_mensagem=None,
+                        tentativa_numero=99,  # Marca como manual
+                        upload_id=upload_id,
+                        video_titulo=video_pronto['titulo'],
+                        video_url=video_pronto.get('video_url')
+                    )
+
+                    return {
+                        'status': 'sucesso',
+                        'channel_id': channel_id,
+                        'channel_name': channel_name,
+                        'video_title': video_pronto['titulo'],
+                        'upload_id': upload_id,
+                        'message': 'Upload do próximo vídeo realizado com sucesso!'
+                    }
+                else:
+                    erro_msg = self._get_upload_error(upload_id)
+                    return {
+                        'status': 'erro',
+                        'channel_id': channel_id,
+                        'channel_name': channel_name,
+                        'error': erro_msg or 'Upload falhou',
+                        'upload_id': upload_id
+                    }
+
+            except Exception as e:
+                return {
+                    'status': 'erro',
+                    'channel_id': channel_id,
+                    'channel_name': channel_name,
+                    'error': str(e)
+                }
+
+        except Exception as e:
+            logger.error(f"Erro no upload_next_video: {e}")
+            return {
+                'status': 'erro',
+                'error': str(e)
+            }
 
     async def retry_single_channel(self, channel_id: str, manual: bool = True) -> Dict:
         """Retry para um canal específico"""

@@ -1,0 +1,3129 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Guia completo de monetização Facebook - Content Factory DNA">
+    <title>Guia de Monetização Facebook - Content Factory DNA</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a24;
+            --bg-card: #15151f;
+            --border-color: #2a2a3a;
+            --border-accent: #00d4aa;
+            --text-primary: #f0f0f5;
+            --text-secondary: #b8b8c8;
+            --text-muted: #8888a0;
+            --accent-primary: #00d4aa;
+            --accent-secondary: #00b894;
+            --accent-blue: #4dabf7;
+            --accent-warning: #ffd43b;
+            --accent-danger: #ff6b6b;
+            --accent-purple: #9775fa;
+            --gradient-accent: linear-gradient(135deg, #00d4aa 0%, #00b894 50%, #4dabf7 100%);
+            --shadow-glow: 0 0 40px rgba(0, 212, 170, 0.15);
+            --sidebar-width: 280px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.7;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(ellipse at 20% 50%, rgba(0, 212, 170, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 50%, rgba(77, 171, 247, 0.06) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ============================================
+           SIDEBAR TOGGLE BUTTON
+           ============================================ */
+        .sidebar-toggle {
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            width: 44px;
+            height: 44px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            cursor: pointer;
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sidebar-toggle span {
+            display: block;
+            width: 20px;
+            height: 2px;
+            background: var(--text-primary);
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-toggle span::before,
+        .sidebar-toggle span::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            width: 20px;
+            height: 2px;
+            background: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-toggle span::before {
+            top: -6px;
+        }
+
+        .sidebar-toggle span::after {
+            top: 6px;
+        }
+
+        .sidebar-toggle.active span {
+            background: transparent;
+        }
+
+        .sidebar-toggle.active span::before {
+            top: 0;
+            transform: rotate(45deg);
+        }
+
+        .sidebar-toggle.active span::after {
+            top: 0;
+            transform: rotate(-45deg);
+        }
+
+        /* ============================================
+           SIDEBAR OVERLAY
+           ============================================ */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 140;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* ============================================
+           SIDEBAR
+           ============================================ */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            z-index: 150;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            overflow-y: auto;
+            padding: 5rem 1.5rem 2rem;
+        }
+
+        .sidebar.active {
+            transform: translateX(0);
+        }
+
+        .sidebar-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--accent-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            padding-bottom: 0.75rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-nav {
+            list-style: none;
+        }
+
+        .sidebar-section {
+            margin-bottom: 0.25rem;
+        }
+
+        .sidebar-section-title {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.6rem 1rem;
+            background: var(--bg-tertiary);
+            border-left: 3px solid transparent;
+            text-decoration: none;
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .sidebar-section-title:hover {
+            background: rgba(0, 212, 170, 0.1);
+        }
+
+        .sidebar-section-number {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--accent-primary);
+            min-width: 24px;
+        }
+
+        .sidebar-section-text {
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .sidebar-section.active > .sidebar-section-title {
+            background: rgba(0, 212, 170, 0.15);
+            border-left: 3px solid var(--accent-primary);
+        }
+
+        .sidebar-section.active .sidebar-section-number {
+            color: var(--accent-primary);
+        }
+
+        .sidebar-section.active .sidebar-section-text {
+            color: var(--accent-primary);
+        }
+
+        /* ============================================
+           NAVIGATION BAR
+           ============================================ */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(10, 10, 15, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-color);
+            z-index: 100;
+            padding: 1rem 2rem;
+        }
+
+        .nav-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-brand {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--accent-primary);
+        }
+
+        .nav-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        /* ============================================
+           CONTAINER
+           ============================================ */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 7rem 2rem 4rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ============================================
+           HEADER
+           ============================================ */
+        .header {
+            text-align: center;
+            margin-bottom: 4rem;
+            padding-bottom: 3rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--accent-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: rgba(0, 212, 170, 0.1);
+            border: 1px solid rgba(0, 212, 170, 0.2);
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: var(--gradient-accent);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1rem;
+        }
+
+        .header-subtitle {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            font-weight: 300;
+        }
+
+        .header-meta {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 2rem;
+            margin-top: 2rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* ============================================
+           SECTIONS
+           ============================================ */
+        .section {
+            margin-bottom: 4rem;
+            scroll-margin-top: 100px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .section-number {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            flex-shrink: 0;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        /* ============================================
+           CARDS
+           ============================================ */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: rgba(0, 212, 170, 0.3);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .card-title::before {
+            content: '';
+            display: block;
+            width: 4px;
+            height: 1.2em;
+            background: var(--accent-primary);
+            border-radius: 2px;
+        }
+
+        /* ============================================
+           STATS GRID
+           ============================================ */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .stat-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 1.25rem;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: var(--accent-primary);
+        }
+
+        .stat-value.blue {
+            color: var(--accent-blue);
+        }
+
+        .stat-value.warning {
+            color: var(--accent-warning);
+        }
+
+        .stat-value.danger {
+            color: var(--accent-danger);
+        }
+
+        .stat-value.purple {
+            color: var(--accent-purple);
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+        }
+
+        /* ============================================
+           DATA TABLES
+           ============================================ */
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+
+        .data-table th {
+            background: var(--bg-tertiary);
+            padding: 0.75rem 1rem;
+            text-align: left;
+            color: var(--accent-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .data-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .data-table tr:hover td {
+            background: rgba(0, 212, 170, 0.05);
+        }
+
+        .data-table .highlight {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        /* ============================================
+           TAGS
+           ============================================ */
+        .tag {
+            display: inline-block;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .tag-s {
+            background: rgba(0, 212, 170, 0.15);
+            color: var(--accent-primary);
+        }
+
+        .tag-a {
+            background: rgba(77, 171, 247, 0.15);
+            color: var(--accent-blue);
+        }
+
+        .tag-b {
+            background: rgba(255, 212, 59, 0.15);
+            color: var(--accent-warning);
+        }
+
+        .tag-c {
+            background: rgba(255, 107, 107, 0.15);
+            color: var(--accent-danger);
+        }
+
+        .tag-lang {
+            background: rgba(151, 117, 250, 0.15);
+            color: var(--accent-purple);
+        }
+
+        /* ============================================
+           OPPORTUNITY GRID
+           ============================================ */
+        .opportunity-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .opportunity-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 1.25rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .opportunity-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--accent-primary);
+        }
+
+        .opportunity-card.high::before {
+            background: var(--accent-primary);
+        }
+
+        .opportunity-card.medium::before {
+            background: var(--accent-blue);
+        }
+
+        .opportunity-card.volume::before {
+            background: var(--accent-warning);
+        }
+
+        .opportunity-rank {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .opportunity-title {
+            font-weight: 600;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .opportunity-rpm {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.1rem;
+            color: var(--accent-primary);
+        }
+
+        .opportunity-reason {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        /* ============================================
+           LANGUAGE GRID
+           ============================================ */
+        .lang-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .lang-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .lang-flag {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .lang-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .lang-stats {
+            display: flex;
+            gap: 1rem;
+            margin: 1rem 0;
+            font-size: 0.85rem;
+        }
+
+        .lang-stat {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .lang-stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            color: var(--accent-primary);
+        }
+
+        .lang-stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .lang-niches {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .lang-niches-title {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+
+        .lang-niche-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.4rem 0;
+            font-size: 0.9rem;
+        }
+
+        .lang-niche-rpm {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--accent-primary);
+        }
+
+        /* ============================================
+           HIGHLIGHT BOX
+           ============================================ */
+        .highlight-box {
+            background: linear-gradient(135deg, rgba(0, 212, 170, 0.1) 0%, rgba(0, 184, 148, 0.05) 100%);
+            border: 1px solid rgba(0, 212, 170, 0.2);
+            border-left: 4px solid var(--accent-primary);
+            border-radius: 0 12px 12px 0;
+            padding: 1.5rem 2rem;
+            margin: 1.5rem 0;
+        }
+
+        .highlight-box p {
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+
+        /* ============================================
+           WARNING BOX
+           ============================================ */
+        .warning-box {
+            background: rgba(255, 107, 107, 0.1);
+            border-left: 4px solid var(--accent-danger);
+            border-radius: 0 12px 12px 0;
+            padding: 1rem 1.5rem;
+            margin: 1rem 0;
+        }
+
+        .warning-box.info {
+            background: rgba(77, 171, 247, 0.1);
+            border-left: 4px solid var(--accent-blue);
+        }
+
+        .warning-title {
+            font-weight: 600;
+            color: var(--accent-danger);
+            margin-bottom: 0.5rem;
+        }
+
+        .warning-box.info .warning-title {
+            color: var(--accent-blue);
+        }
+
+        /* ============================================
+           TIER BADGES
+           ============================================ */
+        .tier-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .tier-s {
+            background: rgba(0, 212, 170, 0.15);
+            color: var(--accent-primary);
+        }
+
+        .tier-a {
+            background: rgba(77, 171, 247, 0.15);
+            color: var(--accent-blue);
+        }
+
+        .tier-b {
+            background: rgba(255, 212, 59, 0.15);
+            color: var(--accent-warning);
+        }
+
+        .tier-c {
+            background: rgba(255, 107, 107, 0.15);
+            color: var(--accent-danger);
+        }
+
+        /* ============================================
+           FOOTER
+           ============================================ */
+        .footer {
+            margin-top: 4rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        /* ============================================
+           STEP LIST
+           ============================================ */
+        .step-list {
+            list-style: none;
+            counter-reset: steps;
+        }
+
+        .step-item {
+            position: relative;
+            padding-left: 3rem;
+            margin-bottom: 1.5rem;
+            counter-increment: steps;
+        }
+
+        .step-item::before {
+            content: counter(steps);
+            font-family: 'JetBrains Mono', monospace;
+            position: absolute;
+            left: 0;
+            width: 2rem;
+            height: 2rem;
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .step-text {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+
+        .step-text strong {
+            color: var(--text-primary);
+        }
+
+        /* ============================================
+           CHECKLIST
+           ============================================ */
+        .checklist {
+            list-style: none;
+        }
+
+        .checklist li {
+            padding: 0.5rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .checklist li::before {
+            content: "\2713";
+            position: absolute;
+            left: 0;
+            color: var(--accent-primary);
+            font-weight: bold;
+        }
+
+        /* ============================================
+           PHASE CARDS
+           ============================================ */
+        .phase-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .phase-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .phase-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .phase-timeline {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--accent-blue);
+        }
+
+        .phase-items {
+            list-style: none;
+        }
+
+        .phase-items li {
+            padding: 0.4rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .phase-items li::before {
+            content: "\2192";
+            position: absolute;
+            left: 0;
+            color: var(--accent-primary);
+        }
+
+        /* ============================================
+           RESPONSIVE - MOBILE
+           ============================================ */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+            }
+
+            .container {
+                padding: 5rem 1rem 2rem;
+            }
+
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .opportunity-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .lang-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .data-table {
+                font-size: 0.8rem;
+            }
+
+            .data-table th,
+            .data-table td {
+                padding: 0.5rem;
+            }
+
+            .nav {
+                padding: 0.75rem 1rem;
+            }
+
+            .header-meta {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+        }
+    </style></head>
+<body>
+
+    <button class="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle navigation">
+        <span></span>
+    </button>
+    <div class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <aside class="sidebar">
+        <h2 class="sidebar-title">Navegação</h2>
+        <nav>
+            <ul class="sidebar-nav">
+                <li><a href="#monetizacao" class="sidebar-section" onclick="toggleSidebar()"><span class="sidebar-section-number">01</span><span class="sidebar-section-text">Como Monetizar no Facebook</span></a></li>
+                <li><a href="#rpm-cpm" class="sidebar-section" onclick="toggleSidebar()"><span class="sidebar-section-number">02</span><span class="sidebar-section-text">RPM e CPM por Língua</span></a></li>
+                <li><a href="#nichos" class="sidebar-section" onclick="toggleSidebar()"><span class="sidebar-section-number">03</span><span class="sidebar-section-text">Melhores Nichos</span></a></li>
+                <li><a href="#guerras" class="sidebar-section" onclick="toggleSidebar()"><span class="sidebar-section-number">04</span><span class="sidebar-section-text">Análise: Guerras & Civilizações</span></a></li>
+                <li><a href="#formato" class="sidebar-section" onclick="toggleSidebar()"><span class="sidebar-section-number">05</span><span class="sidebar-section-text">Duração e Formato de Vídeos</span></a></li>
+                <li><a href="#postagem" class="sidebar-section" onclick="toggleSidebar()"><span class="sidebar-section-number">06</span><span class="sidebar-section-text">Postagem Diária Ideal</span></a></li>
+                <li><a href="#crescimento" class="sidebar-section" onclick="toggleSidebar()"><span class="sidebar-section-number">07</span><span class="sidebar-section-text">Acelerar Crescimento</span></a></li>
+                <li><a href="#youtube-facebook" class="sidebar-section" onclick="toggleSidebar()"><span class="sidebar-section-number">08</span><span class="sidebar-section-text">YouTube → Facebook</span></a></li>
+                <li><a href="#desmonetizacao" class="sidebar-section" onclick="toggleSidebar()"><span class="sidebar-section-number">09</span><span class="sidebar-section-text">Desmonetização e Proibições</span></a></li>
+                <li><a href="#multiplas-paginas" class="sidebar-section" onclick="toggleSidebar()"><span class="sidebar-section-number">10</span><span class="sidebar-section-text">Múltiplas Páginas</span></a></li>
+                <li><a href="#automacao" class="sidebar-section" onclick="toggleSidebar()"><span class="sidebar-section-number">11</span><span class="sidebar-section-text">Super Social Media IA</span></a></li>
+                <li><a href="#resumo" class="sidebar-section" onclick="toggleSidebar()"><span class="sidebar-section-number">12</span><span class="sidebar-section-text">Resumo Executivo</span></a></li>
+            </ul>
+        </nav>
+    </aside>
+
+    <nav class="nav">
+        <div class="nav-content">
+            <div class="nav-brand">DNA:// FACEBOOK MONETIZATION</div>
+            <div class="nav-status">
+                <div class="status-dot"></div>
+                <span>Guia Operacional 2025-2026</span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <header class="header">
+            <div class="header-label">DNA Content Factory</div>
+            <h1>Guia Completo de Monetização no Facebook</h1>
+            <p class="header-subtitle">Estratégia operacional para Content Monetization Program — requisitos, nichos, RPM, automação e plano de ação</p>
+            <div class="header-meta">
+                <span>Versão 1.0</span>
+                <span>Fevereiro 2026</span>
+                <span>Documento Interno</span>
+            </div>
+        </header>
+
+        <!-- ==================== SECTION 1 ==================== -->
+        <section id="monetizacao" class="section">
+            <div class="section-header">
+                <span class="section-number">01</span>
+                <h2 class="section-title">Como Monetizar uma Página no Facebook</h2>
+            </div>
+
+            <!-- ALERTA: CMP É POR CONVITE -->
+            <div class="warning-box" style="border-color: rgba(255, 212, 59, 0.4); margin-bottom: 2rem;">
+                <h4 class="warning-title" style="color: var(--accent-warning);">&#9888; Importante: O CMP é por Convite (Fev/2026)</h4>
+                <p>O <strong>Content Monetization Program (CMP)</strong> ainda funciona por <strong>convite</strong> em Fevereiro de 2026. A Meta seleciona criadores automaticamente por algoritmo. Você também pode <strong>solicitar acesso</strong> pelo Professional Dashboard. A inscrição aberta é esperada para <strong>meados/final de 2026</strong>.</p>
+                <p style="margin-top: 0.5rem;">A Meta <strong>não publica oficialmente</strong> os requisitos exatos de seguidores e watch time para o CMP. Os números abaixo vêm de fontes de terceiros (blogs, guias, experiências de criadores) e são as versões mais citadas.</p>
+            </div>
+
+            <!-- O QUE MUDOU: TIMELINE -->
+            <div class="card">
+                <h3 class="card-title">O Que Mudou: De 3 Programas para 1</h3>
+                <p style="margin-bottom: 1rem; color: var(--text-secondary);">Em <strong>31 de agosto de 2025</strong>, a Meta encerrou os 3 programas antigos e unificou tudo no CMP:</p>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Programa Antigo</th>
+                                <th>Status</th>
+                                <th>O Que Aconteceu</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>In-Stream Ads (vídeos longos)</td>
+                                <td><span class="tag tag-c">ENCERRADO</span></td>
+                                <td>Migrado para CMP. Parou de aceitar novas inscrições em Out/2024</td>
+                            </tr>
+                            <tr>
+                                <td>Ads on Reels (vídeos curtos)</td>
+                                <td><span class="tag tag-c">ENCERRADO</span></td>
+                                <td>Migrado para CMP em 31/Ago/2025</td>
+                            </tr>
+                            <tr>
+                                <td>Performance Bonus</td>
+                                <td><span class="tag tag-c">ENCERRADO</span></td>
+                                <td>Migrado para CMP em 31/Ago/2025</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Content Monetization Program (CMP)</strong></td>
+                                <td><span class="tag tag-s">ATIVO</span></td>
+                                <td>Programa unificado. Paga por Reels, vídeos longos, fotos, textos e Stories</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.75rem;">Fonte: Meta Newsroom (Out/2024) — ver referências no final desta seção.</p>
+            </div>
+
+            <!-- REQUISITOS: AS DUAS VERSÕES -->
+            <div class="card">
+                <h3 class="card-title">Requisitos para o CMP (Receita de Anúncios)</h3>
+                <p style="margin-bottom: 1rem; color: var(--text-secondary);">A Meta <strong>não publica números oficiais</strong>. Duas versões circulam entre blogs e criadores:</p>
+
+                <div class="stats-grid" style="margin-bottom: 1.5rem;">
+                    <div class="stat-card" style="border-color: rgba(0, 212, 170, 0.4);">
+                        <div class="stat-label" style="margin-bottom: 0.5rem; color: var(--accent-primary); font-weight: 600;">VERSÃO A — Mais Citada (5 fontes)</div>
+                        <div class="stat-value">10.000</div>
+                        <div class="stat-label">Seguidores</div>
+                        <div class="stat-value warning" style="margin-top: 0.5rem;">600K min</div>
+                        <div class="stat-label">Watch Time em 60 dias (= 10.000h)</div>
+                        <div class="stat-value blue" style="margin-top: 0.5rem;">5+</div>
+                        <div class="stat-label">Vídeos ativos (1+ min cada)</div>
+                    </div>
+                    <div class="stat-card" style="border-color: rgba(77, 171, 247, 0.4);">
+                        <div class="stat-label" style="margin-bottom: 0.5rem; color: var(--accent-blue); font-weight: 600;">VERSÃO B — Fontes Recentes (2 fontes, incl. BR)</div>
+                        <div class="stat-value">5.000</div>
+                        <div class="stat-label">Seguidores</div>
+                        <div class="stat-value warning" style="margin-top: 0.5rem;">60K min</div>
+                        <div class="stat-label">Watch Time em 60 dias (= 1.000h)</div>
+                        <div class="stat-value blue" style="margin-top: 0.5rem;">5+</div>
+                        <div class="stat-label">Vídeos ativos (1+ min cada)</div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Requisito</th>
+                                <th>Versão A</th>
+                                <th>Versão B</th>
+                                <th>Consenso</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="highlight">Seguidores</td>
+                                <td>10.000</td>
+                                <td>5.000</td>
+                                <td>Maioria diz 10K</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Watch Time (60 dias)</td>
+                                <td>600.000 min (10.000h)</td>
+                                <td>60.000 min (1.000h)</td>
+                                <td>Maioria diz 600K</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Vídeos ativos</td>
+                                <td>5 (1+ min cada)</td>
+                                <td>5 (1+ min cada)</td>
+                                <td>Todos concordam</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Idade da conta</td>
+                                <td>90 dias</td>
+                                <td>60 dias</td>
+                                <td>Maioria diz 90</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Idade do criador</td>
+                                <td>18+</td>
+                                <td>18+</td>
+                                <td>Todos concordam</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">País elegível</td>
+                                <td>Brasil incluso</td>
+                                <td>Brasil incluso</td>
+                                <td>Todos concordam</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Inscrição</td>
+                                <td colspan="2" style="text-align: center;">Por convite OU solicitar pelo Professional Dashboard</td>
+                                <td>Todos concordam</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="warning-box info" style="margin-top: 1rem; margin-bottom: 0;">
+                    <h4 class="warning-title" style="color: var(--accent-blue);">Por que existe discrepância?</h4>
+                    <p>Os números de 10K/600K min vêm do antigo programa <strong>In-Stream Ads</strong> (encerrado). É possível que o novo CMP tenha requisitos mais baixos (5K/60K), mas como a Meta não confirma, não há como saber com certeza. A única forma de verificar <strong>seus</strong> requisitos é checar no <strong>Professional Dashboard > Monetização</strong> da sua página.</p>
+                </div>
+            </div>
+
+            <!-- COMO FUNCIONA O CONVITE -->
+            <div class="card">
+                <h3 class="card-title">Como Funciona o Sistema de Convite</h3>
+                <p style="margin-bottom: 1rem; color: var(--text-secondary);">O CMP ainda é <strong>por convite</strong> em Fev/2026. Existem dois caminhos para entrar:</p>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" style="font-size: 1.5rem;">Caminho 1</div>
+                        <div class="stat-label" style="font-size: 0.95rem; line-height: 1.5;">A <strong>Meta convida automaticamente</strong> criadores que o algoritmo identifica como elegíveis. Você recebe uma notificação e o botão "Configurar" aparece no Professional Dashboard.</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value blue" style="font-size: 1.5rem;">Caminho 2</div>
+                        <div class="stat-label" style="font-size: 0.95rem; line-height: 1.5;">Você <strong>solicita acesso</strong> indo em <strong>Professional Dashboard > Monetização > "Manifestar Interesse"</strong> (Express Interest). A Meta analisa e decide se te aceita.</div>
+                    </div>
+                </div>
+
+                <div class="table-responsive" style="margin-top: 1rem;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Situação</th>
+                                <th>Tempo de Espera</th>
+                                <th>O Que Acontece</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="highlight">Conta limpa, bons sinais</td>
+                                <td>Dias a 2 semanas</td>
+                                <td>Aprovação rápida, botão "Configurar" aparece</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Conta normal, cumprindo requisitos</td>
+                                <td>2-4 semanas</td>
+                                <td>Revisão padrão</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Conta com algum histórico de violação</td>
+                                <td>Até 90+ dias</td>
+                                <td>Revisão lenta, pode nem receber resposta</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Não aprovado</td>
+                                <td>—</td>
+                                <td><strong>Silêncio.</strong> Sem e-mail de rejeição. Simplesmente não aparece nada.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="highlight-box" style="margin-top: 1rem; margin-bottom: 0;">
+                    <p><strong>Dado oficial:</strong> A Meta convidou ~1 milhão de criadores na primeira onda (Out/2024). Mais de 4 milhões de criadores já ganharam dinheiro no Facebook desde 2017. A Meta pagou <strong>$2+ bilhões</strong> a criadores no último ano, com crescimento de <strong>80%+</strong> nos pagamentos de Reels.</p>
+                </div>
+            </div>
+
+            <!-- FAN SUBSCRIPTIONS -->
+            <div class="warning-box info">
+                <h4 class="warning-title" style="color: var(--accent-blue);">Fan Subscriptions: caminho alternativo (requisitos OU)</h4>
+                <p>Para <strong>Fan Subscriptions</strong> (assinaturas), os requisitos usam lógica <strong>OU</strong>, não E:</p>
+                <p style="margin-top: 0.5rem;"><strong>Seguidores:</strong> 10.000 <strong>OU</strong> 250 viewers recorrentes</p>
+                <p><strong>Engajamento:</strong> 180.000 min assistidos <strong>OU</strong> 50.000 interações em 60 dias</p>
+                <p style="margin-top: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Confirmado por 3 fontes independentes — ver referências no final.</p>
+            </div>
+
+            <!-- BRAND COLLABS -->
+            <div class="warning-box info">
+                <h4 class="warning-title" style="color: var(--accent-blue);">Brand Collaborations: barreira mais baixa</h4>
+                <p><strong>1.000 seguidores</strong> + 15.000 interações <strong>OU</strong> 180.000 min assistidos em 60 dias.</p>
+                <p style="margin-top: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Fonte única (Multilogin, Jan/2026) — ver referências no final.</p>
+            </div>
+
+            <!-- CONTA DE PADARIA: WATCH TIME -->
+            <div class="card">
+                <h3 class="card-title">Conta de Padaria: É Possível Atingir os Requisitos?</h3>
+                <p style="margin-bottom: 1rem; color: var(--text-secondary);">Usando a <strong>Versão A</strong> (600K min / 60 dias = ~167h/dia de watch time total):</p>
+                <div class="highlight-box" style="margin-bottom: 1rem;">
+                    <p><strong>Comparação com YouTube:</strong> YouTube exige 4.000 horas em 12 meses (= ~11h/dia). Se o Facebook realmente exige 10.000 horas em 60 dias (= ~167h/dia), é <strong>15x mais volume diário</strong>. Parece absurdo, mas lembre: conta a soma de TODOS os vídeos x TODOS os viewers. Com a <strong>Versão B</strong> (60K min) seria ~17h/dia — muito mais acessível.</p>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Cenário</th>
+                                <th>Views/dia</th>
+                                <th>Tempo médio</th>
+                                <th>Min/dia</th>
+                                <th>Versão A (600K)?</th>
+                                <th>Versão B (60K)?</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="highlight">Página iniciante</td>
+                                <td>500</td>
+                                <td>3 min</td>
+                                <td>1.500 (25h)</td>
+                                <td><span class="tag tag-c">NÃO</span></td>
+                                <td><span class="tag tag-s">SIM</span></td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Página crescendo</td>
+                                <td>2.000</td>
+                                <td>3 min</td>
+                                <td>6.000 (100h)</td>
+                                <td><span class="tag tag-b">QUASE</span></td>
+                                <td><span class="tag tag-s">SIM</span></td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Página com tração</td>
+                                <td>5.000</td>
+                                <td>3 min</td>
+                                <td>15.000 (250h)</td>
+                                <td><span class="tag tag-s">SIM</span></td>
+                                <td><span class="tag tag-s">SIM</span></td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">1 vídeo viral (50K views)</td>
+                                <td>50.000</td>
+                                <td>2 min</td>
+                                <td>100.000 (1.667h)</td>
+                                <td><span class="tag tag-s">TURBO</span></td>
+                                <td><span class="tag tag-s">TURBO</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- PASSO A PASSO -->
+            <div class="card">
+                <h3 class="card-title">Passo a Passo: Como Solicitar Monetização</h3>
+                <ol class="step-list">
+                    <li class="step-item"><span class="step-text"><strong>Criar Página profissional</strong> ou ativar Modo Profissional no perfil pessoal</span></li>
+                    <li class="step-item"><span class="step-text"><strong>Publicar pelo menos 5 vídeos</strong> originais com mais de 1 minuto cada</span></li>
+                    <li class="step-item"><span class="step-text"><strong>Crescer seguidores organicamente</strong> — NÃO comprar seguidores (o algoritmo detecta)</span></li>
+                    <li class="step-item"><span class="step-text"><strong>Acumular watch time</strong> postando consistentemente. Conteúdo viral e Facebook Ads aceleram</span></li>
+                    <li class="step-item"><span class="step-text"><strong>Manter conta ativa e limpa</strong> por pelo menos 90 dias sem violações</span></li>
+                    <li class="step-item"><span class="step-text">Ir em <strong>Professional Dashboard > Monetização</strong> — verificar se aparece o botão "Configurar" (convite) ou "Manifestar Interesse" (solicitar)</span></li>
+                    <li class="step-item"><span class="step-text"><strong>Solicitar acesso</strong> clicando em "Express Interest" / "Manifestar Interesse"</span></li>
+                    <li class="step-item"><span class="step-text"><strong>Aguardar:</strong> aprovação pode levar de dias a semanas. Se não receber nada, não houve aprovação (sem notificação de rejeição)</span></li>
+                </ol>
+            </div>
+
+            <!-- REQUISITOS OCULTOS -->
+            <div class="warning-box">
+                <h4 class="warning-title">&#9888; Requisitos Ocultos do Algoritmo</h4>
+                <p>Cumprir os números <strong>não garante aprovação</strong>. O Facebook avalia fatores invisíveis:</p>
+                <ul style="margin-top: 0.5rem; padding-left: 1.5rem; color: var(--text-secondary);">
+                    <li><strong>Pontuação de Originalidade:</strong> fingerprinting de áudio, frames e timestamps detecta reposts e compilações</li>
+                    <li><strong>Padrão de Crescimento:</strong> crescimento suspeito (compra de seguidores) atrasa ou bloqueia revisão</li>
+                    <li><strong>Qualidade Geográfica:</strong> audiência em países Tier 1 (EUA, UK, CA) é preferida</li>
+                    <li><strong>Profundidade do Engajamento:</strong> shares e comentários reais valem mais que curtidas passivas</li>
+                    <li><strong>Histórico de Compliance:</strong> violações anteriores pesam contra aprovação</li>
+                    <li><strong>Consistência:</strong> postagem regular por 60-90 dias antes de solicitar é recomendado</li>
+                </ul>
+                <p style="margin-top: 0.75rem; font-size: 0.85rem; color: var(--text-muted);">Baseado em análises de SMMNut e Izoate — ver referências no final.</p>
+            </div>
+
+            <!-- CONTEÚDO IA -->
+            <div class="warning-box info">
+                <h4 class="warning-title" style="color: var(--accent-blue);">Conteúdo gerado por IA: pode monetizar?</h4>
+                <p><strong>Sim, mas com regras.</strong> A Meta permite conteúdo com IA desde que tenha <strong>input humano significativo</strong>. Conteúdo 100% IA sem contribuição humana é penalizado. Imagens IA que pareçam fotos reais devem ser rotuladas como "AI-Generated". Spam de variações IA em massa resulta em banimento.</p>
+                <p style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">Baseado em Meta Transparency Center e ReelMind — ver referências no final.</p>
+            </div>
+
+            <div class="highlight-box">
+                <p>O CMP é o caminho principal para receita de anúncios. Foque em criar conteúdo original, crescer organicamente, e solicitar acesso pelo Professional Dashboard. A inscrição aberta do CMP é esperada para meados/final de 2026.</p>
+            </div>
+
+            <!-- FONTES -->
+            <div class="card" style="border-color: rgba(151, 117, 250, 0.3);">
+                <h3 class="card-title" style="color: var(--accent-purple);">Referências desta Seção</h3>
+
+                <!-- FONTE OFICIAL -->
+                <p style="margin-bottom: 0.5rem; color: var(--accent-warning); font-size: 0.9rem; font-weight: 600;">Fonte Oficial da Meta:</p>
+                <div class="table-responsive">
+                    <table class="data-table" style="font-size: 0.85rem;">
+                        <thead>
+                            <tr>
+                                <th>Fonte</th>
+                                <th>Data</th>
+                                <th>O Que Baseia</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><a href="https://about.fb.com/news/2024/10/monetize-content-facebooks-new-streamlined-program/" target="_blank" style="color: var(--accent-blue);">Meta Newsroom</a> (<a href="https://about.fb.com/br/news/2024/10/monetize-mais-conteudos-com-o-novo-programa-do-facebook/" target="_blank" style="color: var(--accent-blue);">versão PT-BR</a>)</td>
+                                <td>Out/2024</td>
+                                <td>Lançamento do CMP, 1M criadores convidados, $2B+ pagos, 80%+ crescimento Reels. NÃO publica requisitos numéricos de seguidores/watch time.</td>
+                            </tr>
+                            <tr>
+                                <td><a href="https://transparency.meta.com/governance/tracking-impact/labeling-ai-content" target="_blank" style="color: var(--accent-blue);">Meta Transparency Center</a></td>
+                                <td>2025-2026</td>
+                                <td>Regras oficiais de rotulação de conteúdo gerado por IA.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- FONTES VERSÃO A -->
+                <p style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--accent-primary); font-size: 0.9rem; font-weight: 600;">Versão A dos requisitos (10K seguidores / 600K min) — 5 fontes:</p>
+                <div class="table-responsive">
+                    <table class="data-table" style="font-size: 0.85rem;">
+                        <thead>
+                            <tr>
+                                <th>Fonte</th>
+                                <th>Data</th>
+                                <th>O Que Baseia</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><a href="https://techevangelistseo.com/how-to-make-money-on-facebook/" target="_blank" style="color: var(--accent-blue);">TechEvangelistSEO</a></td>
+                                <td>Fev/2026</td>
+                                <td>Confirma 10K + 600K como "still standard" em 2026. Fonte mais recente.</td>
+                            </tr>
+                            <tr>
+                                <td><a href="https://multilogin.com/blog/how-to-get-paid-on-facebook/" target="_blank" style="color: var(--accent-blue);">Multilogin</a></td>
+                                <td>Jan/2026</td>
+                                <td>Requisitos CMP, Brand Collabs (1K seg), Fan Subscriptions. Empresa de tech estabelecida.</td>
+                            </tr>
+                            <tr>
+                                <td><a href="https://recurpost.com/blog/monetize-facebook-profile/" target="_blank" style="color: var(--accent-blue);">RecurPost</a></td>
+                                <td>2026</td>
+                                <td>Monetização via Professional Mode, requisitos CMP. Ferramenta de social media.</td>
+                            </tr>
+                            <tr>
+                                <td><a href="https://publisherinabox.com/how-to-get-approved-for-content-monetization-program-and-earn-up-to-35k-month/" target="_blank" style="color: var(--accent-blue);">PublisherInABox</a></td>
+                                <td>Nov/2025</td>
+                                <td>Guia mais detalhado do CMP. Case studies reais. Sistema de convite, Express Interest, tempos de espera.</td>
+                            </tr>
+                            <tr>
+                                <td><a href="https://actionsprout.com/blog/facebook-monetization-requirements/" target="_blank" style="color: var(--accent-blue);">ActionSprout</a></td>
+                                <td>Ago/2025</td>
+                                <td>Requisitos separados por programa (In-Stream, Stars, Subscriptions). Revenue share 55%.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- FONTES VERSÃO B -->
+                <p style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--accent-blue); font-size: 0.9rem; font-weight: 600;">Versão B dos requisitos (5K seguidores / 60K min) — 2 fontes:</p>
+                <div class="table-responsive">
+                    <table class="data-table" style="font-size: 0.85rem;">
+                        <thead>
+                            <tr>
+                                <th>Fonte</th>
+                                <th>Data</th>
+                                <th>O Que Baseia</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><a href="https://smmnut.com/blog/facebook-monetization-requirements/" target="_blank" style="color: var(--accent-blue);">SMMNut</a></td>
+                                <td>Nov/2025 (atualizado Jan/2026)</td>
+                                <td>Requisitos 5K/60K, critérios ocultos do algoritmo, análise "Official + Hidden Rules".</td>
+                            </tr>
+                            <tr>
+                                <td><a href="https://monetizaweb.com/facebook-monetizar-tutorial-entenda/" target="_blank" style="color: var(--accent-blue);">MonetizaWeb (BR)</a></td>
+                                <td>2025-2026</td>
+                                <td>Tutorial em português. Requisitos 5K/60K para público brasileiro.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- OUTRAS FONTES -->
+                <p style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.9rem; font-weight: 600;">Outras fontes utilizadas:</p>
+                <div class="table-responsive">
+                    <table class="data-table" style="font-size: 0.85rem;">
+                        <thead>
+                            <tr>
+                                <th>Fonte</th>
+                                <th>Data</th>
+                                <th>O Que Baseia</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><a href="https://www.epidemicsound.com/blog/how-to-monetize-facebook/" target="_blank" style="color: var(--accent-blue);">Epidemic Sound</a></td>
+                                <td>2025-2026</td>
+                                <td>Afirma que "não há requisitos concretos publicados" para o CMP beta. Empresa grande e respeitada.</td>
+                            </tr>
+                            <tr>
+                                <td><a href="https://metricool.com/monetize-facebook-account/" target="_blank" style="color: var(--accent-blue);">Metricool</a></td>
+                                <td>Jan/2026</td>
+                                <td>Fan Subscriptions (10K OU 250 recorrentes, 180K min OU 50K interações). Ferramenta estabelecida.</td>
+                            </tr>
+                            <tr>
+                                <td><a href="https://supliful.com/blog/facebook-monetization-requirements" target="_blank" style="color: var(--accent-blue);">Supliful</a></td>
+                                <td>Ago/2025</td>
+                                <td>Confirma encerramento de inscrições In-Stream Ads em Out/2024.</td>
+                            </tr>
+                            <tr>
+                                <td><a href="https://www.izoate.com/blog/facebook-monetization/" target="_blank" style="color: var(--accent-blue);">Izoate</a></td>
+                                <td>2026</td>
+                                <td>Casos reais de criadores aprovados, tempos de espera, rejeição silenciosa, requisitos ocultos.</td>
+                            </tr>
+                            <tr>
+                                <td><a href="https://reelmind.ai/blog/does-facebook-monetize-ai-generated-videos-policy-insights" target="_blank" style="color: var(--accent-blue);">ReelMind</a></td>
+                                <td>2025-2026</td>
+                                <td>Regras de conteúdo IA para monetização. Permitido com input humano, proibido sem contribuição.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 1rem;">A Meta não publica requisitos exatos. Os dados desta seção são baseados nas fontes acima. A única forma de ver seus requisitos reais é checar o <strong>Professional Dashboard > Monetização</strong> da sua página. Tempos de espera e experiências de aprovação são relatos de criadores, não dados oficiais. Última verificação: Fevereiro 2026.</p>
+            </div>
+        </section>
+
+        <!-- ==================== SECTION 2 ==================== -->
+        <section id="rpm-cpm" class="section">
+            <div class="section-header">
+                <span class="section-number">02</span>
+                <h2 class="section-title">RPM e CPM por Língua e País</h2>
+            </div>
+
+            <div class="highlight-box">
+                <p>O Facebook NÃO paga por idioma do conteúdo. O CPM é determinado pelo GEO (localização geográfica) do espectador. Um vídeo em português assistido por alguém nos EUA paga CPM americano.</p>
+            </div>
+
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>País</th>
+                            <th>CPM Médio</th>
+                            <th>Tier</th>
+                            <th>Observações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>EUA &#127482;&#127480;</td>
+                            <td>$15-25 (média $20.48)</td>
+                            <td><span class="tag-s">TIER S</span></td>
+                            <td>Maior mercado publicitário do mundo</td>
+                        </tr>
+                        <tr>
+                            <td>Canadá &#127464;&#127462;</td>
+                            <td>$12-20</td>
+                            <td><span class="tag-s">TIER S</span></td>
+                            <td>CPM similar ao EUA</td>
+                        </tr>
+                        <tr>
+                            <td>UK &#127468;&#127463;</td>
+                            <td>$8-15 (média $10.85)</td>
+                            <td><span class="tag-a">TIER A</span></td>
+                            <td>Mercado forte</td>
+                        </tr>
+                        <tr>
+                            <td>Austrália &#127462;&#127482;</td>
+                            <td>$10-18</td>
+                            <td><span class="tag-a">TIER A</span></td>
+                            <td>CPM alto, população menor</td>
+                        </tr>
+                        <tr>
+                            <td>Alemanha &#127465;&#127466;</td>
+                            <td>$8-14</td>
+                            <td><span class="tag-a">TIER A</span></td>
+                            <td>Maior economia da UE</td>
+                        </tr>
+                        <tr>
+                            <td>Portugal &#127477;&#127481;</td>
+                            <td>$6-12 (média $9.88)</td>
+                            <td><span class="tag-b">TIER B</span></td>
+                            <td>Surpreendentemente bom</td>
+                        </tr>
+                        <tr>
+                            <td>Espanha &#127466;&#127480;</td>
+                            <td>$5-10</td>
+                            <td><span class="tag-b">TIER B</span></td>
+                            <td>Mercado em crescimento</td>
+                        </tr>
+                        <tr>
+                            <td>Brasil &#127463;&#127479;</td>
+                            <td>$2-5</td>
+                            <td><span class="tag-c">TIER C</span></td>
+                            <td>Volume alto, CPM baixo</td>
+                        </tr>
+                        <tr>
+                            <td>México &#127474;&#127485;</td>
+                            <td>$1-4</td>
+                            <td><span class="tag-c">TIER C</span></td>
+                            <td>Similar ao Brasil</td>
+                        </tr>
+                        <tr>
+                            <td>Índia &#127470;&#127475;</td>
+                            <td>$0.50-2</td>
+                            <td><span class="tag-c">TIER C</span></td>
+                            <td>Volume massivo, CPM mínimo</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value blue">$20.48</div>
+                    <div class="stat-label">CPM Médio EUA</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">4-10x</div>
+                    <div class="stat-label">Diferença EN vs PT-BR</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value purple">$9.88</div>
+                    <div class="stat-label">CPM Portugal</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value danger">$2-5</div>
+                    <div class="stat-label">CPM Brasil</div>
+                </div>
+            </div>
+
+            <div class="lang-grid">
+                <div class="lang-card">
+                    <div class="lang-flag">&#127482;&#127480;&#127468;&#127463;</div>
+                    <div class="lang-name">Inglês (English)</div>
+                    <div class="lang-stats">
+                        <div class="lang-stat">
+                            <span class="lang-stat-label">CPM</span>
+                            <span class="lang-stat-value">$15-25</span>
+                        </div>
+                        <div class="lang-stat">
+                            <span class="lang-stat-label">Audiência</span>
+                            <span class="lang-stat-value">2B+</span>
+                        </div>
+                        <div class="lang-stat">
+                            <span class="lang-stat-label">Concorrência</span>
+                            <span class="lang-stat-value">ALTA</span>
+                        </div>
+                    </div>
+                    <div class="lang-niches">
+                        <div class="lang-niches-title">Nichos Top</div>
+                        <div class="lang-niche-item"><span>Finance</span><span class="lang-niche-rpm">$20-50</span></div>
+                        <div class="lang-niche-item"><span>Motivation</span><span class="lang-niche-rpm">$12-25</span></div>
+                        <div class="lang-niche-item"><span>Tech</span><span class="lang-niche-rpm">$10-20</span></div>
+                    </div>
+                </div>
+                <div class="lang-card">
+                    <div class="lang-flag">&#127477;&#127481;</div>
+                    <div class="lang-name">Português (PT-PT)</div>
+                    <div class="lang-stats">
+                        <div class="lang-stat">
+                            <span class="lang-stat-label">CPM</span>
+                            <span class="lang-stat-value">$6-12</span>
+                        </div>
+                        <div class="lang-stat">
+                            <span class="lang-stat-label">Audiência</span>
+                            <span class="lang-stat-value">30M</span>
+                        </div>
+                        <div class="lang-stat">
+                            <span class="lang-stat-label">Concorrência</span>
+                            <span class="lang-stat-value">BAIXA</span>
+                        </div>
+                    </div>
+                    <div class="lang-niches">
+                        <div class="lang-niches-title">Nichos Top</div>
+                        <div class="lang-niche-item"><span>Finance</span><span class="lang-niche-rpm">$10-18</span></div>
+                        <div class="lang-niche-item"><span>Education</span><span class="lang-niche-rpm">$8-15</span></div>
+                        <div class="lang-niche-item"><span>Motivation</span><span class="lang-niche-rpm">$8-14</span></div>
+                    </div>
+                </div>
+                <div class="lang-card">
+                    <div class="lang-flag">&#127466;&#127480;</div>
+                    <div class="lang-name">Espanhol (ES-EU)</div>
+                    <div class="lang-stats">
+                        <div class="lang-stat">
+                            <span class="lang-stat-label">CPM</span>
+                            <span class="lang-stat-value">$5-10</span>
+                        </div>
+                        <div class="lang-stat">
+                            <span class="lang-stat-label">Audiência</span>
+                            <span class="lang-stat-value">50M</span>
+                        </div>
+                        <div class="lang-stat">
+                            <span class="lang-stat-label">Concorrência</span>
+                            <span class="lang-stat-value">MÉDIA</span>
+                        </div>
+                    </div>
+                    <div class="lang-niches">
+                        <div class="lang-niches-title">Nichos Top</div>
+                        <div class="lang-niche-item"><span>Finance</span><span class="lang-niche-rpm">$8-15</span></div>
+                        <div class="lang-niche-item"><span>Dev. Pessoal</span><span class="lang-niche-rpm">$6-12</span></div>
+                        <div class="lang-niche-item"><span>History</span><span class="lang-niche-rpm">$5-10</span></div>
+                    </div>
+                </div>
+                <div class="lang-card">
+                    <div class="lang-flag">&#127463;&#127479;</div>
+                    <div class="lang-name">Português (PT-BR)</div>
+                    <div class="lang-stats">
+                        <div class="lang-stat">
+                            <span class="lang-stat-label">CPM</span>
+                            <span class="lang-stat-value">$2-5</span>
+                        </div>
+                        <div class="lang-stat">
+                            <span class="lang-stat-label">Audiência</span>
+                            <span class="lang-stat-value">200M+</span>
+                        </div>
+                        <div class="lang-stat">
+                            <span class="lang-stat-label">Concorrência</span>
+                            <span class="lang-stat-value">ALTA</span>
+                        </div>
+                    </div>
+                    <div class="lang-niches">
+                        <div class="lang-niches-title">Nichos Top</div>
+                        <div class="lang-niche-item"><span>Finance</span><span class="lang-niche-rpm">$4-8</span></div>
+                        <div class="lang-niche-item"><span>Motivation</span><span class="lang-niche-rpm">$3-6</span></div>
+                        <div class="lang-niche-item"><span>Education</span><span class="lang-niche-rpm">$2-5</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="highlight-box">
+                <p>Estratégia recomendada: começar com conteúdo em INGLÊS para CPM 4-10x maior. Português de Portugal é segunda opção com CPM surpreendentemente alto ($9.88) e baixa concorrência.</p>
+            </div>
+        </section>
+
+        <!-- ==================== SECTION 3 ==================== -->
+        <section id="nichos" class="section">
+            <div class="section-header">
+                <span class="section-number">03</span>
+                <h2 class="section-title">Melhores Nichos para Trabalhar</h2>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">$12-50+</div>
+                    <div class="stat-label">CPM Finanças - Top</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value blue">$8-20</div>
+                    <div class="stat-label">CPM Motivacional</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value warning">$7-17</div>
+                    <div class="stat-label">CPM Educacional</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value purple">85%</div>
+                    <div class="stat-label">Compatível com IA</div>
+                </div>
+            </div>
+
+            <div class="tier-badge tier-s">TIER S — CPM Máximo</div>
+            <div class="tier-badge tier-a">TIER A — CPM Alto</div>
+            <div class="tier-badge tier-b">TIER B — CPM Moderado</div>
+
+            <div class="opportunity-grid">
+                <div class="opportunity-card high">
+                    <div class="opportunity-rank">#1 TIER S</div>
+                    <div class="opportunity-title">Finanças & Investimentos <span class="tag-s">TIER S</span></div>
+                    <div class="opportunity-rpm">CPM: $12-50+</div>
+                    <div class="opportunity-reason">Maior CPM de todos os nichos. Conteúdo educacional sobre investimentos, crypto, economia pessoal. IA pode gerar gráficos e narração facilmente. Concorrência alta mas CPM compensa.</div>
+                </div>
+                <div class="opportunity-card high">
+                    <div class="opportunity-rank">#2 TIER S</div>
+                    <div class="opportunity-title">Motivacional & Mindset <span class="tag-s">TIER S</span></div>
+                    <div class="opportunity-rpm">CPM: $8-20</div>
+                    <div class="opportunity-reason">Altíssimo engajamento e compartilhamento. Citações, histórias de superação, discursos motivacionais. Perfeito para conteúdo com IA — voz + imagens dinâmicas. Viral por natureza.</div>
+                </div>
+                <div class="opportunity-card high">
+                    <div class="opportunity-rank">#3 TIER S</div>
+                    <div class="opportunity-title">Fé & Espiritualidade <span class="tag-s">TIER S</span></div>
+                    <div class="opportunity-rpm">CPM: $5-12</div>
+                    <div class="opportunity-reason">Comunidade extremamente engajada e leal. Compartilhamento orgânico massivo. Baixa concorrência em conteúdo de qualidade. Funciona muito bem com narração IA + imagens contemplativas.</div>
+                </div>
+                <div class="opportunity-card medium">
+                    <div class="opportunity-rank">#4 TIER A</div>
+                    <div class="opportunity-title">Desenvolvimento Pessoal <span class="tag-a">TIER A</span></div>
+                    <div class="opportunity-rpm">CPM: $8-18</div>
+                    <div class="opportunity-reason">Sobreposição com motivacional mas mais educacional. Produtividade, hábitos, psicologia. Boa retenção de audiência. Compatível com formato faceless.</div>
+                </div>
+                <div class="opportunity-card medium">
+                    <div class="opportunity-rank">#5 TIER A</div>
+                    <div class="opportunity-title">Educacional & Documentários <span class="tag-a">TIER A</span></div>
+                    <div class="opportunity-rpm">CPM: $10-25</div>
+                    <div class="opportunity-reason">CPM alto quando atinge audiência EN. Inclui ciência, história, curiosidades. Nosso nicho atual de guerras/civilizações se encaixa aqui. Ideal para vídeos longos (5-15 min).</div>
+                </div>
+                <div class="opportunity-card volume">
+                    <div class="opportunity-rank">#6 TIER B</div>
+                    <div class="opportunity-title">Tecnologia & IA <span class="tag-b">TIER B</span></div>
+                    <div class="opportunity-rpm">CPM: $5-15</div>
+                    <div class="opportunity-reason">Audiência tech-savvy e engajada. Tutoriais, reviews, novidades tech. CPM variável dependendo do sub-nicho. Bom para crescimento rápido.</div>
+                </div>
+            </div>
+
+            <div class="warning-box">
+                <p>Nichos NÃO recomendados para Facebook: Conteúdo infantil (regulação COPPA/GDPR muito pesada), Política (penalizado pelo algoritmo), True Crime pesado (desmonetização frequente), Conteúdo adulto/sugestivo (ban imediato).</p>
+            </div>
+        </section>
+
+        <!-- ==================== SECTION 4 ==================== -->
+        <section id="guerras" class="section">
+            <div class="section-header">
+                <span class="section-number">04</span>
+                <h2 class="section-title">Análise dos Nichos Atuais: Guerras & Civilizações</h2>
+            </div>
+
+            <div class="highlight-box">
+                <p>O nicho de guerras, reis e civilizações antigas é viável no Facebook, mas requer adaptação. O Facebook é mais restritivo que o YouTube com conteúdo de violência/conflito. A chave é enquadrar como EDUCACIONAL e HISTÓRICO.</p>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">O Que Funciona no Facebook</h3>
+                <ul class="checklist">
+                    <li>Narrativas históricas com foco em personagens e civilizações</li>
+                    <li>Documentários educacionais sobre impérios e culturas</li>
+                    <li>"Como X conquistou Y" — storytelling épico</li>
+                    <li>Comparações entre civilizações/impérios</li>
+                    <li>Curiosidades históricas e fatos surpreendentes</li>
+                    <li>Reconstruções visuais com IA (overlays, efeitos, mapas animados)</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">O Que é RESTRITO ou Penalizado</h3>
+                <div class="warning-box">
+                    <h4 class="warning-title">&#9888; Conteúdo que Reduz Alcance ou Desmonetiza</h4>
+                    <p>Cenas explícitas de batalha/violência. Imagens reais de guerra moderna. Glorificação de violência ou conquista. Conteúdo que cause 'choque' ou 'angústia'. Thumbnails com sangue, armas ou destruição.</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Regra de Ouro: 70/30</h3>
+                <p>Para maximizar monetização sem restrições: 70% do conteúdo sobre personagens, narrativa, cultura e conquistas intelectuais. 30% sobre aspectos militares e estratégicos (sem imagens explícitas). Foco em 'como viviam' mais do que em 'como morreram'.</p>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">$7-17</div>
+                    <div class="stat-label">CPM Estimado do Nicho</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value blue">70/30</div>
+                    <div class="stat-label">Narrativa vs Militar</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value purple">Educacional</div>
+                    <div class="stat-label">Categoria no Facebook</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Recomendações para Adaptação</h3>
+                <ol class="step-list">
+                    <li class="step-item"><span class="step-text"><strong>Reclassificar conteúdo</strong> como "Educação & Documentários" no Facebook</span></li>
+                    <li class="step-item"><span class="step-text">Usar <strong>thumbnails com mapas, personagens e arquitetura</strong> (evitar armas/sangue)</span></li>
+                    <li class="step-item"><span class="step-text"><strong>Narração focada em contexto histórico</strong>, não em violência</span></li>
+                    <li class="step-item"><span class="step-text">Adicionar <strong>elementos visuais com IA:</strong> mapas animados, reconstruções 3D, timelines</span></li>
+                    <li class="step-item"><span class="step-text">Criar <strong>séries temáticas:</strong> "Impérios que Mudaram o Mundo", "Grandes Reis da História"</span></li>
+                </ol>
+            </div>
+
+            <div class="warning-box">
+                <p>Conteúdo com IA (imagens geradas, overlays, efeitos visuais) é PERMITIDO no Facebook desde que seja dinâmico. O que é PROIBIDO é slideshow estático — imagens paradas com narração. Use zoom, pan, transições, animações. Mantenha o vídeo visualmente dinâmico.</p>
+            </div>
+        </section>        <!-- ==================== SECTION 5 ==================== -->
+        <section id="formato" class="section">
+            <div class="section-header">
+                <span class="section-number">05</span>
+                <h2 class="section-title">Vídeos: Duração, Formato e Estratégia</h2>
+            </div>
+
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Formato</th>
+                            <th>Duração</th>
+                            <th>Monetização</th>
+                            <th>Uso Principal</th>
+                            <th>Prioridade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="highlight">Reels</td>
+                            <td>30-60 seg</td>
+                            <td>Baixa (Reels Ads)</td>
+                            <td>Crescimento e alcance</td>
+                            <td><span class="tag tag-a">ALTA</span></td>
+                        </tr>
+                        <tr>
+                            <td class="highlight">Vídeo Curto</td>
+                            <td>1-3 min</td>
+                            <td>Média (1 mid-roll)</td>
+                            <td>Engajamento</td>
+                            <td><span class="tag tag-b">MÉDIA</span></td>
+                        </tr>
+                        <tr>
+                            <td class="highlight">Sweet Spot &#11088;</td>
+                            <td>5-8 min</td>
+                            <td>ALTA (3-4 mid-rolls)</td>
+                            <td>Monetização principal</td>
+                            <td><span class="tag tag-s">MÁXIMA</span></td>
+                        </tr>
+                        <tr>
+                            <td class="highlight">Vídeo Longo</td>
+                            <td>10-20 min</td>
+                            <td>Alta (5+ mid-rolls)</td>
+                            <td>Monetização máxima</td>
+                            <td><span class="tag tag-a">ALTA</span></td>
+                        </tr>
+                        <tr>
+                            <td class="highlight">Live</td>
+                            <td>30-120 min</td>
+                            <td>Stars + Ads</td>
+                            <td>Comunidade</td>
+                            <td><span class="tag tag-b">MÉDIA</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="highlight-box">
+                <p>O sweet spot para monetização no Facebook é <strong>5-8 minutos</strong>. Nessa duração você consegue 3-4 mid-roll ads (inseridos a cada 2 minutos), que são os anúncios com maior CPM. Vídeos muito longos (+15 min) perdem retenção no Facebook.</p>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Estratégia de Ads In-Stream</h3>
+                <ul class="checklist">
+                    <li><strong>Pre-roll:</strong> anúncio antes do vídeo (automático, menor CPM)</li>
+                    <li><strong>Mid-roll:</strong> anúncio no meio do vídeo (MELHOR CPM, precisa 1+ min de vídeo)</li>
+                    <li><strong>Post-roll:</strong> anúncio após o vídeo (menor impacto, maioria não assiste)</li>
+                    <li>Mid-rolls a cada 2 minutos = máximo de inserções possíveis</li>
+                    <li>Vídeo de 5 min = 2-3 mid-rolls | 8 min = 3-4 mid-rolls | 15 min = 6-7 mid-rolls</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Como Cortar 1 Vídeo do YouTube em Peças para Facebook</h3>
+                <ol class="step-list">
+                    <li class="step-item"><span class="step-text">Pegar o vídeo original do YouTube (<strong>arquivo raw, sem marca d'água</strong>)</span></li>
+                    <li class="step-item"><span class="step-text">Dividir em segmentos de <strong>5-8 minutos</strong> com narrativa completa em cada parte</span></li>
+                    <li class="step-item"><span class="step-text">Criar <strong>3-5 Reels de 30-60 segundos</strong> dos melhores momentos</span></li>
+                    <li class="step-item"><span class="step-text">Adaptar título e descrição para o estilo Facebook (<strong>mais emocional, direto</strong>)</span></li>
+                    <li class="step-item"><span class="step-text">Upload nativo no Facebook (<strong>NUNCA colar link do YouTube</strong>)</span></li>
+                    <li class="step-item"><span class="step-text">Resultado: <strong>1 vídeo YouTube = 2-3 vídeos Facebook + 3-5 Reels</strong></span></li>
+                </ol>
+            </div>
+
+            <div class="warning-box">
+                <h4 class="warning-title">&#9888; Conteúdo IA: Regra Fundamental</h4>
+                <p>Vídeos feitos com IA (imagens geradas, narração sintética) <strong>DEVEM</strong> ser dinâmicos. O Facebook <strong>PROÍBE</strong> slideshows estáticos — imagens paradas com narração por cima. <strong>OBRIGATÓRIO:</strong> zoom lento, pan, transições suaves, cortes, animações. O vídeo precisa ter <strong>MOVIMENTO</strong> constante.</p>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">5-8 min</div>
+                    <div class="stat-label">Sweet Spot de Duração</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value blue">3-4</div>
+                    <div class="stat-label">Mid-Rolls por Vídeo</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value warning">2-3x</div>
+                    <div class="stat-label">Vídeos por YouTube Original</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value purple">30-60s</div>
+                    <div class="stat-label">Duração Ideal Reels</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== SECTION 6 ==================== -->
+        <section id="postagem" class="section">
+            <div class="section-header">
+                <span class="section-number">06</span>
+                <h2 class="section-title">Postagem Diária Ideal (Cenário Perfeito)</h2>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">1</div>
+                    <div class="stat-label">Vídeo Longo/dia</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value blue">2-3</div>
+                    <div class="stat-label">Reels/dia</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value warning">1-2</div>
+                    <div class="stat-label">Posts Imagem/dia</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value purple">1</div>
+                    <div class="stat-label">Post Texto/dia</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value danger">5-7</div>
+                    <div class="stat-label">Total Posts/dia</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Cenário Diário Recomendado por Página</h3>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Tipo de Post</th>
+                                <th>Quantidade</th>
+                                <th>Horário Sugerido</th>
+                                <th>Objetivo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="highlight">Vídeo Longo (5-8 min)</td>
+                                <td>1 por dia</td>
+                                <td>18:00-20:00</td>
+                                <td>Monetização principal (mid-roll ads)</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Reels (30-60 seg)</td>
+                                <td>2-3 por dia</td>
+                                <td>12:00, 15:00, 21:00</td>
+                                <td>Crescimento e alcance viral</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Imagem/Carrossel</td>
+                                <td>1-2 por dia</td>
+                                <td>10:00, 14:00</td>
+                                <td>Engajamento e presença no feed</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Post de Texto/Citação</td>
+                                <td>1 por dia</td>
+                                <td>08:00</td>
+                                <td>Interação e comentários</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Stories</td>
+                                <td>3-5 por dia</td>
+                                <td>Ao longo do dia</td>
+                                <td>Manter relevância</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Melhores Horários para Postar (Fuso Principal)</h3>
+                <ul class="checklist">
+                    <li><strong>08:00 - 09:00:</strong> Público matinal, ideal para textos/citações</li>
+                    <li><strong>12:00 - 13:00:</strong> Horário de almoço, bom para Reels rápidos</li>
+                    <li><strong>15:00 - 16:00:</strong> Tarde, segundo pico de engajamento</li>
+                    <li><strong>18:00 - 20:00: MELHOR HORÁRIO</strong> — maior audiência online, ideal para vídeo principal</li>
+                    <li><strong>21:00 - 22:00:</strong> Noite, bom para último Reel do dia</li>
+                </ul>
+            </div>
+
+            <div class="highlight-box">
+                <p><strong>Frequência MÍNIMA viável:</strong> 1 vídeo longo + 1 Reel por dia. Abaixo disso o algoritmo começa a reduzir o alcance da página. O cenário ideal (5-7 posts) pode parecer muito, mas com conteúdo pré-produzido e agendamento é totalmente possível.</p>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Como Agendar e Programar</h3>
+                <ul class="checklist">
+                    <li><strong>Meta Business Suite:</strong> agendamento nativo e gratuito (recomendado)</li>
+                    <li><strong>Creator Studio:</strong> alternativa oficial do Facebook</li>
+                    <li><strong>Buffer / Hootsuite:</strong> ferramentas externas para multi-plataforma</li>
+                    <li>Produzir conteúdo em lote (batch) — 1 dia de produção = 1 semana de posts</li>
+                    <li>Usar planilha de calendário editorial para organizar</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- ==================== SECTION 7 ==================== -->
+        <section id="crescimento" class="section">
+            <div class="section-header">
+                <span class="section-number">07</span>
+                <h2 class="section-title">Como Acelerar o Crescimento das Páginas</h2>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">$5-20</div>
+                    <div class="stat-label">Ads/dia Recomendado</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value blue">1-3</div>
+                    <div class="stat-label">Meses até Monetização (com ads)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value warning">10K</div>
+                    <div class="stat-label">Meta de Seguidores</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value purple">&#8734;</div>
+                    <div class="stat-label">Compartilhamentos = Rei</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Estratégias de Crescimento Rápido</h3>
+                <ol class="step-list">
+                    <li class="step-item"><span class="step-text"><strong>Facebook Ads ($5-20/dia)</strong> — Impulsionar os melhores Reels e vídeos para audiência lookalike. Melhor custo-benefício para crescer seguidores qualificados.</span></li>
+                    <li class="step-item"><span class="step-text"><strong>Reels Virais</strong> — Criar Reels com alto potencial de compartilhamento. Focar em conteúdo emocional, surpreendente ou educacional curto. 1 Reel viral = centenas/milhares de seguidores.</span></li>
+                    <li class="step-item"><span class="step-text"><strong>Compartilhamentos > Likes</strong> — No algoritmo do Facebook, compartilhamentos são a métrica de MAIOR PESO. Criar conteúdo que as pessoas QUEIRAM compartilhar (educacional, inspiracional, "todo mundo precisa ver isso").</span></li>
+                    <li class="step-item"><span class="step-text"><strong>Engajamento Ativo</strong> — Responder TODOS os comentários nas primeiras 2 horas. Fazer perguntas no final dos vídeos. Criar polls e posts interativos.</span></li>
+                    <li class="step-item"><span class="step-text"><strong>Cross-Posting Estratégico</strong> — Compartilhar em grupos relevantes do Facebook. Criar comunidade (Facebook Group) associada à página. Colaborar com outras páginas do nicho.</span></li>
+                </ol>
+            </div>
+
+            <div class="highlight-box">
+                <p><strong>Tempo estimado realista até monetização:</strong> 30-90 dias com investimento agressivo em ads + conteúdo diário (1 vídeo + 3 Reels) + potencial viral. Seguidores (10K) vêm em ~30-60 dias com ads. Watch time (600K min) é o gargalo — depende de viralizar 1-2 vídeos. Sem ads, pode levar 3-6 meses.</p>
+            </div>
+
+            <div class="warning-box">
+                <h4 class="warning-title">&#9888; Comprar Páginas Prontas? NÃO.</h4>
+                <p>Comprar páginas com seguidores é <strong>ALTAMENTE</strong> arriscado: Seguidores podem ser bots (reduz alcance orgânico). O Facebook detecta mudanças bruscas de nicho/administrador. Histórico da página pode ter strikes ou penalidades ocultas. Monetização pode ser negada por 'comportamento inautêntico'. O vendedor pode recuperar a página via suporte. <strong>SEMPRE prefira crescer organicamente.</strong></p>
+            </div>
+        </section>
+
+        <!-- ==================== SECTION 8 ==================== -->
+        <section id="youtube-facebook" class="section">
+            <div class="section-header">
+                <span class="section-number">08</span>
+                <h2 class="section-title">YouTube &rarr; Facebook: Reutilização de Conteúdo</h2>
+            </div>
+
+            <div class="highlight-box">
+                <p>As plataformas são <strong>INDEPENDENTES</strong>. O Content ID do YouTube <strong>NÃO</strong> se comunica com o Rights Manager do Facebook. O mesmo vídeo <strong>PODE</strong> ser postado em ambas as plataformas sem conflito de copyright entre elas.</p>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Regras para Reutilização</h3>
+                <ul class="checklist">
+                    <li>Upload <strong>SEMPRE</strong> nativo — nunca colar link do YouTube no Facebook</li>
+                    <li>Usar arquivo <strong>ORIGINAL</strong> (raw) — não o vídeo baixado do YouTube</li>
+                    <li><strong>SEM</strong> marcas d'água do YouTube, TikTok ou qualquer plataforma</li>
+                    <li>Personalizar título e descrição para o estilo do Facebook</li>
+                    <li>Thumbnail diferente (Facebook auto-gera, mas pode customizar)</li>
+                    <li><strong>NUNCA</strong> postar o mesmo vídeo em 2+ páginas DENTRO do Facebook</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Estratégia de Conversão: 1 YouTube = Múltiplos Facebook</h3>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Conteúdo Original</th>
+                                <th>Produção Facebook</th>
+                                <th>Tipo</th>
+                                <th>Monetização</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Vídeo YouTube (15-20 min)</td>
+                                <td class="highlight">Parte 1 (5-8 min)</td>
+                                <td>Vídeo longo</td>
+                                <td>Mid-roll ads &#10003;</td>
+                            </tr>
+                            <tr>
+                                <td>Vídeo YouTube (15-20 min)</td>
+                                <td class="highlight">Parte 2 (5-8 min)</td>
+                                <td>Vídeo longo</td>
+                                <td>Mid-roll ads &#10003;</td>
+                            </tr>
+                            <tr>
+                                <td>Vídeo YouTube (15-20 min)</td>
+                                <td class="highlight">Parte 3 (5-8 min)</td>
+                                <td>Vídeo longo</td>
+                                <td>Mid-roll ads &#10003;</td>
+                            </tr>
+                            <tr>
+                                <td>Melhores momentos</td>
+                                <td class="highlight">Reel 1 (30-60s)</td>
+                                <td>Reel</td>
+                                <td>Crescimento</td>
+                            </tr>
+                            <tr>
+                                <td>Melhores momentos</td>
+                                <td class="highlight">Reel 2 (30-60s)</td>
+                                <td>Reel</td>
+                                <td>Crescimento</td>
+                            </tr>
+                            <tr>
+                                <td>Melhores momentos</td>
+                                <td class="highlight">Reel 3 (30-60s)</td>
+                                <td>Reel</td>
+                                <td>Crescimento</td>
+                            </tr>
+                            <tr>
+                                <td>Citação/frase-chave</td>
+                                <td class="highlight">Post imagem</td>
+                                <td>Imagem</td>
+                                <td>Engajamento</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="warning-box">
+                <h4 class="warning-title">&#9888; Regra Crítica</h4>
+                <p><strong>NUNCA</strong> postar o mesmo vídeo idêntico em múltiplas páginas do Facebook. O algoritmo detecta conteúdo duplicado <strong>DENTRO</strong> da plataforma e penaliza todas as páginas. Cada página deve ter conteúdo único ou, no mínimo, edições significativamente diferentes.</p>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">1&rarr;6+</div>
+                    <div class="stat-label">Conversão YouTube&rarr;Facebook</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value blue">100%</div>
+                    <div class="stat-label">Independência entre Plataformas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value danger">0</div>
+                    <div class="stat-label">Conflitos de Copyright</div>
+                </div>
+            </div>
+        </section>        <!-- ==================== SECTION 9 ==================== -->
+        <section id="desmonetizacao" class="section">
+            <div class="section-header">
+                <span class="section-number">09</span>
+                <h2 class="section-title">O Que Pode Desmonetizar / Conteúdo Proibido</h2>
+            </div>
+
+            <div class="warning-box">
+                <h4 class="warning-title">&#9888; ATENÇÃO: O Facebook é MAIS restritivo que o YouTube</h4>
+                <p>Enquanto o YouTube pode apenas limitar ads em vídeos específicos, o Facebook pode desmonetizar a PÁGINA INTEIRA por violações. Uma infração grave pode remover a monetização de todo o seu conteúdo.</p>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">20 Tipos de Conteúdo Proibido para Monetização</h3>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Tipo de Conteúdo</th>
+                                <th>Risco</th>
+                                <th>Consequência</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1</td>
+                                <td>Slideshow estático (imagens paradas + narração)</td>
+                                <td><span class="tag tag-c">CRÍTICO</span></td>
+                                <td>Desmonetização imediata</td>
+                            </tr>
+                            <tr>
+                                <td>2</td>
+                                <td>Conteúdo copiado/repostado de outros</td>
+                                <td><span class="tag tag-c">CRÍTICO</span></td>
+                                <td>Ban de monetização</td>
+                            </tr>
+                            <tr>
+                                <td>3</td>
+                                <td>Marcas d'água de outras plataformas</td>
+                                <td><span class="tag tag-c">CRÍTICO</span></td>
+                                <td>Penalização de alcance</td>
+                            </tr>
+                            <tr>
+                                <td>4</td>
+                                <td>Violência explícita/gráfica</td>
+                                <td><span class="tag tag-c">CRÍTICO</span></td>
+                                <td>Remoção + strike</td>
+                            </tr>
+                            <tr>
+                                <td>5</td>
+                                <td>Discurso de ódio</td>
+                                <td><span class="tag tag-c">CRÍTICO</span></td>
+                                <td>Ban permanente</td>
+                            </tr>
+                            <tr>
+                                <td>6</td>
+                                <td>Desinformação / fake news</td>
+                                <td><span class="tag tag-c">CRÍTICO</span></td>
+                                <td>Redução drástica de alcance</td>
+                            </tr>
+                            <tr>
+                                <td>7</td>
+                                <td>Conteúdo sexual/sugestivo</td>
+                                <td><span class="tag tag-c">CRÍTICO</span></td>
+                                <td>Ban imediato</td>
+                            </tr>
+                            <tr>
+                                <td>8</td>
+                                <td>Clickbait exagerado</td>
+                                <td><span class="tag tag-b">ALTO</span></td>
+                                <td>Redução de distribuição</td>
+                            </tr>
+                            <tr>
+                                <td>9</td>
+                                <td>Engagement bait ("marque um amigo")</td>
+                                <td><span class="tag tag-b">ALTO</span></td>
+                                <td>Penalização algorítmica</td>
+                            </tr>
+                            <tr>
+                                <td>10</td>
+                                <td>Conteúdo de baixa qualidade</td>
+                                <td><span class="tag tag-b">ALTO</span></td>
+                                <td>Alcance reduzido</td>
+                            </tr>
+                            <tr>
+                                <td>11</td>
+                                <td>Spam/postagem excessiva idêntica</td>
+                                <td><span class="tag tag-b">ALTO</span></td>
+                                <td>Shadow ban</td>
+                            </tr>
+                            <tr>
+                                <td>12</td>
+                                <td>Conteúdo infantil sem supervisão</td>
+                                <td><span class="tag tag-b">ALTO</span></td>
+                                <td>Escrutínio regulatório COPPA</td>
+                            </tr>
+                            <tr>
+                                <td>13</td>
+                                <td>Drogas/substâncias ilegais</td>
+                                <td><span class="tag tag-c">CRÍTICO</span></td>
+                                <td>Ban permanente</td>
+                            </tr>
+                            <tr>
+                                <td>14</td>
+                                <td>Armas de fogo (venda/promoção)</td>
+                                <td><span class="tag tag-c">CRÍTICO</span></td>
+                                <td>Remoção imediata</td>
+                            </tr>
+                            <tr>
+                                <td>15</td>
+                                <td>Jogos de azar não regulados</td>
+                                <td><span class="tag tag-b">ALTO</span></td>
+                                <td>Restrição de monetização</td>
+                            </tr>
+                            <tr>
+                                <td>16</td>
+                                <td>Conteúdo político extremo</td>
+                                <td><span class="tag tag-b">ALTO</span></td>
+                                <td>Redução de distribuição</td>
+                            </tr>
+                            <tr>
+                                <td>17</td>
+                                <td>Tragédias/desastres sensacionalistas</td>
+                                <td><span class="tag tag-b">ALTO</span></td>
+                                <td>Desmonetização do vídeo</td>
+                            </tr>
+                            <tr>
+                                <td>18</td>
+                                <td>Áudio/música sem licença</td>
+                                <td><span class="tag tag-a">MÉDIO</span></td>
+                                <td>Mute ou remoção</td>
+                            </tr>
+                            <tr>
+                                <td>19</td>
+                                <td>Logos/marcas sem autorização</td>
+                                <td><span class="tag tag-a">MÉDIO</span></td>
+                                <td>Claim possível</td>
+                            </tr>
+                            <tr>
+                                <td>20</td>
+                                <td>Conteúdo repetitivo sem valor</td>
+                                <td><span class="tag tag-b">ALTO</span></td>
+                                <td>Alcance reduzido progressivamente</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Facebook vs YouTube: Comparação de Políticas</h3>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Aspecto</th>
+                                <th>YouTube</th>
+                                <th>Facebook</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="highlight">Desmonetização</td>
+                                <td>Por vídeo individual</td>
+                                <td>Por PÁGINA inteira</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Slideshows</td>
+                                <td>Permitido com restrições</td>
+                                <td>PROIBIDO para monetização</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Conteúdo IA</td>
+                                <td>Permitido (disclosure recomendado)</td>
+                                <td>Permitido se DINÂMICO</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Repost/Compilações</td>
+                                <td>Possível com fair use</td>
+                                <td>Muito mais restritivo</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Apelação</td>
+                                <td>Processo claro de apelação</td>
+                                <td>Processo vago e lento</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Recuperação</td>
+                                <td>Relativamente rápida</td>
+                                <td>Pode ser permanente</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="highlight-box">
+                <p><strong>Regra de ouro:</strong> quando em dúvida, NÃO poste. É muito mais difícil recuperar monetização no Facebook do que no YouTube. Prevenir é infinitamente melhor que remediar.</p>
+            </div>
+        </section>
+
+        <!-- ==================== SECTION 10 ==================== -->
+        <section id="multiplas-paginas" class="section">
+            <div class="section-header">
+                <span class="section-number">10</span>
+                <h2 class="section-title">Múltiplas Páginas: Isolamento e Estrutura</h2>
+            </div>
+
+            <div class="highlight-box">
+                <p><strong>Princípio fundamental:</strong> Cada página = 1 nicho = 1 identidade visual = 1 voz. O Facebook monitora conexões entre páginas do mesmo administrador. Diversificar é bom, mas com isolamento adequado.</p>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">4</div>
+                    <div class="stat-label">CNPJs Disponíveis</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value blue">3-4</div>
+                    <div class="stat-label">Páginas Iniciais</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value warning">1:1</div>
+                    <div class="stat-label">Página por Nicho</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value purple">&#8734;</div>
+                    <div class="stat-label">Escalabilidade Futura</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Estrutura de Isolamento</h3>
+                <ul class="checklist">
+                    <li>Usar os 4 CNPJs para distribuir páginas entre diferentes Business Managers</li>
+                    <li>Cada Business Manager deve ter páginas de nichos distintos</li>
+                    <li>Meta Business Suite para gerenciamento centralizado (mas contas separadas)</li>
+                    <li>Domínios e e-mails diferentes por Business Manager</li>
+                    <li>NUNCA publicar o mesmo conteúdo entre páginas do Facebook</li>
+                    <li>Proxies e ambientes isolados (mesma lógica do YouTube)</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Estratégia de Fases</h3>
+
+                <div class="phase-card">
+                    <div class="phase-header">
+                        <div class="phase-title">Fase 1: Fundação</div>
+                        <div class="phase-timeline">Meses 1-3</div>
+                    </div>
+                    <ul class="phase-items">
+                        <li>Criar 3-4 páginas em nichos diferentes (1 por CNPJ principal)</li>
+                        <li>Focar em crescimento: Reels diários + Facebook Ads</li>
+                        <li>Meta: atingir 5.000 seguidores por página</li>
+                        <li>Investimento: $5-10/dia por página em ads</li>
+                        <li>Conteúdo: adaptar vídeos do YouTube + criar Reels originais</li>
+                    </ul>
+                </div>
+
+                <div class="phase-card">
+                    <div class="phase-header">
+                        <div class="phase-title">Fase 2: Monetização</div>
+                        <div class="phase-timeline">Meses 3-6</div>
+                    </div>
+                    <ul class="phase-items">
+                        <li>Atingir 10.000 seguidores nas primeiras páginas</li>
+                        <li>Aplicar para Content Monetization Program</li>
+                        <li>Começar a publicar vídeos longos (5-8 min) para mid-roll</li>
+                        <li>Testar diferentes formatos e horários</li>
+                        <li>Meta: primeira receita de monetização</li>
+                    </ul>
+                </div>
+
+                <div class="phase-card">
+                    <div class="phase-header">
+                        <div class="phase-title">Fase 3: Escala</div>
+                        <div class="phase-timeline">Meses 6-12</div>
+                    </div>
+                    <ul class="phase-items">
+                        <li>Escalar para 6-8 páginas total</li>
+                        <li>Otimizar CPM por GEO (focar em audiência EN)</li>
+                        <li>Automatizar agendamento e produção</li>
+                        <li>Meta: receita estável e crescente</li>
+                        <li>Avaliar novos nichos baseado em performance</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="warning-box">
+                <h4 class="warning-title">&#9888; Risco de Vinculação</h4>
+                <p>O Facebook pode vincular páginas administradas pela mesma pessoa/empresa. Se uma página violar políticas severamente, outras páginas vinculadas podem ser afetadas. O isolamento via CNPJs diferentes e Business Managers separados minimiza este risco, mas não o elimina completamente.</p>
+            </div>
+        </section>
+
+        <!-- ==================== SECTION 11 ==================== -->
+        <section id="automacao" class="section">
+            <div class="section-header">
+                <span class="section-number">11</span>
+                <h2 class="section-title">Super Social Media IA</h2>
+            </div>
+
+            <div class="warning-box info">
+                <h4 class="warning-title">&#8505; Status: Roadmap para Desenvolvimento</h4>
+                <p>Esta seção é um <strong>NORTE</strong> — um roadmap detalhado para ser desenvolvido com o sócio dev. O conceito já está mapeado e as ferramentas existem. O que falta é integrar tudo num agente autônomo coeso. As primeiras semanas serão de calibração.</p>
+            </div>
+
+            <!-- ===== BLOCO 1: O CONCEITO ===== -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">5-10</div>
+                    <div class="stat-label">Páginas Simultâneas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value blue">$18-46</div>
+                    <div class="stat-label">Custo Mensal Total</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value warning">24/7</div>
+                    <div class="stat-label">Operando Sem Parar</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value purple">100%</div>
+                    <div class="stat-label">Autônomo</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">O Conceito: Super Social Media IA</h3>
+                <p style="margin-bottom: 1rem; color: var(--text-secondary);">Um <strong>agente IA autônomo</strong> (OpenClaw) com acesso completo a um computador que vai <strong>SER</strong> o social media de todas as nossas páginas Facebook. Ele não é uma ferramenta que a gente usa — ele é autônomo. Ele decide, cria, posta, engaja e aprende sozinho.</p>
+                <p style="margin-bottom: 1rem; color: var(--text-secondary);">Imagine um social media profissional que gerencia 5-10 páginas de nichos diferentes simultaneamente, trabalha 24 horas por dia, nunca tira férias, e fica mais inteligente a cada semana. Esse é o OpenClaw.</p>
+
+                <div class="highlight-box">
+                    <p><strong>Segurança:</strong> O OpenClaw <strong>NUNCA</strong> toca diretamente no Facebook. Ele usa ferramentas intermediárias (Mixpost/n8n) que postam via <strong>API oficial da Meta</strong> = sem risco de ban. Para o Facebook, quem está postando é o Mixpost — uma ferramenta de negócios legítima. O OpenClaw está nos bastidores orquestrando tudo.</p>
+                </div>
+            </div>
+
+            <!-- ===== BLOCO 2: O ARSENAL ===== -->
+            <div class="card">
+                <h3 class="card-title">O Arsenal: Ferramentas e Custos</h3>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Função</th>
+                                <th>Ferramenta</th>
+                                <th>O Que Faz</th>
+                                <th>Custo/Mês</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="highlight">Cérebro</td>
+                                <td>OpenClaw</td>
+                                <td>Orquestra tudo, toma decisões, memória persistente</td>
+                                <td style="color: var(--accent-primary); font-family: 'JetBrains Mono', monospace;">$0</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">IA Rápida</td>
+                                <td>Gemini 2.0 Flash</td>
+                                <td>Captions, planejamento, decisões rápidas</td>
+                                <td style="color: var(--accent-primary); font-family: 'JetBrains Mono', monospace;">~$7</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">IA Analítica</td>
+                                <td>DeepSeek R1</td>
+                                <td>Relatórios, estratégia, otimização</td>
+                                <td style="color: var(--accent-primary); font-family: 'JetBrains Mono', monospace;">~$2-4</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Visuais</td>
+                                <td>NanoBanana</td>
+                                <td>Imagens e carousels profissionais via API Google</td>
+                                <td style="color: var(--accent-primary); font-family: 'JetBrains Mono', monospace;">~$5-15</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Postagem</td>
+                                <td>Mixpost (self-hosted)</td>
+                                <td>Posta no Facebook via API oficial Meta</td>
+                                <td style="color: var(--accent-primary); font-family: 'JetBrains Mono', monospace;">$0</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Automações</td>
+                                <td>n8n (self-hosted)</td>
+                                <td>Workflows, comentários, integrações</td>
+                                <td style="color: var(--accent-primary); font-family: 'JetBrains Mono', monospace;">$0</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Servidor</td>
+                                <td>VPS Hetzner</td>
+                                <td>Roda tudo 24/7</td>
+                                <td style="color: var(--accent-primary); font-family: 'JetBrains Mono', monospace;">~$5-10</td>
+                            </tr>
+                            <tr style="background: rgba(0, 212, 170, 0.05);">
+                                <td class="highlight" style="font-weight: 700;">TOTAL</td>
+                                <td></td>
+                                <td></td>
+                                <td style="color: var(--accent-primary); font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 1.1rem;">$18-46</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="highlight-box" style="margin-top: 1.5rem;">
+                    <p><strong>Por que Gemini e DeepSeek em vez de Claude?</strong> Custo. Gemini 2.0 Flash é <strong>87% mais barato</strong> que Claude para tarefas de escrita (captions, planejamento). DeepSeek R1 é <strong>93% mais barato</strong> para tarefas analíticas (relatórios, otimização). O OpenClaw orquestra — ele decide qual IA usar para cada tarefa, otimizando custo vs qualidade automaticamente.</p>
+                </div>
+            </div>
+
+            <!-- ===== BLOCO 3: O DIA A DIA ===== -->
+            <div class="card">
+                <h3 class="card-title">O Dia a Dia: Como Ele Opera</h3>
+                <p style="margin-bottom: 1.5rem; color: var(--text-secondary);">A rotina completa do agente em 6 fases diárias — o coração da automação:</p>
+
+                <div class="phase-card">
+                    <div class="phase-header">
+                        <div class="phase-title">Fase 1 — Análise &amp; Inteligência</div>
+                        <div class="phase-timeline">06:00</div>
+                    </div>
+                    <ul class="phase-items">
+                        <li>Puxa métricas de TODAS as páginas (views, engagement, crescimento)</li>
+                        <li>Identifica: qual post viralizou? Qual formato funcionou? Qual horário rendeu mais?</li>
+                        <li>Espia concorrência: analisa páginas similares do nicho, detecta tendências</li>
+                        <li>Atualiza sua base de conhecimento com o que aprendeu</li>
+                        <li>Gera insight: <em>"Página Astrologia: posts com infográficos tiveram 3x mais shares"</em></li>
+                    </ul>
+                </div>
+
+                <div class="phase-card">
+                    <div class="phase-header">
+                        <div class="phase-title">Fase 2 — Planejamento &amp; Estratégia</div>
+                        <div class="phase-timeline">07:00</div>
+                    </div>
+                    <ul class="phase-items">
+                        <li>Para CADA página, consulta: nicho, voz, calendário, o que já postou, o que funcionou</li>
+                        <li>Decide os conteúdos do dia: tipos (imagem, carousel, vídeo, texto), temas, tons</li>
+                        <li>Evita repetição — verifica posts das últimas 2 semanas</li>
+                        <li>Varia formatos: segunda carousel, terça vídeo, quarta post com imagem...</li>
+                        <li>Exemplo: Página Mentalidade &#8594; carousel "5 Hábitos Matinais" / Página Religião &#8594; vídeo motivacional da pasta</li>
+                    </ul>
+                </div>
+
+                <div class="phase-card">
+                    <div class="phase-header">
+                        <div class="phase-title">Fase 3 — Criação de Conteúdo</div>
+                        <div class="phase-timeline">08:00-10:00</div>
+                    </div>
+                    <ul class="phase-items">
+                        <li><strong>Imagens e Carousels:</strong> NanoBanana gera via API (4K, texto preciso, consistente)</li>
+                        <li><strong>Captions:</strong> Gemini escreve em inglês otimizado para o nicho e audiência US</li>
+                        <li><strong>Vídeos:</strong> pega da pasta de cada página (vídeos já produzidos pelo pipeline IA)</li>
+                        <li><strong>Hashtags e CTAs:</strong> otimizados por nicho e tendência atual</li>
+                        <li><strong>Auto-review:</strong> verifica se não viola políticas do Facebook antes de aprovar</li>
+                    </ul>
+                </div>
+
+                <div class="phase-card">
+                    <div class="phase-header">
+                        <div class="phase-title">Fase 4 — Agendamento &amp; Publicação</div>
+                        <div class="phase-timeline">10:00-11:00</div>
+                    </div>
+                    <ul class="phase-items">
+                        <li>Envia tudo pro Mixpost &#8594; Mixpost programa nos horários de pico</li>
+                        <li>Cada página tem horários DIFERENTES (baseado em dados reais de audiência)</li>
+                        <li>Espaça publicações para parecer orgânico e natural</li>
+                        <li>1-3 posts/dia por página (varia conforme a página e o dia)</li>
+                        <li>Mixpost publica automaticamente via API oficial — Facebook vê como ferramenta empresarial legítima</li>
+                    </ul>
+                </div>
+
+                <div class="phase-card">
+                    <div class="phase-header">
+                        <div class="phase-title">Fase 5 — Engajamento &amp; Comunidade</div>
+                        <div class="phase-timeline">Ao longo do dia</div>
+                    </div>
+                    <ul class="phase-items">
+                        <li>Monitora comentários novos em TODAS as páginas</li>
+                        <li>Gera respostas contextualizadas e personalizadas (na voz da página)</li>
+                        <li>Para comentários simples: responde de forma natural e humana</li>
+                        <li>Para comentários importantes/polêmicos: flagga para revisão humana</li>
+                        <li>Curte comentários relevantes para aumentar engajamento</li>
+                        <li>Responde perguntas frequentes automaticamente</li>
+                        <li><strong>Não parece bot</strong> — cada resposta é única e contextual</li>
+                    </ul>
+                </div>
+
+                <div class="phase-card">
+                    <div class="phase-header">
+                        <div class="phase-title">Fase 6 — Relatório &amp; Auto-Aprendizado</div>
+                        <div class="phase-timeline">23:00</div>
+                    </div>
+                    <ul class="phase-items">
+                        <li>Compila relatório de TODAS as páginas: métricas, comparativos, ranking</li>
+                        <li>Mostra: qual página cresceu mais, qual post viralizou, o que falhou</li>
+                        <li>Auto-aprende: atualiza suas regras internas baseado no que funcionou</li>
+                        <li>Ajusta estratégia de amanhã automaticamente</li>
+                        <li>Semanal: relatório detalhado comparando semanas</li>
+                        <li>Mensal: relatório executivo de performance geral</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- ===== BLOCO 4: MULTI-PÁGINA ===== -->
+            <div class="card">
+                <h3 class="card-title">Multi-Página: 5-10 Nichos ao Mesmo Tempo</h3>
+                <p style="margin-bottom: 1rem; color: var(--text-secondary);">Exemplo prático de 5 páginas operando simultaneamente:</p>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Página</th>
+                                <th>Nicho</th>
+                                <th>Conteúdo Diário</th>
+                                <th>Voz/Tom</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="highlight">MindsetDaily</td>
+                                <td>Mentalidade/Motivação</td>
+                                <td>Carousels + Citações + Vídeos</td>
+                                <td><span class="tag tag-s">Inspirador, direto</span></td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">CosmicSigns</td>
+                                <td>Astrologia</td>
+                                <td>Horóscopo visual + Carousels</td>
+                                <td><span class="tag tag-lang">Místico, envolvente</span></td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">FaithJourney</td>
+                                <td>Religião/Espiritualidade</td>
+                                <td>Vídeos + Posts reflexivos</td>
+                                <td><span class="tag tag-a">Acolhedor, profundo</span></td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">WarStories</td>
+                                <td>Guerras/Civilizações</td>
+                                <td>Vídeos documentários + Timeline</td>
+                                <td><span class="tag tag-c">Educativo, dramático</span></td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">SleepWell</td>
+                                <td>Meditação/Sono</td>
+                                <td>Imagens zen + Vídeos relaxantes</td>
+                                <td><span class="tag tag-b">Calmo, suave</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p style="margin-top: 1.5rem; margin-bottom: 0.75rem; color: var(--text-primary); font-weight: 600;">Como o isolamento funciona:</p>
+                <ul class="checklist">
+                    <li>Cada página = memória separada, personalidade, calendário, regras</li>
+                    <li>O agente "veste" uma persona diferente para cada página</li>
+                    <li>Conteúdos nunca se misturam entre páginas</li>
+                    <li>Aprende individualmente: o que funciona em Astrologia &#8800; Guerras</li>
+                </ul>
+
+                <p style="margin-top: 1.5rem; margin-bottom: 0.75rem; color: var(--text-primary); font-weight: 600;">Como escala:</p>
+                <ul class="checklist">
+                    <li>As mesmas 6 fases diárias rodam para CADA página</li>
+                    <li>Tudo via API (não browser manual) — 1 página e 10 levam quase o mesmo tempo</li>
+                    <li>O Mixpost gerencia todas as contas simultâneas</li>
+                    <li>O gargalo é a criação de conteúdo, não a publicação</li>
+                </ul>
+            </div>
+
+            <!-- ===== BLOCO 5: AUTO-APRENDIZADO ===== -->
+            <div class="card">
+                <h3 class="card-title">O Auto-Aprendizado: Como Ele Fica Mais Inteligente</h3>
+                <ul class="checklist">
+                    <li><strong>Memória persistente:</strong> tudo que aprende fica salvo permanentemente</li>
+                    <li><strong>Detecta padrões:</strong> "carousels de 5 slides performam 40% melhor nesta página"</li>
+                    <li><strong>Aplica em tempo real:</strong> ajusta formatos, horários, tons de voz</li>
+                    <li><strong>Monitora concorrência:</strong> vê o que funciona em outras páginas similares</li>
+                    <li><strong>Testa hipóteses:</strong> A/B test natural (alterna formatos e mede resultado)</li>
+                    <li><strong>Evolução contínua:</strong> a cada semana fica mais eficiente — as primeiras semanas são de calibração</li>
+                </ul>
+            </div>
+
+            <!-- ===== BLOCO 6: LIMITES E CUIDADOS ===== -->
+            <div class="card">
+                <h3 class="card-title">O Que Respeitar: Limites e Cuidados</h3>
+
+                <div class="warning-box">
+                    <h4 class="warning-title">&#9888; O Que Ele NUNCA Faz</h4>
+                    <p><strong>Acesso direto ao Facebook via browser</strong> — sempre via API oficial (Mixpost/n8n). <strong>Spam ou engagement bait</strong> — respeita limites de frequência e políticas da Meta. <strong>Conteúdo sem review de compliance</strong> — auto-verifica antes de postar. <strong>Decisões irreversíveis sozinho</strong> — mudanças grandes são flaggadas para humano.</p>
+                </div>
+
+                <p style="margin-top: 1.5rem; margin-bottom: 0.75rem; color: var(--text-primary); font-weight: 600;">Checklist de segurança:</p>
+                <ul class="checklist">
+                    <li>VPS atualizado e com firewall configurado</li>
+                    <li>Skills do OpenClaw verificadas e limitadas ao necessário</li>
+                    <li>Tokens de API isolados por página/conta</li>
+                    <li>Logs completos de todas as ações para auditoria</li>
+                    <li>Backup automático da memória e configurações</li>
+                </ul>
+
+                <p style="margin-top: 1.5rem; margin-bottom: 0.75rem; color: var(--text-primary); font-weight: 600;">O que ainda precisa de humano:</p>
+                <ul class="checklist">
+                    <li>Decisões editoriais grandes (mudar nicho, tom, estratégia)</li>
+                    <li>Crises e controvérsias (comentários polêmicos, denúncias)</li>
+                    <li>Mudanças na política da Meta (adaptar regras do agente)</li>
+                    <li>Onboarding de novas páginas (configuração inicial de persona e nicho)</li>
+                </ul>
+            </div>
+
+            <!-- ===== REFERÊNCIAS ===== -->
+            <div class="card" style="border-color: rgba(151, 117, 250, 0.3);">
+                <h3 class="card-title" style="color: var(--accent-purple);">Referências desta Seção</h3>
+                <div class="table-responsive">
+                    <table class="data-table" style="font-size: 0.85rem;">
+                        <thead>
+                            <tr>
+                                <th>Categoria</th>
+                                <th>Ferramenta/Conceito</th>
+                                <th>O Que Baseia</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="highlight">Agente IA</td>
+                                <td>OpenClaw (open-source)</td>
+                                <td>Framework de agente autônomo com acesso a computador. Orquestra ferramentas, memória persistente, decisões autônomas.</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">IA Generativa</td>
+                                <td>Gemini 2.0 Flash / DeepSeek R1</td>
+                                <td>Modelos de linguagem otimizados para custo. Gemini para escrita rápida, DeepSeek para análise profunda.</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Geração Visual</td>
+                                <td>NanoBanana</td>
+                                <td>Geração de imagens e carousels via API Google. Qualidade 4K, texto preciso em imagens.</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Publicação</td>
+                                <td>Mixpost (self-hosted)</td>
+                                <td>Plataforma open-source de social media. Posta via API oficial da Meta — aceito como ferramenta empresarial.</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Automação</td>
+                                <td>n8n (self-hosted)</td>
+                                <td>Plataforma de workflows open-source. Gerencia comentários, integrações, webhooks.</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Infraestrutura</td>
+                                <td>VPS Hetzner</td>
+                                <td>Servidor europeu com boa relação custo/performance. Roda Mixpost + n8n + OpenClaw 24/7.</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">API Oficial</td>
+                                <td>Meta Graph API</td>
+                                <td>API oficial da Meta para postagem, métricas e gerenciamento de páginas. Base do Mixpost.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== SECTION 12 ==================== -->
+        <section id="resumo" class="section">
+            <div class="section-header">
+                <span class="section-number">12</span>
+                <h2 class="section-title">Resumo Executivo para Sócios</h2>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">$500-2K</div>
+                    <div class="stat-label">Receita Mensal Meta 6 meses</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value blue">$15-60</div>
+                    <div class="stat-label">Investimento Diário Ads</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value warning">1-3</div>
+                    <div class="stat-label">Meses até ROI (com ads)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value purple">6-8</div>
+                    <div class="stat-label">Páginas Meta Ano 1</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Tabela-Resumo de Requisitos</h3>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Requisito</th>
+                                <th>Status</th>
+                                <th>Prazo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="highlight">Seguidores por página</td>
+                                <td>10.000</td>
+                                <td>A construir</td>
+                                <td>30-60 dias com ads</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Watch time</td>
+                                <td>600K min (10.000h) em 60 dias</td>
+                                <td>A construir — GARGALO</td>
+                                <td>30-90 dias (depende de virais)</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Vídeos publicados</td>
+                                <td>5+ (&gt;1 min cada)</td>
+                                <td>Rápido</td>
+                                <td>1 semana</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Conta ativa</td>
+                                <td>30 dias</td>
+                                <td>Automático</td>
+                                <td>1 mês</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">CNPJs</td>
+                                <td>4 disponíveis</td>
+                                <td>&#10003; Pronto</td>
+                                <td>Imediato</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Conteúdo (YouTube)</td>
+                                <td>Pipeline existente</td>
+                                <td>&#10003; Pronto</td>
+                                <td>Adaptação 1-2 semanas</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Ads budget</td>
+                                <td>$5-20/dia por página</td>
+                                <td>A definir</td>
+                                <td>Início imediato</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Investimento Necessário</h3>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Custo Mensal</th>
+                                <th>Observação</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="highlight">Facebook Ads (3-4 páginas)</td>
+                                <td>$450-$1.200</td>
+                                <td>$5-10/dia por página</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Ferramentas (Buffer/Hootsuite)</td>
+                                <td>$0-50</td>
+                                <td>Meta Business Suite é gratuito</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Produção de conteúdo</td>
+                                <td>$0 (IA)</td>
+                                <td>Usando pipeline existente</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Tempo de gestão</td>
+                                <td>2-3 horas/dia</td>
+                                <td>Curadoria + monitoramento</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight"><strong>Total estimado</strong></td>
+                                <td><strong>$450-$1.250/mês</strong></td>
+                                <td>Retorno esperado em 1-3 meses</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Projeção de Ganhos por Fase</h3>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Fase</th>
+                                <th>Timeline</th>
+                                <th>Páginas Ativas</th>
+                                <th>Receita Estimada/Mês</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="highlight">Fundação</td>
+                                <td>Meses 1-3</td>
+                                <td>3-4 páginas</td>
+                                <td>$0 (investimento)</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Monetização</td>
+                                <td>Meses 3-6</td>
+                                <td>3-4 monetizadas</td>
+                                <td>$500-$2.000</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Escala</td>
+                                <td>Meses 6-12</td>
+                                <td>6-8 monetizadas</td>
+                                <td>$2.000-$8.000</td>
+                            </tr>
+                            <tr>
+                                <td class="highlight">Maturidade</td>
+                                <td>Meses 12+</td>
+                                <td>8+ otimizadas</td>
+                                <td>$5.000-$15.000+</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Riscos vs Oportunidades</h3>
+                <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 300px;">
+                        <div class="warning-box">
+                            <h4 class="warning-title">Riscos</h4>
+                            <p>&#8226; Políticas mais restritivas que YouTube</p>
+                            <p>&#8226; Desmonetização pode afetar página inteira</p>
+                            <p>&#8226; CPM geralmente menor que YouTube</p>
+                            <p>&#8226; Algoritmo imprevisível e em constante mudança</p>
+                            <p>&#8226; Dependência de ads para crescimento inicial</p>
+                        </div>
+                    </div>
+                    <div style="flex: 1; min-width: 300px;">
+                        <div class="highlight-box">
+                            <p><strong>Oportunidades</strong></p>
+                            <p>&#8226; Reutilização de conteúdo já produzido para YouTube</p>
+                            <p>&#8226; Audiência massiva (3B+ usuários ativos)</p>
+                            <p>&#8226; Baixa concorrência em nichos específicos (PT-PT)</p>
+                            <p>&#8226; Pipeline de IA já construído e funcional</p>
+                            <p>&#8226; Diversificação de receita (não depender só do YouTube)</p>
+                            <p>&#8226; Potencial de escala com múltiplas páginas</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Vantagens Competitivas do Time</h3>
+                <ul class="checklist">
+                    <li>Pipeline de produção com IA já funcional e testado</li>
+                    <li>4 CNPJs para diversificação de páginas</li>
+                    <li>Experiência comprovada no YouTube (mesma lógica de conteúdo)</li>
+                    <li>Infraestrutura técnica (servidores, automação, scheduling)</li>
+                    <li>Múltiplos nichos já pesquisados e validados</li>
+                    <li>Capacidade de produzir conteúdo em múltiplos idiomas</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3 class="card-title">Plano de Ação Imediato</h3>
+                <ol class="step-list">
+                    <li class="step-item"><span class="step-text"><strong>SEMANA 1-2:</strong> Criar 3-4 páginas no Facebook em nichos estratégicos (Motivacional EN, Finanças EN, História/Civilizações EN, Fé/Espiritualidade PT-PT)</span></li>
+                    <li class="step-item"><span class="step-text"><strong>SEMANA 2-4:</strong> Adaptar primeiros vídeos do YouTube para Facebook. Começar publicação diária (1 vídeo + 2 Reels mínimo). Ativar Facebook Ads ($5-10/dia por página)</span></li>
+                    <li class="step-item"><span class="step-text"><strong>MÊS 2-3:</strong> Avaliar métricas e ajustar estratégia. Escalar investimento em ads para páginas com melhor performance. Atingir 5.000 seguidores nas primeiras páginas</span></li>
+                    <li class="step-item"><span class="step-text"><strong>MÊS 3-6:</strong> Aplicar para monetização nas páginas que atingirem 10.000 seguidores. Começar publicação de vídeos longos (5-8 min) para mid-roll. Primeira receita de monetização</span></li>
+                </ol>
+            </div>
+
+            <div class="highlight-box">
+                <p>O Facebook representa uma oportunidade significativa de diversificação. Com o conteúdo e infraestrutura que já temos do YouTube, o custo marginal de entrada é baixo. O investimento principal é tempo + ads para crescimento. Em 6 meses, projetamos receita estável de $2.000-$8.000/mês com 6-8 páginas monetizadas.</p>
+            </div>
+        </section>
+
+    <footer class="footer">
+        <p>DNA Content Factory — Guia de Monetização Facebook v1.0</p>
+        <p style="margin-top: 0.5rem;">Documento interno — Fevereiro 2026</p>
+        <p style="margin-top: 1.5rem; font-size: 0.75rem; color: var(--text-muted);">
+            Fontes:
+            <a href="https://publisherinabox.com/how-to-get-approved-for-content-monetization-program-and-earn-up-to-35k-month/" target="_blank" style="color: var(--text-muted);">PublisherInABox</a> ·
+            <a href="https://actionsprout.com/blog/facebook-monetization-requirements/" target="_blank" style="color: var(--text-muted);">ActionSprout</a> ·
+            <a href="https://metricool.com/monetize-facebook-account/" target="_blank" style="color: var(--text-muted);">Metricool</a> ·
+            <a href="https://www.epidemicsound.com/blog/how-to-monetize-facebook/" target="_blank" style="color: var(--text-muted);">Epidemic Sound</a> ·
+            <a href="https://supliful.com/blog/facebook-monetization-requirements" target="_blank" style="color: var(--text-muted);">Supliful</a>
+        </p>
+    </footer>
+</div><script>
+    // Toggle sidebar open/close
+    function toggleSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.querySelector('.sidebar-overlay');
+        const toggle = document.querySelector('.sidebar-toggle');
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+        toggle.classList.toggle('active');
+    }
+
+    // Close sidebar
+    function closeSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.querySelector('.sidebar-overlay');
+        const toggle = document.querySelector('.sidebar-toggle');
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+        toggle.classList.remove('active');
+    }
+
+    // Close sidebar on escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeSidebar();
+        }
+    });
+
+    // Scroll Spy - highlight active section in sidebar
+    const sections = document.querySelectorAll('.section[id]');
+    const sidebarSections = document.querySelectorAll('.sidebar-section');
+
+    function updateActiveSection() {
+        const scrollPosition = window.scrollY + 150;
+
+        let currentSection = null;
+
+        sections.forEach(section => {
+            const sectionTop = section.offsetTop;
+            const sectionHeight = section.offsetHeight;
+            if (scrollPosition >= sectionTop && scrollPosition < sectionTop + sectionHeight) {
+                currentSection = section.getAttribute('id');
+            }
+        });
+
+        if (currentSection) {
+            sidebarSections.forEach(sidebarSection => {
+                sidebarSection.classList.remove('active');
+                const link = sidebarSection.querySelector('a');
+                if (link && link.getAttribute('href') === '#' + currentSection) {
+                    sidebarSection.classList.add('active');
+                }
+            });
+        }
+    }
+
+    // Throttled scroll listener
+    let ticking = false;
+    window.addEventListener('scroll', function() {
+        if (!ticking) {
+            window.requestAnimationFrame(function() {
+                updateActiveSection();
+                ticking = false;
+            });
+            ticking = true;
+        }
+    });
+
+    // Run on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        updateActiveSection();
+    });
+
+    // Smooth scroll for sidebar links
+    document.querySelectorAll('.sidebar-section-title').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const targetId = this.getAttribute('href').substring(1);
+            const targetSection = document.getElementById(targetId);
+            if (targetSection) {
+                targetSection.scrollIntoView({ behavior: 'smooth' });
+                closeSidebar();
+            }
+        });
+    });
+</script>
+</body>
+</html>
