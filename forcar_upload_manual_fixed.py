@@ -1,14 +1,13 @@
 """
 Script para FORÇAR upload manual de canais específicos
-VERSÃO CORRIGIDA - Agora salva no banco de dados corretamente
+VERSÃO CORRIGIDA - Upload ilimitado sem sobrescrever + UTC + Histórico
 """
 
 import os
 import sys
 import asyncio
 import argparse
-from datetime import datetime
-import pytz
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from supabase import create_client
 
@@ -30,11 +29,50 @@ except ImportError as e:
     print(f"[ERRO] Não foi possível importar daily_uploader: {e}")
     sys.exit(1)
 
-async def forcar_upload_canal(uploader, canal_nome=None, canal_id=None):
-    """Força upload de um canal específico e SALVA NO BANCO"""
+def adicionar_ao_historico(supabase, channel_id, channel_name, data, status,
+                          video_titulo=None, video_url=None, youtube_video_id=None,
+                          erro_mensagem=None, tentativa_numero=1):
+    """Adiciona registro ao histórico de uploads (sempre INSERT, nunca UPDATE)"""
+    try:
+        historico_data = {
+            'channel_id': channel_id,
+            'channel_name': channel_name,
+            'data': data,
+            'status': status,
+            'tentativa_numero': tentativa_numero,
+            'hora_processamento': datetime.now(timezone.utc).isoformat(),
+            'upload_realizado': (status == 'sucesso')
+        }
 
-    br_tz = pytz.timezone('America/Sao_Paulo')
-    hoje = datetime.now(br_tz).strftime('%Y-%m-%d')
+        # Adicionar campos opcionais
+        if video_titulo:
+            historico_data['video_titulo'] = video_titulo
+        if youtube_video_id:
+            historico_data['youtube_video_id'] = youtube_video_id
+        if video_url:
+            historico_data['video_url'] = video_url
+        if erro_mensagem:
+            historico_data['erro_mensagem'] = erro_mensagem
+
+        # SEMPRE INSERT - para permitir múltiplos uploads por dia
+        result = supabase.table('yt_canal_upload_historico')\
+            .insert(historico_data)\
+            .execute()
+
+        if result.data:
+            print(f"    ✅ Histórico registrado")
+
+    except Exception as e:
+        # Se a tabela não existe, apenas avisa (não quebra o fluxo)
+        if "relation" in str(e) and "does not exist" in str(e):
+            print("    ⚠️ Tabela de histórico ainda não existe")
+        else:
+            print(f"    ❌ Erro ao adicionar ao histórico: {e}")
+
+async def forcar_upload_canal(uploader, canal_nome=None, canal_id=None):
+    """Força upload de um canal específico - PERMITE MÚLTIPLOS UPLOADS POR DIA"""
+
+    hoje = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
     # Criar cliente Supabase com SERVICE_KEY para bypass RLS
     supabase = create_client(SUPABASE_URL, SERVICE_KEY)
@@ -71,23 +109,20 @@ async def forcar_upload_canal(uploader, canal_nome=None, canal_id=None):
         print(f"       Channel ID: {canal['channel_id']}")
         print(f"       Spreadsheet: {canal.get('spreadsheet_id', 'N/A')[:30]}...")
 
-        # Verificar se existe registro para hoje
-        existing = supabase.table('yt_canal_upload_diario').select('*')\
-            .eq('channel_id', canal['channel_id'])\
-            .eq('data', hoje)\
-            .execute()
+        # SEMPRE criar novo registro na tabela diária (não verificar se já existe)
+        # Isso permite múltiplos uploads no mesmo dia
+        print(f"\n[INFO] Criando novo registro de upload...")
+        diario_data = {
+            'channel_id': canal['channel_id'],
+            'channel_name': canal['channel_name'],
+            'data': hoje,
+            'status': 'pendente',
+            'upload_realizado': False,
+            'hora_processamento': datetime.now(timezone.utc).isoformat()
+        }
 
-        if not existing.data:
-            # Criar registro inicial
-            print(f"\n[INFO] Criando registro para hoje...")
-            supabase.table('yt_canal_upload_diario').insert({
-                'channel_id': canal['channel_id'],
-                'channel_name': canal['channel_name'],
-                'data': hoje,
-                'status': 'pendente',
-                'upload_realizado': False,
-                'hora_processamento': datetime.now(br_tz).isoformat()
-            }).execute()
+        # INSERT - sempre criar novo registro
+        supabase.table('yt_canal_upload_diario').insert(diario_data).execute()
 
         # Processar upload
         print(f"\n[INFO] Processando upload...")
@@ -96,45 +131,57 @@ async def forcar_upload_canal(uploader, canal_nome=None, canal_id=None):
         if resultado:
             status = resultado.get('status', 'erro')
 
-            # ATUALIZAR BANCO DE DADOS COM O RESULTADO
-            update_data = {
+            # Preparar dados para atualização
+            novo_data = {
+                'channel_id': canal['channel_id'],
+                'channel_name': canal['channel_name'],
+                'data': hoje,
                 'status': status,
-                'hora_processamento': datetime.now(br_tz).isoformat()
+                'hora_processamento': datetime.now(timezone.utc).isoformat()
             }
 
             if status == 'sucesso':
-                update_data['upload_realizado'] = True
-                update_data['video_titulo'] = resultado.get('video_title', '')
-                update_data['youtube_video_id'] = resultado.get('youtube_video_id', '')
+                novo_data['upload_realizado'] = True
+                novo_data['video_titulo'] = resultado.get('video_title', '')
+                novo_data['youtube_video_id'] = resultado.get('youtube_video_id', '')
 
                 # Construir URL do vídeo
                 video_id = resultado.get('youtube_video_id', '')
                 if video_id:
-                    update_data['video_url'] = f"https://youtube.com/watch?v={video_id}"
+                    novo_data['video_url'] = f"https://youtube.com/watch?v={video_id}"
 
-                # Atualizar no banco
-                supabase.table('yt_canal_upload_diario').update(update_data)\
-                    .eq('channel_id', canal['channel_id'])\
-                    .eq('data', hoje)\
-                    .execute()
+                # INSERIR novo registro (não atualizar)
+                supabase.table('yt_canal_upload_diario').insert(novo_data).execute()
 
-                print(f"[SUCESSO] Upload realizado e SALVO no banco!")
+                # Adicionar ao histórico
+                adicionar_ao_historico(
+                    supabase, canal['channel_id'], canal['channel_name'],
+                    hoje, 'sucesso',
+                    video_titulo=resultado.get('video_title'),
+                    video_url=novo_data.get('video_url'),
+                    youtube_video_id=resultado.get('youtube_video_id')
+                )
+
+                print(f"[SUCESSO] Upload realizado e SALVO!")
                 print(f"          Vídeo: {resultado.get('video_title', 'N/A')}")
                 print(f"          YouTube ID: {resultado.get('youtube_video_id', 'N/A')}")
-                print(f"          Status no banco: sucesso")
+                print(f"          Status: sucesso")
                 return True
 
             elif status == 'sem_video':
-                update_data['upload_realizado'] = False
+                novo_data['upload_realizado'] = False
 
-                # Atualizar no banco
-                supabase.table('yt_canal_upload_diario').update(update_data)\
-                    .eq('channel_id', canal['channel_id'])\
-                    .eq('data', hoje)\
-                    .execute()
+                # INSERIR novo registro
+                supabase.table('yt_canal_upload_diario').insert(novo_data).execute()
+
+                # Adicionar ao histórico
+                adicionar_ao_historico(
+                    supabase, canal['channel_id'], canal['channel_name'],
+                    hoje, 'sem_video'
+                )
 
                 print(f"[AVISO] Nenhum vídeo pronto encontrado na planilha")
-                print(f"        Status no banco: sem_video")
+                print(f"        Status: sem_video")
                 print(f"        Verifique se há vídeos com:")
                 print(f"        - Status = 'done' (minúsculo)")
                 print(f"        - Post = vazio")
@@ -143,17 +190,21 @@ async def forcar_upload_canal(uploader, canal_nome=None, canal_id=None):
                 return False
 
             elif status == 'erro':
-                update_data['upload_realizado'] = False
-                update_data['erro_detalhes'] = resultado.get('erro', 'Erro desconhecido')
+                novo_data['upload_realizado'] = False
+                novo_data['erro_detalhes'] = resultado.get('erro', 'Erro desconhecido')
 
-                # Atualizar no banco
-                supabase.table('yt_canal_upload_diario').update(update_data)\
-                    .eq('channel_id', canal['channel_id'])\
-                    .eq('data', hoje)\
-                    .execute()
+                # INSERIR novo registro
+                supabase.table('yt_canal_upload_diario').insert(novo_data).execute()
+
+                # Adicionar ao histórico
+                adicionar_ao_historico(
+                    supabase, canal['channel_id'], canal['channel_name'],
+                    hoje, 'erro',
+                    erro_mensagem=resultado.get('erro', 'Erro desconhecido')
+                )
 
                 print(f"[ERRO] Falha no upload: {resultado.get('erro', 'Erro desconhecido')}")
-                print(f"       Status no banco: erro")
+                print(f"       Status: erro")
                 return False
 
             else:
@@ -161,13 +212,26 @@ async def forcar_upload_canal(uploader, canal_nome=None, canal_id=None):
                 print(f"       Detalhes: {resultado}")
                 return False
         else:
-            # Atualizar como erro se não houver resultado
-            supabase.table('yt_canal_upload_diario').update({
+            # Se não houver resultado, registrar como erro
+            erro_data = {
+                'channel_id': canal['channel_id'],
+                'channel_name': canal['channel_name'],
+                'data': hoje,
                 'status': 'erro',
                 'upload_realizado': False,
-                'hora_processamento': datetime.now(br_tz).isoformat(),
+                'hora_processamento': datetime.now(timezone.utc).isoformat(),
                 'erro_detalhes': 'Nenhum resultado retornado do processamento'
-            }).eq('channel_id', canal['channel_id']).eq('data', hoje).execute()
+            }
+
+            # INSERIR novo registro
+            supabase.table('yt_canal_upload_diario').insert(erro_data).execute()
+
+            # Adicionar ao histórico
+            adicionar_ao_historico(
+                supabase, canal['channel_id'], canal['channel_name'],
+                hoje, 'erro',
+                erro_mensagem='Nenhum resultado retornado do processamento'
+            )
 
             print(f"[ERRO] Nenhum resultado retornado")
             return False
@@ -175,15 +239,28 @@ async def forcar_upload_canal(uploader, canal_nome=None, canal_id=None):
     except Exception as e:
         print(f"[ERRO] Erro ao processar: {str(e)}")
 
-        # Tentar atualizar banco como erro
+        # Tentar registrar erro
         try:
             if canal:
-                supabase.table('yt_canal_upload_diario').update({
+                erro_data = {
+                    'channel_id': canal['channel_id'],
+                    'channel_name': canal['channel_name'],
+                    'data': hoje,
                     'status': 'erro',
                     'upload_realizado': False,
-                    'hora_processamento': datetime.now(br_tz).isoformat(),
+                    'hora_processamento': datetime.now(timezone.utc).isoformat(),
                     'erro_detalhes': str(e)
-                }).eq('channel_id', canal['channel_id']).eq('data', hoje).execute()
+                }
+
+                # INSERIR novo registro
+                supabase.table('yt_canal_upload_diario').insert(erro_data).execute()
+
+                # Adicionar ao histórico
+                adicionar_ao_historico(
+                    supabase, canal['channel_id'], canal['channel_name'],
+                    hoje, 'erro',
+                    erro_mensagem=str(e)
+                )
         except:
             pass
 
@@ -202,8 +279,7 @@ async def main():
 
     if args.todos:
         # Processar todos os canais sem upload
-        br_tz = pytz.timezone('America/Sao_Paulo')
-        hoje = datetime.now(br_tz).strftime('%Y-%m-%d')
+        hoje = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
         # Buscar canais ativos
         canais = uploader.supabase.table('yt_channels')\

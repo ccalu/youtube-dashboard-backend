@@ -21,8 +21,8 @@ class EventCreate(BaseModel):
     description: Optional[str] = None
     event_date: date
     created_by: str
-    category: Optional[str] = None
-    event_type: str = "normal"
+    event_type: str = "normal"  # Movido para ANTES de category
+    category: Optional[str] = None  # Agora vem DEPOIS de event_type
 
     @validator('created_by')
     def validate_author(cls, v):
@@ -35,13 +35,18 @@ class EventCreate(BaseModel):
 
     @validator('category')
     def validate_category(cls, v, values):
-        if 'event_type' in values and values['event_type'] in ['monetization', 'demonetization']:
+        # Pegar event_type com valor padrão se não existir ainda
+        event_type = values.get('event_type', 'normal')
+
+        # Para monetização/desmonetização, categoria DEVE ser None
+        if event_type in ['monetization', 'demonetization']:
             return None
-        # Normalizar entrada se houver valor
+
+        # Para eventos normais, validar categoria se fornecida
         if v:
             v = v.lower().strip()
             if v not in ['geral', 'desenvolvimento', 'financeiro', 'urgente']:
-                raise ValueError('Categoria inválida')
+                raise ValueError('Categoria inválida. Deve ser: geral, desenvolvimento, financeiro ou urgente')
         return v
 
     @validator('event_type')
