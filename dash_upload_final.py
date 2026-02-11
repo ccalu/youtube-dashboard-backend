@@ -981,6 +981,9 @@ def get_status():
                     status = 'sucesso'
                     video_titulo = upload.get('video_titulo')
                     hora_upload = upload.get('hora_processamento') or upload.get('updated_at')
+                    # Adicionar indicador de timezone UTC se não tiver
+                    if hora_upload and not hora_upload.endswith('Z') and '+' not in hora_upload:
+                        hora_upload = hora_upload + '+00:00'
                 elif upload.get('status') == 'sem_video':
                     status = 'sem_video'
                 elif upload.get('erro_mensagem'):

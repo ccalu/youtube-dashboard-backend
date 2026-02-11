@@ -33,20 +33,23 @@ class EventCreate(BaseModel):
             raise ValueError(f'Autor deve ser um de: {valid_authors}')
         return v
 
-    @validator('category')
+    @validator('category', always=True)  # always=True força execução mesmo com None
     def validate_category(cls, v, values):
-        # Pegar event_type com valor padrão se não existir ainda
+        # Pegar event_type (já processado ou valor original)
         event_type = values.get('event_type', 'normal')
 
-        # Para monetização/desmonetização, categoria DEVE ser None
-        if event_type in ['monetization', 'demonetization']:
-            return None
+        # IMPORTANTE: Para monetização/desmonetização, SEMPRE retornar None
+        # Verifica tanto inglês quanto português (caso ainda não traduzido)
+        if event_type in ['monetization', 'demonetization', 'monetizacao', 'desmonetizacao', 'monetização', 'desmonetização']:
+            return None  # Força NULL no banco
 
         # Para eventos normais, validar categoria se fornecida
         if v:
             v = v.lower().strip()
             if v not in ['geral', 'desenvolvimento', 'financeiro', 'urgente']:
                 raise ValueError('Categoria inválida. Deve ser: geral, desenvolvimento, financeiro ou urgente')
+
+        # Se não fornecida, retorna None (não força "geral")
         return v
 
     @validator('event_type')
