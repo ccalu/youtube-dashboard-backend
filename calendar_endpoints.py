@@ -26,6 +26,8 @@ class EventCreate(BaseModel):
 
     @validator('created_by')
     def validate_author(cls, v):
+        # Normalizar entrada (lowercase e remover espaços)
+        v = v.lower().strip() if v else v
         valid_authors = ['cellibs', 'arthur', 'lucca', 'joao']
         if v not in valid_authors:
             raise ValueError(f'Autor deve ser um de: {valid_authors}')
@@ -35,12 +37,17 @@ class EventCreate(BaseModel):
     def validate_category(cls, v, values):
         if 'event_type' in values and values['event_type'] in ['monetization', 'demonetization']:
             return None
-        if v and v not in ['geral', 'desenvolvimento', 'financeiro', 'urgente']:
-            raise ValueError('Categoria inválida')
+        # Normalizar entrada se houver valor
+        if v:
+            v = v.lower().strip()
+            if v not in ['geral', 'desenvolvimento', 'financeiro', 'urgente']:
+                raise ValueError('Categoria inválida')
         return v
 
     @validator('event_type')
     def validate_event_type(cls, v):
+        # Normalizar entrada
+        v = v.lower().strip() if v else 'normal'
         if v not in ['normal', 'monetization', 'demonetization']:
             raise ValueError('Tipo de evento inválido')
         return v

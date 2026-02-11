@@ -44,7 +44,7 @@ class CalendarSystem:
                 end_date = date(year, month + 1, 1) - timedelta(days=1)
 
             # Query base
-            query = self.db.table('calendar_events').select('*')\
+            query = self.db.supabase.table('calendar_events').select('*')\
                 .gte('event_date', start_date.isoformat())\
                 .lte('event_date', end_date.isoformat())\
                 .eq('is_deleted', False)\
@@ -74,7 +74,7 @@ class CalendarSystem:
                 raise ValueError("Data inválida. Use formato: YYYY-MM-DD")
 
             # Buscar eventos
-            response = self.db.table('calendar_events').select('*')\
+            response = self.db.supabase.table('calendar_events').select('*')\
                 .eq('event_date', event_date.isoformat())\
                 .eq('is_deleted', False)\
                 .order('created_at')\
@@ -117,7 +117,7 @@ class CalendarSystem:
                 raise ValueError("Data é obrigatória")
 
             # Inserir no banco
-            response = self.db.table('calendar_events').insert(event_data).execute()
+            response = self.db.supabase.table('calendar_events').insert(event_data).execute()
 
             if response.data:
                 created_event = self._enrich_event(response.data[0])
@@ -133,7 +133,7 @@ class CalendarSystem:
     async def get_event(self, event_id: int):
         """Retorna detalhes de um evento"""
         try:
-            response = self.db.table('calendar_events').select('*')\
+            response = self.db.supabase.table('calendar_events').select('*')\
                 .eq('id', event_id)\
                 .eq('is_deleted', False)\
                 .execute()
@@ -151,7 +151,7 @@ class CalendarSystem:
         """Atualiza evento existente"""
         try:
             # Verificar se evento existe
-            check = self.db.table('calendar_events').select('id')\
+            check = self.db.supabase.table('calendar_events').select('id')\
                 .eq('id', event_id)\
                 .eq('is_deleted', False)\
                 .execute()
@@ -172,7 +172,7 @@ class CalendarSystem:
                 update_data['category'] = None
 
             # Atualizar
-            response = self.db.table('calendar_events')\
+            response = self.db.supabase.table('calendar_events')\
                 .update(update_data)\
                 .eq('id', event_id)\
                 .execute()
@@ -192,7 +192,7 @@ class CalendarSystem:
         """Soft delete - move para lixeira"""
         try:
             # Verificar se evento existe
-            check = self.db.table('calendar_events').select('id')\
+            check = self.db.supabase.table('calendar_events').select('id')\
                 .eq('id', event_id)\
                 .eq('is_deleted', False)\
                 .execute()
@@ -201,7 +201,7 @@ class CalendarSystem:
                 raise Exception("Evento não encontrado")
 
             # Soft delete
-            response = self.db.table('calendar_events')\
+            response = self.db.supabase.table('calendar_events')\
                 .update({
                     'is_deleted': True,
                     'deleted_at': datetime.now().isoformat()
@@ -222,7 +222,7 @@ class CalendarSystem:
     async def search_events(self, search_params: dict):
         """Busca avançada com múltiplos filtros"""
         try:
-            query = self.db.table('calendar_events').select('*')\
+            query = self.db.supabase.table('calendar_events').select('*')\
                 .eq('is_deleted', False)
 
             # Busca por texto (título ou descrição)
@@ -230,12 +230,12 @@ class CalendarSystem:
                 # Busca case insensitive
                 text = f"%{search_params['text'].lower()}%"
                 # Nota: Supabase tem limitações com OR, então fazemos 2 queries
-                query1 = self.db.table('calendar_events').select('*')\
+                query1 = self.db.supabase.table('calendar_events').select('*')\
                     .eq('is_deleted', False)\
                     .ilike('title', text)\
                     .execute()
 
-                query2 = self.db.table('calendar_events').select('*')\
+                query2 = self.db.supabase.table('calendar_events').select('*')\
                     .eq('is_deleted', False)\
                     .ilike('description', text)\
                     .execute()
@@ -317,38 +317,38 @@ class CalendarSystem:
             }
 
             # Total geral
-            total = self.db.table('calendar_events').select('id', count='exact')\
+            total = self.db.supabase.table('calendar_events').select('id', count='exact')\
                 .eq('is_deleted', False).execute()
             stats['total_events'] = total.count if hasattr(total, 'count') else 0
 
             # Por autor
             for socio_key in self.SOCIOS:
-                count = self.db.table('calendar_events').select('id', count='exact')\
+                count = self.db.supabase.table('calendar_events').select('id', count='exact')\
                     .eq('is_deleted', False)\
                     .eq('created_by', socio_key).execute()
                 stats['by_author'][socio_key] = count.count if hasattr(count, 'count') else 0
 
             # Por categoria
             for cat in self.CATEGORIAS:
-                count = self.db.table('calendar_events').select('id', count='exact')\
+                count = self.db.supabase.table('calendar_events').select('id', count='exact')\
                     .eq('is_deleted', False)\
                     .eq('category', cat).execute()
                 stats['by_category'][cat] = count.count if hasattr(count, 'count') else 0
 
             # Monetizações
-            mon = self.db.table('calendar_events').select('id', count='exact')\
+            mon = self.db.supabase.table('calendar_events').select('id', count='exact')\
                 .eq('is_deleted', False)\
                 .eq('event_type', 'monetization').execute()
             stats['monetizations'] = mon.count if hasattr(mon, 'count') else 0
 
             # Desmonetizações
-            demon = self.db.table('calendar_events').select('id', count='exact')\
+            demon = self.db.supabase.table('calendar_events').select('id', count='exact')\
                 .eq('is_deleted', False)\
                 .eq('event_type', 'demonetization').execute()
             stats['demonetizations'] = demon.count if hasattr(demon, 'count') else 0
 
             # Eventos recentes (últimos 5)
-            recent = self.db.table('calendar_events').select('*')\
+            recent = self.db.supabase.table('calendar_events').select('*')\
                 .eq('is_deleted', False)\
                 .order('created_at', desc=True)\
                 .limit(5)\
