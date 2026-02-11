@@ -53,9 +53,24 @@ class EventCreate(BaseModel):
     def validate_event_type(cls, v):
         # Normalizar entrada
         v = v.lower().strip() if v else 'normal'
-        if v not in ['normal', 'monetization', 'demonetization']:
-            raise ValueError('Tipo de evento inválido')
-        return v
+
+        # Tradução automática PT → EN
+        translations = {
+            'monetizacao': 'monetization',
+            'monetização': 'monetization',  # com acento
+            'desmonetizacao': 'demonetization',
+            'desmonetização': 'demonetization'  # com acento
+        }
+
+        # Se estiver em português, traduzir para inglês
+        if v in translations:
+            return translations[v]
+
+        # Se já estiver em inglês ou for 'normal', aceitar
+        if v in ['normal', 'monetization', 'demonetization']:
+            return v
+
+        raise ValueError('Tipo de evento inválido')
 
 class EventUpdate(BaseModel):
     """Model para atualizar evento"""
