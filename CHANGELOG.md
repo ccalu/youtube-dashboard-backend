@@ -5,6 +5,54 @@
 
 ---
 
+## [11/02/2026 - v14] - Sistema de Calendário Empresarial Completo
+
+### 📅 Feature: Calendário para os 4 Sócios
+
+**Data:** 11/02/2026
+**Status:** ✅ 100% funcional e corrigido
+**Desenvolvedor:** Cellibs & Claude
+
+### O que foi implementado
+1. **Sistema de Calendário Completo:**
+   - 8 endpoints REST API funcionais
+   - CRUD completo de eventos
+   - Soft delete com lixeira de 30 dias
+   - Busca avançada multi-filtros
+   - Estatísticas gerais
+
+2. **Configuração dos 4 sócios:**
+   - 🎯 Cellibs (Sistemas e Automação)
+   - 📝 Arthur (Copywriter)
+   - 🎬 Lucca (Produção)
+   - 🎨 João (Design)
+
+3. **Categorização de eventos:**
+   - 4 categorias: Geral 🟡, Desenvolvimento 🔵, Financeiro 🟣, Urgente 🔴
+   - 3 tipos: normal, monetization 💰, demonetization ❌
+   - Validação automática (monetização não tem categoria)
+
+4. **Bugs corrigidos:**
+   - ✅ Erro 500 - Acesso ao Supabase (db.supabase.table)
+   - ✅ Erro 422 - Ordem dos validators Pydantic
+   - ✅ Tradução PT→EN automática
+   - ✅ Força category=NULL para monetização
+
+### Arquivos criados
+- `_features/calendar_system/` - Pasta completa do sistema
+- `calendar_system.py` - Lógica de negócio (404 linhas)
+- `calendar_endpoints.py` - Router FastAPI (272 linhas)
+- `calendar_tables.sql` - Schema do banco
+- Documentação completa (README, API_DOCUMENTATION, IMPLEMENTATION_HISTORY)
+
+### Commits importantes
+- `6d69f20` - feat: Sistema de Calendário Empresarial completo
+- `55b447e` - fix: Corrige erros 500 e 422
+- `8483554` - fix: Aceita português no event_type
+- `e04c019` - fix: Força categoria=NULL para monetização
+
+---
+
 ## [10/02/2026 - v13] - Dashboard de Upload Diário Consolidado
 
 ### 📊 Feature: Dashboard de Upload em Produção

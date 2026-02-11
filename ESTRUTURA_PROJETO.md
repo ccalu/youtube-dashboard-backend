@@ -45,6 +45,13 @@ youtube-dashboard-backend/
 │   ├── frontend-code/                # Componentes React/TypeScript
 │   │   └── TabelaCanais.tsx          # Componente da tabela de canais
 │   ├── kanban-system/                # Sistema Kanban completo
+│   ├── calendar_system/              # 📅 Sistema de calendário empresarial ✅ NOVO
+│   │   ├── calendar_system.py        # Lógica de negócio (404 linhas)
+│   │   ├── calendar_tables.sql       # Schema do banco de dados
+│   │   ├── README.md                 # Documentação principal
+│   │   ├── API_DOCUMENTATION.md      # Documentação técnica da API
+│   │   ├── IMPLEMENTATION_HISTORY.md # Histórico de desenvolvimento
+│   │   └── LOVABLE_INSTRUCTIONS.md   # Instruções para frontend
 │   ├── monetization_dashboard/       # Dashboard de monetização
 │   ├── trend-monitor/                # Monitor de tendências
 │   ├── discovery/                    # Sistema de descoberta
