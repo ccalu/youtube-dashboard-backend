@@ -5,6 +5,66 @@
 
 ---
 
+## [10/02/2026 - v13] - Dashboard de Upload Diário Consolidado
+
+### 📊 Feature: Dashboard de Upload em Produção
+
+**Data:** 10/02/2026
+**Status:** ✅ 100% funcional
+**Desenvolvedor:** Claude com Cellibs
+
+### O que está funcionando
+1. **Dashboard Flask na porta 5006:**
+   - `dash_upload_final.py` (887 linhas)
+   - Atualização em tempo real (1 segundo)
+   - Interface visual organizada por subnichos
+   - Estatísticas: Total, Sucesso, Erro, Pendente, Sem Vídeo
+
+2. **Funcionalidades visuais:**
+   - Agrupamento por subnicho com cores personalizadas
+   - Tags de idioma automáticas (PT, EN, ES, DE, FR, AR, etc.)
+   - Modal de histórico (últimos 30 dias de uploads)
+   - Links diretos para Google Sheets de cada canal
+   - Emojis personalizados por categoria
+
+3. **Sistema de Upload Automático:**
+   - `daily_uploader.py` (1025 linhas) - Orquestrador principal
+   - Upload diário às 5:30 AM (Railway cron)
+   - 35 canais ativos com upload automatizado
+   - Sistema de retry (3 tentativas)
+   - Priorização: Monetizados → Constantes → Desmonetizados
+
+4. **Integração Google:**
+   - Google Sheets: Busca vídeos prontos (status="done", post vazio)
+   - Google Drive: Download automático de vídeos
+   - YouTube API: Upload + adicionar à playlist
+   - OAuth: Auto-refresh de tokens
+
+### Arquitetura
+- **Módulo:** `_features/yt_uploader/`
+- **Banco:** 4 tabelas principais (yt_channels, yt_canal_upload_diario, yt_oauth_tokens, yt_upload_queue)
+- **Credenciais:** Isoladas por canal (SERVICE_ROLE_KEY para bypass RLS)
+- **OAuth Scopes:** 4 obrigatórios (incluindo youtube.force-ssl para playlists)
+
+### Métricas Atuais
+- 35 canais ativos
+- Taxa de sucesso: ~80% (28/35)
+- Tempo médio: 2-3 minutos por vídeo
+- Horário de execução: 5:30 - 7:00 AM
+
+### Limpeza de Projeto
+- Deletados 55+ arquivos temporários e desnecessários
+- Dashboard renomeado: dashboard_teste_5006.py → dash_upload_final.py
+- Scripts preservados: forcar_upload_manual_fixed.py, adicionar_canais_minerados.py
+- Documentação completa criada em _features/dash_upload/
+
+### Documentação
+- Dashboard rodando: http://localhost:5006
+- Docs completa: `_features/dash_upload/DASHBOARD_UPLOAD_SISTEMA_ATUAL.md`
+- Sistema 100% funcional desde Janeiro 2026
+
+---
+
 ## [03/02/2026 - v12] - Reorganização Completa da Estrutura v2
 
 ### 🏗️ Major: Reestruturação total do projeto

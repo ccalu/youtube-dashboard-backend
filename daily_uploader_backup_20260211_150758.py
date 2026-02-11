@@ -700,9 +700,8 @@ class DailyUploader:
                 .execute()
 
             # TAMBÉM adicionar ao histórico (preserva todos os uploads)
-            # Registrar no histórico todos os status finais (sucesso, erro, sem_video)
-            # Não registrar apenas 'pendente' pois é status temporário
-            if status in ['sucesso', 'erro', 'sem_video']:
+            # Somente registrar no histórico se for sucesso ou erro (não registrar pendente)
+            if status in ['sucesso', 'erro']:
                 # Buscar spreadsheet_id do canal
                 spreadsheet_id = None
                 video_row = None

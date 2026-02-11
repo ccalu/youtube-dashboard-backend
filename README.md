@@ -145,7 +145,8 @@ O Dashboard de Mineração é o **cérebro de inteligência de mercado** da Cont
 ✅ **Notifica** Arthur/Micha em tempo real
 ✅ **Monitora** nossos 50 canais (desempenho, inscritos, receita)
 ✅ **Coleta** receita de 16 canais monetizados (YouTube Analytics)
-✅ **Automatiza** upload de 100-130 vídeos/dia
+✅ **Automatiza** upload de 35+ vídeos/dia com dashboard visual (porta 5006)
+✅ **Dashboard de Upload** com estatísticas em tempo real e histórico
 ✅ **Integra** produção → publicação → análise
 
 **Sem o dashboard, operaríamos no escuro.**

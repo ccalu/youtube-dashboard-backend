@@ -1,0 +1,159 @@
+{
+  "data": "2026-02-11",
+  "total": 17,
+  "canais": [
+    {
+      "nome": "Reinos da Antiguidade",
+      "channel_id": "UCbGOPqo5b6btRcMcOwJdEAQ",
+      "idioma": "??",
+      "subnicho": "Guerras e Civilizações",
+      "spreadsheet_id": "1hDTegjSXL1vcJ0cPagPWgHhfcBi8Bhzvl5sSPt2qkFc",
+      "sheet_name": "Sheet1",
+      "pasta_drive": ""
+    },
+    {
+      "nome": "Mroczne Królestwa",
+      "channel_id": "UCEhdPqrjQjc3pmHESbEtAvw",
+      "idioma": "??",
+      "subnicho": "Historias Sombrias",
+      "spreadsheet_id": "19qlb0IwaYJ3kMivIynmD2C0bUD8LqVqfcVi_2ANXE7s",
+      "sheet_name": "Sheet1",
+      "pasta_drive": ""
+    },
+    {
+      "nome": "WWII Erzählungen",
+      "channel_id": "UCWYzVowgJ6LlxCcYlMGcLtA",
+      "idioma": "??",
+      "subnicho": "Relatos de Guerra",
+      "spreadsheet_id": "1eoD1jPt2wqRJJ0E73ZmE1-8y2nFLtOHQ03MSxaeRPcE",
+      "sheet_name": "Sheet1",
+      "pasta_drive": ""
+    },
+    {
+      "nome": "Grandes Mansões",
+      "channel_id": "UCMFpbZTOj2iupk14Ik-oK4w",
+      "idioma": "??",
+      "subnicho": "Monetizados",
+      "spreadsheet_id": "1yLf0-Z875lKCecDflxpWN3q8mFIKKAnTaCJK9jVKMiE",
+      "sheet_name": "Sheet1",
+      "pasta_drive": ""
+    },
+    {
+      "nome": "Archives de Guerre",
+      "channel_id": "UCzfZRuRHSp6erCwzuhjywFw",
+      "idioma": "??",
+      "subnicho": "Relatos de Guerra",
+      "spreadsheet_id": "1fnA5QeiNDTzakQW8gtVovLnlAofMWGDfGHGmm6ZX3TE",
+      "sheet_name": "Sheet1",
+      "pasta_drive": ""
+    },
+    {
+      "nome": "War Archive Files",
+      "channel_id": "UCz5k5f4JAKKtkSAlVSLdaMw",
+      "idioma": "??",
+      "subnicho": "Relatos de Guerra",
+      "spreadsheet_id": "1kkGH0BHAikuPVbw-qQzwnbCHyO6GgaEkdIzW_U-qnAg",
+      "sheet_name": "Sheet1",
+      "pasta_drive": ""
+    },
+    {
+      "nome": "Шёпот Королей",
+      "channel_id": "UC8dKi-vdyHU43LIHFz_WMaA",
+      "idioma": "??",
+      "subnicho": "Historias Sombrias",
+      "spreadsheet_id": "1cbbPlDbeJREEfqDFWsAePk4eB_-Wex_U-AbzGhHa4-w",
+      "sheet_name": "Sheet1",
+      "pasta_drive": ""
+    },
+    {
+      "nome": "Dentro de la Guerra",
+      "channel_id": "UCVFjuVKCBhgM4XCYheB3nfA",
+      "idioma": "??",
+      "subnicho": "Relatos de Guerra",
+      "spreadsheet_id": "1563FeSM0GorgzMNcYk7qGdf9enkxBjsYh-ndwaOvpxQ",
+      "sheet_name": "Sheet1",
+      "pasta_drive": ""
+    },
+    {
+      "nome": "전쟁의 목소리",
+      "channel_id": "UCiMgKMWsYH8a8EFp94TClIQ",
+      "idioma": "??",
+      "subnicho": "Relatos de Guerra",
+      "spreadsheet_id": "16VWyE0zuAvJOeiGtXVPSIuPKyJ7SQuc-ghZP2opZhFk",
+      "sheet_name": "Sheet1",
+      "pasta_drive": ""
+    },
+    {
+      "nome": "Memorie di Guerra",
+      "channel_id": "UCakyoZMYsQPcO2MVsZ6Bn2Q",
+      "idioma": "??",
+      "subnicho": "Relatos de Guerra",
+      "spreadsheet_id": "1OvXAFC200LL0hGz3s1M66ABCphjYqqwsvz3Iku7aKzQ",
+      "sheet_name": "Sheet1",
+      "pasta_drive": ""
+    },
+    {
+      "nome": "Sombras del Trono",
+      "channel_id": "UCfqmFKYPD4tV3qNDhQnCLCw",
+      "idioma": "??",
+      "subnicho": "Historias Sombrias",
+      "spreadsheet_id": "18zCYzZfIh3HBIgpgGOaaXapO6dvTD74J_Fi9w-PlQP0",
+      "sheet_name": "Sheet1",
+      "pasta_drive": ""
+    },
+    {
+      "nome": "Arquivos da WW2",
+      "channel_id": "UC2X74_c3YXEIuJp4Lr22MoA",
+      "idioma": "??",
+      "subnicho": "Relatos de Guerra",
+      "spreadsheet_id": "1ipPArdXRCiNv_8-ZU-m5hYeGRovTvl1WZKRs_cFmJSg",
+      "sheet_name": "Sheet1",
+      "pasta_drive": ""
+    },
+    {
+      "nome": "Segreti del Trono",
+      "channel_id": "UCBLP915N1QQ86aU5AzM0AeA",
+      "idioma": "??",
+      "subnicho": "Historias Sombrias",
+      "spreadsheet_id": "1NXz-wjlhTse4f7734RLZXPFBcCFEQZ8JCc_DgMWdvnA",
+      "sheet_name": "Sheet1",
+      "pasta_drive": ""
+    },
+    {
+      "nome": "Secrets du Trône",
+      "channel_id": "UC683OMDH7eM8MhgH0M2TZcA",
+      "idioma": "??",
+      "subnicho": "Historias Sombrias",
+      "spreadsheet_id": "1o9uhhUnIzsBsRGI6Bpb_KiYwPTQdqCC9z4kP1MAKeRs",
+      "sheet_name": "Sheet1",
+      "pasta_drive": ""
+    },
+    {
+      "nome": "戦争の記録庫",
+      "channel_id": "UCk9WGjN27O1YJINBoMCPxRQ",
+      "idioma": "??",
+      "subnicho": "Relatos de Guerra",
+      "spreadsheet_id": "1CK9Mpdzp-hI7clgn7nCrU7yzD-KiR6fQHdi5JxLxP-w",
+      "sheet_name": "Sheet1",
+      "pasta_drive": ""
+    },
+    {
+      "nome": "Whispers of Kings",
+      "channel_id": "UCs50IB2ZvtQ2qcSYERQ7hKA",
+      "idioma": "??",
+      "subnicho": "Historias Sombrias",
+      "spreadsheet_id": "1PPQcjWK1NkDhFvHG25o5C5SNxBI3sUOF8In8xwRYLJs",
+      "sheet_name": "Sheet1",
+      "pasta_drive": ""
+    },
+    {
+      "nome": "어둠의 왕국들",
+      "channel_id": "UCJh5tQxXLLF8iUC9zA-a0iw",
+      "idioma": "??",
+      "subnicho": "Historias Sombrias",
+      "spreadsheet_id": "1_NMEGRyUsF_BbFmQOcZgmRvl3YbXmjYpQYNILzLGxNM",
+      "sheet_name": "Sheet1",
+      "pasta_drive": ""
+    }
+  ]
+}

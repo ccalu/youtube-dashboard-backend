@@ -4,7 +4,7 @@
 Dashboard Organizado por Subnichos - CORRIGIDO COM ONCLICK
 """
 
-from flask import Flask, render_template_string, jsonify, make_response
+from flask import Flask, render_template_string, jsonify
 from flask_cors import CORS
 import os
 from datetime import datetime, timezone
@@ -103,7 +103,7 @@ HTML_TEMPLATE = '''
         .subnicho-stats {
             font-size: 12px;
             font-weight: normal;
-            color: #ddd;
+            color: #aaa;
         }
 
         table {
@@ -211,20 +211,18 @@ HTML_TEMPLATE = '''
             transition: all 0.3s ease;
             text-decoration: none;
             display: inline-block;
-            opacity: 0.45;
         }
 
         .btn-action:hover {
             transform: translateY(-1px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            opacity: 1;
         }
 
         .btn-upload { background: #2196F3; }
         .btn-upload:hover { background: #1976D2; }
 
-        .btn-hist { background: #FF9800; }
-        .btn-hist:hover { background: #F57C00; }
+        .btn-hist { background: #9C27B0; }
+        .btn-hist:hover { background: #7B1FA2; }
 
         .btn-sheet {
             background: #4CAF50;
@@ -335,21 +333,21 @@ HTML_TEMPLATE = '''
             <div class="card-value info" id="total">-</div>
             <div class="card-label">Total de Canais</div>
         </div>
-        <div class="card" style="background: rgba(76, 175, 80, 0.15);">
+        <div class="card">
             <div class="card-value success" id="sucesso">-</div>
-            <div class="card-label">Upload com Sucesso</div>
+            <div class="card-label">Uploads com Sucesso</div>
         </div>
-        <div class="card" style="background: rgba(255, 193, 7, 0.15);">
+        <div class="card">
             <div class="card-value warning" id="sem_video">-</div>
             <div class="card-label">Sem Vídeo</div>
         </div>
-        <div class="card" style="background: rgba(244, 67, 54, 0.15);">
+        <div class="card">
+            <div class="card-value pending" id="pendente">-</div>
+            <div class="card-label">Pendentes</div>
+        </div>
+        <div class="card">
             <div class="card-value error" id="erro">-</div>
             <div class="card-label">Com Erro</div>
-        </div>
-        <div class="card" onclick="abrirHistoricoCompleto()" style="cursor: pointer; background: rgba(255, 152, 0, 0.15);">
-            <div class="card-value info" id="historico_completo">📜</div>
-            <div class="card-label">Histórico Completo</div>
         </div>
     </div>
 
@@ -376,22 +374,9 @@ HTML_TEMPLATE = '''
         </div>
     </div>
 
-    <!-- Modal de Histórico Completo -->
-    <div id="historicoCompletoModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="modalTitleCompleto">Histórico Completo - Todos os Canais</h2>
-                <span class="close" onclick="fecharModalCompleto()">&times;</span>
-            </div>
-            <div id="modalBodyCompleto">
-                <p style="color: #aaa; text-align: center;">Carregando histórico completo...</p>
-            </div>
-        </div>
-    </div>
-
     <script>
         async function forcarUpload(channelId, channelName) {
-            if (!confirm('Forçar upload do canal ' + channelName + '?\n\nO próximo vídeo "done" da planilha será enviado.')) {
+            if (!confirm('Forçar upload do canal ' + channelName + '?\\n\\nO próximo vídeo "done" da planilha será enviado.')) {
                 return;
             }
 
@@ -475,6 +460,7 @@ HTML_TEMPLATE = '''
                     html += '<th>Status</th>';
                     html += '<th>Vídeo</th>';
                     html += '<th>Horário</th>';
+                    html += '<th>Tentativa</th>';
                     html += '<th>Erro</th>';
                     html += '</tr></thead>';
                     html += '<tbody>';
@@ -483,12 +469,8 @@ HTML_TEMPLATE = '''
                         data.historico.forEach(function(item) {
                             html += '<tr>';
 
-                            // Data - parse manual sem conversão de timezone
-                            var data_formatada = item.data;
-                            if (data_formatada && data_formatada.includes('-')) {
-                                var partes = data_formatada.split('-');
-                                data_formatada = partes[2] + '/' + partes[1] + '/' + partes[0];
-                            }
+                            // Data
+                            var data_formatada = new Date(item.data).toLocaleDateString('pt-BR');
                             html += '<td>' + data_formatada + '</td>';
 
                             // Status com cor
@@ -519,6 +501,9 @@ HTML_TEMPLATE = '''
                             }
                             html += '<td>' + hora + '</td>';
 
+                            // Tentativa
+                            html += '<td>' + (item.tentativa_numero || 1) + 'ª</td>';
+
                             // Erro
                             html += '<td>';
                             if (item.erro_mensagem) {
@@ -544,7 +529,7 @@ HTML_TEMPLATE = '''
                     html += '</tbody></table>';
 
                     // Adicionar resumo no topo
-                    var resumo = '<div style="margin-bottom: 20px; padding: 10px; background: rgba(76, 175, 80, 0.2); border: 1px solid #4CAF50; border-radius: 5px;">';
+                    var resumo = '<div style="margin-bottom: 20px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 5px;">';
                     resumo += '<strong>Total de registros:</strong> ' + data.total_registros + ' (últimos 30 dias)';
                     resumo += '</div>';
 
@@ -560,124 +545,11 @@ HTML_TEMPLATE = '''
             modal.style.display = 'none';
         }
 
-        function fecharModalCompleto() {
-            var modal = document.getElementById('historicoCompletoModal');
-            modal.style.display = 'none';
-        }
-
-        // Função para abrir o histórico completo
-        async function abrirHistoricoCompleto() {
-            var modal = document.getElementById('historicoCompletoModal');
-            var modalBody = document.getElementById('modalBodyCompleto');
-
-            modal.style.display = 'block';
-            modalBody.innerHTML = '<p style="color: #aaa; text-align: center;">Carregando histórico completo...</p>';
-
-            try {
-                const response = await fetch('/api/historico-completo');
-                const data = await response.json();
-
-                if (data.historico_por_data && data.historico_por_data.length > 0) {
-                    var html = '<div style="max-height: 500px; overflow-y: auto;">';
-
-                    // Estatísticas gerais
-                    html += '<div style="background: rgba(76, 175, 80, 0.2); padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #4CAF50;">';
-                    html += '<p style="margin: 0; color: #4CAF50; font-weight: bold; font-size: 16px;">Últimos ' + data.total_dias + ' dias | Total de registros: ' + data.total_registros + '</p>';
-                    html += '</div>';
-
-                    // Histórico por data
-                    data.historico_por_data.forEach(function(dia) {
-                        // Formatar data para dd/mm/yyyy
-                        var dataFormatada = dia.data;
-                        if (dia.data && dia.data.includes('-')) {
-                            var partes = dia.data.split('-');
-                            if (partes.length === 3) {
-                                dataFormatada = partes[2] + '/' + partes[1] + '/' + partes[0];
-                            }
-                        }
-
-                        html += '<div style="background: #16213e; padding: 15px; border-radius: 5px; margin-bottom: 15px;">';
-                        html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">';
-                        html += '<h4 style="margin: 0; color: #4CAF50;">' + dataFormatada + '</h4>';
-                        html += '<div>';
-                        html += '<span style="color: #4CAF50;">✅ Sucesso: ' + dia.sucesso + '</span> | ';
-                        html += '<span style="color: #FF9800;">⚠️ Sem vídeo: ' + dia.sem_video + '</span> | ';
-                        html += '<span style="color: #f44336;">❌ Erro: ' + dia.erro + '</span>';
-                        html += '</div>';
-                        html += '</div>';
-
-                        if (dia.canais && dia.canais.length > 0) {
-                            // Filtrar apenas canais com sucesso
-                            var canaisSucesso = dia.canais.filter(function(canal) {
-                                return canal.status === 'sucesso';
-                            });
-
-                            if (canaisSucesso.length > 0) {
-                                html += '<table style="width: 100%; font-size: 0.9em;">';
-                                html += '<thead><tr>';
-                                html += '<th style="text-align: left; padding: 5px;">Hora</th>';
-                                html += '<th style="text-align: left; padding: 5px;">Canal</th>';
-                                html += '<th style="text-align: left; padding: 5px;">Vídeo</th>';
-                                html += '<th style="text-align: left; padding: 5px;">Status</th>';
-                                html += '</tr></thead>';
-                                html += '<tbody>';
-
-                                canaisSucesso.forEach(function(canal) {
-                                    // Converter hora de ISO para HH:MM
-                                    var horaFormatada = '-';
-                                    if (canal.hora) {
-                                        try {
-                                            var dt = new Date(canal.hora);
-                                            horaFormatada = dt.toLocaleTimeString('pt-BR', {
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                                timeZone: 'America/Sao_Paulo'
-                                            });
-                                        } catch(e) {
-                                            horaFormatada = canal.hora.substring(11, 16); // fallback
-                                        }
-                                    }
-
-                                    var statusColor = '#4CAF50'; // Sempre verde pois só mostra sucessos
-                                    var statusEmoji = '✅';
-
-                                    html += '<tr>';
-                                    html += '<td style="padding: 5px;">' + horaFormatada + '</td>';
-                                    html += '<td style="padding: 5px;">' + canal.nome + '</td>';
-                                    html += '<td style="padding: 5px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' +
-                                           (canal.video_titulo || '-') + '</td>';
-                                    html += '<td style="padding: 5px; color: ' + statusColor + ';">' +
-                                           statusEmoji + ' ' + canal.status + '</td>';
-                                    html += '</tr>';
-                                });
-
-                                html += '</tbody></table>';
-                            } else {
-                                html += '<p style="color: #666; text-align: center; padding: 10px;">Nenhum upload bem-sucedido neste dia</p>';
-                            }
-                        }
-
-                        html += '</div>'; // Fechar card principal
-                    });
-
-                    html += '</div>';
-                    modalBody.innerHTML = html;
-                } else {
-                    modalBody.innerHTML = '<p style="color: #aaa; text-align: center;">Nenhum histórico encontrado.</p>';
-                }
-            } catch (error) {
-                modalBody.innerHTML = '<p style="color: #f44336; text-align: center;">Erro ao carregar histórico: ' + error.message + '</p>';
-            }
-        }
-
         // Fechar modal ao clicar fora
         window.onclick = function(event) {
             var modal = document.getElementById('historicoModal');
-            var modalCompleto = document.getElementById('historicoCompletoModal');
             if (event.target == modal) {
                 modal.style.display = 'none';
-            } else if (event.target == modalCompleto) {
-                modalCompleto.style.display = 'none';
             }
         }
 
@@ -688,14 +560,6 @@ HTML_TEMPLATE = '''
 
         function abrirPlanilha() {
             window.open('https://docs.google.com/spreadsheets/d/1vRF7eyXQpBOaZPo6JTrhXBseL6e5oVzJZZ3N3pUe6J4/edit', '_blank');
-        }
-
-        function atualizarCache() {
-            // Limpar cache e recarregar página
-            if (confirm('Isso irá atualizar o cache e recarregar a página. Continuar?')) {
-                // Forçar reload sem cache
-                location.reload(true);
-            }
         }
 
         function formatTime(dateStr) {
@@ -721,20 +585,12 @@ HTML_TEMPLATE = '''
                     try {
                         var data = JSON.parse(xhr.responseText);
 
-                        // Atualizar estatísticas com verificações defensivas
-                        var totalElement = document.getElementById('total');
-                        if (totalElement) totalElement.innerText = data.stats.total || 0;
-
-                        var sucessoElement = document.getElementById('sucesso');
-                        if (sucessoElement) sucessoElement.innerText = data.stats.sucesso || 0;
-
-                        var semVideoElement = document.getElementById('sem_video');
-                        if (semVideoElement) semVideoElement.innerText = data.stats.sem_video || 0;
-
-                        var erroElement = document.getElementById('erro');
-                        if (erroElement) erroElement.innerText = data.stats.erro || 0;
-
-                        // Nota: elemento 'pendente' foi removido e substituído por histórico completo
+                        // Atualizar estatísticas
+                        document.getElementById('total').innerText = data.stats.total || 0;
+                        document.getElementById('sucesso').innerText = data.stats.sucesso || 0;
+                        document.getElementById('sem_video').innerText = data.stats.sem_video || 0;
+                        document.getElementById('pendente').innerText = data.stats.pendente || 0;
+                        document.getElementById('erro').innerText = data.stats.erro || 0;
 
                         // Contar monetizados
                         var totalMonetizados = 0;
@@ -864,7 +720,7 @@ HTML_TEMPLATE = '''
                                     // Botão de upload forçado com data attributes
                                     html += '<button class="btn-action btn-upload" data-channel-id="' + canal.channel_id + '" data-channel-name="' + canal.channel_name.replace(/"/g, '&quot;') + '">📤</button>';
                                     // Botão de histórico
-                                    html += '<button class="btn-action btn-hist" data-channel-id="' + canal.channel_id + '" data-channel-name="' + canal.channel_name.replace(/"/g, '&quot;') + '">📜</button>';
+                                    html += '<button class="btn-action btn-hist" data-channel-id="' + canal.channel_id + '" data-channel-name="' + canal.channel_name.replace(/"/g, '&quot;') + '">📊</button>';
 
                                     // Botão da planilha como link clicável
                                     if (canal.spreadsheet_id && canal.spreadsheet_id !== '') {
@@ -934,12 +790,7 @@ HTML_TEMPLATE = '''
 
 @app.route('/')
 def index():
-    response = make_response(render_template_string(HTML_TEMPLATE))
-    # Headers anti-cache para evitar problemas com navegador
-    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    return response
+    return render_template_string(HTML_TEMPLATE)
 
 @app.route('/api/status')
 def get_status():
@@ -1058,7 +909,7 @@ def get_historico_uploads(channel_id):
         hoje = datetime.now(timezone.utc).date()
         data_inicio = hoje - timedelta(days=30)
 
-        # Primeiro buscar da tabela de histórico (preserva múltiplos uploads)
+        # Primeiro tentar buscar da tabela de histórico (preserva múltiplos uploads)
         try:
             response = supabase.table('yt_canal_upload_historico')\
                 .select('*')\
@@ -1079,30 +930,9 @@ def get_historico_uploads(channel_id):
             else:
                 raise e
 
-        historico_data = response.data if response.data else []
-
-        # IMPORTANTE: Buscar TODOS os dados da tabela diária dos últimos 30 dias como fallback
-        # Isso garante que TODOS os status apareçam (sucesso, erro, sem_video) para qualquer data
-        response_diario = supabase.table('yt_canal_upload_diario')\
-            .select('*')\
-            .eq('channel_id', channel_id)\
-            .gte('data', data_inicio.isoformat())\
-            .order('data', desc=False)\
-            .execute()
-
-        if response_diario.data:
-            # Criar set de datas já existentes no histórico para evitar duplicação
-            datas_historico = {item['data'] for item in historico_data}
-
-            # Adicionar registros da tabela diária que não estão no histórico
-            for item_diario in response_diario.data:
-                if item_diario['data'] not in datas_historico:
-                    historico_data.append(item_diario)
-                    datas_historico.add(item_diario['data'])  # Atualizar set para evitar duplicatas
-
         # Formatar resposta
         historico = []
-        for item in historico_data:
+        for item in response.data:
             registro = {
                 'data': item['data'],
                 'status': item.get('status', 'pendente'),
@@ -1119,124 +949,6 @@ def get_historico_uploads(channel_id):
             'channel_id': channel_id,
             'total_registros': len(historico),
             'historico': historico
-        })
-
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/historico-completo')
-def get_historico_completo():
-    """Retorna histórico completo dos últimos 30 dias agrupado por data"""
-    try:
-        from datetime import timedelta
-        from collections import defaultdict
-
-        # Buscar últimos 30 dias
-        hoje = datetime.now(timezone.utc).date()
-        data_inicio = hoje - timedelta(days=30)
-
-        # Buscar do histórico
-        response = supabase.table('yt_canal_upload_historico')\
-            .select('*')\
-            .gte('data', data_inicio.isoformat())\
-            .order('data', desc=True)\
-            .execute()
-
-        # Agrupar por data
-        historico_por_data = defaultdict(lambda: {
-            'data': '',
-            'total': 0,
-            'sucesso': 0,
-            'erro': 0,
-            'sem_video': 0,
-            'canais': []
-        })
-
-        for item in response.data:
-            data_str = item['data']
-            historico_por_data[data_str]['data'] = data_str
-            historico_por_data[data_str]['total'] += 1
-
-            # Contar por status
-            status = item.get('status', 'pendente')
-            if status == 'sucesso':
-                historico_por_data[data_str]['sucesso'] += 1
-            elif status == 'erro':
-                historico_por_data[data_str]['erro'] += 1
-            elif status == 'sem_video':
-                historico_por_data[data_str]['sem_video'] += 1
-
-            # Adicionar detalhes do canal
-            historico_por_data[data_str]['canais'].append({
-                'nome': item.get('channel_name', ''),
-                'status': status,
-                'video_titulo': item.get('video_titulo', ''),
-                'hora': item.get('hora_processamento', '')
-            })
-
-        # Adicionar TODOS os dados da tabela diária dos últimos 30 dias
-        # Isso garante que status sem_video e erro apareçam para TODAS as datas
-        response_diario = supabase.table('yt_canal_upload_diario')\
-            .select('*')\
-            .gte('data', data_inicio.isoformat())\
-            .execute()
-
-        if response_diario.data:
-            # Processar TODAS as datas da tabela diária, não apenas hoje
-            for item in response_diario.data:
-                data_str = item.get('data')
-
-                # Criar entrada para a data se não existir
-                if data_str not in historico_por_data:
-                    historico_por_data[data_str] = {
-                        'data': data_str,
-                        'total': 0,
-                        'sucesso': 0,
-                        'erro': 0,
-                        'sem_video': 0,
-                        'canais': []
-                    }
-
-                # Verificar se este canal já não está no histórico para esta data
-                canal_ja_existe = any(
-                    c['nome'] == item.get('channel_name') and c['status'] == item.get('status')
-                    for c in historico_por_data[data_str]['canais']
-                )
-                if not canal_ja_existe:
-                    status = item.get('status', 'pendente')
-
-                    # Atualizar contadores
-                    historico_por_data[data_str]['total'] += 1
-                    if status == 'sucesso':
-                        historico_por_data[data_str]['sucesso'] += 1
-                    elif status == 'erro':
-                        historico_por_data[data_str]['erro'] += 1
-                    elif status == 'sem_video':
-                        historico_por_data[data_str]['sem_video'] += 1
-
-                    # Adicionar canal à lista
-                    historico_por_data[data_str]['canais'].append({
-                        'nome': item.get('channel_name', ''),
-                        'status': status,
-                        'video_titulo': item.get('video_titulo', ''),
-                        'hora': item.get('hora_processamento', '')
-                    })
-
-        # Converter para lista e ordenar por data
-        historico_lista = sorted(
-            historico_por_data.values(),
-            key=lambda x: x['data'],
-            reverse=True
-        )
-
-        # Calcular totais
-        dias_mostrados = min(30, len(historico_lista))
-        total_registros = sum(d['total'] for d in historico_lista[:30])
-
-        return jsonify({
-            'historico_por_data': historico_lista[:30],  # Limitar a 30 dias
-            'total_dias': dias_mostrados,
-            'total_registros': total_registros
         })
 
     except Exception as e:

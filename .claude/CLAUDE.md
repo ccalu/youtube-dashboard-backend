@@ -23,6 +23,8 @@ API REST que gerencia coleta de dados YouTube, notificações e transcrições.
 - `collector.py` - YouTube collector + rotação de API keys (727 linhas)
 - `notifier.py` - Sistema de notificações inteligente (394 linhas)
 - `database.py` - Client Supabase + queries
+- `daily_uploader.py` - Orquestrador de upload diário (1025 linhas)
+- `dash_upload_final.py` - Dashboard de upload Flask porta 5006 (887 linhas)
 - `requirements.txt` - Dependências Python
 
 ## 🔗 INTEGRAÇÕES:
@@ -191,6 +193,57 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 - ✅ Sistema TOP 20 vídeos: Funcionando perfeitamente
 - ✅ Frontend: Compatível, não precisa alterações
 - ✅ Coleta diária: 100% automatizada às 5h AM
+
+---
+
+## 📊 DASHBOARD DE UPLOAD DIÁRIO - 100% Funcional
+**Desenvolvido:** Janeiro 2026
+**Última atualização:** 10/02/2026
+**Status:** ✅ 100% funcional e em produção
+
+### Arquivo Principal:
+- `dash_upload_final.py` (887 linhas) - Dashboard Flask na porta 5006
+- **URL Local:** http://localhost:5006
+- **Atualização:** Tempo real (1 segundo)
+
+### Funcionalidades:
+- Dashboard visual organizado por subnichos
+- Estatísticas em tempo real (Total, Sucesso, Erros, Pendentes, Sem Vídeo)
+- Tags de idioma automáticas (PT, EN, ES, DE, FR, AR, etc.)
+- Modal de histórico (últimos 30 dias por canal)
+- Links diretos para Google Sheets
+- Cores e emojis por subnicho (Monetizados, Relatos de Guerra, etc.)
+
+### Sistema de Upload Automático:
+- **Orquestrador:** `daily_uploader.py` (1025 linhas)
+- **Horário:** 5:30 AM diário (Railway cron)
+- **Capacidade:** 35 canais ativos
+- **Integração:** Google Sheets + Drive + YouTube API
+- **Sistema de retry:** 3 tentativas por vídeo
+
+### Arquitetura:
+- **Módulo:** `_features/yt_uploader/` (uploader.py, oauth_manager.py, sheets.py, database.py)
+- **OAuth:** 4 scopes obrigatórios (incluindo youtube.force-ssl para playlists)
+- **Credenciais isoladas:** Por canal (nova arquitetura)
+- **Banco:** Tabelas `yt_channels`, `yt_canal_upload_diario`, `yt_oauth_tokens`, `yt_upload_queue`
+
+### Como usar:
+```bash
+# Rodar dashboard local
+python dash_upload_final.py
+# Acesse: http://localhost:5006
+
+# Upload manual forçado
+python forcar_upload_manual_fixed.py --canal "Nome do Canal"
+
+# Verificar tokens OAuth
+python check_oauth_definitivo.py
+
+# Adicionar novo canal
+python add_canal_wizard_v3.py
+```
+
+**Documentação completa:** `_features/dash_upload/DASHBOARD_UPLOAD_SISTEMA_ATUAL.md`
 
 ---
 

@@ -27,9 +27,6 @@ from analytics import ChannelAnalytics
 # Sistema de Agentes Inteligentes
 from agents_endpoints import init_agents_router
 
-# Sistema de Calendário Empresarial
-from calendar_endpoints import init_calendar_router
-
 # YouTube Uploader
 from _features.yt_uploader.uploader import YouTubeUploader
 from _features.yt_uploader.database import (
@@ -252,14 +249,6 @@ try:
     logger.info("Sistema de Agentes Inteligentes inicializado com sucesso!")
 except Exception as e:
     logger.warning(f"Sistema de Agentes nao inicializado: {e}")
-
-# Sistema de Calendário Empresarial
-try:
-    calendar_router = init_calendar_router(db)
-    app.include_router(calendar_router)
-    logger.info("✅ Sistema de Calendário Empresarial inicializado com sucesso!")
-except Exception as e:
-    logger.warning(f"❌ Sistema de Calendário não inicializado: {e}")
 
 collection_in_progress = False
 last_collection_time = None
@@ -4705,27 +4694,6 @@ async def process_upload_task(upload_id: int, max_retries=3):
                 )
                 logger.info(f"[{channel_id}] ✅ Planilha atualizada: ✅ done")
 
-                # FASE 4.5: Registrar no histórico (NOVO)
-                try:
-                    from daily_uploader import DailyUploader
-                    from datetime import date
-
-                    uploader_instance = DailyUploader()
-                    uploader_instance._registrar_canal_diario(
-                        channel_id=channel_id,
-                        channel_name=upload.get('channel_name', ''),
-                        data=date.today(),
-                        status='sucesso',
-                        erro_mensagem=None,
-                        tentativa_numero=99,  # 99 = upload manual
-                        upload_id=upload_id,
-                        video_titulo=upload.get('titulo', ''),
-                        video_url=f"https://youtube.com/watch?v={result['video_id']}"
-                    )
-                    logger.info(f"[{channel_id}] 📝 Histórico registrado (upload manual)")
-                except Exception as hist_error:
-                    logger.warning(f"[{channel_id}] ⚠️ Não foi possível registrar histórico: {hist_error}")
-
                 # FASE 5: Cleanup
                 uploader.cleanup(video_path)
 
@@ -4750,27 +4718,6 @@ async def process_upload_task(upload_id: int, max_retries=3):
                         error_message=error_msg,
                         retry_count=total_retry_count + 1  # Incrementa contador total
                     )
-
-                    # Registrar erro no histórico (NOVO)
-                    try:
-                        from daily_uploader import DailyUploader
-                        from datetime import date
-
-                        uploader_instance = DailyUploader()
-                        uploader_instance._registrar_canal_diario(
-                            channel_id=channel_id,
-                            channel_name=upload.get('channel_name', ''),
-                            data=date.today(),
-                            status='erro',
-                            erro_mensagem=error_msg,
-                            tentativa_numero=99,  # 99 = upload manual
-                            upload_id=upload_id,
-                            video_titulo=upload.get('titulo', ''),
-                            video_url=upload.get('video_url', '')
-                        )
-                        logger.info(f"[{channel_id}] 📝 Histórico de erro registrado (upload manual)")
-                    except Exception as hist_error:
-                        logger.warning(f"[{channel_id}] ⚠️ Não foi possível registrar erro no histórico: {hist_error}")
 
                     # Atualiza planilha com erro
                     # Se já tentou 3 vezes TOTAL (incluindo retries do scanner), marca "❌ Erro Final"
@@ -4927,7 +4874,6 @@ async def force_upload_for_channel(channel_id: str, background_tasks: Background
     """
     try:
         from daily_uploader import DailyUploader
-        from starlette.concurrency import run_in_threadpool
 
         # Verificar se canal existe e tem upload automatico ativo
         canal = supabase.table('yt_channels')\
@@ -4946,34 +4892,7 @@ async def force_upload_for_channel(channel_id: str, background_tasks: Background
         if not canal_data.get('spreadsheet_id'):
             raise HTTPException(status_code=400, detail=f"Canal {canal_data['channel_name']} nao tem planilha configurada")
 
-        # NOVA VERIFICAÇÃO: Verificar se tem vídeo disponível ANTES de criar background task
-        logger.info(f"Verificando se há vídeo disponível para {canal_data['channel_name']}...")
-        uploader = DailyUploader()
-
-        # Verificar se tem vídeo pronto na planilha
-        try:
-            video_pronto = await run_in_threadpool(
-                uploader._find_ready_video,
-                canal_data['spreadsheet_id'],
-                canal_data['channel_name']
-            )
-
-            # Se não tiver vídeo, retornar imediatamente com status 'sem_video'
-            if not video_pronto:
-                logger.warning(f"Nenhum vídeo disponível na planilha de {canal_data['channel_name']}")
-                return {
-                    'status': 'sem_video',
-                    'message': f'Nenhum vídeo disponível na planilha de {canal_data["channel_name"]}',
-                    'channel_id': channel_id
-                }
-
-            logger.info(f"Vídeo encontrado: {video_pronto.get('title', 'Sem título')}")
-
-        except Exception as e:
-            logger.error(f"Erro ao verificar vídeo disponível: {e}")
-            # Se houver erro na verificação, continuar com o processo normal
-
-        # Se chegou aqui, tem vídeo disponível - executar upload em background
+        # Executar upload em background
         async def run_upload():
             try:
                 uploader = DailyUploader()
@@ -5016,131 +4935,6 @@ async def force_upload_for_channel(channel_id: str, background_tasks: Background
         raise
     except Exception as e:
         logger.error(f"Erro ao forcar upload: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/api/yt-upload/historico-completo")
-async def get_historico_completo(
-    days: int = 30,
-    status_filter: Optional[str] = None  # sucesso, erro, sem_video
-):
-    """
-    Retorna histórico completo de uploads de TODOS os canais
-
-    Query params:
-        - days: Últimos X dias (padrão: 30)
-        - status_filter: Filtrar por status (opcional)
-
-    Returns:
-        {
-            "total_dias": 30,
-            "total_registros": 150,
-            "historico_por_data": [
-                {
-                    "data": "2026-02-11",
-                    "total_uploads": 3,
-                    "sucesso": 3,
-                    "erro": 0,
-                    "sem_video": 17,
-                    "canais": [
-                        {
-                            "channel_name": "Canal X",
-                            "video_titulo": "Video Y",
-                            "status": "sucesso",
-                            "hora": "05:30:15",
-                            "tentativa_numero": 1
-                        }
-                    ]
-                }
-            ]
-        }
-    """
-    try:
-        from datetime import date, timedelta
-
-        hoje = date.today()
-        data_inicio = hoje - timedelta(days=days)
-
-        # Query base
-        query = supabase.table('yt_canal_upload_historico')\
-            .select('*')\
-            .gte('data', data_inicio.isoformat())\
-            .order('data', desc=True)\
-            .order('hora_processamento', desc=True)
-
-        # Filtro opcional de status
-        if status_filter:
-            query = query.eq('status', status_filter)
-
-        result = query.execute()
-
-        # Agrupar por data
-        historico_por_data = {}
-        for record in result.data:
-            data_str = record['data']
-
-            if data_str not in historico_por_data:
-                historico_por_data[data_str] = {
-                    'data': data_str,
-                    'total_uploads': 0,
-                    'sucesso': 0,
-                    'erro': 0,
-                    'sem_video': 0,
-                    'canais': []
-                }
-
-            # Contadores
-            historico_por_data[data_str]['total_uploads'] += 1
-            status = record.get('status', 'pendente')
-            if status in ['sucesso', 'erro', 'sem_video']:
-                historico_por_data[data_str][status] += 1
-
-            # Dados do canal
-            hora = record.get('hora_processamento', '')
-            if hora:
-                # Converter para horário de Brasília (UTC-3)
-                from datetime import datetime
-                import pytz
-
-                try:
-                    # Parse do timestamp UTC
-                    dt_utc = datetime.fromisoformat(hora.replace('Z', '+00:00'))
-                    # Converter para Brasília
-                    brasil_tz = pytz.timezone('America/Sao_Paulo')
-                    dt_brasil = dt_utc.astimezone(brasil_tz)
-                    hora_formatada = dt_brasil.strftime('%H:%M:%S')
-                except:
-                    hora_formatada = hora.split('T')[1][:8] if 'T' in hora else hora[:8] if hora else '-'
-            else:
-                hora_formatada = '-'
-
-            historico_por_data[data_str]['canais'].append({
-                'channel_name': record.get('channel_name', '-'),
-                'video_titulo': record.get('video_titulo', '-'),
-                'status': status,
-                'hora': hora_formatada,
-                'tentativa_numero': record.get('tentativa_numero', 1),
-                'youtube_video_id': record.get('youtube_video_id'),
-                'erro_mensagem': record.get('erro_mensagem')
-            })
-
-        # Converter dict para lista ordenada
-        historico_lista = sorted(
-            historico_por_data.values(),
-            key=lambda x: x['data'],
-            reverse=True
-        )
-
-        return {
-            'total_dias': len(historico_lista),
-            'total_registros': len(result.data),
-            'data_inicio': data_inicio.isoformat(),
-            'data_fim': hoje.isoformat(),
-            'historico_por_data': historico_lista
-        }
-
-    except Exception as e:
-        logger.error(f"Erro ao buscar histórico completo: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

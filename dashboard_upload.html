@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Upload Diário - YouTube</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #0f3460;
+        }
+
+        h1 {
+            font-size: 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: inline-block;
+        }
+
+        .last-update {
+            color: #888;
+            font-size: 14px;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: rgba(15, 52, 96, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid #0f3460;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.1);
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            color: #888;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .success { color: #4CAF50; }
+        .error { color: #F44336; }
+        .warning { color: #FFC107; }
+        .info { color: #2196F3; }
+        .pending { color: #9C27B0; }
+
+        .subnicho-section {
+            margin-bottom: 30px;
+            background: rgba(22, 33, 62, 0.6);
+            backdrop-filter: blur(10px);
+            border: 1px solid #0f3460;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .subnicho-header {
+            background: linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.3s ease;
+        }
+
+        .subnicho-header:hover {
+            background: linear-gradient(135deg, #1a4d80 0%, #1e2a4a 100%);
+        }
+
+        .subnicho-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .subnicho-emoji {
+            font-size: 24px;
+        }
+
+        .subnicho-stats {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .subnicho-stat {
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        .toggle-icon {
+            font-size: 20px;
+            transition: transform 0.3s ease;
+        }
+
+        .subnicho-section.collapsed .toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        .subnicho-content {
+            max-height: 1000px;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .subnicho-section.collapsed .subnicho-content {
+            max-height: 0;
+        }
+
+        .canais-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .canais-table th {
+            background: rgba(15, 52, 96, 0.3);
+            padding: 12px;
+            text-align: left;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #888;
+            border-bottom: 2px solid #0f3460;
+        }
+
+        .canais-table td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(15, 52, 96, 0.3);
+        }
+
+        .canais-table tr:hover {
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .canal-nome {
+            font-weight: 600;
+            color: #667eea;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .canal-nome:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-block;
+        }
+
+        .status-uploaded {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4CAF50;
+            border: 1px solid #4CAF50;
+        }
+
+        .status-error {
+            background: rgba(244, 67, 54, 0.2);
+            color: #F44336;
+            border: 1px solid #F44336;
+        }
+
+        .status-pending {
+            background: rgba(156, 39, 176, 0.2);
+            color: #9C27B0;
+            border: 1px solid #9C27B0;
+        }
+
+        .status-no-video {
+            background: rgba(255, 193, 7, 0.2);
+            color: #FFC107;
+            border: 1px solid #FFC107;
+        }
+
+        .language-tag {
+            background: rgba(33, 150, 243, 0.2);
+            color: #2196F3;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+            display: inline-block;
+        }
+
+        .sheet-link {
+            color: #667eea;
+            text-decoration: none;
+            transition: color 0.3s ease;
+            font-size: 12px;
+        }
+
+        .sheet-link:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 100px 20px;
+            font-size: 20px;
+            color: #667eea;
+        }
+
+        .loading-spinner {
+            border: 4px solid rgba(102, 126, 234, 0.3);
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .refresh-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .error-message {
+            background: rgba(244, 67, 54, 0.1);
+            border: 1px solid #F44336;
+            color: #F44336;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Dashboard de Upload Diário</h1>
+            <div>
+                <span class="last-update" id="lastUpdate">Atualizando...</span>
+                <button class="refresh-btn" onclick="loadDashboard()">🔄 Atualizar</button>
+            </div>
+        </header>
+
+        <div id="statsContainer" class="stats-container">
+            <!-- Estatísticas serão carregadas aqui -->
+        </div>
+
+        <div id="content" class="loading">
+            <div class="loading-spinner"></div>
+            <p>Carregando dados...</p>
+        </div>
+    </div>
+
+    <script>
+        // Configuração da API
+        const API_URL = window.location.hostname === 'localhost'
+            ? 'http://localhost:8000'
+            : 'https://youtube-dashboard-backend-production.up.railway.app';
+
+        // Dados globais
+        let dashboardData = null;
+
+        // Emojis e cores por subnicho
+        const subnichoConfig = {
+            'Monetizados': { emoji: '💰', color: '#4CAF50' },
+            'Relatos de Guerra': { emoji: '⚔️', color: '#F44336' },
+            'Guerras e Civilizações': { emoji: '🏛️', color: '#FF9800' },
+            'Historias Sombrias': { emoji: '👻', color: '#9C27B0' },
+            'Terror': { emoji: '😱', color: '#E91E63' },
+            'Desmonetizados': { emoji: '🚫', color: '#607D8B' }
+        };
+
+        // Carrega o dashboard
+        async function loadDashboard() {
+            try {
+                const content = document.getElementById('content');
+                content.innerHTML = '<div class="loading-spinner"></div><p>Carregando dados...</p>';
+
+                // Busca dados da API
+                const response = await fetch(`${API_URL}/api/yt-upload/dashboard-data`);
+
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
+                }
+
+                const data = await response.json();
+                dashboardData = data;
+
+                // Atualiza estatísticas
+                updateStats(data.stats);
+
+                // Renderiza canais por subnicho
+                renderCanais(data.canais_por_subnicho);
+
+                // Atualiza timestamp
+                document.getElementById('lastUpdate').textContent =
+                    `Última atualização: ${new Date().toLocaleString('pt-BR')}`;
+
+            } catch (error) {
+                console.error('Erro ao carregar dashboard:', error);
+                document.getElementById('content').innerHTML = `
+                    <div class="error-message">
+                        <h3>❌ Erro ao carregar dados</h3>
+                        <p>${error.message}</p>
+                        <p style="margin-top: 10px; font-size: 12px;">
+                            Verifique se o backend está rodando no Railway
+                        </p>
+                    </div>
+                `;
+            }
+        }
+
+        // Atualiza estatísticas
+        function updateStats(stats) {
+            const container = document.getElementById('statsContainer');
+            container.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${stats.total}</div>
+                    <div class="stat-label">Total de Canais</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value success">${stats.sucesso}</div>
+                    <div class="stat-label">Uploads com Sucesso</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value error">${stats.erro}</div>
+                    <div class="stat-label">Erros</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value pending">${stats.pendente}</div>
+                    <div class="stat-label">Pendentes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value warning">${stats.sem_video}</div>
+                    <div class="stat-label">Sem Vídeo</div>
+                </div>
+            `;
+        }
+
+        // Renderiza canais agrupados por subnicho
+        function renderCanais(canaisPorSubnicho) {
+            const content = document.getElementById('content');
+            let html = '';
+
+            for (const [subnicho, canais] of Object.entries(canaisPorSubnicho)) {
+                const config = subnichoConfig[subnicho] || { emoji: '📹', color: '#888' };
+
+                // Conta status
+                const stats = {
+                    sucesso: canais.filter(c => c.status === 'uploaded' || c.status === 'sucesso').length,
+                    erro: canais.filter(c => c.status === 'error' || c.status === 'erro').length,
+                    pendente: canais.filter(c => c.status === 'pending' || c.status === 'pendente').length,
+                    sem_video: canais.filter(c => c.status === 'sem_video' || c.status === 'no_video').length
+                };
+
+                html += `
+                    <div class="subnicho-section" id="subnicho-${subnicho.replace(/\s/g, '-')}">
+                        <div class="subnicho-header" onclick="toggleSubnicho('${subnicho.replace(/\s/g, '-')}')">
+                            <div class="subnicho-title">
+                                <span class="subnicho-emoji">${config.emoji}</span>
+                                <span>${subnicho}</span>
+                            </div>
+                            <div class="subnicho-stats">
+                                <span class="subnicho-stat">Total: ${canais.length}</span>
+                                <span class="subnicho-stat success">✅ ${stats.sucesso}</span>
+                                <span class="subnicho-stat error">❌ ${stats.erro}</span>
+                                <span class="subnicho-stat warning">📭 ${stats.sem_video}</span>
+                                <span class="toggle-icon">▼</span>
+                            </div>
+                        </div>
+                        <div class="subnicho-content">
+                            <table class="canais-table">
+                                <thead>
+                                    <tr>
+                                        <th>Canal</th>
+                                        <th>Status</th>
+                                        <th>Vídeo</th>
+                                        <th>Planilha</th>
+                                        <th>Última Atualização</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${canais.map(canal => renderCanal(canal)).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            }
+
+            content.innerHTML = html;
+        }
+
+        // Renderiza linha do canal
+        function renderCanal(canal) {
+            const statusClass = getStatusClass(canal.status);
+            const statusText = getStatusText(canal.status);
+            const languageTag = canal.idioma ? `<span class="language-tag">${canal.idioma.toUpperCase()}</span>` : '';
+
+            return `
+                <tr>
+                    <td>
+                        <span class="canal-nome" onclick="openChannel('${canal.channel_id}')">
+                            ${canal.nome}
+                        </span>
+                        ${languageTag}
+                    </td>
+                    <td>
+                        <span class="status-badge status-${statusClass}">
+                            ${statusText}
+                        </span>
+                    </td>
+                    <td>
+                        ${canal.video_titulo ?
+                            `<span title="${canal.video_titulo}">${canal.video_titulo.substring(0, 50)}...</span>` :
+                            '-'
+                        }
+                    </td>
+                    <td>
+                        ${canal.spreadsheet_id ?
+                            `<a href="https://docs.google.com/spreadsheets/d/${canal.spreadsheet_id}"
+                               target="_blank" class="sheet-link">
+                               📊 Abrir
+                            </a>` :
+                            '-'
+                        }
+                    </td>
+                    <td>
+                        ${canal.updated_at ?
+                            new Date(canal.updated_at).toLocaleString('pt-BR') :
+                            '-'
+                        }
+                    </td>
+                </tr>
+            `;
+        }
+
+        // Helpers
+        function getStatusClass(status) {
+            if (!status) return 'pending';
+            status = status.toLowerCase();
+            if (status.includes('sucesso') || status.includes('uploaded')) return 'uploaded';
+            if (status.includes('erro') || status.includes('error')) return 'error';
+            if (status.includes('sem') || status.includes('no_video')) return 'no-video';
+            return 'pending';
+        }
+
+        function getStatusText(status) {
+            if (!status) return 'PENDENTE';
+            status = status.toLowerCase();
+            if (status.includes('sucesso') || status.includes('uploaded')) return '✅ SUCESSO';
+            if (status.includes('erro') || status.includes('error')) return '❌ ERRO';
+            if (status.includes('sem') || status.includes('no_video')) return '📭 SEM VÍDEO';
+            return '⏳ PENDENTE';
+        }
+
+        function toggleSubnicho(id) {
+            const section = document.getElementById(`subnicho-${id}`);
+            section.classList.toggle('collapsed');
+        }
+
+        function openChannel(channelId) {
+            window.open(`https://youtube.com/channel/${channelId}`, '_blank');
+        }
+
+        // Auto-refresh a cada 30 segundos
+        setInterval(loadDashboard, 30000);
+
+        // Carrega ao iniciar
+        window.addEventListener('DOMContentLoaded', loadDashboard);
+    </script>
+</body>
+</html>

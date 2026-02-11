@@ -7,7 +7,7 @@
 ```
 youtube-dashboard-backend/
 │
-├── 📌 ARQUIVOS PYTHON NO ROOT (22 arquivos essenciais)
+├── 📌 ARQUIVOS PYTHON NO ROOT (23 arquivos essenciais)
 │   ├── main.py                        # FastAPI server principal
 │   ├── database.py                    # Cliente Supabase
 │   ├── collector.py                   # Coletor YouTube
@@ -22,7 +22,8 @@ youtube-dashboard-backend/
 │   ├── gpt_response_suggester.py      # Sugestões de respostas GPT
 │   ├── engagement_preprocessor.py     # Preprocessador de engajamento
 │   ├── daily_uploader.py              # Sistema de upload diário
-│   ├── dashboard_daily_uploads.py     # Dashboard Flask para uploads
+│   ├── dash_upload_final.py           # 🆕 Dashboard Flask de uploads (porta 5006)
+│   ├── dashboard_daily_uploads.py     # Dashboard Flask para uploads (legado)
 │   ├── sheets.py                      # Integração Google Sheets
 │   ├── setup.py                       # Setup inicial
 │   ├── add_canal_wizard_v2.py        # Wizard para adicionar canais (v2)
