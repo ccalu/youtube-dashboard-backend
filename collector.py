@@ -944,12 +944,12 @@ class YouTubeCollector:
             comments_by_video = {}
             latest_comment_timestamp = None
 
-            # Coletar de TODOS os vídeos ordenados por views, com limite de segurança de 50
-            # Removido limite TOP 20 para não perder vídeos com engajamento
-            all_videos_sorted = sorted(videos, key=lambda x: int(x.get('viewCount', 0)), reverse=True)
+            # Coletar de TODOS os vídeos ordenados por DATA (mais recentes primeiro), SEM LIMITE
+            # Mudança: ordenar por publishedAt em vez de views para pegar comentários recentes
+            all_videos_sorted = sorted(videos, key=lambda x: x.get('publishedAt', ''), reverse=True)
 
-            # Limite de segurança: máximo 50 vídeos para evitar timeout
-            videos_to_collect = all_videos_sorted[:50] if len(all_videos_sorted) > 50 else all_videos_sorted
+            # SEM LIMITE - coletar de TODOS os vídeos do canal
+            videos_to_collect = all_videos_sorted
 
             # Log informativo
             total_views = sum(int(v.get('viewCount', 0)) for v in videos_to_collect)

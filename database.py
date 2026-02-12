@@ -2308,13 +2308,13 @@ class SupabaseClient:
 
     def get_monetized_channels_with_comments(self) -> List[Dict]:
         """
-        Retorna canais monetizados com contagem de comentários
+        Retorna TODOS os canais tipo='nosso' com contagem de comentários, organizados por subnicho
         """
         try:
-            # Buscar canais monetizados
+            # Buscar TODOS os canais nossos (removido filtro de subnicho='Monetizados')
             canais = self.supabase.table('canais_monitorados').select(
                 'id, nome_canal, subnicho, lingua, url_canal'
-            ).eq('tipo', 'nosso').eq('subnicho', 'Monetizados').execute()
+            ).eq('tipo', 'nosso').execute()
 
             result = []
             for canal in canais.data:
@@ -2569,15 +2569,15 @@ class SupabaseClient:
         APENAS para canais monetizados (monetizado=True)
         """
         try:
-            # Total de canais monetizados
-            monetizados = self.supabase.table('canais_monitorados').select(
+            # Total de TODOS os canais nossos (removido filtro monetizado)
+            todos_canais = self.supabase.table('canais_monitorados').select(
                 'id', count='exact'
-            ).eq('tipo', 'nosso').eq('monetizado', True).execute()
+            ).eq('tipo', 'nosso').execute()
 
-            # Buscar IDs dos canais monetizados para filtrar comentários
+            # Buscar IDs de TODOS os canais nossos para filtrar comentários
             canal_ids_result = self.supabase.table('canais_monitorados').select(
                 'id'
-            ).eq('tipo', 'nosso').eq('monetizado', True).execute()
+            ).eq('tipo', 'nosso').execute()
 
             canal_ids = [c['id'] for c in (canal_ids_result.data or [])]
 
@@ -2608,7 +2608,7 @@ class SupabaseClient:
             ).in_('canal_id', canal_ids).not_.is_('suggested_response', 'null').eq('is_responded', False).execute()
 
             return {
-                'canais_monetizados': monetizados.count,
+                'canais_monetizados': todos_canais.count,  # Mudado de monetizados para todos_canais
                 'total_comentarios': total_comments.count if total_comments.count else 0,
                 'novos_hoje': novos_hoje.count if novos_hoje.count else 0,
                 'aguardando_resposta': aguardando.count if aguardando.count else 0
