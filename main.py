@@ -2676,8 +2676,8 @@ async def get_coletas_historico(limit: Optional[int] = 20):
         brasilia_offset = timedelta(hours=-3)
         next_reset_brasilia = next_reset + brasilia_offset
 
-        # Usar informações reais do collector
-        chaves_esgotadas_real = len(collector.exhausted_keys_date)
+        # Usar informações reais do collector - calcular baseado na quota gasta
+        chaves_esgotadas_real = min(int(quota_usada // 10000), len(collector.api_keys))
         chaves_suspensas_real = len(collector.suspended_keys)
         chaves_ativas_real = len(collector.api_keys) - chaves_esgotadas_real - chaves_suspensas_real
 
