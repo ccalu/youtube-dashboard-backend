@@ -29,45 +29,8 @@ except ImportError as e:
     print(f"[ERRO] Não foi possível importar daily_uploader: {e}")
     sys.exit(1)
 
-def adicionar_ao_historico(supabase, channel_id, channel_name, data, status,
-                          video_titulo=None, video_url=None, youtube_video_id=None,
-                          erro_mensagem=None, tentativa_numero=1):
-    """Adiciona registro ao histórico de uploads (sempre INSERT, nunca UPDATE)"""
-    try:
-        historico_data = {
-            'channel_id': channel_id,
-            'channel_name': channel_name,
-            'data': data,
-            'status': status,
-            'tentativa_numero': tentativa_numero,
-            'hora_processamento': datetime.now(timezone.utc).isoformat(),
-            'upload_realizado': (status == 'sucesso')
-        }
-
-        # Adicionar campos opcionais
-        if video_titulo:
-            historico_data['video_titulo'] = video_titulo
-        if youtube_video_id:
-            historico_data['youtube_video_id'] = youtube_video_id
-        if video_url:
-            historico_data['video_url'] = video_url
-        if erro_mensagem:
-            historico_data['erro_mensagem'] = erro_mensagem
-
-        # SEMPRE INSERT - para permitir múltiplos uploads por dia
-        result = supabase.table('yt_canal_upload_historico')\
-            .insert(historico_data)\
-            .execute()
-
-        if result.data:
-            print(f"    ✅ Histórico registrado")
-
-    except Exception as e:
-        # Se a tabela não existe, apenas avisa (não quebra o fluxo)
-        if "relation" in str(e) and "does not exist" in str(e):
-            print("    ⚠️ Tabela de histórico ainda não existe")
-        else:
-            print(f"    ❌ Erro ao adicionar ao histórico: {e}")
+# Função adicionar_ao_historico removida
+# O daily_uploader já adiciona ao histórico automaticamente através de _adicionar_historico()
 
 async def forcar_upload_canal(uploader, canal_nome=None, canal_id=None):
     """Força upload de um canal específico - PERMITE MÚLTIPLOS UPLOADS POR DIA"""
@@ -109,22 +72,8 @@ async def forcar_upload_canal(uploader, canal_nome=None, canal_id=None):
         print(f"       Channel ID: {canal['channel_id']}")
         print(f"       Spreadsheet: {canal.get('spreadsheet_id', 'N/A')[:30]}...")
 
-        # SEMPRE criar novo registro na tabela diária (não verificar se já existe)
-        # Isso permite múltiplos uploads no mesmo dia
-        print(f"\n[INFO] Criando novo registro de upload...")
-        diario_data = {
-            'channel_id': canal['channel_id'],
-            'channel_name': canal['channel_name'],
-            'data': hoje,
-            'status': 'pendente',
-            'upload_realizado': False,
-            'hora_processamento': datetime.now(timezone.utc).isoformat()
-        }
-
-        # INSERT - sempre criar novo registro
-        supabase.table('yt_canal_upload_diario').insert(diario_data).execute()
-
-        # Processar upload
+        # Processar upload diretamente
+        # O daily_uploader vai criar o registro na tabela diária
         print(f"\n[INFO] Processando upload...")
         resultado = await uploader._process_canal_upload(canal, hoje, retry_attempt=0)
 
@@ -153,14 +102,7 @@ async def forcar_upload_canal(uploader, canal_nome=None, canal_id=None):
                 # INSERIR novo registro (não atualizar)
                 supabase.table('yt_canal_upload_diario').insert(novo_data).execute()
 
-                # Adicionar ao histórico
-                adicionar_ao_historico(
-                    supabase, canal['channel_id'], canal['channel_name'],
-                    hoje, 'sucesso',
-                    video_titulo=resultado.get('video_title'),
-                    video_url=novo_data.get('video_url'),
-                    youtube_video_id=resultado.get('youtube_video_id')
-                )
+                # O daily_uploader já adiciona ao histórico automaticamente
 
                 print(f"[SUCESSO] Upload realizado e SALVO!")
                 print(f"          Vídeo: {resultado.get('video_title', 'N/A')}")
@@ -174,11 +116,7 @@ async def forcar_upload_canal(uploader, canal_nome=None, canal_id=None):
                 # INSERIR novo registro
                 supabase.table('yt_canal_upload_diario').insert(novo_data).execute()
 
-                # Adicionar ao histórico
-                adicionar_ao_historico(
-                    supabase, canal['channel_id'], canal['channel_name'],
-                    hoje, 'sem_video'
-                )
+                # O daily_uploader já adiciona ao histórico automaticamente
 
                 print(f"[AVISO] Nenhum vídeo pronto encontrado na planilha")
                 print(f"        Status: sem_video")
@@ -196,12 +134,7 @@ async def forcar_upload_canal(uploader, canal_nome=None, canal_id=None):
                 # INSERIR novo registro
                 supabase.table('yt_canal_upload_diario').insert(novo_data).execute()
 
-                # Adicionar ao histórico
-                adicionar_ao_historico(
-                    supabase, canal['channel_id'], canal['channel_name'],
-                    hoje, 'erro',
-                    erro_mensagem=resultado.get('erro', 'Erro desconhecido')
-                )
+                # O daily_uploader já adiciona ao histórico automaticamente
 
                 print(f"[ERRO] Falha no upload: {resultado.get('erro', 'Erro desconhecido')}")
                 print(f"       Status: erro")
@@ -226,12 +159,7 @@ async def forcar_upload_canal(uploader, canal_nome=None, canal_id=None):
             # INSERIR novo registro
             supabase.table('yt_canal_upload_diario').insert(erro_data).execute()
 
-            # Adicionar ao histórico
-            adicionar_ao_historico(
-                supabase, canal['channel_id'], canal['channel_name'],
-                hoje, 'erro',
-                erro_mensagem='Nenhum resultado retornado do processamento'
-            )
+            # O daily_uploader já adiciona ao histórico automaticamente
 
             print(f"[ERRO] Nenhum resultado retornado")
             return False
@@ -255,12 +183,7 @@ async def forcar_upload_canal(uploader, canal_nome=None, canal_id=None):
                 # INSERIR novo registro
                 supabase.table('yt_canal_upload_diario').insert(erro_data).execute()
 
-                # Adicionar ao histórico
-                adicionar_ao_historico(
-                    supabase, canal['channel_id'], canal['channel_name'],
-                    hoje, 'erro',
-                    erro_mensagem=str(e)
-                )
+                # O daily_uploader já adiciona ao histórico automaticamente
         except:
             pass
 

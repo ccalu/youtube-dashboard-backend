@@ -98,8 +98,8 @@ def migrar_dados_historicos():
                 'youtube_video_id': item_diario.get('youtube_video_id'),
                 'hora_processamento': item_diario.get('hora_processamento'),
                 'erro_mensagem': item_diario.get('erro_mensagem'),
-                'tentativa_numero': item_diario.get('tentativa_numero', 1),
-                'upload_realizado': item_diario.get('upload_realizado', False)
+                'tentativa_numero': item_diario.get('tentativa_numero', 1)
+                # Removido: upload_realizado não existe na tabela de histórico
             }
 
             # Inserir no histórico

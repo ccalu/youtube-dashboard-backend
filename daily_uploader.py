@@ -694,9 +694,10 @@ class DailyUploader:
             if video_url:
                 data_dict['video_url'] = video_url
 
-            # Upsert (insert or update)
+            # INSERT novo registro (permite múltiplos uploads por dia)
+            # Mudança crítica: INSERT ao invés de UPSERT
             self.supabase.table('yt_canal_upload_diario')\
-                .upsert(data_dict, on_conflict='channel_id,data')\
+                .insert(data_dict)\
                 .execute()
 
             # TAMBÉM adicionar ao histórico (preserva todos os uploads)

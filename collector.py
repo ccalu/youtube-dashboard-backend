@@ -861,7 +861,7 @@ class YouTubeCollector:
                     'part': 'snippet,replies',
                     'videoId': video_id,
                     'maxResults': min(max_results, 100),  # Máximo 100 por request
-                    'order': 'relevance',
+                    'order': 'time',  # Mudado de 'relevance' para 'time' - busca comentários mais recentes primeiro
                     'textFormat': 'plainText'
                 }
 
@@ -944,21 +944,24 @@ class YouTubeCollector:
             comments_by_video = {}
             latest_comment_timestamp = None
 
-            # TOP 20 vídeos por views - sempre os mais relevantes
-            # Primeiro ordenar por views (maior para menor), depois pegar TOP 20
-            top_20_videos = sorted(videos, key=lambda x: int(x.get('viewCount', 0)), reverse=True)[:20]
+            # Coletar de TODOS os vídeos ordenados por views, com limite de segurança de 50
+            # Removido limite TOP 20 para não perder vídeos com engajamento
+            all_videos_sorted = sorted(videos, key=lambda x: int(x.get('viewCount', 0)), reverse=True)
+
+            # Limite de segurança: máximo 50 vídeos para evitar timeout
+            videos_to_collect = all_videos_sorted[:50] if len(all_videos_sorted) > 50 else all_videos_sorted
 
             # Log informativo
-            total_views = sum(int(v.get('viewCount', 0)) for v in top_20_videos)
-            logger.info(f"📊 TOP 20 vídeos de {canal_name}: {total_views:,} views totais")
+            total_views = sum(int(v.get('viewCount', 0)) for v in videos_to_collect)
+            logger.info(f"📊 Coletando comentários de {len(videos_to_collect)} vídeos de {canal_name}: {total_views:,} views totais")
 
             # Log da coleta incremental se aplicável
             if last_collected_timestamp:
                 logger.info(f"📊 Coleta INCREMENTAL para {canal_name} - Comentários após {last_collected_timestamp}")
             else:
-                logger.info(f"📊 Coleta COMPLETA de comentários de TOP {len(top_20_videos)} vídeos de {canal_name}")
+                logger.info(f"📊 Coleta COMPLETA de comentários de {len(videos_to_collect)} vídeos de {canal_name}")
 
-            for video in top_20_videos:
+            for video in videos_to_collect:
                 video_id = video.get('videoId')
                 video_title = video.get('title', 'Sem título')
 
@@ -973,8 +976,18 @@ class YouTubeCollector:
                     if last_collected_timestamp:
                         # Filtrar apenas comentários novos (após o timestamp)
                         filtered_comments = []
+                        oldest_comment_time = None
+                        newest_comment_time = None
+
                         for comment in comments:
                             comment_time = comment.get('published_at', '')
+
+                            # Rastrear comentário mais antigo e mais novo para debug
+                            if not oldest_comment_time or (comment_time and comment_time < oldest_comment_time):
+                                oldest_comment_time = comment_time
+                            if not newest_comment_time or (comment_time and comment_time > newest_comment_time):
+                                newest_comment_time = comment_time
+
                             if comment_time > last_collected_timestamp:
                                 filtered_comments.append(comment)
                                 # Rastrear o comentário mais recente
@@ -982,9 +995,10 @@ class YouTubeCollector:
                                     latest_comment_timestamp = comment_time
 
                         if filtered_comments:
-                            logger.debug(f"  ↳ {len(filtered_comments)} novos comentários de {len(comments)} totais")
+                            logger.info(f"  ✅ {video_title[:30]}: {len(filtered_comments)} novos de {len(comments)} totais")
                             comments = filtered_comments
                         else:
+                            logger.debug(f"  ⏭️ {video_title[:30]}: 0 novos (mais recente: {newest_comment_time[:10] if newest_comment_time else 'N/A'} < {last_collected_timestamp[:10]})")
                             continue  # Nenhum comentário novo neste vídeo
                     else:
                         # Coleta completa - rastrear timestamp mais recente
