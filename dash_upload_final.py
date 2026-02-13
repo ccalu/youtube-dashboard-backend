@@ -958,7 +958,7 @@ HTML_TEMPLATE = '''
                                 } else if (subnicho === 'Relatos de Guerra') {
                                     corHeader = '#304831';
                                     emoji = '⚔️ ';
-                                } else if (subnicho === 'Guerras e Civilizações') {
+                                } else if (subnicho === 'Guerras e Civilizacoes') {
                                     corHeader = '#EA580C';
                                     emoji = '🛡️ ';
                                 }
@@ -1196,8 +1196,8 @@ def get_status():
                 # Se é monetizado, SEMPRE vai para Monetizados
                 if canal['is_monetized']:
                     novo_dict['Monetizados'].append(canal)
-                # Unificar Guerras e Civilizações com Relatos de Guerra
-                elif 'Guerra' in subnicho or 'guerra' in subnicho or 'Civiliza' in subnicho:
+                # Manter cada subnicho separado
+                elif 'Relatos de Guerra' in subnicho:
                     novo_dict['Relatos de Guerra'].append(canal)
                 else:
                     novo_dict[subnicho].append(canal)

@@ -1,23 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-WIZARD v3 - Adicionar Canal com Upload Automático
-Visual profissional com cores e formatação aprimorada
+Wizard V3: Adicionar Canal com Upload Automatico
+Visual profissional com cores - Logica identica ao V2
 """
 
 import os
 import re
-import json
 import requests
-from datetime import datetime, timedelta, timezone
 from supabase import create_client
 from dotenv import load_dotenv
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse, parse_qs
-from colorama import init, Fore, Back, Style
+from colorama import init, Fore, Style
 
 # Inicializa colorama para Windows
 init(autoreset=True)
 
-# Carrega variáveis de ambiente
+# Carrega variaveis
 load_dotenv()
 
 # Conecta Supabase (usa SERVICE_ROLE_KEY para bypass RLS)
@@ -26,628 +25,720 @@ supabase = create_client(
     os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
 )
 
-# ============================================================================
-# FUNÇÕES DE FORMATAÇÃO VISUAL
-# ============================================================================
-
-def clear_screen():
-    """Limpa a tela do terminal"""
-    os.system('cls' if os.name == 'nt' else 'clear')
+# ============================================================
+# FUNCOES DE FORMATACAO VISUAL
+# ============================================================
 
 def print_header():
-    """Imprime o cabeçalho principal do wizard"""
+    """Imprime cabecalho principal"""
     print(f"\n{Fore.CYAN}{'=' * 70}")
-    print(f"{Fore.CYAN}|{' ' * 13}{Fore.YELLOW}{Style.BRIGHT}WIZARD v3 - ADICIONAR CANAL YOUTUBE{Style.RESET_ALL}{' ' * 13}{Fore.CYAN}|")
-    print(f"{Fore.CYAN}|{' ' * 13}{Fore.WHITE}Sistema de Upload Automatico Profissional{' ' * 14}{Fore.CYAN}|")
+    print(f"{Fore.CYAN}|{' ' * 10}{Fore.YELLOW}{Style.BRIGHT}WIZARD V3 - ADICIONAR CANAL COM UPLOAD AUTOMATICO{Style.RESET_ALL}{' ' * 8}{Fore.CYAN}|")
     print(f"{Fore.CYAN}{'=' * 70}{Style.RESET_ALL}\n")
 
-def print_section(number, total, title, emoji=""):
-    """Imprime cabeçalho de seção"""
-    print(f"\n{Fore.CYAN}{'-' * 60}")
-    print(f"{Fore.CYAN}{emoji} {Style.BRIGHT}ETAPA {number}/{total} - {title}{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}{'-' * 60}{Style.RESET_ALL}\n")
+def print_section(number, total, title):
+    """Imprime cabecalho de secao"""
+    print(f"\n{Fore.CYAN}{'─' * 70}")
+    print(f"  {Fore.YELLOW}{Style.BRIGHT}[{number}/{total}] {title}{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}{'─' * 70}{Style.RESET_ALL}")
 
-def print_error(message):
-    """Imprime mensagem de erro formatada"""
-    print(f"{Fore.RED}{Style.BRIGHT}[X] ERRO: {Style.RESET_ALL}{Fore.RED}{message}{Style.RESET_ALL}")
+def print_error(msg):
+    print(f"  {Fore.RED}{Style.BRIGHT}[ERRO]{Style.RESET_ALL} {Fore.RED}{msg}{Style.RESET_ALL}")
 
-def print_success(message):
-    """Imprime mensagem de sucesso formatada"""
-    print(f"{Fore.GREEN}{Style.BRIGHT}[OK] {message}{Style.RESET_ALL}")
+def print_ok(msg):
+    print(f"  {Fore.GREEN}{Style.BRIGHT}[OK]{Style.RESET_ALL} {Fore.GREEN}{msg}{Style.RESET_ALL}")
 
-def print_warning(message):
-    """Imprime mensagem de aviso formatada"""
-    print(f"{Fore.YELLOW}{Style.BRIGHT}[!] AVISO: {Style.RESET_ALL}{Fore.YELLOW}{message}{Style.RESET_ALL}")
+def print_warning(msg):
+    print(f"  {Fore.YELLOW}{Style.BRIGHT}[AVISO]{Style.RESET_ALL} {Fore.YELLOW}{msg}{Style.RESET_ALL}")
 
-def print_info(message):
-    """Imprime mensagem informativa"""
-    print(f"{Fore.CYAN}[i] {message}{Style.RESET_ALL}")
+def print_processing(msg):
+    print(f"  {Fore.MAGENTA}[...] {msg}{Style.RESET_ALL}")
 
-def print_processing(message):
-    """Imprime mensagem de processamento"""
-    print(f"{Fore.MAGENTA}[...] {message}...{Style.RESET_ALL}")
+def prompt(msg):
+    """Input formatado"""
+    return input(f"  {Fore.YELLOW}> {msg}: {Style.RESET_ALL}").strip()
 
-def print_prompt(message):
-    """Retorna prompt formatado para input"""
-    return f"{Fore.YELLOW}> {message}: {Style.RESET_ALL}"
+# ============================================================
+# MAPEAMENTO DE IDIOMAS (Nome -> Codigo ISO 639-1)
+# ============================================================
+IDIOMAS_MAP = {
+    'Alemao': 'de',
+    'Arabe': 'ar',
+    'Coreano': 'ko',
+    'Espanhol': 'es',
+    'Frances': 'fr',
+    'Hindi': 'hi',
+    'Ingles': 'en',
+    'Italiano': 'it',
+    'Japones': 'ja',
+    'Polones': 'pl',
+    'Portugues': 'pt',
+    'Russo': 'ru',
+    'Turco': 'tr'
+}
 
-def print_box(title, items):
-    """Imprime uma caixa com título e items"""
-    max_width = max(len(title), max(len(str(item)) for item in items if item)) + 4
-
-    print(f"\n{Fore.CYAN}+{'-' * max_width}+")
-    print(f"{Fore.CYAN}| {Fore.YELLOW}{Style.BRIGHT}{title}{Style.RESET_ALL}{' ' * (max_width - len(title) - 2)}{Fore.CYAN}|")
-    print(f"{Fore.CYAN}+{'-' * max_width}+")
-
-    for item in items:
-        if item:
-            item_str = str(item)
-            padding = max_width - len(item_str) - 2
-            print(f"{Fore.CYAN}| {Fore.WHITE}{item_str}{' ' * padding}{Fore.CYAN}|")
-
-    print(f"{Fore.CYAN}+{'-' * max_width}+{Style.RESET_ALL}")
-
-def print_final_summary(canal_data):
-    """Imprime resumo final profissional"""
-    print(f"\n{Fore.GREEN}{'=' * 70}")
-    print(f"{Fore.GREEN}{' ' * 15}{Style.BRIGHT}CANAL CONFIGURADO COM SUCESSO!{Style.RESET_ALL}{' ' * 15}")
-    print(f"{Fore.GREEN}{'=' * 70}")
-
-    # Dados do canal
-    print(f"\n{Fore.GREEN}{Style.BRIGHT}DETALHES DO CANAL:{Style.RESET_ALL}")
-    print(f"{Fore.GREEN}{'-' * 70}")
-
-    items = [
-        ("Canal", canal_data.get('channel_name', 'N/A')),
-        ("ID", canal_data.get('channel_id', 'N/A')),
-        ("Lingua", f"{canal_data.get('lingua_nome', 'N/A')} ({canal_data.get('lingua', 'N/A')})"),
-        ("Subnicho", canal_data.get('subnicho', 'N/A')),
-        ("Monetizado", "SIM" if canal_data.get('is_monetized') else "NAO"),
-        ("Upload Auto", "ATIVADO"),
-        ("Planilha", f"{canal_data.get('spreadsheet_id', 'N/A')[:20]}...")
-    ]
-
-    for label, value in items:
-        print(f"{Fore.WHITE}  {label:15}: {Fore.YELLOW}{value}{Style.RESET_ALL}")
-
-    print(f"\n{Fore.CYAN}{Style.BRIGHT}PROXIMOS PASSOS:{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}{'-' * 70}")
-    print(f"{Fore.WHITE}  * Configure videos na planilha (coluna J = 'done')")
-    print(f"{Fore.WHITE}  * Sistema fara 1 upload/dia automaticamente")
-    print(f"{Fore.WHITE}  * Acompanhe pelo dashboard em localhost:5002")
-    print(f"{Fore.GREEN}{'=' * 70}{Style.RESET_ALL}\n")
-
-# ============================================================================
-# FUNÇÕES AUXILIARES DO WIZARD
-# ============================================================================
-
-def verificar_canal_existe(channel_id):
-    """Verifica se canal já existe no banco"""
-    try:
-        print_processing("Verificando duplicatas")
-
-        result = supabase.table('yt_channels')\
-            .select('channel_id, channel_name')\
-            .eq('channel_id', channel_id)\
-            .execute()
-
-        if result.data:
-            canal = result.data[0]
-            print_error(f"Canal já existe no banco!")
-            print(f"   {Fore.WHITE}Nome: {canal['channel_name']}")
-            print(f"   {Fore.WHITE}ID: {canal['channel_id']}")
-            return True
-        else:
-            print_success("Canal não existe - pode adicionar!")
-            return False
-    except Exception as e:
-        print_error(f"Falha ao verificar: {e}")
-        return None
-
-def obter_linguas_disponiveis():
-    """Retorna lista de línguas disponíveis"""
-    return [
-        ("de", "Alemao"),
-        ("ar", "Arabe"),
-        ("ko", "Coreano"),
-        ("es", "Espanhol"),
-        ("fr", "Frances"),
-        ("hi", "Hindi"),
-        ("en", "Ingles"),
-        ("it", "Italiano"),
-        ("ja", "Japones"),
-        ("pt", "Portugues"),
-        ("ru", "Russo"),
-        ("tr", "Turco"),
-        ("zh", "Chines")
-    ]
-
-def obter_subnichos_reais():
-    """Retorna apenas os subnichos reais dos nossos canais"""
-    return [
-        "Terror",
-        "Monetizados",
-        "Desmonetizados",
-        "Relatos de Guerra",
-        "Historias Sombrias",
-        "Mistérios"
-    ]
+# ============================================================
+# VALIDADORES (identicos ao V2)
+# ============================================================
 
 def validar_channel_id(channel_id):
-    """Valida formato do Channel ID"""
+    """Valida formato YouTube Channel ID"""
     pattern = r'^UC[a-zA-Z0-9_-]{22}$'
-
     if not re.match(pattern, channel_id):
-        print_error("Channel ID inválido!")
-        print(f"   {Fore.WHITE}Formato esperado: UCxxxxxxxxxxxxxxxxxx (24 caracteres)")
-        print(f"   {Fore.WHITE}Exemplo: UCQkTVF_9ipsZx5URt1FfGLw")
+        print_error("Channel ID invalido! Formato esperado: UCxxxxxxxxxxxxxxxxxx (24 caracteres)")
         return False
+    return True
 
+def validar_playlist_id(playlist_id):
+    """Valida formato YouTube Playlist ID"""
+    if not playlist_id:
+        return True
+    pattern = r'^PL[a-zA-Z0-9_-]{32}$'
+    if not re.match(pattern, playlist_id):
+        print_error("Playlist ID invalido! Formato esperado: PLxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx (34 caracteres)")
+        return False
+    return True
+
+def validar_spreadsheet_id(spreadsheet_id):
+    """Valida formato Google Sheets ID"""
+    pattern = r'^[a-zA-Z0-9_-]{40,50}$'
+    if not re.match(pattern, spreadsheet_id):
+        print_error("Spreadsheet ID invalido! Deve ter ~44 caracteres alfanumericos")
+        return False
+    return True
+
+def validar_oauth_code(code):
+    """Valida formato OAuth authorization code"""
+    pattern = r'^4/[a-zA-Z0-9_-]+$'
+    if not re.match(pattern, code):
+        print_error("Codigo OAuth invalido! Formato esperado: 4/XXXXXXX")
+        return False
     return True
 
 def validar_client_id(client_id):
-    """Valida formato do Client ID do Google"""
-    pattern = r'^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$'
-
+    """Valida formato Google Cloud Client ID"""
+    pattern = r'^\d+-[a-zA-Z0-9]+\.apps\.googleusercontent\.com$'
     if not re.match(pattern, client_id):
-        print_error("Client ID inválido!")
-        print(f"   {Fore.WHITE}Formato esperado: XXXXX-YYYY.apps.googleusercontent.com")
+        print_error("Client ID invalido! Formato esperado: 123456789-abc.apps.googleusercontent.com")
         return False
-
     return True
 
-def verificar_acesso_planilha(spreadsheet_id):
-    """Verifica se consegue acessar a planilha (teste básico)"""
+def validar_client_secret(client_secret):
+    """Valida formato Google Cloud Client Secret"""
+    pattern = r'^GOCSPX-[a-zA-Z0-9_-]+$'
+    if not re.match(pattern, client_secret):
+        print_error("Client Secret invalido! Formato esperado: GOCSPX-xxxxxxxxx")
+        return False
+    return True
+
+# ============================================================
+# FUNCOES AUXILIARES (identicas ao V2)
+# ============================================================
+
+def buscar_linguas_disponiveis():
+    """Retorna lista completa de idiomas disponiveis"""
+    return sorted(IDIOMAS_MAP.keys())
+
+def buscar_subnichos_disponiveis():
+    """Retorna lista de subnichos reais do sistema"""
+    subnichos = [
+        'Desmonetizados',
+        'Historias Sombrias',
+        'Relatos de Guerra',
+        'Monetizados',
+        'Guerras e Civilizacoes',
+        'Terror'
+    ]
+    return subnichos
+
+def canal_existe(channel_id):
+    """Verifica se canal ja existe"""
     try:
-        print_processing("Verificando acesso à planilha")
-
-        # Teste básico - verifica se é um ID válido
-        if len(spreadsheet_id) < 20:
-            print_error("ID da planilha muito curto!")
-            return False
-
-        print_success("ID da planilha válido!")
-        return True
-    except Exception as e:
-        print_error(f"Erro ao verificar planilha: {e}")
+        result = supabase.table('yt_channels')\
+            .select('channel_id')\
+            .eq('channel_id', channel_id)\
+            .execute()
+        return len(result.data) > 0
+    except:
         return False
 
-def fazer_oauth(client_id, client_secret, channel_id):
-    """Realiza o fluxo OAuth do Google"""
+def extrair_spreadsheet_id_da_url(url):
+    """Extrai ID da planilha de uma URL do Google Sheets"""
+    pattern = r'/spreadsheets/d/([a-zA-Z0-9_-]+)'
+    match = re.search(pattern, url)
+    if match:
+        return match.group(1)
+    return None
+
+# ============================================================
+# FUNCOES PRINCIPAIS (identicas ao V2)
+# ============================================================
+
+def verificar_acesso_planilha(spreadsheet_id):
+    """Verifica se consegue acessar a planilha do Google Sheets"""
+    import json
+    import gspread
+    from oauth2client.service_account import ServiceAccountCredentials
+
     try:
-        # URLs do OAuth
-        auth_url = "https://accounts.google.com/o/oauth2/v2/auth"
-        token_url = "https://oauth2.googleapis.com/token"
+        creds_str = os.getenv("GOOGLE_SHEETS_CREDENTIALS_2")
+        if not creds_str:
+            print_warning("Nao foi possivel verificar acesso (credenciais nao configuradas localmente)")
+            return True
 
-        # Parâmetros da autorização
-        redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
-        scope = " ".join([
-            "https://www.googleapis.com/auth/youtube.upload",
-            "https://www.googleapis.com/auth/youtube",
-            "https://www.googleapis.com/auth/youtube.force-ssl",  # Necessário para gerenciar playlists
-            "https://www.googleapis.com/auth/spreadsheets"
-        ])
+        creds_dict = json.loads(creds_str)
+        scope = ['https://spreadsheets.google.com/feeds',
+                'https://www.googleapis.com/auth/drive']
+        credentials = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+        client = gspread.authorize(credentials)
 
-        # Monta URL de autorização
-        params = {
-            "client_id": client_id,
-            "redirect_uri": redirect_uri,
-            "response_type": "code",
-            "scope": scope,
-            "access_type": "offline",
-            "prompt": "consent"
-        }
+        sheet = client.open_by_key(spreadsheet_id)
+        print_ok(f"Planilha acessivel: {sheet.title}")
 
-        auth_full_url = f"{auth_url}?{'&'.join([f'{k}={v}' for k, v in params.items()])}"
+        worksheet = sheet.get_worksheet(0)
+        print_ok(f"Primeira aba: {worksheet.title}")
 
-        print_info("Abrindo navegador para autorizacao...")
-        print(f"\n{Fore.CYAN}URL: {Fore.BLUE}{auth_full_url[:80]}...{Style.RESET_ALL}\n")
+        return True
 
-        # Abre navegador
-        import webbrowser
-        webbrowser.open(auth_full_url)
-
-        print_box("INSTRUCOES", [
-            "1. Faca login com a conta do canal",
-            "2. Autorize o acesso solicitado",
-            "3. Copie o codigo de autorizacao",
-            "4. Cole abaixo e pressione ENTER"
-        ])
-
-        # Recebe código
-        auth_code = input(print_prompt("Codigo de autorizacao")).strip()
-
-        if not auth_code:
-            print_error("Codigo nao pode estar vazio!")
-            return None
-
-        print_processing("Trocando codigo por tokens")
-
-        # Troca código por tokens
-        token_data = {
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "code": auth_code,
-            "redirect_uri": redirect_uri,
-            "grant_type": "authorization_code"
-        }
-
-        response = requests.post(token_url, data=token_data)
-
-        if response.status_code != 200:
-            print_error(f"Falha ao obter tokens: {response.text}")
-            return None
-
-        tokens = response.json()
-
-        # Calcula expiração
-        expiry = datetime.now(timezone.utc) + timedelta(seconds=tokens.get('expires_in', 3600))
-
-        print_success("Tokens obtidos com sucesso!")
-        print(f"   {Fore.WHITE}Expira em: {expiry.strftime('%Y-%m-%d %H:%M')}")
-
-        return {
-            "access_token": tokens.get("access_token"),
-            "refresh_token": tokens.get("refresh_token"),
-            "token_expiry": expiry.isoformat()
-        }
-
+    except gspread.SpreadsheetNotFound:
+        print_error("Planilha nao encontrada! Verifique o ID.")
+        print(f"  {Fore.WHITE}Possiveis causas:")
+        print(f"  {Fore.WHITE}  1. ID incorreto")
+        print(f"  {Fore.WHITE}  2. Planilha nao existe")
+        print(f"  {Fore.WHITE}  3. Planilha nao esta compartilhada com a conta de servico")
+        return False
+    except gspread.APIError as e:
+        print_error(f"Erro da API Google Sheets: {e}")
+        return False
     except Exception as e:
-        print_error(f"Erro no OAuth: {e}")
-        return None
+        print_warning(f"Nao foi possivel verificar acesso: {e}")
+        confirma = prompt("Deseja continuar mesmo assim? (s/n)").lower()
+        return confirma == 's'
 
-def salvar_credenciais_canal(channel_id, client_id, client_secret):
-    """Salva credenciais do canal no Supabase"""
+def adicionar_canal_v2(channel_id, channel_name, lingua, subnicho, spreadsheet_id,
+                      is_monetized, playlist_id=None):
+    """Adiciona canal no Supabase com configuracao de upload automatico"""
     try:
-        print_processing("Salvando credenciais")
+        data = {
+            'channel_id': channel_id,
+            'channel_name': channel_name,
+            'proxy_name': None,
+            'lingua': lingua,
+            'subnicho': subnicho,
+            'spreadsheet_id': spreadsheet_id,
+            'is_active': True,
+            'is_monetized': is_monetized,
+            'upload_automatico': True
+        }
 
-        result = supabase.table('yt_channel_credentials')\
-            .insert({
-                "channel_id": channel_id,
-                "client_id": client_id,
-                "client_secret": client_secret
-            })\
+        if playlist_id:
+            data['default_playlist_id'] = playlist_id
+
+        result = supabase.table('yt_channels')\
+            .insert(data)\
             .execute()
 
-        if result.data:
-            print_success("Credenciais salvas!")
+        print_ok(f"Canal {channel_name} adicionado com sucesso!")
+        print(f"    {Fore.WHITE}- Upload automatico: {Fore.GREEN}ATIVADO{Style.RESET_ALL}")
+        print(f"    {Fore.WHITE}- Monetizado: {Fore.GREEN if is_monetized else Fore.RED}{'SIM' if is_monetized else 'NAO'}{Style.RESET_ALL}")
+        print(f"    {Fore.WHITE}- Planilha configurada: {Fore.GREEN}SIM{Style.RESET_ALL}")
+        return True
+    except Exception as e:
+        print_error(f"Falha ao adicionar canal: {e}")
+        return False
+
+def extrair_codigo_da_url(url_completa):
+    """Extrai codigo OAuth de uma URL de redirect (http://localhost:8080/?code=...)"""
+    try:
+        parsed = urlparse(url_completa)
+        params = parse_qs(parsed.query)
+
+        if 'code' in params:
+            return params['code'][0]
+        else:
+            return None
+    except:
+        return None
+
+def gerar_url_oauth(channel_id, client_id):
+    """Gera URL de autorizacao OAuth"""
+    scopes = [
+        'https://www.googleapis.com/auth/youtube.upload',
+        'https://www.googleapis.com/auth/youtube',
+        'https://www.googleapis.com/auth/youtube.force-ssl',
+        'https://www.googleapis.com/auth/spreadsheets'
+    ]
+
+    params = {
+        'client_id': client_id,
+        'redirect_uri': 'http://localhost:8080',
+        'scope': ' '.join(scopes),
+        'response_type': 'code',
+        'access_type': 'offline',
+        'prompt': 'consent'
+    }
+
+    query_string = '&'.join([f"{k}={requests.utils.quote(str(v))}" for k, v in params.items()])
+    return f"https://accounts.google.com/o/oauth2/v2/auth?{query_string}"
+
+def trocar_codigo_por_tokens(code, client_id, client_secret):
+    """Troca codigo OAuth por access_token + refresh_token"""
+    try:
+        url = "https://oauth2.googleapis.com/token"
+        data = {
+            'code': code,
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'redirect_uri': 'http://localhost:8080',
+            'grant_type': 'authorization_code'
+        }
+
+        response = requests.post(url, data=data, timeout=30)
+        response.raise_for_status()
+
+        tokens = response.json()
+        return {
+            'access_token': tokens['access_token'],
+            'refresh_token': tokens['refresh_token'],
+            'expires_in': tokens.get('expires_in', 3600)
+        }
+    except Exception as e:
+        print_error(f"Falha ao trocar codigo por tokens: {e}")
+        return None
+
+def salvar_tokens(channel_id, access_token, refresh_token, expires_in):
+    """Salva tokens OAuth no Supabase"""
+    try:
+        expiry = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+
+        data = {
+            'channel_id': channel_id,
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+            'token_expiry': expiry.isoformat()
+        }
+
+        result = supabase.table('yt_oauth_tokens')\
+            .insert(data)\
+            .execute()
+
+        print_ok(f"Tokens salvos com sucesso (expira: {expiry.strftime('%Y-%m-%d %H:%M')})")
+        return True
+    except Exception as e:
+        print_error(f"Falha ao salvar tokens: {e}")
+        return False
+
+def validar_token(access_token):
+    """Testa token fazendo request para YouTube API"""
+    try:
+        url = "https://www.googleapis.com/youtube/v3/channels"
+        headers = {'Authorization': f'Bearer {access_token}'}
+        params = {'part': 'snippet', 'mine': 'true'}
+
+        response = requests.get(url, headers=headers, params=params, timeout=30)
+        response.raise_for_status()
+
+        data = response.json()
+        if 'items' in data and len(data['items']) > 0:
+            channel_name = data['items'][0]['snippet']['title']
+            print_ok(f"Token valido! Canal autenticado: {channel_name}")
             return True
         else:
-            print_error("Credenciais não foram salvas")
+            print_error("Token valido mas nenhum canal encontrado")
             return False
+    except Exception as e:
+        print_error(f"Token invalido: {e}")
+        return False
+
+def salvar_credenciais_canal(channel_id, client_id, client_secret):
+    """Salva as credenciais OAuth do canal no banco de dados"""
+    try:
+        result = supabase.table('yt_channel_credentials').select('id').eq('channel_id', channel_id).execute()
+
+        if result.data:
+            result = supabase.table('yt_channel_credentials').update({
+                'client_id': client_id,
+                'client_secret': client_secret,
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }).eq('channel_id', channel_id).execute()
+            print_ok(f"Credenciais atualizadas para o canal {channel_id}")
+        else:
+            result = supabase.table('yt_channel_credentials').insert({
+                'channel_id': channel_id,
+                'client_id': client_id,
+                'client_secret': client_secret,
+                'created_at': datetime.now(timezone.utc).isoformat()
+            }).execute()
+            print_ok(f"Credenciais inseridas para o canal {channel_id}")
+
+        return True
     except Exception as e:
         print_error(f"Erro ao salvar credenciais: {e}")
         return False
 
-def salvar_tokens(channel_id, tokens):
-    """Salva tokens OAuth no Supabase"""
-    try:
-        print_processing("Salvando tokens OAuth")
-
-        result = supabase.table('yt_oauth_tokens')\
-            .insert({
-                "channel_id": channel_id,
-                "access_token": tokens["access_token"],
-                "refresh_token": tokens["refresh_token"],
-                "token_expiry": tokens["token_expiry"]
-            })\
-            .execute()
-
-        if result.data:
-            print_success("Tokens salvos!")
-            return True
-        else:
-            print_error("Tokens não foram salvos")
-            return False
-    except Exception as e:
-        print_error(f"Erro ao salvar tokens: {e}")
-        return False
-
-# ============================================================================
-# FUNÇÃO PRINCIPAL DO WIZARD
-# ============================================================================
+# ============================================================
+# WIZARD PRINCIPAL V3 (fluxo identico ao V2, visual melhorado)
+# ============================================================
 
 def main():
-    """Função principal do wizard"""
-    clear_screen()
+    os.system('cls' if os.name == 'nt' else 'clear')
     print_header()
 
-    print(f"{Fore.MAGENTA}{Style.BRIGHT}IMPORTANTE:{Style.RESET_ALL}")
-    print(f"  {Fore.WHITE}* Todos os canais terao upload automatico ATIVADO")
-    print(f"  {Fore.WHITE}* Sistema fara 1 upload por dia apos coleta diaria")
-    print(f"  {Fore.WHITE}* Canais monetizados tem prioridade no processamento\n")
+    print(f"  {Fore.MAGENTA}{Style.BRIGHT}IMPORTANTE:{Style.RESET_ALL}")
+    print(f"  {Fore.WHITE}- Todos os canais adicionados terao upload automatico ATIVADO")
+    print(f"  {Fore.WHITE}- Sistema fara 1 upload por dia apos coleta diaria")
+    print(f"  {Fore.WHITE}- Canais monetizados tem prioridade no processamento\n")
 
-    # Dados que serão coletados
-    canal_data = {}
+    # ============================================================
+    # PARTE 1: DADOS DO CANAL
+    # ============================================================
+    print_section(1, 4, "DADOS DO CANAL")
+
+    # Channel ID
+    while True:
+        channel_id = prompt("Channel ID (UCxxxxxxxxx)")
+        if not channel_id:
+            print_error("Channel ID e obrigatorio!")
+            continue
+        if not validar_channel_id(channel_id):
+            continue
+        print_processing("Verificando duplicatas")
+        if canal_existe(channel_id):
+            print_error(f"Canal {channel_id} ja existe no banco!")
+            continue
+        print_ok(f"Channel ID valido: {channel_id}")
+        break
+
+    # Channel Name
+    while True:
+        channel_name = prompt("Nome do canal")
+        if not channel_name:
+            print_error("Nome do canal e obrigatorio!")
+            continue
+        print_ok(f"Nome salvo: {channel_name}")
+        break
+
+    # Busca opcoes
+    print_processing("Carregando opcoes")
+    linguas_disponiveis = buscar_linguas_disponiveis()
+    subnichos_disponiveis = buscar_subnichos_disponiveis()
+
+    # Lingua
+    print(f"\n  {Fore.CYAN}{Style.BRIGHT}Idiomas disponiveis:{Style.RESET_ALL}")
+    for i, lang in enumerate(linguas_disponiveis):
+        codigo = IDIOMAS_MAP[lang]
+        print(f"    {Fore.WHITE}[{Fore.YELLOW}{i+1:2d}{Fore.WHITE}] {lang} ({codigo})")
+    print(f"    {Fore.WHITE}[{Fore.YELLOW}{len(linguas_disponiveis)+1:2d}{Fore.WHITE}] Outro (digitar manualmente)")
 
     while True:
         try:
-            # ====================================================================
-            # PARTE 1: DADOS DO CANAL
-            # ====================================================================
-            print_section(1, 4, "DADOS DO CANAL", "[DADOS]")
+            escolha = prompt(f"Escolha a lingua (1-{len(linguas_disponiveis)+1})")
+            escolha_num = int(escolha)
 
-            # Channel ID
-            while True:
-                channel_id = input(print_prompt("Channel ID (UCxxxxxxxxx)")).strip()
+            if escolha_num < 1 or escolha_num > len(linguas_disponiveis) + 1:
+                print_error(f"Digite um numero entre 1 e {len(linguas_disponiveis)+1}")
+                continue
 
-                if not channel_id:
-                    print_error("Channel ID é obrigatório!")
+            if escolha_num == len(linguas_disponiveis) + 1:
+                lingua = prompt("Digite o codigo ISO da lingua (ex: pt, es, fr)").lower()
+                if not lingua:
+                    print_error("Lingua e obrigatoria!")
                     continue
-
-                if not validar_channel_id(channel_id):
+                if len(lingua) != 2:
+                    print_error("Codigo ISO deve ter 2 letras (ex: pt, es, fr)")
                     continue
-
-                # Verifica duplicata
-                existe = verificar_canal_existe(channel_id)
-                if existe:
-                    print_warning("Canal já existe! Não pode adicionar duplicado.")
-                    print("\n" + "=" * 60)
-                    input(f"\n{Fore.YELLOW}Pressione ENTER para sair...{Style.RESET_ALL}")
-                    return
-
-                canal_data['channel_id'] = channel_id
-                print_success(f"Channel ID válido: {channel_id}")
-                break
-
-            # Nome do canal
-            while True:
-                channel_name = input(print_prompt("Nome do canal")).strip()
-                if not channel_name:
-                    print_error("Nome é obrigatório!")
+                print_warning(f"Lingua '{lingua}' nao existe na lista padrao, sera adicionada")
+                confirma = prompt("Confirma? (s/n)").lower()
+                if confirma != 's':
                     continue
-                canal_data['channel_name'] = channel_name
-                print_success(f"Nome salvo: {channel_name}")
-                break
+            else:
+                lingua_nome = linguas_disponiveis[escolha_num - 1]
+                lingua = IDIOMAS_MAP[lingua_nome]
+                print_ok(f"Lingua selecionada: {lingua_nome} (codigo: {lingua})")
 
-            # Língua
-            print_processing("Carregando opcoes de idioma")
-            linguas_disponiveis = obter_linguas_disponiveis()
-
-            print_box("IDIOMAS DISPONIVEIS", [
-                f"[{i+1}] {nome}" for i, (_, nome) in enumerate(linguas_disponiveis)
-            ] + [f"[{len(linguas_disponiveis)+1}] Outro (digitar manualmente)"])
-
-            while True:
-                escolha = input(print_prompt(f"Escolha o idioma (1-{len(linguas_disponiveis)+1})")).strip()
-
-                if not escolha.isdigit():
-                    print_error("Digite apenas o número da opção!")
-                    continue
-
-                escolha_num = int(escolha)
-
-                if escolha_num < 1 or escolha_num > len(linguas_disponiveis) + 1:
-                    print_error(f"Opção inválida! Escolha entre 1 e {len(linguas_disponiveis)+1}")
-                    continue
-
-                if escolha_num <= len(linguas_disponiveis):
-                    lingua_codigo, lingua_nome = linguas_disponiveis[escolha_num - 1]
-                    canal_data['lingua'] = lingua_codigo
-                    canal_data['lingua_nome'] = lingua_nome.split()[1]  # Remove emoji
-                    print_success(f"Idioma selecionado: {lingua_nome}")
-                else:
-                    lingua_custom = input(print_prompt("Digite o código do idioma (ex: pt, en, es)")).strip().lower()
-                    if len(lingua_custom) != 2:
-                        print_error("Código deve ter 2 letras!")
-                        continue
-                    canal_data['lingua'] = lingua_custom
-                    canal_data['lingua_nome'] = lingua_custom.upper()
-                    print_success(f"Idioma personalizado: {lingua_custom}")
-                break
-
-            # Subnicho
-            print_processing("Carregando subnichos")
-            subnichos = obter_subnichos_reais()
-
-            print_box("SUBNICHOS DISPONIVEIS", [
-                f"[{i+1}] {subnicho}" for i, subnicho in enumerate(subnichos)
-            ] + [f"[{len(subnichos)+1}] Outro (digitar manualmente)"])
-
-            while True:
-                escolha = input(print_prompt(f"Escolha o subnicho (1-{len(subnichos)+1})")).strip()
-
-                if not escolha.isdigit():
-                    print_error("Digite apenas o número da opção!")
-                    continue
-
-                escolha_num = int(escolha)
-
-                if escolha_num < 1 or escolha_num > len(subnichos) + 1:
-                    print_error(f"Opção inválida! Escolha entre 1 e {len(subnichos)+1}")
-                    continue
-
-                if escolha_num <= len(subnichos):
-                    canal_data['subnicho'] = subnichos[escolha_num - 1]
-                    print_success(f"Subnicho selecionado: {subnichos[escolha_num - 1]}")
-                else:
-                    subnicho_custom = input(print_prompt("Digite o nome do subnicho")).strip()
-                    if not subnicho_custom:
-                        print_error("Subnicho não pode estar vazio!")
-                        continue
-                    canal_data['subnicho'] = subnicho_custom
-                    print_success(f"Subnicho personalizado: {subnicho_custom}")
-                break
-
-            # Monetizado
-            while True:
-                monetizado = input(print_prompt("Canal monetizado? (s/n)")).strip().lower()
-                if monetizado not in ['s', 'n']:
-                    print_error("Digite 's' para sim ou 'n' para não!")
-                    continue
-                canal_data['is_monetized'] = (monetizado == 's')
-                status_text = "Monetizado" if monetizado == 's' else "Nao monetizado"
-                print_success(f"Status: {status_text}")
-                break
-
-            # Playlist ID
-            while True:
-                playlist_id = input(print_prompt("ID da Playlist do YouTube (PLxxxxxx ou UUxxxxxx)")).strip()
-                if not playlist_id:
-                    print_error("Playlist ID é obrigatório!")
-                    continue
-                if not playlist_id.startswith(('PL', 'UU', 'LL', 'FL')):
-                    print_warning("Playlist ID geralmente começa com PL, UU, LL ou FL")
-                canal_data['playlist_id'] = playlist_id
-                print_success(f"Playlist ID: {playlist_id}")
-                break
-
-            # Spreadsheet ID
-            while True:
-                spreadsheet_id = input(print_prompt("ID da Planilha Google Sheets")).strip()
-                if not spreadsheet_id:
-                    print_error("Spreadsheet ID é obrigatório!")
-                    continue
-
-                if not verificar_acesso_planilha(spreadsheet_id):
-                    retry = input(print_prompt("Tentar outro ID? (s/n)")).strip().lower()
-                    if retry != 's':
-                        break
-                    continue
-
-                canal_data['spreadsheet_id'] = spreadsheet_id
-                print_success(f"Planilha configurada!")
-                break
-
-            # ====================================================================
-            # PARTE 2: CONFIGURACAO OAUTH
-            # ====================================================================
-            print_section(2, 4, "CONFIGURACAO OAUTH", "[OAUTH]")
-
-            print_box("INSTRUCOES GOOGLE CLOUD", [
-                "1. Acesse: console.cloud.google.com",
-                "2. Crie ou selecione um projeto",
-                "3. Ative YouTube Data API v3",
-                "4. Crie credenciais OAuth 2.0",
-                "5. Tipo: Aplicativo para desktop",
-                "6. Copie Client ID e Client Secret"
-            ])
-
-            # Client ID
-            while True:
-                client_id = input(print_prompt("Client ID")).strip()
-                if not client_id:
-                    print_error("Client ID é obrigatório!")
-                    continue
-                if not validar_client_id(client_id):
-                    continue
-                canal_data['client_id'] = client_id
-                print_success("Client ID válido!")
-                break
-
-            # Client Secret
-            while True:
-                client_secret = input(print_prompt("Client Secret")).strip()
-                if not client_secret:
-                    print_error("Client Secret é obrigatório!")
-                    continue
-                if not client_secret.startswith('GOCSPX-'):
-                    print_warning("Client Secret geralmente começa com GOCSPX-")
-                canal_data['client_secret'] = client_secret
-                print_success("Client Secret salvo!")
-                break
-
-            # ====================================================================
-            # PARTE 3: AUTORIZACAO
-            # ====================================================================
-            print_section(3, 4, "AUTORIZACAO GOOGLE", "[AUTH]")
-
-            tokens = fazer_oauth(
-                canal_data['client_id'],
-                canal_data['client_secret'],
-                canal_data['channel_id']
-            )
-
-            if not tokens:
-                print_error("Falha na autorização!")
-                retry = input(print_prompt("Tentar novamente? (s/n)")).strip().lower()
-                if retry == 's':
-                    continue
-                else:
-                    print_warning("Saindo sem salvar...")
-                    input(f"\n{Fore.YELLOW}Pressione ENTER para sair...{Style.RESET_ALL}")
-                    return
-
-            canal_data['tokens'] = tokens
-
-            # ====================================================================
-            # PARTE 4: SALVAMENTO FINAL
-            # ====================================================================
-            print_section(4, 4, "SALVAMENTO NO BANCO", "[SAVE]")
-
-            print_processing("Salvando todas as informações")
-
-            # 1. Salva canal principal
-            try:
-                result = supabase.table('yt_channels')\
-                    .insert({
-                        "channel_id": canal_data['channel_id'],
-                        "channel_name": canal_data['channel_name'],
-                        "lingua": canal_data['lingua'],
-                        "subnicho": canal_data['subnicho'],
-                        "is_monetized": canal_data['is_monetized'],
-                        "upload_automatico": True,
-                        "playlist_id": canal_data['playlist_id'],
-                        "spreadsheet_id": canal_data['spreadsheet_id']
-                    })\
-                    .execute()
-
-                if not result.data:
-                    raise Exception("Canal não foi salvo")
-
-                print_success(f"Canal salvo: {canal_data['channel_name']}")
-
-            except Exception as e:
-                print_error(f"Erro ao salvar canal: {e}")
-                print_warning("Abortando processo...")
-                input(f"\n{Fore.YELLOW}Pressione ENTER para sair...{Style.RESET_ALL}")
-                return
-
-            # 2. Salva credenciais
-            if not salvar_credenciais_canal(
-                canal_data['channel_id'],
-                canal_data['client_id'],
-                canal_data['client_secret']
-            ):
-                # Rollback - deleta canal
-                print_warning("Fazendo rollback...")
-                supabase.table('yt_channels').delete().eq('channel_id', canal_data['channel_id']).execute()
-                print_error("Processo abortado! Canal não foi salvo.")
-                input(f"\n{Fore.YELLOW}Pressione ENTER para sair...{Style.RESET_ALL}")
-                return
-
-            # 3. Salva tokens
-            if not salvar_tokens(canal_data['channel_id'], canal_data['tokens']):
-                # Rollback - deleta canal e credenciais
-                print_warning("Fazendo rollback...")
-                supabase.table('yt_channel_credentials').delete().eq('channel_id', canal_data['channel_id']).execute()
-                supabase.table('yt_channels').delete().eq('channel_id', canal_data['channel_id']).execute()
-                print_error("Processo abortado! Canal não foi salvo.")
-                input(f"\n{Fore.YELLOW}Pressione ENTER para sair...{Style.RESET_ALL}")
-                return
-
-            # ====================================================================
-            # SUCESSO TOTAL!
-            # ====================================================================
-            print_final_summary(canal_data)
-
-            print_info("Para verificar: python verificar_canal_salvo.py")
-            print_info("Para upload manual: python daily_uploader.py")
-            print_info("Dashboard: python dashboard_daily_uploads.py")
-
-            # Fim com sucesso
             break
+        except ValueError:
+            print_error("Digite um numero valido!")
+            continue
 
-        except KeyboardInterrupt:
-            print(f"\n\n{Fore.YELLOW}Processo interrompido pelo usuário!{Style.RESET_ALL}")
-            input(f"\n{Fore.YELLOW}Pressione ENTER para sair...{Style.RESET_ALL}")
-            return
-        except Exception as e:
-            print_error(f"Erro inesperado: {e}")
-            input(f"\n{Fore.YELLOW}Pressione ENTER para sair...{Style.RESET_ALL}")
+    # Subnicho
+    print(f"\n  {Fore.CYAN}{Style.BRIGHT}Subnichos disponiveis:{Style.RESET_ALL}")
+    for i, sub in enumerate(subnichos_disponiveis):
+        print(f"    {Fore.WHITE}[{Fore.YELLOW}{i+1}{Fore.WHITE}] {sub}")
+    print(f"    {Fore.WHITE}[{Fore.YELLOW}{len(subnichos_disponiveis)+1}{Fore.WHITE}] Outro (digitar manualmente)")
+
+    while True:
+        try:
+            escolha = prompt(f"Escolha o subnicho (1-{len(subnichos_disponiveis)+1})")
+            escolha_num = int(escolha)
+
+            if escolha_num < 1 or escolha_num > len(subnichos_disponiveis) + 1:
+                print_error(f"Digite um numero entre 1 e {len(subnichos_disponiveis)+1}")
+                continue
+
+            if escolha_num == len(subnichos_disponiveis) + 1:
+                subnicho = prompt("Digite o subnicho manualmente (ex: terror)")
+                if not subnicho:
+                    print_error("Subnicho e obrigatorio!")
+                    continue
+                print_warning(f"Subnicho '{subnicho}' nao existe no banco, sera adicionado")
+                confirma = prompt("Confirma? (s/n)").lower()
+                if confirma != 's':
+                    continue
+            else:
+                subnicho = subnichos_disponiveis[escolha_num - 1]
+                print_ok(f"Subnicho selecionado: {subnicho}")
+
+            break
+        except ValueError:
+            print_error("Digite um numero valido!")
+            continue
+
+    # Monetizacao
+    print(f"\n  {Fore.CYAN}{Style.BRIGHT}MONETIZACAO{Style.RESET_ALL}")
+    while True:
+        monetizado = prompt("Este canal e monetizado? (s/n)").lower()
+        if monetizado not in ['s', 'n']:
+            print_error("Digite 's' para sim ou 'n' para nao")
+            continue
+        is_monetized = (monetizado == 's')
+        status = f"{Fore.GREEN}SIM" if is_monetized else f"{Fore.RED}NAO"
+        print_ok(f"Monetizado: {status}{Style.RESET_ALL}")
+        break
+
+    # Playlist ID (opcional)
+    while True:
+        playlist_id = prompt("Playlist ID (opcional, Enter para pular)")
+        if not playlist_id:
+            break
+        if not validar_playlist_id(playlist_id):
+            continue
+        print_ok(f"Playlist ID: {playlist_id}")
+        break
+
+    # Spreadsheet ID
+    print(f"\n  {Fore.CYAN}{Style.BRIGHT}PLANILHA DO GOOGLE SHEETS (OBRIGATORIO){Style.RESET_ALL}")
+    print(f"  {Fore.WHITE}Cole a URL completa da planilha ou apenas o ID")
+    print(f"  {Fore.WHITE}Exemplo: https://docs.google.com/spreadsheets/d/1234.../edit")
+    while True:
+        spreadsheet_input = prompt("URL ou ID da planilha")
+        if not spreadsheet_input:
+            print_error("Planilha e obrigatoria para upload automatico!")
+            continue
+
+        if spreadsheet_input.startswith('http'):
+            spreadsheet_id = extrair_spreadsheet_id_da_url(spreadsheet_input)
+            if not spreadsheet_id:
+                print_error("Nao foi possivel extrair o ID da URL fornecida!")
+                continue
+        else:
+            spreadsheet_id = spreadsheet_input
+
+        if not validar_spreadsheet_id(spreadsheet_id):
+            print_error("ID da planilha invalido!")
+            continue
+
+        print_ok(f"Formato do ID valido: {spreadsheet_id[:20]}...")
+
+        print_processing("Verificando acesso a planilha")
+        if not verificar_acesso_planilha(spreadsheet_id):
+            print_error("Nao foi possivel acessar a planilha!")
+            continue
+
+        break
+
+    # ============================================================
+    # PARTE 2: CREDENCIAIS GOOGLE CLOUD (OAUTH)
+    # ============================================================
+    print_section(2, 4, "CREDENCIAIS DO PROJETO GOOGLE CLOUD")
+
+    print(f"  {Fore.MAGENTA}{Style.BRIGHT}IMPORTANTE:{Style.RESET_ALL} Cada canal deve ter seu proprio projeto Google Cloud!")
+    print(f"  {Fore.WHITE}Criado no navegador do proxy (AdsPower, VPS, etc)\n")
+
+    # Client ID
+    while True:
+        client_id = prompt("Client ID")
+        if not client_id:
+            print_error("Client ID e obrigatorio!")
+            continue
+        if not validar_client_id(client_id):
+            continue
+        print_ok("Client ID valido!")
+        break
+
+    # Client Secret
+    while True:
+        client_secret = prompt("Client Secret")
+        if not client_secret:
+            print_error("Client Secret e obrigatorio!")
+            continue
+        if not validar_client_secret(client_secret):
+            continue
+        print_ok("Client Secret valido!")
+        break
+
+    print_ok("Credenciais validadas!")
+
+    # ============================================================
+    # PARTE 3: AUTORIZACAO OAUTH
+    # ============================================================
+    print_section(3, 4, "AUTORIZACAO OAUTH")
+
+    print(f"  {Fore.MAGENTA}{Style.BRIGHT}IMPORTANTE:{Style.RESET_ALL}")
+    print(f"  {Fore.WHITE}- Abra a URL no NAVEGADOR DO PROXY (conta Google do canal)")
+    print(f"  {Fore.WHITE}- Autorize o acesso")
+    print(f"  {Fore.WHITE}- Google vai redirecionar para http://localhost:8080")
+    print(f"  {Fore.WHITE}- Copie a URL COMPLETA do redirect\n")
+
+    # Gera URL OAuth
+    oauth_url = gerar_url_oauth(channel_id, client_id)
+    print(f"  {Fore.CYAN}{Style.BRIGHT}URL de autorizacao:{Style.RESET_ALL}")
+    print(f"  {Fore.CYAN}{'─' * 68}")
+    print(f"  {Fore.WHITE}{oauth_url}")
+    print(f"  {Fore.CYAN}{'─' * 68}")
+
+    print(f"\n  {Fore.WHITE}Apos autorizar, cole aqui a URL COMPLETA do redirect")
+    print(f"  {Fore.WHITE}(deve comecar com http://localhost:8080/?code=...)")
+
+    while True:
+        redirect_url = prompt("URL de redirect")
+        if not redirect_url:
+            print_error("URL e obrigatoria!")
+            continue
+
+        code = extrair_codigo_da_url(redirect_url)
+        if not code:
+            print_error("Codigo OAuth nao encontrado na URL!")
+            print(f"  {Fore.WHITE}A URL deve conter ?code=4/xxxxx")
+            continue
+
+        if not validar_oauth_code(code):
+            continue
+
+        print_ok(f"Codigo extraido: {code[:20]}...")
+        break
+
+    # Troca codigo por tokens
+    print_processing("Trocando codigo por tokens")
+    tokens = trocar_codigo_por_tokens(code, client_id, client_secret)
+    if not tokens:
+        print_error("Falha ao obter tokens! Abortando...")
+        input(f"\n  {Fore.YELLOW}Pressione ENTER para fechar...{Style.RESET_ALL}")
+        return
+
+    # Valida token
+    print_processing("Validando token com YouTube API")
+    if not validar_token(tokens['access_token']):
+        print_warning("Token pode estar invalido!")
+        confirma = prompt("Continuar mesmo assim? (s/n)").lower()
+        if confirma != 's':
+            print_warning("Abortado pelo usuario.")
+            input(f"\n  {Fore.YELLOW}Pressione ENTER para fechar...{Style.RESET_ALL}")
             return
 
-    input(f"\n{Fore.GREEN}Pressione ENTER para sair...{Style.RESET_ALL}")
+    # ============================================================
+    # PARTE 4: SALVAR TUDO NO BANCO (ATOMICAMENTE)
+    # ============================================================
+    print_section(4, 4, "SALVANDO DADOS NO BANCO")
+
+    print_processing("Salvando configuracao completa do canal")
+
+    save_success = True
+    canal_saved = False
+    creds_saved = False
+    tokens_saved = False
+
+    try:
+        # 1. Adicionar canal ao banco
+        print(f"\n  {Fore.WHITE}[1/3] Salvando canal...")
+        if adicionar_canal_v2(
+            channel_id=channel_id,
+            channel_name=channel_name,
+            lingua=lingua,
+            subnicho=subnicho,
+            spreadsheet_id=spreadsheet_id,
+            is_monetized=is_monetized,
+            playlist_id=playlist_id if playlist_id else None
+        ):
+            print(f"    {Fore.GREEN}{Style.BRIGHT}v{Style.RESET_ALL} {Fore.WHITE}Canal salvo: {channel_name}")
+            canal_saved = True
+        else:
+            print(f"    {Fore.RED}{Style.BRIGHT}x{Style.RESET_ALL} {Fore.RED}Erro ao salvar canal!")
+            save_success = False
+
+        if save_success:
+            # 2. Salvar credenciais OAuth
+            print(f"\n  {Fore.WHITE}[2/3] Salvando credenciais...")
+            if salvar_credenciais_canal(channel_id, client_id, client_secret):
+                print(f"    {Fore.GREEN}{Style.BRIGHT}v{Style.RESET_ALL} {Fore.WHITE}Credenciais salvas")
+                creds_saved = True
+            else:
+                print(f"    {Fore.RED}{Style.BRIGHT}x{Style.RESET_ALL} {Fore.RED}Erro ao salvar credenciais!")
+                save_success = False
+
+        if save_success:
+            # 3. Salvar tokens OAuth
+            print(f"\n  {Fore.WHITE}[3/3] Salvando tokens de acesso...")
+            if salvar_tokens(
+                channel_id,
+                tokens['access_token'],
+                tokens['refresh_token'],
+                tokens['expires_in']
+            ):
+                print(f"    {Fore.GREEN}{Style.BRIGHT}v{Style.RESET_ALL} {Fore.WHITE}Tokens salvos e validos")
+                tokens_saved = True
+            else:
+                print(f"    {Fore.RED}{Style.BRIGHT}x{Style.RESET_ALL} {Fore.RED}Erro ao salvar tokens!")
+                save_success = False
+
+    except Exception as e:
+        print_error(f"Falha ao salvar: {e}")
+        save_success = False
+
+    # Verificar resultado final
+    if not save_success:
+        print(f"\n{Fore.RED}{'=' * 70}")
+        print(f"  {Fore.RED}{Style.BRIGHT}ERRO AO CONFIGURAR CANAL!{Style.RESET_ALL}")
+        print(f"{Fore.RED}{'=' * 70}")
+        print(f"\n  {Fore.WHITE}Alguns dados podem nao ter sido salvos corretamente.")
+        print(f"  {Fore.WHITE}Verifique o erro acima e tente novamente.")
+        input(f"\n  {Fore.YELLOW}Pressione ENTER para fechar...{Style.RESET_ALL}")
+        return
+
+    # ============================================================
+    # RESUMO FINAL
+    # ============================================================
+    print(f"\n{Fore.GREEN}{'=' * 70}")
+    print(f"  {Fore.GREEN}{Style.BRIGHT}CANAL CONFIGURADO COM SUCESSO!{Style.RESET_ALL}")
+    print(f"{Fore.GREEN}{'=' * 70}")
+
+    print(f"\n  {Fore.GREEN}{Style.BRIGHT}DETALHES DO CANAL SALVO:{Style.RESET_ALL}")
+    print(f"  {Fore.GREEN}{'─' * 50}")
+    print(f"  {Fore.WHITE}  Canal:            {Fore.YELLOW}{channel_name}")
+    print(f"  {Fore.WHITE}  Channel ID:       {Fore.YELLOW}{channel_id}")
+    print(f"  {Fore.WHITE}  Lingua:           {Fore.YELLOW}{lingua}")
+    print(f"  {Fore.WHITE}  Subnicho:         {Fore.YELLOW}{subnicho}")
+    print(f"  {Fore.WHITE}  Monetizado:       {Fore.YELLOW}{'SIM' if is_monetized else 'NAO'}")
+    print(f"  {Fore.WHITE}  Upload automatico:{Fore.YELLOW} ATIVADO")
+    print(f"  {Fore.WHITE}  Planilha:         {Fore.YELLOW}{spreadsheet_id[:20]}...")
+
+    if playlist_id:
+        print(f"  {Fore.WHITE}  Playlist:         {Fore.YELLOW}{playlist_id}")
+
+    print(f"\n  {Fore.CYAN}{Style.BRIGHT}PROXIMOS PASSOS:{Style.RESET_ALL}")
+    print(f"  {Fore.CYAN}{'─' * 50}")
+    print(f"  {Fore.WHITE}  1. Configure a planilha com os videos (coluna J = 'done')")
+    print(f"  {Fore.WHITE}  2. O sistema fara 1 upload por dia automaticamente")
+    print(f"  {Fore.WHITE}  3. Acompanhe pelo dashboard em localhost:5006")
+
+    print(f"\n{Fore.GREEN}{'=' * 70}{Style.RESET_ALL}")
+    input(f"\n  {Fore.GREEN}Pressione ENTER para fechar...{Style.RESET_ALL}")
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print(f"\n\n  {Fore.YELLOW}Operacao cancelada pelo usuario.{Style.RESET_ALL}")
+        input(f"\n  {Fore.YELLOW}Pressione ENTER para fechar...{Style.RESET_ALL}")
+    except Exception as e:
+        print(f"\n\n  {Fore.RED}{Style.BRIGHT}ERRO INESPERADO: {e}{Style.RESET_ALL}")
+        input(f"\n  {Fore.YELLOW}Pressione ENTER para fechar...{Style.RESET_ALL}")
