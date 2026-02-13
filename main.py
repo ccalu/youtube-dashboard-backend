@@ -6073,7 +6073,7 @@ DASH_UPLOAD_HTML = '''
             50% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
         }
         .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; padding: 0 32px; margin-bottom: 28px; }
-        .stat-card { background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: var(--radius-md); padding: 20px; cursor: pointer; transition: all 0.15s ease; position: relative; }
+        .stat-card { background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: var(--radius-md); padding: 20px; cursor: pointer; transition: all 0.15s ease; position: relative; display: flex; flex-direction: column; justify-content: space-between; min-height: 90px; }
         .stat-card:hover { border-color: var(--border-secondary); background: var(--bg-tertiary); }
         .stat-card.active { border-left: 3px solid var(--card-accent, var(--info)); background: var(--bg-tertiary); }
         .stat-card--total { --card-accent: var(--info); }
@@ -6091,7 +6091,7 @@ DASH_UPLOAD_HTML = '''
         .stat-value--sucesso { color: var(--success); }
         .stat-value--sem_video { color: var(--warning); }
         .stat-value--erro { color: var(--error); }
-        .stat-value--historico { color: var(--accent); font-size: 24px; }
+        .stat-value--historico { color: var(--accent); font-size: 32px; }
         .stat-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-tertiary); }
         .content { padding: 0 32px; }
         .section { background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: var(--radius-lg); margin-bottom: 16px; overflow: hidden; border-left: 3px solid var(--section-accent, var(--border-primary)); }
