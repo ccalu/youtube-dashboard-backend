@@ -1189,16 +1189,12 @@ def get_status():
                 if canal['channel_id'] in monetizados_forcados:
                     canal['is_monetized'] = True
 
-        # Padronizar subnichos - MONETIZADOS TÊM PRIORIDADE
+        # Monetizados tem grupo proprio - resto usa subnicho do banco
         novo_dict = defaultdict(list)
         for subnicho, canais in subnichos_dict.items():
             for canal in canais:
-                # Se é monetizado, SEMPRE vai para Monetizados
                 if canal['is_monetized']:
                     novo_dict['Monetizados'].append(canal)
-                # Manter cada subnicho separado
-                elif 'Relatos de Guerra' in subnicho:
-                    novo_dict['Relatos de Guerra'].append(canal)
                 else:
                     novo_dict[subnicho].append(canal)
         subnichos_dict = novo_dict
