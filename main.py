@@ -6123,7 +6123,7 @@ DASH_UPLOAD_HTML = '''
         .video-title { max-width: 350px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: 13px; }
         .cell-time { color: var(--text-tertiary); font-size: 13px; font-variant-numeric: tabular-nums; }
         .cell-actions { display: flex; gap: 4px; }
-        .btn-icon { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; cursor: pointer; font-size: 15px; color: var(--text-secondary); transition: all 0.15s ease; text-decoration: none; }
+        .btn-icon { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; cursor: pointer; font-size: 20px; color: var(--text-secondary); transition: all 0.15s ease; text-decoration: none; }
         .btn-icon:hover { background: var(--bg-tertiary); border-color: var(--border-secondary); color: var(--text-primary); }
         .btn-icon:active { transform: scale(0.9); }
         .btn-icon:disabled { opacity: 0.3; cursor: not-allowed; }
@@ -6191,7 +6191,7 @@ DASH_UPLOAD_HTML = '''
             <div class="stat-label">Com Erro</div>
         </div>
         <div class="stat-card stat-card--historico" onclick="abrirHistoricoCompleto()">
-            <div class="stat-value stat-value--historico">30d</div>
+            <div class="stat-value stat-value--historico">&#x1F4DC;</div>
             <div class="stat-label">Historico Completo</div>
         </div>
     </div>
@@ -6583,8 +6583,6 @@ async def dash_upload_status():
             for canal in canais_list:
                 if canal['is_monetized']:
                     novo_dict['Monetizados'].append(canal)
-                elif 'Guerra' in sub or 'guerra' in sub or 'Civiliza' in sub:
-                    novo_dict['Relatos de Guerra'].append(canal)
                 else:
                     novo_dict[sub].append(canal)
         subnichos_dict = novo_dict
