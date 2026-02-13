@@ -222,8 +222,8 @@ HTML_TEMPLATE = '''
         }
 
         .btn-action {
-            padding: 8px 12px;
-            font-size: 14px;
+            padding: 10px 14px;
+            font-size: 20px;
             color: white;
             border: none;
             border-radius: 5px;
