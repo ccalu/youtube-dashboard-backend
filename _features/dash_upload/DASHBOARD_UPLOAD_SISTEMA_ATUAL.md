@@ -1,353 +1,349 @@
-# 🚀 SISTEMA DE DASHBOARD UPLOAD - DOCUMENTAÇÃO COMPLETA
-*Última atualização: 10/02/2026*
+# SISTEMA DE DASHBOARD UPLOAD - DOCUMENTACAO COMPLETA
+*Ultima atualizacao: 13/02/2026*
 
-## 📊 VISÃO GERAL
+## VISAO GERAL
 
-Sistema completo de automação de upload para YouTube com dashboard de monitoramento em tempo real. Gerencia 35+ canais dark, com upload automatizado diário, integração com Google Sheets e sistema de notificações inteligente.
+Sistema completo de automacao de upload para YouTube com dashboard de monitoramento em tempo real. Gerencia 20+ canais dark, com upload automatizado diario, integracao com Google Sheets e sistema de historico completo.
 
 ### Status Atual
-- ✅ **100% Funcional**
-- ✅ **Dashboard rodando na porta 5006**
-- ✅ **Upload automático diário às 5:30 AM**
-- ✅ **35 canais ativos**
-- ✅ **Suporte multi-idioma (PT, EN, ES, DE, FR, AR, etc.)**
+- **Dashboard v2 integrado no main.py** (Railway) - acesso online sem servidor local
+- Dashboard local (legado) na porta 5006
+- Upload automatico diario as 5:30 AM
+- 20 canais ativos
+- Suporte multi-idioma (PT, EN, ES, DE, FR, AR, IT, JP, KR, TR, PL, RU)
 
 ---
 
-## 🖥️ DASHBOARD EM TEMPO REAL
+## DASHBOARD v2 - INTEGRADO NO RAILWAY (PRINCIPAL)
+
+### Acesso Online
+- **URL Producao:** `https://youtube-dashboard-backend-production.up.railway.app/dash-upload`
+- **Implementado em:** `main.py` (linhas 5994-6741)
+- **Cache:** 10 segundos (compartilhado entre usuarios)
+- **Atualizacao automatica:** A cada 5 segundos via JavaScript
+
+### Vantagens sobre v1 (local)
+- Acessa de qualquer lugar (celular, outro PC)
+- Socio pode acessar sem rodar nada local
+- Sempre atualizado (deploy automatico via Railway)
+- Sem necessidade de rodar Flask separado
+
+### Endpoints da v2
+| Endpoint | Descricao |
+|----------|-----------|
+| `GET /dash-upload` | Pagina HTML do dashboard |
+| `GET /api/dash-upload/status` | Status canais agrupados por subnicho |
+| `GET /api/dash-upload/canais/{id}/historico` | Historico individual do canal |
+| `GET /api/dash-upload/historico-completo` | Historico de todos os canais (30 dias) |
+
+### Detalhes Tecnicos da v2
+- **Template HTML:** Inline no main.py (~495 linhas HTML/CSS/JS)
+- **Cache:** `_dash_cache` com TTL de 10s para evitar queries repetidas
+- **Funcao auxiliar:** `_extrair_hora()` para timestamps
+- **Ordenacao subnichos:** Mais uploads com sucesso aparecem primeiro
+- **URLs relativas:** Funciona tanto local (localhost:8000) quanto Railway
+
+---
+
+## DASHBOARD LOCAL (LEGADO)
 
 ### Arquivo Principal
-**`dashboard_teste_5006.py`** (887 linhas)
+**`dash_upload_final.py`**
 - **Porta:** 5006
 - **URL:** http://localhost:5006
-- **Atualização:** A cada 1 segundo (automático)
+- **Atualizacao:** A cada 5 segundos (automatico)
+- **Backup:** `_features/dash_upload/dash_upload_final_backup_13022026.py`
+- **Nota:** Ainda funcional, mas a versao v2 no Railway e a principal
 
 ### Funcionalidades
 
-#### 1. **Estatísticas Gerais**
+#### 1. Cards de Estatisticas (Clicaveis)
 ```
-┌─────────────────────────────────────┐
-│ Total: 35 | ✅ Sucesso: 28         │
-│ ❌ Erros: 2 | ⏳ Pendente: 3       │
-│ 📭 Sem Vídeo: 2                    │
-└─────────────────────────────────────┘
+Total de Canais | Upload com Sucesso | Sem Video | Com Erro | Historico Completo
 ```
+- **Total de Canais** - Clicavel para resetar filtro (mostra todos)
+- **Sucesso/Sem Video/Erro** - Clicavel para filtrar tabela por status
+- **Historico Completo** - Abre modal com historico de todos os dias
+- **UI:** Hover levanta card (-2px) + sombra, clique compress (scale 0.97)
 
-#### 2. **Agrupamento por Subnicho**
+#### 2. Agrupamento por Subnicho
 Cada subnicho tem cor e emoji personalizados:
-- 🔥 **Monetizados** (verde) - Prioridade máxima
-- 💰 **Relatos de Guerra** (dourado)
-- 👻 **Historias Sombrias** (roxo)
-- 😱 **Terror** (vermelho)
-- ⚠️ **Desmonetizados** (cinza)
+- Monetizados (verde) - Prioridade maxima
+- Relatos de Guerra (dourado)
+- Historias Sombrias (roxo)
+- Terror (vermelho)
+- Desmonetizados (cinza)
 
-#### 3. **Tags de Idioma**
-Sistema detecta automaticamente o idioma e exibe tag:
-```javascript
-// Lógica de detecção (linhas 625-657)
-const lingua = canal.lingua ? canal.lingua.toLowerCase() : '';
+#### 3. Tags de Idioma
+Sistema detecta automaticamente o idioma via funcao `getSiglaIdioma()`:
+- Suporta: PT, EN, ES, DE, FR, AR, IT, JP, KR, TR, PL, RU
+- Exibido como badge colorido ao lado do nome do canal
 
-if (lingua === 'pt' || lingua === 'portuguese' || lingua === 'português') {
-    siglaIdioma = 'PT';
-} else if (lingua === 'en' || lingua === 'english') {
-    siglaIdioma = 'EN';
-} else if (lingua === 'es' || lingua === 'spanish') {
-    siglaIdioma = 'ES';
-} else if (lingua === 'ar' || lingua === 'arabic' || lingua === 'árabe') {
-    siglaIdioma = 'AR';  // Correção aplicada em 10/02/2026
-}
-// ... outros idiomas
-```
+#### 4. Titulos Truncados
+Titulos de video com maximo de 7 palavras + reticencias para manter layout limpo.
 
-#### 4. **Modal de Histórico**
-Clique em qualquer canal para ver:
-- Últimos 30 dias de uploads
-- Status de cada upload (sucesso/erro)
-- Títulos dos vídeos
-- Timestamps de upload
+#### 5. Historico Individual (por canal)
+- **Sem limite de data** - Mostra TODOS os registros do canal
+- **Paginacao de 10 itens** - Navegacao com botoes Anterior/Proxima
+- **Colunas:** Data | Video | Status | Horario
+- **Deduplicacao** automatica de registros
+- **Ordenacao:** Data mais recente primeiro
+- **Estilo unificado:** Background #16213e, headers #0f3460, status com cores inline
 
-#### 5. **Link para Google Sheets**
-Cada canal tem link direto para sua planilha:
-```html
-<a href="${canal.sheet_url}" target="_blank">📊</a>
-```
+#### 6. Historico Completo (todos os canais)
+- **Accordion por dia** - Fechado por padrao, clicavel para expandir
+- **Resumo no header:** `13/02/2026  Sucesso: 1 | Sem video: 19 | Erro: 0`
+- **Seta animada:** Rotacao CSS suave ao expandir/colapsar
+- **Colunas:** Canal (idioma) | Video | Status | Horario
+- **Total de uploads:** Conta apenas uploads com sucesso
+- **Idioma do canal** entre parenteses (PT, EN, etc.)
+
+#### 7. Botoes de Acao por Canal
+- **Upload Forcado** - Forca upload do proximo video "done" da planilha
+- **Historico** - Abre modal de historico individual
+- **Sheets** - Link direto para Google Sheets do canal
+
+#### 8. Timestamps
+Funcao `extrair_hora()` extrai HH:MM do timestamp sem conversao de timezone (servidor Railway roda em UTC).
 
 ---
 
-## 🔄 SISTEMA DE UPLOAD AUTOMATIZADO
+## UI PROFISSIONAL - ANIMACOES E EFEITOS
+
+### Cards de Estatisticas
+- Hover: `translateY(-2px)` + `box-shadow: 0 4px 15px`
+- Clique: `scale(0.97)` instantaneo (0.05s)
+- Ativo: Borda branca + glow
+
+### Botoes de Acao
+- Hover: `opacity 0.9` + `box-shadow: 0 2px 8px`
+- Clique: `scale(0.92)` (0.1s)
+
+### Modais
+- Abrir: Fade-in 0.2s + slide-down 0.25s (visibility + opacity)
+- Fechar: Fade-out 0.2s (clique no X, fora do modal, ou escape)
+
+### Accordion (Dias)
+- Expandir/colapsar: `max-height` transition 0.3s
+- Seta: Rotacao CSS 90 graus (0.2s) em vez de trocar texto
+- Header: Background transition + scale(0.99) no clique
+
+### Tabelas
+- Rows: `background transition 0.15s` no hover
+- Status success: Animacao pulse (box-shadow 2s infinite)
+
+### Botao Close (X)
+- Hover: `scale(1.2)` + cor branca
+- Clique: `scale(0.9)`
+
+### Paginacao
+- Classe `.btn-pagina` dedicada
+- Hover: background transition
+- Clique: `scale(0.95)`
+- Disabled: `opacity 0.4`
+
+---
+
+## SISTEMA DE UPLOAD AUTOMATIZADO
 
 ### Orquestrador Principal
 **`daily_uploader.py`** (1025 linhas)
 
 ### Fluxo de Upload
-
-```mermaid
-graph LR
-    A[5:30 AM] --> B[Buscar Canais]
-    B --> C[Verificar Planilhas]
-    C --> D[Download do Drive]
-    D --> E[Upload YouTube]
-    E --> F[Adicionar Playlist]
-    F --> G[Atualizar Status]
-    G --> H[Notificar]
+```
+5:30 AM -> Buscar Canais -> Verificar Planilhas -> Download Drive -> Upload YouTube -> Adicionar Playlist -> Atualizar Status
 ```
 
 ### Prioridades
 1. **Monetizados** - Processados primeiro
 2. **Canais constantes** - Segunda prioridade
-3. **Desmonetizados** - Por último
+3. **Desmonetizados** - Por ultimo
 
 ### Sistema de Retry
-- **3 tentativas** por vídeo
+- **3 tentativas** por video
 - **Intervalo:** 30 segundos entre tentativas
-- **Fallback:** Marca como erro após 3 falhas
+- **Fallback:** Marca como erro apos 3 falhas
 
 ---
 
-## 📑 INTEGRAÇÃO GOOGLE SHEETS
+## INTEGRACAO GOOGLE SHEETS
 
-### Condições para Vídeo "Pronto"
-Um vídeo é considerado pronto quando:
+### Condicoes para Video "Pronto"
 
-| Coluna | Nome | Condição |
+| Coluna | Nome | Condicao |
 |--------|------|----------|
-| A | Name | ✅ Preenchido |
-| J | Status | ✅ "done" |
-| K | Post | ⚠️ Vazio |
-| L | Published Date | ⚠️ Vazio |
-| M | Drive URL | ✅ Preenchido |
-| O | Upload | ⚠️ Vazio ou "Erro" |
-
-### Cache System
-- **Duração:** 5 minutos
-- **Capacidade:** Máximo 100 entradas
-- **LRU:** Remove entradas menos usadas
-
-### Código de Busca
-```python
-# _features/yt_uploader/sheets.py
-def encontrar_video_pronto(self, spreadsheet_id):
-    # Busca vídeos com status "done" e não publicados
-    for row in values[1:]:  # Pula header
-        status = row[9]  # Coluna J
-        post = row[10]   # Coluna K
-
-        if status.lower() == "done" and not post:
-            return {
-                'titulo': row[0],     # Coluna A
-                'drive_url': row[12], # Coluna M
-                'linha': i
-            }
-```
+| A | Name | Preenchido |
+| J | Status | "done" |
+| K | Post | Vazio |
+| L | Published Date | Vazio |
+| M | Drive URL | Preenchido |
+| O | Upload | Vazio ou "Erro" |
 
 ---
 
-## 🔐 SISTEMA OAUTH
+## SISTEMA OAUTH
 
-### Escopos Obrigatórios (4)
+### Escopos Obrigatorios (4)
 ```python
 SCOPES = [
-    'https://www.googleapis.com/auth/youtube.upload',      # Upload de vídeos
-    'https://www.googleapis.com/auth/youtube',              # Leitura do canal
-    'https://www.googleapis.com/auth/youtube.force-ssl',    # Gerenciar playlists ⭐
-    'https://www.googleapis.com/auth/spreadsheets'          # Atualizar planilhas
+    'youtube.upload',       # Upload de videos
+    'youtube',              # Leitura do canal
+    'youtube.force-ssl',    # Gerenciar playlists
+    'spreadsheets'          # Atualizar planilhas
 ]
 ```
 
-**⚠️ CORREÇÃO CRÍTICA (03/02/2026):**
-- Scope `youtube.force-ssl` é **OBRIGATÓRIO** para adicionar vídeos às playlists
-- Sem ele: Upload funciona mas playlist falha com erro 403
-
-### Auto-Refresh de Tokens
-```python
-# _features/yt_uploader/oauth_manager.py
-def refresh_if_needed(self, creds):
-    if creds and creds.expired and creds.refresh_token:
-        try:
-            creds.refresh(Request())
-            self._update_token_in_db(creds)
-            return True
-        except:
-            return False
-```
-
-### Arquitetura de Credenciais
-- **Credenciais isoladas por canal** (nova arquitetura)
-- **Tabela `yt_oauth_tokens`** - Tokens OAuth
-- **Tabela `yt_channel_credentials`** - Client ID/Secret por canal
-- **SERVICE_ROLE_KEY** necessária para bypass RLS
-
 ---
 
-## 🗄️ ESTRUTURA DO BANCO DE DADOS
+## ESTRUTURA DO BANCO DE DADOS
 
 ### Tabelas Principais (Supabase)
 
 #### `yt_channels`
-- Configurações dos canais
-- Metadados (nome, idioma, subnicho)
+- Configuracoes dos canais (nome, idioma, subnicho, lingua)
 - URLs das planilhas
 
 #### `yt_canal_upload_diario`
-- **Registro diário de uploads**
-- Campos principais:
-  - `channel_name` - Nome do canal
-  - `data` - Data do upload
-  - `video_titulo` - Título do vídeo
-  - `youtube_video_id` - ID do vídeo no YouTube
-  - `status` - sucesso/erro/pendente
+- Registro diario de uploads
+- Campos: channel_name, data, video_titulo, youtube_video_id, status
+
+#### `yt_canal_upload_historico`
+- Historico completo de uploads (sem limite de data)
+- Usado como fonte primaria pelo endpoint de historico individual
 
 #### `yt_oauth_tokens`
 - Tokens OAuth por canal
 - Auto-refresh configurado
-- Isolamento por channel_id
-
-#### `yt_upload_queue`
-- Fila de upload
-- Prioridades e retry count
 
 ---
 
-## 🛠️ ARQUIVOS IMPORTANTES
+## ENDPOINTS DO DASHBOARD
 
-### Core do Sistema
+### Dashboard v2 (main.py - Railway)
+
+#### GET /dash-upload
+Pagina HTML completa do dashboard (retorna HTMLResponse).
+
+#### GET /api/dash-upload/status
+Retorna stats gerais + canais agrupados por subnicho.
+- Cache de 10 segundos (`_dash_cache`)
+- Busca `yt_channels` (ativos + upload_automatico) e `yt_canal_upload_diario` (hoje)
+- Monetizados forcados: 2 channel_ids hardcoded
+- Agrupamento inteligente: monetizados separados, guerra agrupada
+- Ordenacao: subnichos com mais sucesso primeiro, canais por status
+
+#### GET /api/dash-upload/canais/{channel_id}/historico
+Retorna historico completo do canal (sem limite de data).
+- Busca de `yt_canal_upload_historico` + fallback para `yt_canal_upload_diario`
+- Sort por data desc + hora desc apos merge
+- Deduplicacao por (channel_id, data, video_titulo)
+
+#### GET /api/dash-upload/historico-completo
+Retorna historico de todos os canais agrupado por dia (30 dias).
+- Inclui campo `lingua` via JOIN com `yt_channels`
+- Contadores de sucesso/sem_video/erro por dia
+- Merge entre tabelas historico e diario com deduplicacao
+
+### Dashboard v1 (dash_upload_final.py - Local/Legado)
+
+#### GET /api/status
+Retorna stats gerais + canais agrupados por subnicho (porta 5006).
+
+#### GET /api/canais/{channel_id}/historico-uploads
+Historico individual (porta 5006).
+
+#### GET /api/historico-completo
+Historico completo (porta 5006).
+
+---
+
+## ARQUIVOS IMPORTANTES
+
 ```
-📁 youtube-dashboard-backend/
-├── 📄 dashboard_teste_5006.py      # Dashboard principal (porta 5006)
-├── 📄 daily_uploader.py            # Orquestrador de upload
-├── 📄 forcar_upload_manual.py      # Upload manual forçado
-│
-├── 📁 _features/yt_uploader/       # Módulo principal de upload
-│   ├── 📄 uploader.py              # Lógica de upload YouTube
-│   ├── 📄 oauth_manager.py         # Gestão de tokens OAuth
-│   ├── 📄 sheets.py                # Integração Google Sheets
-│   └── 📄 database.py              # Interações Supabase
-│
-└── 📁 docs/                        # Documentação
-    └── 📄 DASHBOARD_UPLOAD_SISTEMA_ATUAL.md (este arquivo)
-```
-
-### Scripts Úteis
-
-#### Upload Manual
-```bash
-# Upload de um canal específico
-python forcar_upload_manual.py --canal "Nome do Canal"
-
-# Upload de todos os canais
-python forcar_upload_manual.py --todos
-
-# Upload apenas dos monetizados
-python daily_uploader.py --apenas-monetizados
-```
-
-#### Verificação
-```bash
-# Verificar tokens OAuth
-python check_oauth_definitivo.py
-
-# Verificar status de upload do dia
-python verificar_uploads_hoje.py
-
-# Testar conexão com Supabase
-python test_supabase.py
+youtube-dashboard-backend/
+|-- main.py                           # Dashboard v2 integrado (linhas 5994-6741)
+|-- dash_upload_final.py              # Dashboard v1 local/legado (porta 5006)
+|-- daily_uploader.py                 # Orquestrador de upload
+|-- _features/yt_uploader/            # Modulo de upload YouTube
+|   |-- uploader.py                   # Logica de upload
+|   |-- oauth_manager.py              # Gestao de tokens OAuth
+|   |-- sheets.py                     # Integracao Google Sheets
+|   |-- database.py                   # Interacoes Supabase
+|-- _features/dash_upload/            # Documentacao + backup
+|   |-- DASHBOARD_UPLOAD_SISTEMA_ATUAL.md (este arquivo)
+|   |-- COMANDOS_RAPIDOS.md
+|   |-- LAUNCHER_USAGE.md
+|   |-- dash_upload_final_backup_13022026.py
 ```
 
 ---
 
-## 🔧 TROUBLESHOOTING
+## TROUBLESHOOTING
 
-### Dashboard não atualiza
-1. Verificar se está rodando: `http://localhost:5006`
-2. Reiniciar:
-   ```bash
-   # Parar processo atual (Ctrl+C)
-   python dashboard_teste_5006.py
-   ```
+### Dashboard v2 (Railway) nao carrega
+```bash
+# Verificar se Railway esta no ar
+curl https://youtube-dashboard-backend-production.up.railway.app/health
+
+# Verificar endpoint de status
+curl https://youtube-dashboard-backend-production.up.railway.app/api/dash-upload/status
+```
+
+### Dashboard local (v1) nao atualiza
+```bash
+# Verificar se esta rodando
+curl http://localhost:5006/api/status
+
+# Reiniciar
+python dash_upload_final.py
+```
 
 ### Upload falhou
-1. Verificar token OAuth:
-   ```bash
-   python check_oauth_definitivo.py
-   ```
+1. Verificar token OAuth: `python check_oauth_definitivo.py`
 2. Verificar planilha (colunas corretas)
-3. Verificar URL do Drive
-4. Tentar upload manual:
-   ```bash
-   python forcar_upload_manual.py --canal "Nome do Canal"
-   ```
+3. Upload manual: `python forcar_upload_manual_fixed.py --canal "Nome do Canal"`
 
 ### Erro 403 ao adicionar playlist
 - Canal precisa refazer OAuth com todos os 4 scopes
-- Usar wizard v3:
-  ```bash
-  python add_canal_wizard_v3.py
-  ```
-
-### Token expirado
-- Sistema tenta auto-refresh
-- Se falhar, refazer OAuth com wizard
-
-### Vídeo não aparece no dashboard
-1. Verificar em `yt_canal_upload_diario`:
-   ```sql
-   SELECT * FROM yt_canal_upload_diario
-   WHERE data = '2026-02-10'
-   AND channel_name = 'Nome do Canal';
-   ```
-2. Forçar atualização:
-   ```bash
-   python atualizar_status_upload.py --canal "Nome do Canal"
-   ```
+- Usar wizard v3: `python add_canal_wizard_v3.py`
 
 ---
 
-## 📈 MÉTRICAS E MONITORAMENTO
+## HISTORICO DE ALTERACOES
 
-### Dashboard Stats
-- **Taxa de Sucesso:** ~80% (28/35 canais)
-- **Uploads/dia:** 35 vídeos
-- **Tempo médio:** 2-3 minutos por vídeo
-- **Horário:** 5:30 - 7:00 AM
+### 13/02/2026 - Dashboard v2 Integrado no Railway
+- **Dashboard v2 integrado no main.py** (linhas 5994-6741)
+- Acesso online: `/dash-upload` no Railway
+- 4 novos endpoints: `/dash-upload`, `/api/dash-upload/status`, `/api/dash-upload/canais/{id}/historico`, `/api/dash-upload/historico-completo`
+- Template HTML inline (~495 linhas) com design dark profissional
+- Cache de 10s para performance
+- Subnichos ordenados por quantidade de uploads com sucesso
+- URLs relativas (funciona local e Railway)
+- Socio pode acessar sem rodar nada local
 
-### Logs
-- **Railway:** Logs de produção em tempo real
-- **Local:** `upload_logs/` (quando rodando local)
-- **Formato:** `YYYY-MM-DD_upload.log`
+### 13/02/2026 - Grande Atualizacao de UI e Features
+- Titulos truncados (max 7 palavras + reticencias)
+- Cards clicaveis para filtro por status
+- Historico Individual: sem limite 30 dias, paginacao de 10, colunas reorganizadas
+- Historico Completo: accordion por dia, idioma do canal, total = so sucessos
+- UI profissional: animacoes em cards, botoes, modais, accordion
+- Modais com fade-in/out + slide-down
+- Accordion com max-height transition + seta rotacao CSS
+- Status success com pulse animation
+- Estilo unificado entre historicos (background, cores, padding)
+- Correcao de timestamps com extrair_hora()
+- Backend: sort apos merge de tabelas no historico individual
+- Atualizacao de 1s para 5s + DOM diffing contra flickering
 
----
+### 10/02/2026 - Suporte Arabe
+- Tag de idioma AR adicionada
 
-## 🚦 DEPLOY E PRODUÇÃO
-
-### Railway
-- **Cron:** `30 5 * * *` (5:30 AM diário)
-- **Variáveis de ambiente:** 20+ YouTube API keys
-- **Auto-deploy:** Push para main = deploy automático
-
-### Variáveis Necessárias
-```env
-SUPABASE_URL=xxx
-SUPABASE_SERVICE_ROLE_KEY=xxx
-YOUTUBE_API_KEY_3=xxx
-# ... até KEY_32
-```
-
----
-
-## 📝 NOTAS FINAIS
-
-### Última Manutenção
-- **Data:** 10/02/2026
-- **Mudanças:** Suporte idioma árabe (AR) no dashboard
-- **Status:** ✅ 100% Funcional
-
-### Próximas Melhorias
-- [ ] Dashboard com filtros avançados
-- [ ] Relatórios semanais automatizados
-- [ ] API REST para integração externa
-- [ ] Backup automático de credenciais
+### Anteriores
+- Sistema de upload automatico
+- Dashboard com subnichos
+- Integracao Google Sheets + OAuth
 
 ---
 
-*Documentação criada por Claude Code para Cellibs*
-*Sistema desenvolvido para operação de 35+ canais dark no YouTube*
+*Documentacao criada por Claude Code para Cellibs*
+*Sistema desenvolvido para operacao de canais dark no YouTube*

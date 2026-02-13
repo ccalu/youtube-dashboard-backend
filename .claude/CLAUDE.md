@@ -198,21 +198,28 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 
 ## 📊 DASHBOARD DE UPLOAD DIÁRIO - 100% Funcional
 **Desenvolvido:** Janeiro 2026
-**Última atualização:** 10/02/2026
+**Última atualização:** 13/02/2026
 **Status:** ✅ 100% funcional e em produção
 
-### Arquivo Principal:
+### Dashboard v2 (Railway - PRINCIPAL):
+- **URL Produção:** `https://youtube-dashboard-backend-production.up.railway.app/dash-upload`
+- **Implementado em:** `main.py` (linhas 5994-6741, ~750 linhas)
+- **Cache:** 10 segundos entre requests
+- **Atualização:** A cada 5 segundos (JavaScript)
+- **Endpoints:** `/dash-upload`, `/api/dash-upload/status`, `/api/dash-upload/canais/{id}/historico`, `/api/dash-upload/historico-completo`
+
+### Dashboard v1 (Local - Legado):
 - `dash_upload_final.py` (887 linhas) - Dashboard Flask na porta 5006
 - **URL Local:** http://localhost:5006
-- **Atualização:** Tempo real (1 segundo)
 
-### Funcionalidades:
+### Funcionalidades (ambas versões):
 - Dashboard visual organizado por subnichos
 - Estatísticas em tempo real (Total, Sucesso, Erros, Pendentes, Sem Vídeo)
 - Tags de idioma automáticas (PT, EN, ES, DE, FR, AR, etc.)
 - Modal de histórico (últimos 30 dias por canal)
 - Links diretos para Google Sheets
 - Cores e emojis por subnicho (Monetizados, Relatos de Guerra, etc.)
+- Subnichos ordenados por quantidade de uploads com sucesso
 
 ### Sistema de Upload Automático:
 - **Orquestrador:** `daily_uploader.py` (1025 linhas)
@@ -229,7 +236,10 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 
 ### Como usar:
 ```bash
-# Rodar dashboard local
+# Acessar dashboard v2 online (principal)
+# https://youtube-dashboard-backend-production.up.railway.app/dash-upload
+
+# Rodar dashboard local (legado)
 python dash_upload_final.py
 # Acesse: http://localhost:5006
 
