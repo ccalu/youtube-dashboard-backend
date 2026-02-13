@@ -54,6 +54,15 @@
 - ✅ Documentação atualizada com todas as correções
 - ✅ **Sistema 100% garantido para coleta automática às 5h AM**
 
+### 13/02/2026 - 6 Fixes + Coleta Histórica Completa
+- ✅ **Fix 1:** Campo `comment_text_original` - coleta agora salva no campo correto
+- ✅ **Fix 2:** Campo `response_generated_at` - atualizado ao gerar sugestões GPT
+- ✅ **Fix 3:** Campo `comentarios_sem_resposta` - endpoint retorna campo correto
+- ✅ **Fix 4:** `videos_to_collect` sem limite - coleta TODOS os vídeos (removido TOP 20)
+- ✅ **Fix 5:** `total_coletados` no response - endpoint retorna total real coletado
+- ✅ **Fix 6:** Coleta histórica completa executada com sucesso
+- ✅ **Resultado final:** 15.074 comentários de 43 canais, 100% traduzidos para PT-BR
+
 ## 🎯 Decisões Técnicas
 
 ### 1. Por que Supabase?
@@ -95,16 +104,17 @@
 **Erro:** Pensava que era só para monetizados
 **Esclarecimento:** Coleta de TODOS, resposta só monetizados
 
-## 📊 Métricas de Desenvolvimento (Atualizado 02/02/2026)
+## 📊 Métricas de Desenvolvimento (Atualizado 13/02/2026)
 
-- **Tempo total:** 10 dias (desenvolvimento + otimizações)
+- **Tempo total:** ~3 semanas (desenvolvimento + otimizações + coleta histórica)
 - **Linhas de código:** ~3.500
 - **Endpoints criados:** 6
 - **Scripts auxiliares:** 15+
-- **Comentários processados:** 6.264
+- **Comentários processados:** 15.074 (coleta histórica completa)
+- **Canais coletados:** 43 (tipo="nosso")
 - **Taxa de tradução:** 100%
 - **Taxa de sugestão:** 29.7%
-- **Economia de API:** 65% (TOP 20 vídeos)
+- **Coleta:** TODOS os vídeos de cada canal (sem limite)
 - **Economia de tokens:** 28% (11 canais PT)
 
 ## 🔧 Stack Tecnológica
@@ -176,6 +186,6 @@
 
 ---
 
-**Status Final:** ✅ Sistema 100% funcional e documentado
-**Data de conclusão:** 27/01/2025
+**Status Final:** ✅ Sistema 100% funcional com coleta histórica completa
+**Data de conclusão:** 13/02/2026 (coleta histórica completa)
 **Pronto para:** Integração no Lovable e uso em produção

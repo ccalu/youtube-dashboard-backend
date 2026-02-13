@@ -4,7 +4,7 @@
 - **Local:** `http://localhost:8000`
 - **Produção:** `https://youtube-dashboard-backend-production.up.railway.app`
 
-**Última Atualização:** 03/02/2026 - Documentação da reescrita completa
+**Última Atualização:** 13/02/2026 - Atualizado após 6 fixes e coleta histórica completa
 
 ---
 
@@ -216,7 +216,7 @@ top_videos = video_counts.most_common(limit)
 
 **Filtros aplicados:**
 - Apenas canais com `tipo="nosso"`
-- Coleta TOP 20 vídeos por views
+- Coleta TODOS os vídeos do canal (sem limite)
 - Até 100 comentários por vídeo
 
 **Resposta:**
@@ -233,15 +233,15 @@ top_videos = video_counts.most_common(limit)
 
 ## 📊 Estatísticas do Sistema
 
-### Números Atualizados (02/02/2026):
-- **39 canais** tipo="nosso" (não 63 como documentado anteriormente)
+### Números Atualizados (13/02/2026):
+- **43 canais** tipo="nosso"
 - **6 canais monetizados** (subnicho="Monetizados")
+- **15.074 comentários** totais (coleta histórica completa)
 - **11 canais em português** (não gastam tokens GPT)
-- **61 vídeos únicos** com comentários (Mistérios Arquivados)
-- **100% traduzidos** (0 pendentes)
+- **100% traduzidos** para PT-BR (0 pendentes)
 
 ### Performance:
-- **TOP 20 vídeos** implementado (65% economia de API)
+- **Coleta completa** de TODOS os vídeos (sem limite de TOP 20)
 - **28% economia** em tokens GPT (pula canais PT)
 - **Coleta automática** às 5h AM diariamente
 - **Tradução automática** após coleta
@@ -284,4 +284,4 @@ Arquivo de logs: `comments_logs.py` gerencia todo o sistema de logging.
 
 ---
 
-*Documentação atualizada em 03/02/2026 após correções críticas e reescrita da função principal*
+*Documentação atualizada em 13/02/2026 após 6 fixes e coleta histórica completa (15.074 comentários, 43 canais)*

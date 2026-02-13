@@ -144,24 +144,24 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 ### 💬 SISTEMA DE COMENTÁRIOS - 100% Funcional e Otimizado
 **Desenvolvido:** 23-27/01/2025
 **Otimizado:** 02/02/2026
+**Coleta histórica completa:** 13/02/2026
 **Status:** ✅ Completo, testado e em produção
 
 **O que foi implementado:**
 1. **Tabela `video_comments`:** 38 campos para gestão completa
 2. **6 novos endpoints:** API completa para comentários
-3. **Coleta automática:** 6.264 comentários coletados
-4. **Tradução automática:** 100% traduzidos para PT
+3. **Coleta histórica completa:** 15.074 comentários coletados (TODOS os vídeos, sem limite)
+4. **Tradução automática:** 100% traduzidos para PT-BR
 5. **Sugestões GPT:** 1.860 respostas prontas
 6. **Frontend React:** Componente completo para Lovable
-7. **TOP 20 vídeos:** Sistema implementado - coleta apenas os 20 vídeos com mais views
 
-**Números atualizados (02/02/2026):**
-- 39 canais monitorados (tipo="nosso")
+**Números atualizados (13/02/2026):**
+- 43 canais monitorados (tipo="nosso")
 - 6 canais monetizados (foco das respostas)
-- 1.937 comentários em monetizados
-- 0 respondidos (aguardando início)
+- 15.074 comentários totais coletados
+- 100% traduzidos para PT-BR
 - 11 canais em português (não gastam tokens GPT)
-- 100% dos comentários traduzidos
+- Coleta histórica completa (TODOS os vídeos de cada canal)
 
 **Documentação:** `.claude/3_SISTEMA_COMENTARIOS/`
 - README.md - Visão geral
@@ -175,24 +175,23 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 - Agora filtra APENAS comentários dos monetizados
 - Evita confusão entre coleta (todos) e resposta (monetizados)
 
-### 🔧 CORREÇÕES DE BUGS CRÍTICOS (02/02/2026):
+### 🔧 6 FIXES DO SISTEMA DE COMENTÁRIOS (13/02/2026):
+**Status:** ✅ Todos corrigidos e validados
+
+1. **Fix: campo `comment_text_original`** - Coleta agora salva no campo correto
+2. **Fix: campo `response_generated_at`** - Atualizado ao gerar sugestões GPT
+3. **Fix: campo `comentarios_sem_resposta`** - Endpoint retorna campo correto
+4. **Fix: `videos_to_collect` sem limite** - Coleta TODOS os vídeos (não mais TOP 20)
+5. **Fix: `total_coletados` no response** - Endpoint retorna total real coletado
+6. **Fix: coleta histórica completa** - 15.074 comentários de 43 canais
+
+**Resultado:** Sistema de comentários 100% funcional com coleta histórica completa
+
+### 🔧 CORREÇÕES DE BUGS ANTERIORES (02/02/2026):
 **Status:** ✅ Corrigidos e validados
 
-**Bug #1 - collector.py linha 1018:**
-- **Problema:** Variável `recent_videos` não existia (NameError)
-- **Solução:** Corrigido para `top_20_videos`
-- **Impacto:** Coleta de comentários agora funciona 100%
-
-**Bug #2 - engagement_preprocessor.py linha 144:**
-- **Problema:** Campo `all_comments` não existia no retorno
-- **Solução:** Usa `summary.total_comments` que sempre existe
-- **Impacto:** Cache de engajamento funciona corretamente
-
-**Validações realizadas:**
-- ✅ Canal WWII Erzählungen: 176 comentários confirmados
-- ✅ Sistema TOP 20 vídeos: Funcionando perfeitamente
-- ✅ Frontend: Compatível, não precisa alterações
-- ✅ Coleta diária: 100% automatizada às 5h AM
+**Bug #1 - collector.py:** Variável `recent_videos` → corrigido
+**Bug #2 - engagement_preprocessor.py:** Campo `all_comments` → corrigido
 
 ---
 
