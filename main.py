@@ -1718,7 +1718,7 @@ async def collect_canal_comments(canal_id: int, background_tasks: BackgroundTask
             'canal': canal.get('nome_canal'),
             'canal_id': canal_id,
             'total_videos': len(videos),
-            'total_comments': total_comments,
+            'total_coletados': total_comments,
             'comments_saved': saved_count,
             'message': f'Coleta concluída com sucesso! {saved_count} comentários analisados e salvos. Tradução iniciada em background.'
         }
