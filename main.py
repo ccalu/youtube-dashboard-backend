@@ -6292,7 +6292,9 @@ DASH_UPLOAD_HTML = '''
             var paginaItems = items.slice(inicio, fim);
             var countSucesso = 0, countSemVideo = 0, countErro = 0;
             items.forEach(function(item) { if (item.status === 'sucesso') countSucesso++; else if (item.status === 'sem_video') countSemVideo++; else if (item.status === 'erro') countErro++; });
+            var totalRegistros = countSucesso + countSemVideo + countErro;
             var html = '<div class="modal-summary" style="background:var(--success-muted);border-color:rgba(34,197,94,0.25);">';
+            html += '<span class="modal-summary-stat" style="color:var(--text-primary);font-weight:600;">Total de Registros: ' + totalRegistros + ' |</span>';
             html += '<span class="modal-summary-stat" style="color:var(--success);">&#x2705; ' + countSucesso + ' uploads</span>';
             html += '<span class="modal-summary-stat" style="color:var(--warning);">&#x26A0;&#xFE0F; ' + countSemVideo + ' sem video</span>';
             html += '<span class="modal-summary-stat" style="color:var(--error);">&#x274C; ' + countErro + ' erros</span>';
@@ -6360,8 +6362,9 @@ DASH_UPLOAD_HTML = '''
                     });
                     var totalSucesso = 0, totalSemVideo = 0, totalErro = 0;
                     data.historico_por_data.forEach(function(dia) { dia.canais.forEach(function(canal) { if (canal.status === 'sucesso') totalSucesso++; else if (canal.status === 'sem_video') totalSemVideo++; else if (canal.status === 'erro') totalErro++; }); });
+                    var totalRegistros = totalSucesso + totalSemVideo + totalErro;
                     var html = '<div class="modal-summary" style="background:var(--success-muted);border-color:rgba(34,197,94,0.25);">';
-                    html += '<span class="modal-summary-label">Ultimos ' + data.total_dias + ' dias</span>';
+                    html += '<span class="modal-summary-stat" style="color:var(--text-primary);font-weight:600;">Total de Registros: ' + totalRegistros + ' |</span>';
                     html += '<span class="modal-summary-stat" style="color:var(--success);">&#x2705; ' + totalSucesso + ' uploads</span>';
                     html += '<span class="modal-summary-stat" style="color:var(--warning);">&#x26A0;&#xFE0F; ' + totalSemVideo + ' sem video</span>';
                     html += '<span class="modal-summary-stat" style="color:var(--error);">&#x274C; ' + totalErro + ' erros</span>';
