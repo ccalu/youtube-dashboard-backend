@@ -1029,7 +1029,7 @@ class YouTubeCollector:
 
             return {
                 'canal_name': canal_name,
-                'total_videos_analyzed': len(top_20_videos),
+                'total_videos_analyzed': len(videos_to_collect),
                 'total_comments': total_comments,
                 'comments_by_video': comments_by_video,
                 'latest_comment_timestamp': latest_comment_timestamp,

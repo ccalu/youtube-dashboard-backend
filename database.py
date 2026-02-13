@@ -2420,7 +2420,7 @@ class SupabaseClient:
                     'views': views,
                     'data_publicacao': self._safe_date_format(data_pub) if data_pub else None,
                     'total_comentarios': comment_count,
-                    'comentarios_pendentes': pendentes.count,
+                    'comentarios_sem_resposta': pendentes.count,
                     'thumbnail': f"https://i.ytimg.com/vi/{video_id}/mqdefault.jpg"
                 })
 

@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel
 import uvicorn
 import os
@@ -1049,6 +1049,7 @@ async def get_canal_engagement(canal_id: int, page: int = 1, limit: int = 10):
                     'comment_id': comment.get('comment_id', ''),
                     'author_name': comment.get('author_name', ''),
                     'comment_text_pt': comment_text,  # Sempre enviar texto (traduzido ou original)
+                    'comment_text_original': comment.get('comment_text_original', ''),
                     'is_translated': comment.get('is_translated', False),
                     'like_count': comment.get('like_count', 0),
                     'insight_text': comment.get('insight_text', ''),
@@ -1471,7 +1472,7 @@ Your natural response:"""
             "success": True,
             "suggested_response": suggested_response,
             "comment_text": comment_text,
-            "generated_at": datetime.now(timezone.utc).isoformat()
+            "response_generated_at": datetime.now(timezone.utc).isoformat()
         }
 
     except HTTPException as he:
@@ -5989,6 +5990,755 @@ async def kanban_history_endpoint(canal_id: int, limit: int = 50):
 async def kanban_delete_history_endpoint(history_id: int):
     """Remove um item do histórico (soft delete)"""
     return await delete_history_item(history_id)
+
+# ============================================================
+# DASHBOARD DE UPLOAD v2 - Integrado no main.py
+# Acesso: /dash-upload
+# ============================================================
+
+def _extrair_hora(timestamp_str):
+    """Extrai HH:MM do timestamp (sem conversao de timezone)"""
+    if not timestamp_str:
+        return None
+    try:
+        ts = str(timestamp_str)
+        if 'T' in ts and len(ts) >= 16:
+            return ts[11:16]
+        return None
+    except:
+        return None
+
+_dash_cache = {'data': None, 'timestamp': 0}
+_DASH_CACHE_TTL = 10
+
+DASH_UPLOAD_HTML = '''
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <title>Upload Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --bg-primary: #0a0a0b;
+            --bg-secondary: #141415;
+            --bg-tertiary: #1c1c1e;
+            --bg-elevated: #1f1f22;
+            --border-primary: #27272a;
+            --border-secondary: #3f3f46;
+            --text-primary: #fafafa;
+            --text-secondary: #a1a1aa;
+            --text-tertiary: #71717a;
+            --success: #22c55e;
+            --success-muted: rgba(34, 197, 94, 0.12);
+            --warning: #eab308;
+            --warning-muted: rgba(234, 179, 8, 0.12);
+            --error: #ef4444;
+            --error-muted: rgba(239, 68, 68, 0.12);
+            --info: #3b82f6;
+            --info-muted: rgba(59, 130, 246, 0.12);
+            --pending: #a855f7;
+            --pending-muted: rgba(168, 85, 247, 0.12);
+            --accent: #f97316;
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            padding-bottom: 48px;
+            min-height: 100vh;
+        }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--border-secondary); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 32px 16px;
+            border-bottom: 1px solid var(--border-primary);
+            margin-bottom: 24px;
+        }
+        .header-title { font-size: 22px; font-weight: 600; letter-spacing: -0.025em; color: var(--text-primary); }
+        .header-subtitle { font-size: 13px; color: var(--text-tertiary); margin-top: 2px; }
+        .live-indicator { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+        .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); animation: pulse-live 2s ease-in-out infinite; }
+        @keyframes pulse-live {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+            50% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+        }
+        .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; padding: 0 32px; margin-bottom: 28px; }
+        .stat-card { background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: var(--radius-md); padding: 20px; cursor: pointer; transition: all 0.15s ease; position: relative; }
+        .stat-card:hover { border-color: var(--border-secondary); background: var(--bg-tertiary); }
+        .stat-card.active { border-left: 3px solid var(--card-accent, var(--info)); background: var(--bg-tertiary); }
+        .stat-card--total { --card-accent: var(--info); }
+        .stat-card--sucesso { --card-accent: var(--success); }
+        .stat-card--sem_video { --card-accent: var(--warning); }
+        .stat-card--erro { --card-accent: var(--error); }
+        .stat-card--historico { --card-accent: var(--accent); border-style: dashed; }
+        .stat-card--total:hover { border-color: var(--info); }
+        .stat-card--sucesso:hover { border-color: var(--success); }
+        .stat-card--sem_video:hover { border-color: var(--warning); }
+        .stat-card--erro:hover { border-color: var(--error); }
+        .stat-card--historico:hover { border-color: var(--accent); }
+        .stat-value { font-size: 32px; font-weight: 700; line-height: 1; margin-bottom: 6px; }
+        .stat-value--total { color: var(--info); }
+        .stat-value--sucesso { color: var(--success); }
+        .stat-value--sem_video { color: var(--warning); }
+        .stat-value--erro { color: var(--error); }
+        .stat-value--historico { color: var(--accent); font-size: 24px; }
+        .stat-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-tertiary); }
+        .content { padding: 0 32px; }
+        .section { background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: var(--radius-lg); margin-bottom: 16px; overflow: hidden; border-left: 3px solid var(--section-accent, var(--border-primary)); }
+        .section-header { padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-primary); }
+        .section-title { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
+        .section-icon { width: 28px; height: 28px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; background: var(--section-accent-muted, var(--bg-tertiary)); color: var(--section-accent, var(--text-secondary)); }
+        .section-count { font-size: 12px; font-weight: 400; color: var(--text-tertiary); }
+        .section-pills { display: flex; gap: 8px; }
+        .stat-pill { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 9999px; }
+        .stat-pill--success { background: var(--success-muted); color: var(--success); }
+        .stat-pill--warning { background: var(--warning-muted); color: var(--warning); }
+        .stat-pill--error { background: var(--error-muted); color: var(--error); }
+        .stat-pill--pending { background: var(--pending-muted); color: var(--pending); }
+        .channel-table { width: 100%; border-collapse: collapse; }
+        .channel-table th { padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-tertiary); border-bottom: 1px solid var(--border-primary); background: transparent; }
+        .channel-table td { padding: 10px 16px; font-size: 13px; border-bottom: 1px solid var(--border-primary); vertical-align: middle; }
+        .channel-table tr:last-child td { border-bottom: none; }
+        .channel-table tbody tr { transition: background 0.1s ease; }
+        .channel-table tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
+        .cell-channel { display: flex; align-items: center; gap: 6px; }
+        .channel-name { font-weight: 500; color: var(--text-primary); white-space: nowrap; }
+        .lang-tag { font-size: 10px; color: var(--text-tertiary); background: var(--bg-tertiary); padding: 1px 6px; border-radius: 3px; font-weight: 500; letter-spacing: 0.02em; }
+        .monetized-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); display: inline-block; flex-shrink: 0; }
+        .status-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
+        .status-badge--success { background: var(--success-muted); color: var(--success); }
+        .status-badge--sem_video { background: var(--warning-muted); color: var(--warning); }
+        .status-badge--error { background: var(--error-muted); color: var(--error); }
+        .status-badge--pending { background: var(--pending-muted); color: var(--pending); }
+        .video-title { max-width: 350px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: 13px; }
+        .cell-time { color: var(--text-tertiary); font-size: 13px; font-variant-numeric: tabular-nums; }
+        .cell-actions { display: flex; gap: 4px; }
+        .btn-icon { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; cursor: pointer; font-size: 15px; color: var(--text-secondary); transition: all 0.15s ease; text-decoration: none; }
+        .btn-icon:hover { background: var(--bg-tertiary); border-color: var(--border-secondary); color: var(--text-primary); }
+        .btn-icon:active { transform: scale(0.9); }
+        .btn-icon:disabled { opacity: 0.3; cursor: not-allowed; }
+        .btn-icon:disabled:hover { background: transparent; border-color: transparent; }
+        .status-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(20, 20, 21, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--border-primary); padding: 10px 32px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-tertiary); z-index: 50; }
+        .status-bar-left, .status-bar-right { display: flex; align-items: center; gap: 16px; }
+        .status-bar-sep { width: 1px; height: 12px; background: var(--border-primary); }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: flex-start; justify-content: center; padding-top: 5vh; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.2s ease, visibility 0s 0.2s; }
+        .modal-overlay.show { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity 0.2s ease, visibility 0s 0s; }
+        .modal-panel { background: var(--bg-elevated); border: 1px solid var(--border-primary); border-radius: var(--radius-lg); width: 90%; max-width: 960px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column; transform: translateY(-12px) scale(0.98); transition: transform 0.2s ease; }
+        .modal-overlay.show .modal-panel { transform: translateY(0) scale(1); }
+        .modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border-primary); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .modal-title { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+        .btn-close { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); border: none; background: transparent; color: var(--text-secondary); font-size: 18px; cursor: pointer; transition: all 0.15s ease; }
+        .btn-close:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+        .modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+        .modal-table { width: 100%; border-collapse: collapse; }
+        .modal-table th { text-align: left; padding: 8px 12px; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-tertiary); border-bottom: 1px solid var(--border-primary); }
+        .modal-table td { padding: 8px 12px; font-size: 13px; border-bottom: 1px solid var(--border-primary); color: var(--text-secondary); }
+        .modal-table tr:last-child td { border-bottom: none; }
+        .modal-table tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
+        .modal-summary { display: flex; gap: 16px; align-items: center; padding: 14px 16px; background: var(--bg-tertiary); border: 1px solid var(--border-primary); border-radius: var(--radius-md); margin-bottom: 20px; font-size: 13px; }
+        .modal-summary-label { font-weight: 600; color: var(--text-primary); }
+        .modal-summary-stat { font-weight: 500; }
+        .accordion-trigger { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-tertiary); border: 1px solid var(--border-primary); border-radius: var(--radius-sm); cursor: pointer; margin-bottom: 2px; transition: background 0.15s ease; user-select: none; }
+        .accordion-trigger:hover { background: var(--bg-elevated); }
+        .accordion-trigger:active { transform: scale(0.995); }
+        .accordion-arrow { display: inline-block; transition: transform 0.2s ease; color: var(--text-tertiary); font-size: 12px; }
+        .accordion-arrow.open { transform: rotate(90deg); }
+        .accordion-content { max-height: 0; overflow: hidden; background: var(--bg-secondary); border-radius: 0 0 var(--radius-sm) var(--radius-sm); margin-bottom: 12px; transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease; padding: 0 16px; }
+        .accordion-content.open { max-height: 2000px; padding: 12px 16px 16px; }
+        .pagination { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 16px; }
+        .btn-page { padding: 6px 14px; background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border-primary); border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; transition: all 0.15s ease; }
+        .btn-page:hover { background: var(--bg-elevated); border-color: var(--border-secondary); color: var(--text-primary); }
+        .btn-page:disabled { opacity: 0.35; cursor: not-allowed; }
+        .btn-page:disabled:hover { background: var(--bg-tertiary); border-color: var(--border-primary); color: var(--text-secondary); }
+        .page-info { font-size: 12px; color: var(--text-tertiary); }
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--text-tertiary); font-size: 14px; }
+        .loading { text-align: center; padding: 60px 20px; color: var(--text-tertiary); font-size: 14px; }
+    </style>
+</head>
+<body>
+    <header class="page-header">
+        <div>
+            <div class="header-title">Upload Dashboard</div>
+            <div class="header-subtitle">Sistema de upload automatizado</div>
+        </div>
+        <div class="live-indicator"><span class="live-dot"></span><span>Ao vivo</span></div>
+    </header>
+    <div class="stats-grid">
+        <div class="stat-card stat-card--total" id="card-total" onclick="toggleFiltro(null)">
+            <div class="stat-value stat-value--total" id="total">-</div>
+            <div class="stat-label">Total de Canais</div>
+        </div>
+        <div class="stat-card stat-card--sucesso" id="card-sucesso" onclick="toggleFiltro('sucesso')">
+            <div class="stat-value stat-value--sucesso" id="sucesso">-</div>
+            <div class="stat-label">Upload com Sucesso</div>
+        </div>
+        <div class="stat-card stat-card--sem_video" id="card-sem_video" onclick="toggleFiltro('sem_video')">
+            <div class="stat-value stat-value--sem_video" id="sem_video">-</div>
+            <div class="stat-label">Sem Video</div>
+        </div>
+        <div class="stat-card stat-card--erro" id="card-erro" onclick="toggleFiltro('erro')">
+            <div class="stat-value stat-value--erro" id="erro">-</div>
+            <div class="stat-label">Com Erro</div>
+        </div>
+        <div class="stat-card stat-card--historico" onclick="abrirHistoricoCompleto()">
+            <div class="stat-value stat-value--historico">30d</div>
+            <div class="stat-label">Historico Completo</div>
+        </div>
+    </div>
+    <div class="content" id="subnichos-container"><div class="loading">Carregando dados...</div></div>
+    <div class="status-bar">
+        <div class="status-bar-left">
+            <span>Atualizado: <span id="update-time">--:--:--</span></span>
+            <span class="status-bar-sep"></span>
+            <span>Refresh: 5s</span>
+        </div>
+        <div class="status-bar-right"><span><span id="total-monetizados">-</span> canais monetizados</span></div>
+    </div>
+    <div id="historicoModal" class="modal-overlay">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">Historico de Uploads</h2>
+                <button class="btn-close" onclick="fecharModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody"><p style="color: var(--text-tertiary); text-align: center;">Carregando...</p></div>
+        </div>
+    </div>
+    <div id="historicoCompletoModal" class="modal-overlay">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitleCompleto">Historico Completo</h2>
+                <button class="btn-close" onclick="fecharModalCompleto()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBodyCompleto"><p style="color: var(--text-tertiary); text-align: center;">Carregando...</p></div>
+        </div>
+    </div>
+    <script>
+        var filtroStatus = null;
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+        function truncarTitulo(titulo) {
+            if (!titulo || titulo === '-') return '-';
+            var palavras = titulo.split(' ');
+            if (palavras.length > 7) return palavras.slice(0, 7).join(' ') + '...';
+            return titulo;
+        }
+        function getSiglaIdioma(lingua) {
+            if (!lingua) return '';
+            var l = lingua.toLowerCase();
+            var mapa = {'pt':'PT','portugues':'PT','portuguese':'PT','en':'EN','ingles':'EN','english':'EN','es':'ES','espanhol':'ES','spanish':'ES','de':'DE','alemao':'DE','german':'DE','fr':'FR','frances':'FR','french':'FR','it':'IT','italiano':'IT','italian':'IT','pl':'PL','polones':'PL','polish':'PL','ru':'RU','russo':'RU','russian':'RU','ja':'JP','japones':'JP','japanese':'JP','ko':'KR','coreano':'KR','korean':'KR','tr':'TR','turco':'TR','turkish':'TR','ar':'AR','arabic':'AR','arabe':'AR'};
+            return mapa[l] || '';
+        }
+        function toggleFiltro(status) {
+            document.querySelectorAll('.stat-card').forEach(function(c) { c.classList.remove('active'); });
+            if (!status || filtroStatus === status) { filtroStatus = null; } else { filtroStatus = status; var card = document.getElementById('card-' + status); if (card) card.classList.add('active'); }
+            atualizar();
+        }
+        function toggleDia(id) {
+            var el = document.getElementById(id);
+            var seta = document.getElementById('seta-' + id);
+            if (el) el.classList.toggle('open');
+            if (seta) seta.classList.toggle('open');
+        }
+        async function forcarUpload(channelId, channelName) {
+            if (!confirm('Forcar upload do canal ' + channelName + '?\\n\\nO proximo video "done" da planilha sera enviado.')) return;
+            var botao = event.target.closest('.btn-icon');
+            var linha = botao.closest('tr');
+            var statusCell = linha.querySelector('td:nth-child(2)');
+            var statusOriginal = statusCell.innerHTML;
+            try {
+                statusCell.innerHTML = statusOriginal + ' <span style="color:var(--text-tertiary);">...</span>';
+                botao.disabled = true;
+                var response = await fetch('/api/yt-upload/force/' + channelId, { method: 'POST' });
+                var result = await response.json();
+                if (response.ok) {
+                    statusCell.innerHTML = '<span class="status-badge status-badge--success">Processando</span>';
+                    setTimeout(function() { statusCell.innerHTML = statusOriginal; atualizar(); }, 5000);
+                } else if (result.status === 'sem_video' || result.status === 'no_video') {
+                    alert('Sem videos disponiveis na planilha de ' + channelName);
+                    statusCell.innerHTML = statusOriginal;
+                } else {
+                    statusCell.innerHTML = '<span class="status-badge status-badge--error">Erro</span>';
+                    alert('Erro: ' + (result.detail || result.message || 'Falha ao iniciar upload'));
+                    setTimeout(function() { statusCell.innerHTML = statusOriginal; }, 5000);
+                }
+                botao.disabled = false;
+            } catch (error) {
+                alert('Erro de conexao: ' + error.message);
+                statusCell.innerHTML = statusOriginal;
+                botao.disabled = false;
+            }
+        }
+        var _historicoData = [];
+        var _historicoPagina = 0;
+        var _HIST_POR_PAGINA = 10;
+        function renderHistoricoPagina() {
+            var modalBody = document.getElementById('modalBody');
+            var items = _historicoData;
+            var totalPaginas = Math.ceil(items.length / _HIST_POR_PAGINA);
+            var inicio = _historicoPagina * _HIST_POR_PAGINA;
+            var fim = Math.min(inicio + _HIST_POR_PAGINA, items.length);
+            var paginaItems = items.slice(inicio, fim);
+            var countSucesso = 0, countSemVideo = 0, countErro = 0;
+            items.forEach(function(item) { if (item.status === 'sucesso') countSucesso++; else if (item.status === 'sem_video') countSemVideo++; else if (item.status === 'erro') countErro++; });
+            var html = '<div class="modal-summary" style="background:var(--success-muted);border-color:rgba(34,197,94,0.25);">';
+            html += '<span class="modal-summary-stat" style="color:var(--success);">&#x2705; ' + countSucesso + ' uploads</span>';
+            html += '<span class="modal-summary-stat" style="color:var(--warning);">&#x26A0;&#xFE0F; ' + countSemVideo + ' sem video</span>';
+            html += '<span class="modal-summary-stat" style="color:var(--error);">&#x274C; ' + countErro + ' erros</span>';
+            html += '</div>';
+            html += '<table class="modal-table"><thead><tr><th>Data</th><th>Video</th><th>Status</th><th>Horario</th></tr></thead><tbody>';
+            if (paginaItems.length > 0) {
+                paginaItems.forEach(function(item) {
+                    html += '<tr>';
+                    var df = item.data; if (df && df.includes('-')) { var p = df.split('-'); df = p[2] + '/' + p[1] + '/' + p[0]; }
+                    html += '<td>' + df + '</td>';
+                    html += '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(truncarTitulo(item.video_titulo)) + '</td>';
+                    var statusColor = 'var(--text-tertiary)'; var statusText = '&#x26AA; Sem Video';
+                    if (item.status === 'sucesso') { statusColor = 'var(--success)'; statusText = '&#x2705; Sucesso'; }
+                    else if (item.status === 'erro') { statusColor = 'var(--error)'; statusText = '&#x274C; Erro'; }
+                    html += '<td style="color:' + statusColor + ';font-weight:500;">' + statusText + '</td>';
+                    html += '<td style="color:var(--text-tertiary);">' + (item.hora_processamento || '-') + '</td>';
+                    html += '</tr>';
+                });
+            } else { html += '<tr><td colspan="4" style="text-align:center;color:var(--text-tertiary);padding:20px;">Nenhum historico</td></tr>'; }
+            html += '</tbody></table>';
+            if (totalPaginas > 1) {
+                html += '<div class="pagination">';
+                html += '<button class="btn-page" onclick="_historicoPagina--;renderHistoricoPagina();" ' + (_historicoPagina === 0 ? 'disabled' : '') + '>Anterior</button>';
+                html += '<span class="page-info">Pagina ' + (_historicoPagina + 1) + ' de ' + totalPaginas + '</span>';
+                html += '<button class="btn-page" onclick="_historicoPagina++;renderHistoricoPagina();" ' + (_historicoPagina >= totalPaginas - 1 ? 'disabled' : '') + '>Proxima</button>';
+                html += '</div>';
+            }
+            modalBody.innerHTML = html;
+        }
+        function abrirHistorico(channelId, channelName) {
+            var modal = document.getElementById('historicoModal');
+            document.getElementById('modalTitle').textContent = 'Historico - ' + channelName;
+            modal.classList.add('show');
+            document.getElementById('modalBody').innerHTML = '<p style="color:var(--text-tertiary);text-align:center;padding:40px;">Carregando...</p>';
+            fetch('/api/dash-upload/canais/' + channelId + '/historico')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.error) { document.getElementById('modalBody').innerHTML = '<p style="color:var(--error);">Erro: ' + escapeHtml(data.error) + '</p>'; return; }
+                    if (data.historico && data.historico.length > 0) {
+                        var vistos = new Set(); var filtrado = [];
+                        data.historico.forEach(function(item) { var chave = item.data + '|' + (item.video_titulo || 'sem_video'); if (!vistos.has(chave)) { vistos.add(chave); filtrado.push(item); } });
+                        data.historico = filtrado;
+                    }
+                    _historicoData = data.historico || []; _historicoPagina = 0; renderHistoricoPagina();
+                })
+                .catch(function(error) { document.getElementById('modalBody').innerHTML = '<p style="color:var(--error);">Erro: ' + error + '</p>'; });
+        }
+        function fecharModal() { document.getElementById('historicoModal').classList.remove('show'); }
+        function fecharModalCompleto() { document.getElementById('historicoCompletoModal').classList.remove('show'); }
+        async function abrirHistoricoCompleto() {
+            var modal = document.getElementById('historicoCompletoModal');
+            var modalBody = document.getElementById('modalBodyCompleto');
+            modal.classList.add('show');
+            modalBody.innerHTML = '<p style="color:var(--text-tertiary);text-align:center;padding:40px;">Carregando historico...</p>';
+            try {
+                var response = await fetch('/api/dash-upload/historico-completo');
+                var data = await response.json();
+                if (data.historico_por_data && data.historico_por_data.length > 0) {
+                    data.historico_por_data.forEach(function(dia) {
+                        if (dia.canais && dia.canais.length > 0) {
+                            var vistos = new Set(); var filtrado = [];
+                            dia.canais.forEach(function(canal) { if (!canal.nome || canal.nome.trim() === '') return; var chave = dia.data + '|' + canal.nome + '|' + (canal.video_titulo || 'sem_video'); if (!vistos.has(chave)) { vistos.add(chave); filtrado.push(canal); } });
+                            dia.canais = filtrado;
+                        }
+                    });
+                    var totalSucesso = 0, totalSemVideo = 0, totalErro = 0;
+                    data.historico_por_data.forEach(function(dia) { dia.canais.forEach(function(canal) { if (canal.status === 'sucesso') totalSucesso++; else if (canal.status === 'sem_video') totalSemVideo++; else if (canal.status === 'erro') totalErro++; }); });
+                    var html = '<div class="modal-summary" style="background:var(--success-muted);border-color:rgba(34,197,94,0.25);">';
+                    html += '<span class="modal-summary-label">Ultimos ' + data.total_dias + ' dias</span>';
+                    html += '<span class="modal-summary-stat" style="color:var(--success);">&#x2705; ' + totalSucesso + ' uploads</span>';
+                    html += '<span class="modal-summary-stat" style="color:var(--warning);">&#x26A0;&#xFE0F; ' + totalSemVideo + ' sem video</span>';
+                    html += '<span class="modal-summary-stat" style="color:var(--error);">&#x274C; ' + totalErro + ' erros</span>';
+                    html += '</div>';
+                    html += '<div style="max-height:450px;overflow-y:auto;">';
+                    data.historico_por_data.forEach(function(dia, idx) {
+                        var df = dia.data; if (df && df.includes('-')) { var p = df.split('-'); if (p.length === 3) df = p[2] + '/' + p[1] + '/' + p[0]; }
+                        var suc = 0, sv = 0, err = 0;
+                        dia.canais.forEach(function(c) { if (c.status === 'sucesso') suc++; else if (c.status === 'sem_video') sv++; else if (c.status === 'erro') err++; });
+                        var diaId = 'dia-' + idx;
+                        html += '<div class="accordion-trigger" data-dia="' + diaId + '" onclick="toggleDia(this.dataset.dia)">';
+                        html += '<div style="display:flex;align-items:center;gap:8px;">';
+                        html += '<span id="seta-' + diaId + '" class="accordion-arrow">&#9654;</span>';
+                        html += '<span style="font-weight:600;color:var(--text-primary);">' + df + '</span>';
+                        html += '</div>';
+                        html += '<div style="display:flex;gap:12px;font-size:12px;">';
+                        html += '<span style="color:var(--success);">&#x2705; ' + suc + '</span>';
+                        html += '<span style="color:var(--warning);">&#x26A0;&#xFE0F; ' + sv + '</span>';
+                        html += '<span style="color:var(--error);">&#x274C; ' + err + '</span>';
+                        html += '</div></div>';
+                        html += '<div class="accordion-content" id="' + diaId + '">';
+                        var canaisSucesso = dia.canais.filter(function(c) { return c.status === 'sucesso'; });
+                        if (canaisSucesso.length > 0) {
+                            html += '<table class="modal-table"><thead><tr><th>Canal</th><th>Video</th><th>Status</th><th>Horario</th></tr></thead><tbody>';
+                            canaisSucesso.forEach(function(canal) {
+                                var sigla = getSiglaIdioma(canal.lingua);
+                                html += '<tr><td style="color:var(--text-primary);font-weight:500;">' + escapeHtml(canal.nome);
+                                if (sigla) html += ' <span class="lang-tag">' + sigla + '</span>';
+                                html += '</td><td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(truncarTitulo(canal.video_titulo)) + '</td>';
+                                html += '<td style="color:var(--success);font-weight:500;">Sucesso</td>';
+                                html += '<td style="color:var(--text-tertiary);">' + (canal.hora || '-') + '</td></tr>';
+                            });
+                            html += '</tbody></table>';
+                        } else { html += '<p style="color:var(--text-tertiary);text-align:center;padding:12px;">Nenhum upload com sucesso</p>'; }
+                        html += '</div>';
+                    });
+                    html += '</div>';
+                    modalBody.innerHTML = html;
+                } else { modalBody.innerHTML = '<p style="color:var(--text-tertiary);text-align:center;padding:40px;">Nenhum historico encontrado.</p>'; }
+            } catch (error) { modalBody.innerHTML = '<p style="color:var(--error);text-align:center;">Erro: ' + error.message + '</p>'; }
+        }
+        window.addEventListener('click', function(e) { if (e.target.classList && e.target.classList.contains('modal-overlay')) e.target.classList.remove('show'); });
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.show').forEach(function(m) { m.classList.remove('show'); }); });
+        function formatTime(timeStr) { if (!timeStr) return '-'; return timeStr; }
+        function atualizar() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/api/dash-upload/status', true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    try {
+                        var data = JSON.parse(xhr.responseText);
+                        var el;
+                        el = document.getElementById('total'); if (el) el.textContent = data.stats.total || 0;
+                        el = document.getElementById('sucesso'); if (el) el.textContent = data.stats.sucesso || 0;
+                        el = document.getElementById('sem_video'); if (el) el.textContent = data.stats.sem_video || 0;
+                        el = document.getElementById('erro'); if (el) el.textContent = data.stats.erro || 0;
+                        var totalMonetizados = 0;
+                        var html = '';
+                        if (data.subnichos) {
+                            for (var subnicho in data.subnichos) {
+                                var canais = data.subnichos[subnicho];
+                                var ss = {sucesso: 0, erro: 0, sem_video: 0, pendente: 0};
+                                for (var i = 0; i < canais.length; i++) {
+                                    if (canais[i].is_monetized) totalMonetizados++;
+                                    if (canais[i].status === 'sucesso') ss.sucesso++;
+                                    else if (canais[i].status === 'erro') ss.erro++;
+                                    else if (canais[i].status === 'sem_video') ss.sem_video++;
+                                    else ss.pendente++;
+                                }
+                                var accent = '#3f3f46'; var accentMuted = 'rgba(63,63,70,0.15)'; var icon = '?';
+                                if (subnicho === 'Monetizados') { accent = '#22c55e'; accentMuted = 'rgba(34,197,94,0.12)'; icon = '$'; }
+                                else if (subnicho === 'Historias Sombrias') { accent = '#8b5cf6'; accentMuted = 'rgba(139,92,246,0.12)'; icon = '\\u265B'; }
+                                else if (subnicho === 'Relatos de Guerra') { accent = '#4a8c50'; accentMuted = 'rgba(74,140,80,0.18)'; icon = '\\u2694'; }
+                                else if (subnicho === 'Guerras e Civilizacoes' || subnicho === 'Guerras e Civiliza\\u00e7\\u00f5es') { accent = '#f97316'; accentMuted = 'rgba(249,115,22,0.12)'; icon = '\\u26E8'; }
+                                else if (subnicho === 'Terror') { accent = '#ef4444'; accentMuted = 'rgba(239,68,68,0.12)'; icon = '\\u2620'; }
+                                else if (subnicho === 'Desmonetizados') { accent = '#71717a'; accentMuted = 'rgba(113,113,122,0.12)'; icon = '\\u25CB'; }
+                                html += '<div class="section" style="--section-accent:' + accent + ';--section-accent-muted:' + accentMuted + ';">';
+                                html += '<div class="section-header"><div class="section-title">';
+                                html += '<span class="section-icon">' + icon + '</span>';
+                                html += '<span>' + escapeHtml(subnicho) + '</span>';
+                                html += '<span class="section-count">' + canais.length + ' canais</span></div>';
+                                html += '<div class="section-pills">';
+                                if (ss.sucesso > 0) html += '<span class="stat-pill stat-pill--success">' + ss.sucesso + ' sucesso</span>';
+                                if (ss.sem_video > 0) html += '<span class="stat-pill stat-pill--warning">' + ss.sem_video + ' sem video</span>';
+                                if (ss.erro > 0) html += '<span class="stat-pill stat-pill--error">' + ss.erro + ' erro</span>';
+                                if (ss.pendente > 0) html += '<span class="stat-pill stat-pill--pending">' + ss.pendente + ' pendente</span>';
+                                html += '</div></div>';
+                                html += '<table class="channel-table"><thead><tr>';
+                                html += '<th style="width:280px">Canal</th><th style="width:120px">Status</th><th>Video Enviado</th><th style="width:80px">Horario</th><th style="width:120px">Acoes</th>';
+                                html += '</tr></thead><tbody>';
+                                var temCanais = false;
+                                for (var j = 0; j < canais.length; j++) {
+                                    var canal = canais[j];
+                                    if (filtroStatus && canal.status !== filtroStatus) continue;
+                                    temCanais = true;
+                                    var badgeClass = 'status-badge--pending'; var badgeText = 'Pendente';
+                                    if (canal.status === 'sucesso') { badgeClass = 'status-badge--success'; badgeText = 'Enviado'; }
+                                    else if (canal.status === 'sem_video') { badgeClass = 'status-badge--sem_video'; badgeText = 'Sem Video'; }
+                                    else if (canal.status === 'erro') { badgeClass = 'status-badge--error'; badgeText = 'Erro'; }
+                                    html += '<tr>';
+                                    html += '<td><div class="cell-channel"><span class="channel-name">' + escapeHtml(canal.channel_name) + '</span>';
+                                    var sigla = getSiglaIdioma(canal.lingua);
+                                    if (sigla) html += '<span class="lang-tag">' + sigla + '</span>';
+                                    if (canal.is_monetized) html += '<span class="monetized-dot"></span>';
+                                    html += '</div></td>';
+                                    html += '<td><span class="status-badge ' + badgeClass + '">' + badgeText + '</span></td>';
+                                    html += '<td><span class="video-title">' + escapeHtml(truncarTitulo(canal.video_titulo)) + '</span></td>';
+                                    html += '<td><span class="cell-time">' + formatTime(canal.hora_upload) + '</span></td>';
+                                    html += '<td><div class="cell-actions">';
+                                    var safeName = escapeHtml(canal.channel_name).replace(/"/g, '&quot;');
+                                    html += '<button class="btn-icon btn-icon--upload" data-channel-id="' + canal.channel_id + '" data-channel-name="' + safeName + '" title="Forcar upload">&#x1F4E4;</button>';
+                                    html += '<button class="btn-icon btn-icon--hist" data-channel-id="' + canal.channel_id + '" data-channel-name="' + safeName + '" title="Historico">&#x1F4DC;</button>';
+                                    if (canal.spreadsheet_id && canal.spreadsheet_id !== '') {
+                                        html += '<a href="https://docs.google.com/spreadsheets/d/' + canal.spreadsheet_id + '" target="_blank" class="btn-icon" title="Planilha">&#x1F4D1;</a>';
+                                    } else { html += '<button class="btn-icon" disabled title="Sem planilha">&#x1F4D1;</button>'; }
+                                    html += '</div></td></tr>';
+                                }
+                                if (!temCanais) html += '<tr><td colspan="5" style="text-align:center;color:var(--text-tertiary);padding:20px;">Nenhum canal com este filtro</td></tr>';
+                                html += '</tbody></table></div>';
+                            }
+                        }
+                        if (html === '') html = '<div class="empty-state">Nenhum canal encontrado</div>';
+                        var container = document.getElementById('subnichos-container');
+                        if (container.innerHTML !== html) container.innerHTML = html;
+                        document.getElementById('total-monetizados').textContent = totalMonetizados;
+                        var now = new Date();
+                        document.getElementById('update-time').textContent = now.toLocaleTimeString('pt-BR', {timeZone: 'America/Sao_Paulo'});
+                    } catch(e) { console.error('Erro:', e); document.getElementById('subnichos-container').innerHTML = '<div class="empty-state">Erro ao carregar dados</div>'; }
+                }
+            };
+            xhr.send();
+        }
+        atualizar();
+        setInterval(atualizar, 5000);
+        document.addEventListener('click', function(e) {
+            var btn = e.target.closest('.btn-icon--hist');
+            if (btn) { abrirHistorico(btn.getAttribute('data-channel-id'), btn.getAttribute('data-channel-name')); return; }
+            btn = e.target.closest('.btn-icon--upload');
+            if (btn) { forcarUpload(btn.getAttribute('data-channel-id'), btn.getAttribute('data-channel-name')); return; }
+        });
+    </script>
+</body>
+</html>
+'''
+
+@app.get("/dash-upload", response_class=HTMLResponse)
+async def dash_upload_page():
+    """Dashboard de Upload v2 - Interface web"""
+    return DASH_UPLOAD_HTML
+
+@app.get("/api/dash-upload/status")
+async def dash_upload_status():
+    """Status dos canais de upload agrupados por subnicho"""
+    import time as _time
+    from collections import defaultdict
+
+    now = _time.time()
+    if _dash_cache['data'] and (now - _dash_cache['timestamp']) < _DASH_CACHE_TTL:
+        return _dash_cache['data']
+
+    try:
+        canais = supabase.table('yt_channels')\
+            .select('channel_id, channel_name, spreadsheet_id, lingua, is_monetized, subnicho')\
+            .eq('is_active', True)\
+            .eq('upload_automatico', True)\
+            .order('subnicho, channel_name')\
+            .execute()
+
+        today = datetime.now(timezone.utc).date().isoformat()
+        uploads = supabase.table('yt_canal_upload_diario')\
+            .select('channel_id, status, upload_realizado, video_titulo, hora_processamento, erro_mensagem')\
+            .eq('data', today)\
+            .execute()
+
+        upload_map = {u['channel_id']: u for u in uploads.data}
+
+        subnichos_dict = defaultdict(list)
+        stats = {'total': 0, 'sucesso': 0, 'erro': 0, 'sem_video': 0, 'pendente': 0}
+
+        for canal in canais.data:
+            upload = upload_map.get(canal['channel_id'])
+            status = 'pendente'
+            video_titulo = None
+            hora_upload = None
+
+            if upload:
+                if upload.get('upload_realizado'):
+                    status = 'sucesso'
+                    video_titulo = upload.get('video_titulo')
+                    hora_upload = _extrair_hora(upload.get('hora_processamento') or upload.get('updated_at'))
+                elif upload.get('status') == 'sem_video':
+                    status = 'sem_video'
+                elif upload.get('erro_mensagem'):
+                    status = 'erro'
+
+            stats['total'] += 1
+            stats[status] += 1
+
+            subnicho = canal.get('subnicho', 'Sem Categoria')
+            subnichos_dict[subnicho].append({
+                'channel_id': canal['channel_id'],
+                'channel_name': canal['channel_name'],
+                'spreadsheet_id': canal.get('spreadsheet_id', ''),
+                'lingua': canal.get('lingua', ''),
+                'is_monetized': canal.get('is_monetized', False),
+                'status': status,
+                'video_titulo': video_titulo,
+                'hora_upload': hora_upload
+            })
+
+        monetizados_forcados = ['UCzfZRuRHSp6erCwzuhjywFw', 'UCWYzVowgJ6LlxCcYlMGcLtA']
+        for sub in subnichos_dict:
+            for canal in subnichos_dict[sub]:
+                if canal['channel_id'] in monetizados_forcados:
+                    canal['is_monetized'] = True
+
+        novo_dict = defaultdict(list)
+        for sub, canais_list in subnichos_dict.items():
+            for canal in canais_list:
+                if canal['is_monetized']:
+                    novo_dict['Monetizados'].append(canal)
+                elif 'Guerra' in sub or 'guerra' in sub or 'Civiliza' in sub:
+                    novo_dict['Relatos de Guerra'].append(canal)
+                else:
+                    novo_dict[sub].append(canal)
+        subnichos_dict = novo_dict
+
+        status_order = {'sucesso': 0, 'pendente': 1, 'erro': 2, 'sem_video': 3}
+        for sub in subnichos_dict:
+            subnichos_dict[sub].sort(key=lambda x: (status_order.get(x['status'], 4), not x['is_monetized'], x['channel_name']))
+
+        # Ordenar subnichos: mais sucessos primeiro
+        subnichos_ordenados = dict(sorted(
+            subnichos_dict.items(),
+            key=lambda item: sum(1 for c in item[1] if c['status'] == 'sucesso'),
+            reverse=True
+        ))
+
+        result = {'stats': stats, 'subnichos': subnichos_ordenados}
+        _dash_cache['data'] = result
+        _dash_cache['timestamp'] = _time.time()
+        return result
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/dash-upload/canais/{channel_id}/historico")
+async def dash_upload_historico(channel_id: str):
+    """Historico de uploads de um canal"""
+    try:
+        try:
+            response = supabase.table('yt_canal_upload_historico')\
+                .select('*')\
+                .eq('channel_id', channel_id)\
+                .order('data', desc=True)\
+                .order('hora_processamento', desc=True)\
+                .execute()
+        except Exception as e:
+            if "relation" in str(e) and "does not exist" in str(e):
+                response = supabase.table('yt_canal_upload_diario')\
+                    .select('*')\
+                    .eq('channel_id', channel_id)\
+                    .order('data', desc=True)\
+                    .execute()
+            else:
+                raise e
+
+        historico_data = response.data if response.data else []
+
+        response_diario = supabase.table('yt_canal_upload_diario')\
+            .select('*')\
+            .eq('channel_id', channel_id)\
+            .order('data', desc=True)\
+            .execute()
+
+        if response_diario.data:
+            registros_unicos = {(item.get('channel_id'), item['data'], item.get('video_titulo', '')) for item in historico_data}
+            for item_diario in response_diario.data:
+                chave = (item_diario.get('channel_id'), item_diario['data'], item_diario.get('video_titulo', ''))
+                if chave not in registros_unicos:
+                    historico_data.append(item_diario)
+                    registros_unicos.add(chave)
+
+        historico_data.sort(key=lambda x: (x.get('data', ''), x.get('hora_processamento', '')), reverse=True)
+
+        historico = []
+        for item in historico_data:
+            historico.append({
+                'data': item['data'],
+                'status': item.get('status', 'pendente'),
+                'video_titulo': item.get('video_titulo', '-'),
+                'hora_processamento': _extrair_hora(item.get('hora_processamento')),
+                'erro_mensagem': item.get('erro_mensagem'),
+                'tentativa_numero': item.get('tentativa_numero', 1),
+                'upload_realizado': item.get('upload_realizado', False),
+                'youtube_video_id': item.get('youtube_video_id')
+            })
+
+        return {'channel_id': channel_id, 'total_registros': len(historico), 'historico': historico}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/dash-upload/historico-completo")
+async def dash_upload_historico_completo():
+    """Historico completo dos ultimos 30 dias"""
+    try:
+        from collections import defaultdict
+
+        hoje = datetime.now(timezone.utc).date()
+        data_inicio = hoje - timedelta(days=30)
+
+        canais_info = supabase.table('yt_channels')\
+            .select('channel_name, lingua')\
+            .eq('is_active', True)\
+            .execute()
+        mapa_lingua = {c['channel_name']: c.get('lingua', '') for c in canais_info.data} if canais_info.data else {}
+
+        response = supabase.table('yt_canal_upload_historico')\
+            .select('*')\
+            .gte('data', data_inicio.isoformat())\
+            .order('data', desc=True)\
+            .execute()
+
+        historico_por_data = defaultdict(lambda: {'data': '', 'total': 0, 'sucesso': 0, 'erro': 0, 'sem_video': 0, 'canais': []})
+
+        for item in response.data:
+            data_str = item['data']
+            historico_por_data[data_str]['data'] = data_str
+            nome_canal = item.get('channel_name', '').strip()
+            if nome_canal:
+                historico_por_data[data_str]['total'] += 1
+                status = item.get('status', 'pendente')
+                if status == 'sucesso': historico_por_data[data_str]['sucesso'] += 1
+                elif status == 'erro': historico_por_data[data_str]['erro'] += 1
+                elif status == 'sem_video': historico_por_data[data_str]['sem_video'] += 1
+                historico_por_data[data_str]['canais'].append({
+                    'nome': nome_canal, 'status': status,
+                    'video_titulo': item.get('video_titulo', ''),
+                    'hora': _extrair_hora(item.get('hora_processamento')) or '',
+                    'lingua': mapa_lingua.get(nome_canal, '')
+                })
+
+        response_diario = supabase.table('yt_canal_upload_diario')\
+            .select('*')\
+            .gte('data', data_inicio.isoformat())\
+            .execute()
+
+        if response_diario.data:
+            for item in response_diario.data:
+                data_str = item.get('data')
+                if data_str not in historico_por_data:
+                    historico_por_data[data_str] = {'data': data_str, 'total': 0, 'sucesso': 0, 'erro': 0, 'sem_video': 0, 'canais': []}
+                nome_canal = item.get('channel_name', '').strip()
+                if not nome_canal: continue
+                video_ja_existe = any(c['nome'] == nome_canal and c.get('video_titulo', '') == item.get('video_titulo', '') for c in historico_por_data[data_str]['canais'])
+                if not video_ja_existe:
+                    status = item.get('status', 'pendente')
+                    historico_por_data[data_str]['total'] += 1
+                    if status == 'sucesso': historico_por_data[data_str]['sucesso'] += 1
+                    elif status == 'erro': historico_por_data[data_str]['erro'] += 1
+                    elif status == 'sem_video': historico_por_data[data_str]['sem_video'] += 1
+                    historico_por_data[data_str]['canais'].append({
+                        'nome': nome_canal, 'status': status,
+                        'video_titulo': item.get('video_titulo', ''),
+                        'hora': _extrair_hora(item.get('hora_processamento')) or '',
+                        'lingua': mapa_lingua.get(nome_canal, '')
+                    })
+
+        historico_lista = sorted(historico_por_data.values(), key=lambda x: x['data'], reverse=True)
+        dias_mostrados = min(30, len(historico_lista))
+        total_registros = sum(d['total'] for d in historico_lista[:30])
+
+        return {'historico_por_data': historico_lista[:30], 'total_dias': dias_mostrados, 'total_registros': total_registros}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))

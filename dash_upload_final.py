@@ -11,9 +11,22 @@ from datetime import datetime, timezone
 from supabase import create_client
 from dotenv import load_dotenv
 from collections import defaultdict
+import time
 
 # Carrega variáveis
 load_dotenv()
+
+def extrair_hora(timestamp_str):
+    """Extrai HH:MM do timestamp (sem conversão de timezone)"""
+    if not timestamp_str:
+        return None
+    try:
+        ts = str(timestamp_str)
+        if 'T' in ts and len(ts) >= 16:
+            return ts[11:16]
+        return None
+    except:
+        return None
 
 # Configuração Flask
 app = Flask(__name__)
@@ -26,6 +39,10 @@ supabase = create_client(
     os.getenv("SUPABASE_URL"),
     os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 )
+
+# Cache global para otimização (10 segundos de TTL)
+_status_cache = {'data': None, 'timestamp': 0}
+CACHE_TTL = 10  # 10 segundos de cache para reduzir carga
 
 # HTML com JavaScript CORRIGIDO
 HTML_TEMPLATE = '''
@@ -61,6 +78,7 @@ HTML_TEMPLATE = '''
             border-radius: 8px;
             flex: 1;
             border: 1px solid #0f3460;
+            transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
         }
 
         .card-value {
@@ -126,8 +144,11 @@ HTML_TEMPLATE = '''
             font-size: 14px;
         }
 
+        tr {
+            transition: background 0.15s ease;
+        }
         tr:hover {
-            background: rgba(255, 255, 255, 0.03);
+            background: rgba(255, 255, 255, 0.05);
         }
 
         .channel-name {
@@ -208,14 +229,19 @@ HTML_TEMPLATE = '''
             border-radius: 5px;
             cursor: pointer;
             margin-right: 8px;
-            transition: all 0.3s ease;
+            transition: transform 0.1s ease, opacity 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
             text-decoration: none;
             display: inline-block;
         }
 
         .btn-action:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            opacity: 0.9;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-action:active {
+            transform: scale(0.92);
+            opacity: 1;
         }
 
         .btn-upload { background: #2196F3; }
@@ -228,13 +254,11 @@ HTML_TEMPLATE = '''
             background: #4CAF50;
             text-decoration: none;
             color: white;
-            will-change: transform;
         }
         .btn-sheet:hover { background: #388E3C; }
 
         /* Modal de Histórico */
         .modal {
-            display: none;
             position: fixed;
             z-index: 1000;
             left: 0;
@@ -242,6 +266,17 @@ HTML_TEMPLATE = '''
             width: 100%;
             height: 100%;
             background-color: rgba(0, 0, 0, 0.7);
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease, visibility 0s 0.2s;
+        }
+
+        .modal.show {
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+            transition: opacity 0.2s ease, visibility 0s 0s;
         }
 
         .modal-content {
@@ -254,6 +289,12 @@ HTML_TEMPLATE = '''
             border-radius: 10px;
             max-height: 80vh;
             overflow-y: auto;
+            transform: translateY(-20px);
+            transition: transform 0.25s ease;
+        }
+
+        .modal.show .modal-content {
+            transform: translateY(0);
         }
 
         .modal-header {
@@ -275,11 +316,17 @@ HTML_TEMPLATE = '''
             font-size: 28px;
             font-weight: bold;
             cursor: pointer;
+            transition: color 0.15s ease, transform 0.15s ease;
         }
 
         .close:hover,
         .close:focus {
             color: #fff;
+            transform: scale(1.2);
+        }
+
+        .close:active {
+            transform: scale(0.9);
         }
 
         .historico-table {
@@ -323,29 +370,105 @@ HTML_TEMPLATE = '''
             color: #ff6b6b;
             font-size: 12px;
         }
+
+        .card-filtro, .card-historico {
+            cursor: pointer;
+        }
+        .card-filtro:hover, .card-historico:hover {
+            border-color: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        .card-filtro:active, .card-historico:active {
+            transform: translateY(0) scale(0.97);
+            transition: transform 0.05s ease;
+        }
+        .card-filtro.ativo {
+            border-color: #fff;
+            box-shadow: 0 0 10px rgba(255,255,255,0.2);
+        }
+
+        .dia-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            background: #0f3460;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 2px;
+            user-select: none;
+            transition: background 0.15s ease, transform 0.1s ease;
+        }
+        .dia-header:hover {
+            background: #13407a;
+        }
+        .dia-header:active {
+            transform: scale(0.99);
+        }
+        .dia-seta {
+            display: inline-block;
+            transition: transform 0.2s ease;
+        }
+        .dia-seta.aberto {
+            transform: rotate(90deg);
+        }
+        .dia-content {
+            max-height: 0;
+            overflow: hidden;
+            padding: 0 15px;
+            background: #16213e;
+            border-radius: 0 0 5px 5px;
+            margin-bottom: 15px;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+        }
+        .dia-content.aberto {
+            max-height: 2000px;
+            padding: 10px 15px 15px;
+        }
+
+        .btn-pagina {
+            padding: 6px 14px;
+            background: #0f3460;
+            color: #fff;
+            border: 1px solid #1a5276;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.15s ease, transform 0.1s ease;
+        }
+        .btn-pagina:hover { background: #1a5276; }
+        .btn-pagina:active { transform: scale(0.95); }
+        .btn-pagina:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        @keyframes pulse-success {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
+            50% { box-shadow: 0 0 0 4px rgba(76, 175, 80, 0); }
+        }
+        .status-success { animation: pulse-success 2s infinite; }
     </style>
 </head>
 <body>
     <h1>Dashboard de Upload Diário</h1>
 
     <div class="stats">
-        <div class="card">
+        <div class="card card-filtro" id="card-total" onclick="toggleFiltro(null)" style="cursor: pointer;">
             <div class="card-value info" id="total">-</div>
             <div class="card-label">Total de Canais</div>
         </div>
-        <div class="card" style="background: rgba(76, 175, 80, 0.15);">
+        <div class="card card-filtro" id="card-sucesso" onclick="toggleFiltro('sucesso')" style="background: rgba(76, 175, 80, 0.15);">
             <div class="card-value success" id="sucesso">-</div>
             <div class="card-label">Upload com Sucesso</div>
         </div>
-        <div class="card" style="background: rgba(255, 193, 7, 0.15);">
+        <div class="card card-filtro" id="card-sem_video" onclick="toggleFiltro('sem_video')" style="background: rgba(255, 193, 7, 0.15);">
             <div class="card-value warning" id="sem_video">-</div>
             <div class="card-label">Sem Vídeo</div>
         </div>
-        <div class="card" style="background: rgba(244, 67, 54, 0.15);">
+        <div class="card card-filtro" id="card-erro" onclick="toggleFiltro('erro')" style="background: rgba(244, 67, 54, 0.15);">
             <div class="card-value error" id="erro">-</div>
             <div class="card-label">Com Erro</div>
         </div>
-        <div class="card" onclick="abrirHistoricoCompleto()" style="cursor: pointer; background: rgba(255, 152, 0, 0.15);">
+        <div class="card card-historico" onclick="abrirHistoricoCompleto()" style="cursor: pointer; background: rgba(255, 152, 0, 0.15);">
             <div class="card-value info" id="historico_completo">📜</div>
             <div class="card-label">Histórico Completo</div>
         </div>
@@ -357,7 +480,7 @@ HTML_TEMPLATE = '''
 
     <div class="footer">
         <span>Última atualização: <span id="update-time">--:--:--</span></span> |
-        <span>Auto-refresh: 1 segundo</span> |
+        <span>Auto-refresh: 5 segundos</span> |
         <span id="total-monetizados">-</span> canais monetizados
     </div>
 
@@ -388,6 +511,55 @@ HTML_TEMPLATE = '''
     </div>
 
     <script>
+        // Variável global de filtro
+        var filtroStatus = null;
+
+        function truncarTitulo(titulo) {
+            if (!titulo || titulo === '-') return '-';
+            var palavras = titulo.split(' ');
+            if (palavras.length > 7) return palavras.slice(0, 7).join(' ') + '...';
+            return titulo;
+        }
+
+        function getSiglaIdioma(lingua) {
+            if (!lingua) return '';
+            var l = lingua.toLowerCase();
+            var mapa = {
+                'pt': 'PT', 'português': 'PT', 'portugues': 'PT', 'portuguese': 'PT',
+                'en': 'EN', 'inglês': 'EN', 'ingles': 'EN', 'english': 'EN',
+                'es': 'ES', 'espanhol': 'ES', 'spanish': 'ES',
+                'de': 'DE', 'alemão': 'DE', 'alemao': 'DE', 'german': 'DE',
+                'fr': 'FR', 'francês': 'FR', 'frances': 'FR', 'french': 'FR',
+                'it': 'IT', 'italiano': 'IT', 'italian': 'IT',
+                'pl': 'PL', 'polonês': 'PL', 'polones': 'PL', 'polish': 'PL',
+                'ru': 'RU', 'russo': 'RU', 'russian': 'RU',
+                'ja': 'JP', 'japonês': 'JP', 'japones': 'JP', 'japanese': 'JP',
+                'ko': 'KR', 'coreano': 'KR', 'korean': 'KR',
+                'tr': 'TR', 'turco': 'TR', 'turkish': 'TR',
+                'ar': 'AR', 'arabic': 'AR', 'árabe': 'AR', 'arabe': 'AR'
+            };
+            return mapa[l] || '';
+        }
+
+        function toggleFiltro(status) {
+            document.querySelectorAll('.card-filtro').forEach(function(c) { c.classList.remove('ativo'); });
+            if (!status || filtroStatus === status) {
+                filtroStatus = null;
+            } else {
+                filtroStatus = status;
+                var card = document.getElementById('card-' + status);
+                if (card) card.classList.add('ativo');
+            }
+            atualizar();
+        }
+
+        function toggleDia(id) {
+            var el = document.getElementById(id);
+            var seta = document.getElementById('seta-' + id);
+            el.classList.toggle('aberto');
+            if (seta) seta.classList.toggle('aberto');
+        }
+
         async function forcarUpload(channelId, channelName) {
             if (!confirm('Forçar upload do canal ' + channelName + '?\\n\\nO próximo vídeo "done" da planilha será enviado.')) {
                 return;
@@ -444,123 +616,127 @@ HTML_TEMPLATE = '''
             }
         }
 
+        // Dados do histórico individual (para paginação)
+        var _historicoData = [];
+        var _historicoPagina = 0;
+        var _HIST_POR_PAGINA = 10;
+
+        function renderHistoricoPagina() {
+            var modalBody = document.getElementById('modalBody');
+            var items = _historicoData;
+            var totalPaginas = Math.ceil(items.length / _HIST_POR_PAGINA);
+            var inicio = _historicoPagina * _HIST_POR_PAGINA;
+            var fim = Math.min(inicio + _HIST_POR_PAGINA, items.length);
+            var paginaItems = items.slice(inicio, fim);
+
+            // Contadores gerais
+            var countSucesso = 0, countSemVideo = 0, countErro = 0;
+            items.forEach(function(item) {
+                if (item.status === 'sucesso') countSucesso++;
+                else if (item.status === 'sem_video') countSemVideo++;
+                else if (item.status === 'erro') countErro++;
+            });
+
+            // Resumo (estilo unificado com histórico completo)
+            var resumo = '<div style="background: rgba(76,175,80,0.2); padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #4CAF50;">';
+            resumo += '<p style="margin: 0; color: #4CAF50; font-weight: bold; font-size: 16px;">';
+            resumo += 'Total: ' + items.length + ' registros — ';
+            resumo += '<span style="color: #4CAF50;">✅ ' + countSucesso + '</span> | ';
+            resumo += '<span style="color: #FF9800;">⚠️ ' + countSemVideo + '</span> | ';
+            resumo += '<span style="color: #f44336;">❌ ' + countErro + '</span>';
+            resumo += '</p></div>';
+
+            // Tabela (estilo unificado com histórico completo)
+            var thStyle = 'text-align: left; padding: 8px; background: #0f3460; color: #aaa; font-weight: 600;';
+            var html = '<div style="background: #16213e; padding: 10px 15px 15px; border-radius: 5px;">';
+            html += '<table style="width: 100%; font-size: 0.9em; border-collapse: collapse;">';
+            html += '<thead><tr>';
+            html += '<th style="' + thStyle + '">Data</th>';
+            html += '<th style="' + thStyle + '">Vídeo</th>';
+            html += '<th style="' + thStyle + '">Status</th>';
+            html += '<th style="' + thStyle + '">Horário</th>';
+            html += '</tr></thead>';
+            html += '<tbody>';
+
+            var tdBorder = 'border-bottom: 1px solid rgba(255,255,255,0.05);';
+            if (paginaItems.length > 0) {
+                paginaItems.forEach(function(item) {
+                    html += '<tr>';
+                    var df = item.data;
+                    if (df && df.includes('-')) { var p = df.split('-'); df = p[2] + '/' + p[1] + '/' + p[0]; }
+                    html += '<td style="padding: 8px; ' + tdBorder + '">' + df + '</td>';
+                    html += '<td style="padding: 8px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; ' + tdBorder + '">' + truncarTitulo(item.video_titulo) + '</td>';
+                    var statusColor = '#9E9E9E'; var statusText = '⚪ Sem Vídeo';
+                    if (item.status === 'sucesso') { statusColor = '#4CAF50'; statusText = '✅ Sucesso'; }
+                    else if (item.status === 'erro') { statusColor = '#f44336'; statusText = '❌ Erro'; }
+                    html += '<td style="padding: 8px; color: ' + statusColor + '; ' + tdBorder + '">' + statusText + '</td>';
+                    html += '<td style="padding: 8px; ' + tdBorder + '">' + (item.hora_processamento || '-') + '</td>';
+                    html += '</tr>';
+                });
+            } else {
+                html += '<tr><td colspan="4" style="text-align: center; color: #666; padding: 15px;">Nenhum histórico encontrado</td></tr>';
+            }
+            html += '</tbody></table>';
+
+            // Paginação
+            if (totalPaginas > 1) {
+                html += '<div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 15px;">';
+                html += '<button class="btn-pagina" onclick="_historicoPagina--; renderHistoricoPagina();" ' + (_historicoPagina === 0 ? 'disabled' : '') + '>← Anterior</button>';
+                html += '<span style="color: #aaa;">Página ' + (_historicoPagina + 1) + ' de ' + totalPaginas + '</span>';
+                html += '<button class="btn-pagina" onclick="_historicoPagina++; renderHistoricoPagina();" ' + (_historicoPagina >= totalPaginas - 1 ? 'disabled' : '') + '>Próxima →</button>';
+                html += '</div>';
+            }
+            html += '</div>';
+
+            modalBody.innerHTML = resumo + html;
+        }
+
         // Funções do Modal de Histórico
         function abrirHistorico(channelId, channelName) {
             var modal = document.getElementById('historicoModal');
             var modalTitle = document.getElementById('modalTitle');
             var modalBody = document.getElementById('modalBody');
 
-            // Atualizar título
             modalTitle.innerHTML = 'Histórico de Uploads - ' + channelName;
-
-            // Mostrar modal com loading
-            modal.style.display = 'block';
+            modal.classList.add('show');
             modalBody.innerHTML = '<p style="color: #aaa; text-align: center;">Carregando histórico...</p>';
 
-            // Buscar histórico via API
             fetch('/api/canais/' + channelId + '/historico-uploads')
-                .then(response => response.json())
-                .then(data => {
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
                     if (data.error) {
-                        modalBody.innerHTML = '<p style="color: #f44336;">Erro ao carregar histórico: ' + data.error + '</p>';
+                        modalBody.innerHTML = '<p style="color: #f44336;">Erro: ' + data.error + '</p>';
                         return;
                     }
 
-                    // Montar tabela de histórico
-                    var html = '<table class="historico-table">';
-                    html += '<thead><tr>';
-                    html += '<th>Data</th>';
-                    html += '<th>Status</th>';
-                    html += '<th>Vídeo</th>';
-                    html += '<th>Horário</th>';
-                    html += '<th>Erro</th>';
-                    html += '</tr></thead>';
-                    html += '<tbody>';
-
+                    // Filtrar duplicatas
                     if (data.historico && data.historico.length > 0) {
+                        var vistos = new Set();
+                        var filtrado = [];
                         data.historico.forEach(function(item) {
-                            html += '<tr>';
-
-                            // Data - parse manual sem conversão de timezone
-                            var data_formatada = item.data;
-                            if (data_formatada && data_formatada.includes('-')) {
-                                var partes = data_formatada.split('-');
-                                data_formatada = partes[2] + '/' + partes[1] + '/' + partes[0];
-                            }
-                            html += '<td>' + data_formatada + '</td>';
-
-                            // Status com cor
-                            var statusClass = 'status-sem-video';
-                            var statusText = item.status || 'pendente';
-                            if (item.status === 'sucesso') {
-                                statusClass = 'status-success';
-                                statusText = '✅ Sucesso';
-                            } else if (item.status === 'erro') {
-                                statusClass = 'status-error';
-                                statusText = '❌ Erro';
-                            } else if (item.status === 'sem_video') {
-                                statusClass = 'status-sem-video';
-                                statusText = '⚪ Sem Vídeo';
-                            }
-                            html += '<td><span class="' + statusClass + '">' + statusText + '</span></td>';
-
-                            // Vídeo
-                            html += '<td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">';
-                            html += item.video_titulo || '-';
-                            html += '</td>';
-
-                            // Horário
-                            var hora = '-';
-                            if (item.hora_processamento) {
-                                var dt = new Date(item.hora_processamento);
-                                hora = dt.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo'});
-                            }
-                            html += '<td>' + hora + '</td>';
-
-                            // Erro
-                            html += '<td>';
-                            if (item.erro_mensagem) {
-                                html += '<span class="erro-msg" title="' + item.erro_mensagem + '">';
-                                // Truncar mensagem de erro se muito longa
-                                var erro = item.erro_mensagem;
-                                if (erro.length > 50) {
-                                    erro = erro.substring(0, 50) + '...';
-                                }
-                                html += erro;
-                                html += '</span>';
-                            } else {
-                                html += '-';
-                            }
-                            html += '</td>';
-
-                            html += '</tr>';
+                            var chave = item.data + '|' + (item.video_titulo || 'sem_video');
+                            if (!vistos.has(chave)) { vistos.add(chave); filtrado.push(item); }
                         });
-                    } else {
-                        html += '<tr><td colspan="6" style="text-align: center; color: #666;">Nenhum histórico encontrado</td></tr>';
+                        data.historico = filtrado;
                     }
 
-                    html += '</tbody></table>';
-
-                    // Adicionar resumo no topo
-                    var resumo = '<div style="margin-bottom: 20px; padding: 10px; background: rgba(76, 175, 80, 0.2); border: 1px solid #4CAF50; border-radius: 5px;">';
-                    resumo += '<strong>Total de registros:</strong> ' + data.total_registros + ' (últimos 30 dias)';
-                    resumo += '</div>';
-
-                    modalBody.innerHTML = resumo + html;
+                    _historicoData = data.historico || [];
+                    _historicoPagina = 0;
+                    renderHistoricoPagina();
                 })
-                .catch(error => {
+                .catch(function(error) {
                     modalBody.innerHTML = '<p style="color: #f44336;">Erro ao buscar histórico: ' + error + '</p>';
                 });
         }
 
         function fecharModal() {
             var modal = document.getElementById('historicoModal');
-            modal.style.display = 'none';
+            modal.classList.remove('show');
         }
 
         function fecharModalCompleto() {
             var modal = document.getElementById('historicoCompletoModal');
-            modal.style.display = 'none';
+            modal.classList.remove('show');
         }
 
         // Função para abrir o histórico completo
@@ -568,7 +744,7 @@ HTML_TEMPLATE = '''
             var modal = document.getElementById('historicoCompletoModal');
             var modalBody = document.getElementById('modalBodyCompleto');
 
-            modal.style.display = 'block';
+            modal.classList.add('show');
             modalBody.innerHTML = '<p style="color: #aaa; text-align: center;">Carregando histórico completo...</p>';
 
             try {
@@ -576,16 +752,46 @@ HTML_TEMPLATE = '''
                 const data = await response.json();
 
                 if (data.historico_por_data && data.historico_por_data.length > 0) {
+                    // Primeiro passo: filtrar duplicatas e canais sem nome em cada dia
+                    data.historico_por_data.forEach(function(dia) {
+                        if (dia.canais && dia.canais.length > 0) {
+                            var vistos = new Set();
+                            var canaisFiltrados = [];
+                            dia.canais.forEach(function(canal) {
+                                if (!canal.nome || canal.nome.trim() === '') return;
+                                var chave = dia.data + '|' + canal.nome + '|' + (canal.video_titulo || 'sem_video');
+                                if (!vistos.has(chave)) {
+                                    vistos.add(chave);
+                                    canaisFiltrados.push(canal);
+                                }
+                            });
+                            dia.canais = canaisFiltrados;
+                        }
+                    });
+
+                    // Segundo passo: contar tudo ANTES de montar o HTML
+                    var totalSucessoGeral = 0;
+                    var totalSemVideoGeral = 0;
+                    var totalErroGeral = 0;
+
+                    data.historico_por_data.forEach(function(dia) {
+                        dia.canais.forEach(function(canal) {
+                            if (canal.status === 'sucesso') totalSucessoGeral++;
+                            else if (canal.status === 'sem_video') totalSemVideoGeral++;
+                            else if (canal.status === 'erro') totalErroGeral++;
+                        });
+                    });
+
+                    // Terceiro passo: montar HTML
                     var html = '<div style="max-height: 500px; overflow-y: auto;">';
 
-                    // Estatísticas gerais
+                    // Estatísticas gerais no topo
                     html += '<div style="background: rgba(76, 175, 80, 0.2); padding: 15px; border-radius: 5px; margin-bottom: 20px; border: 1px solid #4CAF50;">';
-                    html += '<p style="margin: 0; color: #4CAF50; font-weight: bold; font-size: 16px;">Últimos ' + data.total_dias + ' dias | Total de registros: ' + data.total_registros + '</p>';
+                    html += '<p style="margin: 0; color: #4CAF50; font-weight: bold; font-size: 16px;">Últimos ' + data.total_dias + ' dias | Total de uploads: ' + totalSucessoGeral + '</p>';
                     html += '</div>';
 
-                    // Histórico por data
-                    data.historico_por_data.forEach(function(dia) {
-                        // Formatar data para dd/mm/yyyy
+                    // Histórico por data (accordion)
+                    data.historico_por_data.forEach(function(dia, idx) {
                         var dataFormatada = dia.data;
                         if (dia.data && dia.data.includes('-')) {
                             var partes = dia.data.split('-');
@@ -594,68 +800,62 @@ HTML_TEMPLATE = '''
                             }
                         }
 
-                        html += '<div style="background: #16213e; padding: 15px; border-radius: 5px; margin-bottom: 15px;">';
-                        html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">';
-                        html += '<h4 style="margin: 0; color: #4CAF50;">' + dataFormatada + '</h4>';
+                        var sucessoDia = 0, semVideoDia = 0, erroDia = 0;
+                        dia.canais.forEach(function(canal) {
+                            if (canal.status === 'sucesso') sucessoDia++;
+                            else if (canal.status === 'sem_video') semVideoDia++;
+                            else if (canal.status === 'erro') erroDia++;
+                        });
+
+                        var diaId = 'dia-' + idx;
+
+                        // Header clicável (accordion)
+                        var diaIdSafe = diaId.replace(/"/g, '');
+                        html += '<div class="dia-header" data-dia="' + diaIdSafe + '" onclick="toggleDia(this.dataset.dia)">';
                         html += '<div>';
-                        html += '<span style="color: #4CAF50;">✅ Sucesso: ' + dia.sucesso + '</span> | ';
-                        html += '<span style="color: #FF9800;">⚠️ Sem vídeo: ' + dia.sem_video + '</span> | ';
-                        html += '<span style="color: #f44336;">❌ Erro: ' + dia.erro + '</span>';
+                        html += '<span id="seta-' + diaId + '" class="dia-seta" style="margin-right: 8px;">▶</span>';
+                        html += '<span style="color: #4CAF50; font-weight: bold;">' + dataFormatada + '</span>';
+                        html += '</div>';
+                        html += '<div style="font-size: 0.85em;">';
+                        html += '<span style="color: #4CAF50;">✅ Sucesso: ' + sucessoDia + '</span> | ';
+                        html += '<span style="color: #FF9800;">⚠️ Sem vídeo: ' + semVideoDia + '</span> | ';
+                        html += '<span style="color: #f44336;">❌ Erro: ' + erroDia + '</span>';
                         html += '</div>';
                         html += '</div>';
 
-                        if (dia.canais && dia.canais.length > 0) {
-                            // Filtrar apenas canais com sucesso
-                            var canaisSucesso = dia.canais.filter(function(canal) {
-                                return canal.status === 'sucesso';
+                        // Conteúdo (fechado por padrão)
+                        html += '<div class="dia-content" id="' + diaId + '">';
+
+                        var canaisSucesso = dia.canais.filter(function(c) { return c.status === 'sucesso'; });
+                        if (canaisSucesso.length > 0) {
+                            html += '<table style="width: 100%; font-size: 0.9em;">';
+                            html += '<thead><tr>';
+                            html += '<th style="text-align: left; padding: 5px;">Canal</th>';
+                            html += '<th style="text-align: left; padding: 5px;">Vídeo</th>';
+                            html += '<th style="text-align: left; padding: 5px;">Status</th>';
+                            html += '<th style="text-align: left; padding: 5px;">Horário</th>';
+                            html += '</tr></thead>';
+                            html += '<tbody>';
+
+                            canaisSucesso.forEach(function(canal) {
+                                var sigla = getSiglaIdioma(canal.lingua);
+                                var nomeComIdioma = canal.nome + (sigla ? ' <span style="color: #888; font-size: 0.85em;">(' + sigla + ')</span>' : '');
+
+                                html += '<tr>';
+                                html += '<td style="padding: 5px;">' + nomeComIdioma + '</td>';
+                                html += '<td style="padding: 5px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' +
+                                       truncarTitulo(canal.video_titulo) + '</td>';
+                                html += '<td style="padding: 5px; color: #4CAF50;">✅ sucesso</td>';
+                                html += '<td style="padding: 5px;">' + (canal.hora || '-') + '</td>';
+                                html += '</tr>';
                             });
 
-                            if (canaisSucesso.length > 0) {
-                                html += '<table style="width: 100%; font-size: 0.9em;">';
-                                html += '<thead><tr>';
-                                html += '<th style="text-align: left; padding: 5px;">Hora</th>';
-                                html += '<th style="text-align: left; padding: 5px;">Canal</th>';
-                                html += '<th style="text-align: left; padding: 5px;">Vídeo</th>';
-                                html += '<th style="text-align: left; padding: 5px;">Status</th>';
-                                html += '</tr></thead>';
-                                html += '<tbody>';
-
-                                canaisSucesso.forEach(function(canal) {
-                                    // Converter hora de ISO para HH:MM
-                                    var horaFormatada = '-';
-                                    if (canal.hora) {
-                                        try {
-                                            var dt = new Date(canal.hora);
-                                            horaFormatada = dt.toLocaleTimeString('pt-BR', {
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                                timeZone: 'America/Sao_Paulo'
-                                            });
-                                        } catch(e) {
-                                            horaFormatada = canal.hora.substring(11, 16); // fallback
-                                        }
-                                    }
-
-                                    var statusColor = '#4CAF50'; // Sempre verde pois só mostra sucessos
-                                    var statusEmoji = '✅';
-
-                                    html += '<tr>';
-                                    html += '<td style="padding: 5px;">' + horaFormatada + '</td>';
-                                    html += '<td style="padding: 5px;">' + canal.nome + '</td>';
-                                    html += '<td style="padding: 5px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">' +
-                                           (canal.video_titulo || '-') + '</td>';
-                                    html += '<td style="padding: 5px; color: ' + statusColor + ';">' +
-                                           statusEmoji + ' ' + canal.status + '</td>';
-                                    html += '</tr>';
-                                });
-
-                                html += '</tbody></table>';
-                            } else {
-                                html += '<p style="color: #666; text-align: center; padding: 10px;">Nenhum upload bem-sucedido neste dia</p>';
-                            }
+                            html += '</tbody></table>';
+                        } else {
+                            html += '<p style="color: #666; text-align: center; padding: 10px;">Nenhum upload com sucesso neste dia</p>';
                         }
 
-                        html += '</div>'; // Fechar card principal
+                        html += '</div>';
                     });
 
                     html += '</div>';
@@ -673,9 +873,9 @@ HTML_TEMPLATE = '''
             var modal = document.getElementById('historicoModal');
             var modalCompleto = document.getElementById('historicoCompletoModal');
             if (event.target == modal) {
-                modal.style.display = 'none';
+                modal.classList.remove('show');
             } else if (event.target == modalCompleto) {
-                modalCompleto.style.display = 'none';
+                modalCompleto.classList.remove('show');
             }
         }
 
@@ -696,19 +896,9 @@ HTML_TEMPLATE = '''
             }
         }
 
-        function formatTime(dateStr) {
-            if (!dateStr) return '-';
-            try {
-                var date = new Date(dateStr);
-                // Força timezone do Brasil
-                return date.toLocaleTimeString('pt-BR', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    timeZone: 'America/Sao_Paulo'
-                });
-            } catch(e) {
-                return '-';
-            }
+        function formatTime(timeStr) {
+            if (!timeStr) return '-';
+            return timeStr;
         }
 
         function atualizar() {
@@ -797,6 +987,9 @@ HTML_TEMPLATE = '''
                                 for (var j = 0; j < canais.length; j++) {
                                     var canal = canais[j];
 
+                                    // Filtro por status
+                                    if (filtroStatus && canal.status !== filtroStatus) continue;
+
                                     var statusClass = 'status-pending';
                                     var statusText = 'Pendente';
 
@@ -816,39 +1009,9 @@ HTML_TEMPLATE = '''
                                     html += '<td class="channel-name">' + canal.channel_name;
 
                                     // Adicionar sigla do idioma
-                                    var siglaIdioma = '';
-                                    if (canal.lingua) {
-                                        var lingua = canal.lingua.toLowerCase();
-                                        // Mapear códigos de 2 letras e nomes completos
-                                        if (lingua === 'pt' || lingua === 'português' || lingua === 'portugues' || lingua === 'portuguese') {
-                                            siglaIdioma = 'PT';
-                                        } else if (lingua === 'en' || lingua === 'inglês' || lingua === 'ingles' || lingua === 'english') {
-                                            siglaIdioma = 'EN';
-                                        } else if (lingua === 'es' || lingua === 'espanhol' || lingua === 'spanish') {
-                                            siglaIdioma = 'ES';
-                                        } else if (lingua === 'de' || lingua === 'alemão' || lingua === 'alemao' || lingua === 'german') {
-                                            siglaIdioma = 'DE';
-                                        } else if (lingua === 'fr' || lingua === 'francês' || lingua === 'frances' || lingua === 'french') {
-                                            siglaIdioma = 'FR';
-                                        } else if (lingua === 'it' || lingua === 'italiano' || lingua === 'italian') {
-                                            siglaIdioma = 'IT';
-                                        } else if (lingua === 'pl' || lingua === 'polonês' || lingua === 'polones' || lingua === 'polish') {
-                                            siglaIdioma = 'PL';
-                                        } else if (lingua === 'ru' || lingua === 'russo' || lingua === 'russian') {
-                                            siglaIdioma = 'RU';
-                                        } else if (lingua === 'ja' || lingua === 'japonês' || lingua === 'japones' || lingua === 'japanese') {
-                                            siglaIdioma = 'JP';
-                                        } else if (lingua === 'ko' || lingua === 'coreano' || lingua === 'korean') {
-                                            siglaIdioma = 'KR';
-                                        } else if (lingua === 'tr' || lingua === 'turco' || lingua === 'turkish') {
-                                            siglaIdioma = 'TR';
-                                        } else if (lingua === 'ar' || lingua === 'arabic' || lingua === 'árabe' || lingua === 'arabe') {
-                                            siglaIdioma = 'AR';
-                                        }
-
-                                        if (siglaIdioma) {
-                                            html += ' <span style="color: #888; font-size: 11px;">(' + siglaIdioma + ')</span>';
-                                        }
+                                    var siglaIdioma = getSiglaIdioma(canal.lingua);
+                                    if (siglaIdioma) {
+                                        html += ' <span style="color: #888; font-size: 11px;">(' + siglaIdioma + ')</span>';
                                     }
 
                                     if (canal.is_monetized) {
@@ -856,7 +1019,7 @@ HTML_TEMPLATE = '''
                                     }
                                     html += '</td>';
                                     html += '<td><span class="status-badge ' + statusClass + '">' + statusText + '</span></td>';
-                                    html += '<td class="video-title">' + (canal.video_titulo || '-') + '</td>';
+                                    html += '<td class="video-title">' + truncarTitulo(canal.video_titulo) + '</td>';
                                     html += '<td>' + formatTime(canal.hora_upload) + '</td>';
                                     html += '<td>';
                                     // Botão de upload forçado com data attributes
@@ -885,7 +1048,10 @@ HTML_TEMPLATE = '''
                             html = '<div class="empty-state">Nenhum canal encontrado</div>';
                         }
 
-                        document.getElementById('subnichos-container').innerHTML = html;
+                        var container = document.getElementById('subnichos-container');
+                        if (container.innerHTML !== html) {
+                            container.innerHTML = html;
+                        }
                         document.getElementById('total-monetizados').innerText = totalMonetizados;
 
                         // Atualizar hora
@@ -905,7 +1071,7 @@ HTML_TEMPLATE = '''
 
         // Atualizar imediatamente e depois a cada segundo
         atualizar();
-        setInterval(atualizar, 1000);
+        setInterval(atualizar, 5000);
 
         // Adicionar listener para botões de histórico
         document.addEventListener('click', function(e) {
@@ -941,18 +1107,26 @@ def index():
 
 @app.route('/api/status')
 def get_status():
+    global _status_cache
+
+    # Verificar cache (reduz 90% das queries)
+    now = time.time()
+    if _status_cache['data'] and (now - _status_cache['timestamp']) < CACHE_TTL:
+        return _status_cache['data']
+
     try:
-        # Buscar canais ativos
+        # Buscar canais ativos (apenas campos necessários - otimizado)
         canais = supabase.table('yt_channels')\
-            .select('*')\
+            .select('channel_id, channel_name, spreadsheet_id, lingua, is_monetized, subnicho')\
             .eq('is_active', True)\
             .eq('upload_automatico', True)\
+            .order('subnicho, channel_name')\
             .execute()
 
-        # Buscar uploads de hoje
+        # Buscar uploads de hoje (apenas campos necessários - otimizado)
         today = datetime.now(timezone.utc).date().isoformat()
         uploads = supabase.table('yt_canal_upload_diario')\
-            .select('*')\
+            .select('channel_id, status, upload_realizado, video_titulo, hora_processamento, erro_mensagem')\
             .eq('data', today)\
             .execute()
 
@@ -980,10 +1154,7 @@ def get_status():
                 if upload.get('upload_realizado'):
                     status = 'sucesso'
                     video_titulo = upload.get('video_titulo')
-                    hora_upload = upload.get('hora_processamento') or upload.get('updated_at')
-                    # Adicionar indicador de timezone UTC se não tiver
-                    if hora_upload and not hora_upload.endswith('Z') and '+' not in hora_upload:
-                        hora_upload = hora_upload + '+00:00'
+                    hora_upload = extrair_hora(upload.get('hora_processamento') or upload.get('updated_at'))
                 elif upload.get('status') == 'sem_video':
                     status = 'sem_video'
                 elif upload.get('erro_mensagem'):
@@ -1041,65 +1212,75 @@ def get_status():
                 x['channel_name']  # Por fim, nome
             ))
 
-        return jsonify({
+        # Salvar no cache antes de retornar
+        result = jsonify({
             'stats': stats,
             'subnichos': dict(subnichos_dict)
         })
+        _status_cache['data'] = result
+        _status_cache['timestamp'] = time.time()
+        return result
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/canais/<channel_id>/historico-uploads')
 def get_historico_uploads(channel_id):
-    """Retorna histórico de uploads do canal (últimos 30 dias)"""
+    """Retorna histórico completo de uploads do canal"""
     try:
-        from datetime import timedelta
-
-        # Buscar últimos 30 dias de histórico
-        hoje = datetime.now(timezone.utc).date()
-        data_inicio = hoje - timedelta(days=30)
-
-        # Primeiro buscar da tabela de histórico (preserva múltiplos uploads)
+        # Buscar TODO o histórico (sem limite de data)
         try:
             response = supabase.table('yt_canal_upload_historico')\
                 .select('*')\
                 .eq('channel_id', channel_id)\
-                .gte('data', data_inicio.isoformat())\
-                .order('data', desc=False)\
-                .order('hora_processamento', desc=False)\
+                .order('data', desc=True)\
+                .order('hora_processamento', desc=True)\
                 .execute()
         except Exception as e:
-            # Se a tabela de histórico não existe, buscar da tabela diária
             if "relation" in str(e) and "does not exist" in str(e):
                 response = supabase.table('yt_canal_upload_diario')\
                     .select('*')\
                     .eq('channel_id', channel_id)\
-                    .gte('data', data_inicio.isoformat())\
-                    .order('data', desc=False)\
+                    .order('data', desc=True)\
                     .execute()
             else:
                 raise e
 
         historico_data = response.data if response.data else []
 
-        # IMPORTANTE: Buscar TODOS os dados da tabela diária dos últimos 30 dias como fallback
-        # Isso garante que TODOS os status apareçam (sucesso, erro, sem_video) para qualquer data
+        # Buscar TODOS os dados da tabela diária como fallback
         response_diario = supabase.table('yt_canal_upload_diario')\
             .select('*')\
             .eq('channel_id', channel_id)\
-            .gte('data', data_inicio.isoformat())\
-            .order('data', desc=False)\
+            .order('data', desc=True)\
             .execute()
 
         if response_diario.data:
-            # Criar set de datas já existentes no histórico para evitar duplicação
-            datas_historico = {item['data'] for item in historico_data}
+            # Criar set com chave única usando canal + data + video_titulo
+            # Isso evita duplicatas visuais do mesmo vídeo no mesmo dia
+            # Mantém múltiplos uploads diferentes do mesmo canal no mesmo dia
+            registros_unicos = {
+                (
+                    item.get('channel_id'),
+                    item['data'],
+                    item.get('video_titulo', '')
+                )
+                for item in historico_data
+            }
 
             # Adicionar registros da tabela diária que não estão no histórico
             for item_diario in response_diario.data:
-                if item_diario['data'] not in datas_historico:
+                chave_unica = (
+                    item_diario.get('channel_id'),
+                    item_diario['data'],
+                    item_diario.get('video_titulo', '')
+                )
+                if chave_unica not in registros_unicos:
                     historico_data.append(item_diario)
-                    datas_historico.add(item_diario['data'])  # Atualizar set para evitar duplicatas
+                    registros_unicos.add(chave_unica)  # Atualizar set para evitar duplicatas
+
+        # Ordenar por data desc + hora desc (garante ordem após merge das 2 tabelas)
+        historico_data.sort(key=lambda x: (x.get('data', ''), x.get('hora_processamento', '')), reverse=True)
 
         # Formatar resposta
         historico = []
@@ -1108,7 +1289,7 @@ def get_historico_uploads(channel_id):
                 'data': item['data'],
                 'status': item.get('status', 'pendente'),
                 'video_titulo': item.get('video_titulo', '-'),
-                'hora_processamento': item.get('hora_processamento'),
+                'hora_processamento': extrair_hora(item.get('hora_processamento')),
                 'erro_mensagem': item.get('erro_mensagem'),
                 'tentativa_numero': item.get('tentativa_numero', 1),
                 'upload_realizado': item.get('upload_realizado', False),
@@ -1136,6 +1317,13 @@ def get_historico_completo():
         hoje = datetime.now(timezone.utc).date()
         data_inicio = hoje - timedelta(days=30)
 
+        # Buscar mapa de idiomas dos canais
+        canais_info = supabase.table('yt_channels')\
+            .select('channel_name, lingua')\
+            .eq('is_active', True)\
+            .execute()
+        mapa_lingua = {c['channel_name']: c.get('lingua', '') for c in canais_info.data} if canais_info.data else {}
+
         # Buscar do histórico
         response = supabase.table('yt_canal_upload_historico')\
             .select('*')\
@@ -1156,24 +1344,29 @@ def get_historico_completo():
         for item in response.data:
             data_str = item['data']
             historico_por_data[data_str]['data'] = data_str
-            historico_por_data[data_str]['total'] += 1
 
-            # Contar por status
-            status = item.get('status', 'pendente')
-            if status == 'sucesso':
-                historico_por_data[data_str]['sucesso'] += 1
-            elif status == 'erro':
-                historico_por_data[data_str]['erro'] += 1
-            elif status == 'sem_video':
-                historico_por_data[data_str]['sem_video'] += 1
+            # VERIFICAR NOME DO CANAL ANTES DE CONTAR
+            nome_canal = item.get('channel_name', '').strip()
+            if nome_canal:  # Só conta e adiciona se tiver nome
+                historico_por_data[data_str]['total'] += 1
 
-            # Adicionar detalhes do canal
-            historico_por_data[data_str]['canais'].append({
-                'nome': item.get('channel_name', ''),
-                'status': status,
-                'video_titulo': item.get('video_titulo', ''),
-                'hora': item.get('hora_processamento', '')
-            })
+                # Contar por status
+                status = item.get('status', 'pendente')
+                if status == 'sucesso':
+                    historico_por_data[data_str]['sucesso'] += 1
+                elif status == 'erro':
+                    historico_por_data[data_str]['erro'] += 1
+                elif status == 'sem_video':
+                    historico_por_data[data_str]['sem_video'] += 1
+
+                # Adicionar detalhes do canal
+                historico_por_data[data_str]['canais'].append({
+                    'nome': nome_canal,
+                    'status': status,
+                    'video_titulo': item.get('video_titulo', ''),
+                    'hora': extrair_hora(item.get('hora_processamento')) or '',
+                    'lingua': mapa_lingua.get(nome_canal, '')
+                })
 
         # Adicionar TODOS os dados da tabela diária dos últimos 30 dias
         # Isso garante que status sem_video e erro apareçam para TODAS as datas
@@ -1198,12 +1391,20 @@ def get_historico_completo():
                         'canais': []
                     }
 
-                # Verificar se este canal já não está no histórico para esta data
-                canal_ja_existe = any(
-                    c['nome'] == item.get('channel_name') and c['status'] == item.get('status')
+                # PULAR SE NÃO TIVER NOME DE CANAL
+                nome_canal = item.get('channel_name', '').strip()
+                if not nome_canal:
+                    continue  # Pula para o próximo item se não tiver nome
+
+                # Verificar se este vídeo específico já não está no histórico
+                # Usar chave composta: nome + video_titulo (evita duplicatas visuais)
+                # Permite múltiplos uploads diferentes do mesmo canal no mesmo dia
+                video_ja_existe = any(
+                    c['nome'] == nome_canal and
+                    c.get('video_titulo', '') == item.get('video_titulo', '')
                     for c in historico_por_data[data_str]['canais']
                 )
-                if not canal_ja_existe:
+                if not video_ja_existe:
                     status = item.get('status', 'pendente')
 
                     # Atualizar contadores
@@ -1217,10 +1418,11 @@ def get_historico_completo():
 
                     # Adicionar canal à lista
                     historico_por_data[data_str]['canais'].append({
-                        'nome': item.get('channel_name', ''),
+                        'nome': nome_canal,
                         'status': status,
                         'video_titulo': item.get('video_titulo', ''),
-                        'hora': item.get('hora_processamento', '')
+                        'hora': extrair_hora(item.get('hora_processamento')) or '',
+                        'lingua': mapa_lingua.get(nome_canal, '')
                     })
 
         # Converter para lista e ordenar por data
