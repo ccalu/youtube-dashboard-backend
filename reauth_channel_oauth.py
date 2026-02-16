@@ -1,156 +1,187 @@
 # -*- coding: utf-8 -*-
 """
-Script para Re-autorizar Canal com Scopes Corretos
-Corrige o problema de playlist não ser adicionada por falta de permissões
+Script para Re-autorizar OAuth de um canal existente.
+Uso: python reauth_channel_oauth.py [channel_id]
+
+Se nao passar channel_id, mostra lista de canais para escolher.
+Mantém todas as configs do canal (spreadsheet, playlist, etc).
+Apenas substitui os tokens OAuth.
 """
 
 import os
 import sys
-import webbrowser
 import requests
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urlparse, parse_qs
 from supabase import create_client
 from dotenv import load_dotenv
 
-# Carrega variáveis
 load_dotenv()
 
-# Usa SERVICE_ROLE_KEY para bypass RLS
 supabase = create_client(
     os.getenv("SUPABASE_URL"),
     os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 )
 
-def main():
-    channel_id = "UCiMgKMWsYH8a8EFp94TClIQ"
+SCOPES = [
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/youtube",
+    "https://www.googleapis.com/auth/youtube.force-ssl",
+    "https://www.googleapis.com/auth/spreadsheets"
+]
 
-    print("=" * 80)
-    print(" RE-AUTORIZAÇÃO DE CANAL COM SCOPES CORRETOS")
-    print("=" * 80)
-    print("\nESTE SCRIPT CORRIGIRÁ O PROBLEMA DA PLAYLIST!")
-    print("\nO problema: O OAuth foi feito apenas com permissão de upload,")
-    print("mas não tem permissão para adicionar vídeos a playlists.")
-    print("\nSolução: Refazer o OAuth com todas as permissões necessárias.")
-    print("=" * 80)
 
-    # 1. Verifica situação atual
-    print(f"\n1. Verificando situação atual do canal {channel_id}...")
+def listar_canais():
+    """Lista canais disponiveis para re-auth"""
+    result = supabase.table('yt_channels').select('channel_id, channel_name, subnicho').eq('is_active', True).order('channel_name').execute()
+    print("\nCanais disponiveis:\n")
+    for i, c in enumerate(result.data):
+        print(f"  [{i+1:2d}] {c['channel_name']:<35} ({c.get('subnicho', '?')})")
+    print()
+    while True:
+        try:
+            escolha = input("Escolha o numero do canal: ").strip()
+            idx = int(escolha) - 1
+            if 0 <= idx < len(result.data):
+                return result.data[idx]['channel_id']
+            print("Numero invalido!")
+        except ValueError:
+            print("Digite um numero!")
 
-    # Busca tokens atuais
-    result = supabase.table('yt_oauth_tokens')\
-        .select('*')\
-        .eq('channel_id', channel_id)\
-        .limit(1)\
-        .execute()
 
-    if result.data:
-        print("   [!] Tokens OAuth existentes encontrados")
-        print("   Estes tokens serão SUBSTITUÍDOS por novos com permissões corretas")
-
-        # Pergunta se quer continuar
-        resp = input("\nDeseja continuar e refazer o OAuth? (s/n): ").lower()
-        if resp != 's':
-            print("Operação cancelada.")
-            return
-    else:
-        print("   [!] Nenhum token encontrado (precisará fazer OAuth do zero)")
-
-    # 2. Busca credenciais OAuth (client_id/secret)
-    print("\n2. Buscando credenciais OAuth...")
-    result = supabase.table('yt_channel_credentials')\
-        .select('*')\
-        .eq('channel_id', channel_id)\
-        .limit(1)\
-        .execute()
-
-    if not result.data:
-        print("   [ERRO] Credenciais não encontradas!")
-        print("   Execute o wizard primeiro para configurar o canal.")
-        return
-
-    creds = result.data[0]
-    client_id = creds['client_id']
-    client_secret = creds['client_secret']
-    print(f"   [OK] Client ID: {client_id[:30]}...")
-
-    # 3. Deleta tokens antigos
-    print("\n3. Removendo tokens antigos...")
-    result = supabase.table('yt_oauth_tokens')\
-        .delete()\
-        .eq('channel_id', channel_id)\
-        .execute()
-
-    if result.data:
-        print(f"   [OK] Tokens antigos removidos")
-    else:
-        print(f"   [INFO] Nenhum token para remover")
-
-    # 4. Gera nova URL de autorização com TODOS os scopes necessários
-    print("\n4. Gerando nova autorização OAuth...")
-
-    auth_url = "https://accounts.google.com/o/oauth2/v2/auth"
-    token_url = "https://oauth2.googleapis.com/token"
-    redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
-
-    # SCOPES COMPLETOS - incluindo permissão para playlists!
-    scope = " ".join([
-        "https://www.googleapis.com/auth/youtube.upload",     # Upload de vídeos
-        "https://www.googleapis.com/auth/youtube",            # Gerenciar playlists e canal
-        "https://www.googleapis.com/auth/spreadsheets"        # Ler planilhas
-    ])
-
-    # Monta URL de autorização
-    params = {
-        "client_id": client_id,
-        "redirect_uri": redirect_uri,
-        "response_type": "code",
-        "scope": scope,
-        "access_type": "offline",
-        "prompt": "consent"  # Força mostrar tela de consentimento
-    }
-
-    auth_url_complete = auth_url + "?" + "&".join([f"{k}={v}" for k, v in params.items()])
-
-    print("\n" + "=" * 80)
-    print(" INSTRUÇÕES PARA RE-AUTORIZAR")
-    print("=" * 80)
-    print("\n1. A URL de autorização será aberta no navegador")
-    print("2. Faça login com a conta do YouTube do canal")
-    print("3. IMPORTANTE: Aceite TODAS as permissões solicitadas:")
-    print("   - Gerenciar conta do YouTube")
-    print("   - Fazer upload de vídeos")
-    print("   - Ver planilhas do Google")
-    print("4. Copie o código de autorização que aparecer")
-    print("5. Cole o código aqui quando solicitado")
-    print("\n" + "=" * 80)
-
-    input("\nPressione ENTER para abrir o navegador...")
-
-    # Abre navegador
-    print("\n🌐 Abrindo navegador...")
-    webbrowser.open(auth_url_complete)
-
-    # Solicita código
-    print("\nApós autorizar, copie o código que aparece na tela.")
-    auth_code = input("Cole o código aqui: ").strip()
-
-    if not auth_code:
-        print("\n[ERRO] Código não fornecido!")
-        return
-
-    # 5. Troca código por tokens
-    print("\n5. Obtendo novos tokens com permissões completas...")
-
-    token_data = {
-        "code": auth_code,
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "redirect_uri": redirect_uri,
-        "grant_type": "authorization_code"
-    }
-
+def extrair_codigo_da_url(url_completa):
+    """Extrai codigo OAuth de URL de redirect"""
     try:
-        response = requests.post(token_url, data=token_data)
+        parsed = urlparse(url_completa)
+        params = parse_qs(parsed.query)
+        if 'code' in params:
+            return params['code'][0]
+    except:
+        pass
+    return None
+
+
+def main():
+    print("=" * 70)
+    print("  RE-AUTORIZACAO OAUTH DE CANAL EXISTENTE")
+    print("=" * 70)
+
+    # 1. Determina channel_id
+    if len(sys.argv) > 1:
+        channel_id = sys.argv[1]
+    else:
+        channel_id = listar_canais()
+
+    # 2. Busca dados do canal
+    canal = supabase.table('yt_channels').select('channel_name, subnicho').eq('channel_id', channel_id).execute()
+    if not canal.data:
+        print(f"\n[ERRO] Canal {channel_id} nao encontrado!")
+        return
+
+    channel_name = canal.data[0]['channel_name']
+    subnicho = canal.data[0].get('subnicho', '?')
+    print(f"\nCanal: {channel_name} ({subnicho})")
+    print(f"ID:    {channel_id}")
+
+    # 3. Verifica tokens atuais
+    tokens_atuais = supabase.table('yt_oauth_tokens').select('token_expiry, created_at').eq('channel_id', channel_id).execute()
+    if tokens_atuais.data:
+        expiry = tokens_atuais.data[0].get('token_expiry', '?')[:16]
+        created = tokens_atuais.data[0].get('created_at', '?')[:16]
+        print(f"\nToken atual: criado={created}  expiry={expiry}")
+        print("Sera SUBSTITUIDO por novo token.\n")
+
+    resp = input("Continuar com re-autorizacao? (s/n): ").strip().lower()
+    if resp != 's':
+        print("Cancelado.")
+        return
+
+    # 4. Pede novas credenciais OAuth (client_id / client_secret)
+    print("\n" + "-" * 70)
+    print("  CREDENCIAIS DO PROJETO GOOGLE CLOUD")
+    print("-" * 70)
+
+    # Verifica se ja tem credenciais salvas
+    creds_existentes = supabase.table('yt_channel_credentials').select('client_id').eq('channel_id', channel_id).execute()
+    if creds_existentes.data:
+        print(f"\nCredenciais existentes: {creds_existentes.data[0]['client_id'][:35]}...")
+        usar_existente = input("Usar as credenciais existentes? (s/n): ").strip().lower()
+        if usar_existente == 's':
+            creds = supabase.table('yt_channel_credentials').select('client_id, client_secret').eq('channel_id', channel_id).execute()
+            client_id = creds.data[0]['client_id']
+            client_secret = creds.data[0]['client_secret']
+            print("[OK] Usando credenciais existentes")
+        else:
+            print("\nDigite as NOVAS credenciais:")
+            client_id = input("  Client ID: ").strip()
+            client_secret = input("  Client Secret: ").strip()
+            # Atualiza no banco
+            supabase.table('yt_channel_credentials').update({
+                'client_id': client_id,
+                'client_secret': client_secret,
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }).eq('channel_id', channel_id).execute()
+            print("[OK] Credenciais atualizadas no banco")
+    else:
+        print("\nNenhuma credencial salva. Digite as novas:")
+        client_id = input("  Client ID: ").strip()
+        client_secret = input("  Client Secret: ").strip()
+        supabase.table('yt_channel_credentials').insert({
+            'channel_id': channel_id,
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'created_at': datetime.now(timezone.utc).isoformat()
+        }).execute()
+        print("[OK] Credenciais salvas no banco")
+
+    if not client_id or not client_secret:
+        print("[ERRO] Client ID e Client Secret sao obrigatorios!")
+        return
+
+    # 5. Gera URL de autorizacao
+    print("\n" + "-" * 70)
+    print("  AUTORIZACAO OAUTH")
+    print("-" * 70)
+
+    redirect_uri = "http://localhost:8080"
+    params = {
+        'client_id': client_id,
+        'redirect_uri': redirect_uri,
+        'scope': ' '.join(SCOPES),
+        'response_type': 'code',
+        'access_type': 'offline',
+        'prompt': 'consent'
+    }
+    query_string = '&'.join([f"{k}={requests.utils.quote(str(v))}" for k, v in params.items()])
+    auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{query_string}"
+
+    print("\nAbra esta URL no NAVEGADOR DO PROXY (conta Google do canal):\n")
+    print(auth_url)
+    print("\nApos autorizar, o Google redireciona para localhost:8080")
+    print("Copie a URL COMPLETA do redirect (http://localhost:8080/?code=...)\n")
+
+    redirect_url = input("Cole a URL de redirect aqui: ").strip()
+    code = extrair_codigo_da_url(redirect_url)
+    if not code:
+        # Tenta usar como codigo direto
+        if redirect_url.startswith('4/'):
+            code = redirect_url
+        else:
+            print("[ERRO] Nao consegui extrair o codigo da URL!")
+            return
+
+    print(f"[OK] Codigo extraido: {code[:25]}...")
+
+    # 6. Troca codigo por tokens
+    print("\nObtendo tokens...")
+    try:
+        response = requests.post("https://oauth2.googleapis.com/token", data={
+            'code': code,
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'redirect_uri': redirect_uri,
+            'grant_type': 'authorization_code'
+        }, timeout=30)
         response.raise_for_status()
         tokens = response.json()
 
@@ -159,74 +190,75 @@ def main():
         expires_in = tokens.get('expires_in', 3600)
 
         if not refresh_token:
-            print("\n[ERRO] Refresh token não retornado!")
-            print("Certifique-se de usar 'prompt=consent' na autorização")
+            print("[ERRO] Refresh token nao retornado! Certifique-se de aceitar todas permissoes.")
             return
 
-        print(f"   [OK] Access token: {access_token[:30]}...")
-        print(f"   [OK] Refresh token: {refresh_token[:30]}...")
-        print(f"   [OK] Expira em: {expires_in} segundos")
+        print(f"[OK] Access token obtido")
+        print(f"[OK] Refresh token obtido")
 
-    except requests.exceptions.RequestException as e:
-        print(f"\n[ERRO] Falha ao obter tokens: {e}")
-        if hasattr(e.response, 'text'):
-            print(f"Detalhes: {e.response.text}")
+    except Exception as e:
+        print(f"[ERRO] Falha ao obter tokens: {e}")
         return
 
-    # 6. Salva novos tokens no banco
-    print("\n6. Salvando novos tokens com permissões corretas...")
+    # 7. Valida token com YouTube API
+    print("\nValidando token...")
+    try:
+        resp = requests.get("https://www.googleapis.com/youtube/v3/channels",
+            headers={'Authorization': f'Bearer {access_token}'},
+            params={'part': 'snippet', 'mine': 'true'}, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get('items'):
+            yt_name = data['items'][0]['snippet']['title']
+            print(f"[OK] Token valido! Canal YouTube: {yt_name}")
+        else:
+            print("[AVISO] Token valido mas nenhum canal encontrado")
+    except Exception as e:
+        print(f"[AVISO] Erro ao validar: {e}")
+        cont = input("Continuar mesmo assim? (s/n): ").strip().lower()
+        if cont != 's':
+            return
 
-    # Calcula expiração
+    # 8. Remove tokens antigos e salva novos
+    print("\nSalvando no banco...")
+
+    # Deleta tokens antigos
+    supabase.table('yt_oauth_tokens').delete().eq('channel_id', channel_id).execute()
+    print("[OK] Tokens antigos removidos")
+
+    # Salva novos
     token_expiry = (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat()
-
-    # Prepara dados
-    oauth_data = {
+    supabase.table('yt_oauth_tokens').insert({
         'channel_id': channel_id,
         'access_token': access_token,
         'refresh_token': refresh_token,
         'token_expiry': token_expiry,
         'created_at': datetime.now(timezone.utc).isoformat(),
         'updated_at': datetime.now(timezone.utc).isoformat()
-    }
+    }).execute()
+    print("[OK] Novos tokens salvos")
 
-    # Salva no banco
-    result = supabase.table('yt_oauth_tokens')\
-        .insert(oauth_data)\
-        .execute()
-
-    if result.data:
-        print(f"   [OK] Tokens salvos com sucesso!")
+    # 9. Verifica
+    check = supabase.table('yt_oauth_tokens').select('channel_id, refresh_token').eq('channel_id', channel_id).execute()
+    if check.data and check.data[0].get('refresh_token'):
+        print("[OK] Tokens confirmados no banco!")
     else:
-        print(f"   [ERRO] Falha ao salvar tokens!")
+        print("[ERRO] Tokens nao encontrados apos salvar!")
         return
 
-    # 7. Verifica se salvou corretamente
-    print("\n7. Verificando se tokens foram salvos...")
-
-    result = supabase.table('yt_oauth_tokens')\
-        .select('channel_id, access_token, refresh_token')\
-        .eq('channel_id', channel_id)\
-        .limit(1)\
-        .execute()
-
-    if result.data and result.data[0]['refresh_token']:
-        print(f"   [OK] Tokens confirmados no banco!")
-    else:
-        print(f"   [ERRO] Tokens não encontrados após salvar!")
-        return
-
-    # Sucesso!
-    print("\n" + "=" * 80)
-    print(" ✅ RE-AUTORIZAÇÃO CONCLUÍDA COM SUCESSO!")
-    print("=" * 80)
-    print("\nO canal agora tem TODAS as permissões necessárias:")
-    print("✅ Upload de vídeos")
-    print("✅ Gerenciar playlists")
-    print("✅ Ler planilhas")
-    print("\n🎉 O PROBLEMA DA PLAYLIST FOI CORRIGIDO!")
-    print("\nPróximos uploads serão adicionados automaticamente à playlist.")
-    print("\nPara testar: python daily_uploader.py --test")
+    # Sucesso
+    print("\n" + "=" * 70)
+    print(f"  RE-AUTORIZACAO CONCLUIDA - {channel_name}")
+    print("=" * 70)
+    print(f"\nAgora force o upload manualmente:")
+    print(f"  python forcar_upload_manual_fixed.py --canal \"{channel_name}\"")
     print()
 
+
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n\nCancelado.")
+    except Exception as e:
+        print(f"\n[ERRO] {e}")
