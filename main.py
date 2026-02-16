@@ -6257,10 +6257,14 @@ DASH_UPLOAD_HTML = '''
             if (el) el.classList.toggle('open');
             if (seta) seta.classList.toggle('open');
         }
+        var _uploadingChannelId = null;
+        function _getBotaoUpload(channelId) {
+            return document.querySelector('.btn-icon--upload[data-channel-id="' + channelId + '"]');
+        }
         async function forcarUpload(channelId, channelName) {
             if (!confirm('Forcar upload do canal ' + channelName + '?\\n\\nO proximo video "done" da planilha sera enviado.')) return;
             var botao = event.target.closest('.btn-icon');
-            var emojiOriginal = botao.innerHTML;
+            _uploadingChannelId = channelId;
             try {
                 botao.innerHTML = '\\u23F3';
                 botao.classList.add('btn-icon--uploading');
@@ -6273,8 +6277,7 @@ DASH_UPLOAD_HTML = '''
                         tentativas++;
                         if (tentativas > maxTentativas) {
                             clearInterval(pollInterval);
-                            botao.innerHTML = emojiOriginal;
-                            botao.classList.remove('btn-icon--uploading');
+                            _uploadingChannelId = null;
                             atualizar();
                             return;
                         }
@@ -6291,24 +6294,34 @@ DASH_UPLOAD_HTML = '''
                                                     var st = data.subnichos[sub][i].status;
                                                     if (st === 'sucesso') {
                                                         clearInterval(pollInterval);
-                                                        botao.classList.remove('btn-icon--uploading');
-                                                        botao.innerHTML = '\\u2705';
-                                                        botao.classList.add('btn-icon--upload-success');
+                                                        _uploadingChannelId = null;
                                                         atualizar();
                                                         setTimeout(function() {
-                                                            botao.innerHTML = emojiOriginal;
-                                                            botao.classList.remove('btn-icon--upload-success');
-                                                        }, 5000);
+                                                            var btn = _getBotaoUpload(channelId);
+                                                            if (btn) {
+                                                                btn.innerHTML = '\\u2705';
+                                                                btn.classList.add('btn-icon--upload-success');
+                                                                setTimeout(function() {
+                                                                    var btn2 = _getBotaoUpload(channelId);
+                                                                    if (btn2) { btn2.innerHTML = '\\u{1F4E4}'; btn2.classList.remove('btn-icon--upload-success'); }
+                                                                }, 5000);
+                                                            }
+                                                        }, 100);
                                                     } else if (st === 'erro') {
                                                         clearInterval(pollInterval);
-                                                        botao.classList.remove('btn-icon--uploading');
-                                                        botao.innerHTML = '\\u274C';
-                                                        botao.classList.add('btn-icon--upload-error');
+                                                        _uploadingChannelId = null;
                                                         atualizar();
                                                         setTimeout(function() {
-                                                            botao.innerHTML = emojiOriginal;
-                                                            botao.classList.remove('btn-icon--upload-error');
-                                                        }, 3000);
+                                                            var btn = _getBotaoUpload(channelId);
+                                                            if (btn) {
+                                                                btn.innerHTML = '\\u274C';
+                                                                btn.classList.add('btn-icon--upload-error');
+                                                                setTimeout(function() {
+                                                                    var btn2 = _getBotaoUpload(channelId);
+                                                                    if (btn2) { btn2.innerHTML = '\\u{1F4E4}'; btn2.classList.remove('btn-icon--upload-error'); }
+                                                                }, 3000);
+                                                            }
+                                                        }, 100);
                                                     }
                                                     return;
                                                 }
@@ -6322,16 +6335,19 @@ DASH_UPLOAD_HTML = '''
                     }, 3000);
                 } else if (result.status === 'sem_video' || result.status === 'no_video') {
                     alert('Sem videos disponiveis na planilha de ' + channelName);
-                    botao.innerHTML = emojiOriginal;
+                    _uploadingChannelId = null;
+                    botao.innerHTML = '\\u{1F4E4}';
                     botao.classList.remove('btn-icon--uploading');
                 } else {
                     alert('Erro: ' + (result.detail || result.message || 'Falha ao iniciar upload'));
-                    botao.innerHTML = emojiOriginal;
+                    _uploadingChannelId = null;
+                    botao.innerHTML = '\\u{1F4E4}';
                     botao.classList.remove('btn-icon--uploading');
                 }
             } catch (error) {
                 alert('Erro de conexao: ' + error.message);
-                botao.innerHTML = emojiOriginal;
+                _uploadingChannelId = null;
+                botao.innerHTML = '\\u{1F4E4}';
                 botao.classList.remove('btn-icon--uploading');
             }
         }
@@ -6530,7 +6546,11 @@ DASH_UPLOAD_HTML = '''
                                     html += '<td><span class="cell-time">' + formatTime(canal.hora_upload) + '</span></td>';
                                     html += '<td><div class="cell-actions">';
                                     var safeName = escapeHtml(canal.channel_name).replace(/"/g, '&quot;');
-                                    html += '<button class="btn-icon btn-icon--upload" data-channel-id="' + canal.channel_id + '" data-channel-name="' + safeName + '" title="Forcar upload">&#x1F4E4;</button>';
+                                    if (_uploadingChannelId === canal.channel_id) {
+                                        html += '<button class="btn-icon btn-icon--upload btn-icon--uploading" data-channel-id="' + canal.channel_id + '" data-channel-name="' + safeName + '" title="Uploading...">&#x23F3;</button>';
+                                    } else {
+                                        html += '<button class="btn-icon btn-icon--upload" data-channel-id="' + canal.channel_id + '" data-channel-name="' + safeName + '" title="Forcar upload">&#x1F4E4;</button>';
+                                    }
                                     html += '<button class="btn-icon btn-icon--hist" data-channel-id="' + canal.channel_id + '" data-channel-name="' + safeName + '" title="Historico">&#x1F4DC;</button>';
                                     if (canal.spreadsheet_id && canal.spreadsheet_id !== '') {
                                         html += '<a href="https://docs.google.com/spreadsheets/d/' + canal.spreadsheet_id + '" target="_blank" class="btn-icon" title="Planilha">&#x1F4D1;</a>';
