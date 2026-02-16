@@ -41,7 +41,7 @@ from _features.yt_uploader.database import (
 from _features.yt_uploader.sheets import update_upload_status_in_sheet
 
 # Daily Upload Automation
-from daily_uploader import schedule_daily_uploader
+from daily_uploader import schedule_daily_uploader, SPREADSHEET_CACHE
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -4929,7 +4929,6 @@ async def force_upload_for_channel(channel_id: str, background_tasks: Background
     """
     try:
         from daily_uploader import DailyUploader
-        from starlette.concurrency import run_in_threadpool
 
         # Verificar se canal existe e tem upload automatico ativo
         canal = supabase.table('yt_channels')\
@@ -4952,10 +4951,15 @@ async def force_upload_for_channel(channel_id: str, background_tasks: Background
         logger.info(f"Verificando se há vídeo disponível para {canal_data['channel_name']}...")
         uploader = DailyUploader()
 
+        # Limpar cache da planilha para forçar busca atualizada
+        if canal_data['spreadsheet_id'] in SPREADSHEET_CACHE:
+            del SPREADSHEET_CACHE[canal_data['spreadsheet_id']]
+            logger.info(f"Cache da planilha limpo para {canal_data['channel_name']}")
+
         # Verificar se tem vídeo pronto na planilha
+        # NOTA: _find_ready_video é async, deve ser chamado com await direto (não run_in_threadpool)
         try:
-            video_pronto = await run_in_threadpool(
-                uploader._find_ready_video,
+            video_pronto = await uploader._find_ready_video(
                 canal_data['spreadsheet_id'],
                 canal_data['channel_name']
             )
@@ -4969,7 +4973,7 @@ async def force_upload_for_channel(channel_id: str, background_tasks: Background
                     'channel_id': channel_id
                 }
 
-            logger.info(f"Vídeo encontrado: {video_pronto.get('title', 'Sem título')}")
+            logger.info(f"Vídeo encontrado: {video_pronto.get('titulo', 'Sem título')}")
 
         except Exception as e:
             logger.error(f"Erro ao verificar vídeo disponível: {e}")
