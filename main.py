@@ -4973,7 +4973,11 @@ async def force_upload_for_channel(channel_id: str, background_tasks: Background
 
         except Exception as e:
             logger.error(f"Erro ao verificar vídeo disponível: {e}")
-            # Se houver erro na verificação, continuar com o processo normal
+            return {
+                'status': 'sem_video',
+                'message': f'Erro ao verificar planilha de {canal_data["channel_name"]}: {str(e)[:100]}',
+                'channel_id': channel_id
+            }
 
         # Se chegou aqui, tem vídeo disponível - executar upload em background
         async def run_upload():
@@ -6291,7 +6295,7 @@ DASH_UPLOAD_HTML = '''
                 var result = await response.json();
                 if (response.ok && result.status !== 'sem_video' && result.status !== 'no_video') {
                     var tentativas = 0;
-                    var maxTentativas = 40;
+                    var maxTentativas = 4;
                     var pollInterval = setInterval(function() {
                         tentativas++;
                         if (tentativas > maxTentativas) {
@@ -6339,10 +6343,12 @@ DASH_UPLOAD_HTML = '''
                     alert('Sem videos disponiveis na planilha de ' + channelName);
                     _uploadingChannelId = null;
                     _statusBeforeUpload = null;
+                    atualizar();
                 } else {
                     alert('Erro: ' + (result.detail || result.message || 'Falha ao iniciar upload'));
                     _uploadingChannelId = null;
                     _statusBeforeUpload = null;
+                    atualizar();
                 }
             } catch (error) {
                 alert('Erro de conexao: ' + error.message);
