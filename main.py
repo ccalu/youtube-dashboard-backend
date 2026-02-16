@@ -5021,54 +5021,6 @@ async def force_upload_for_channel(channel_id: str, background_tasks: Background
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/yt-upload/force-test/{channel_id}")
-async def force_upload_test(channel_id: str, background_tasks: BackgroundTasks):
-    """
-    TESTE: Simula upload com sucesso apos 10 segundos.
-    Nao faz upload real - apenas cria registro fake no banco para testar animacao.
-    """
-    import asyncio as _asyncio
-
-    canal = supabase.table('yt_channels')\
-        .select('channel_name')\
-        .eq('channel_id', channel_id)\
-        .execute()
-
-    if not canal.data:
-        raise HTTPException(status_code=404, detail=f"Canal {channel_id} nao encontrado")
-
-    channel_name = canal.data[0]['channel_name']
-
-    async def simular_upload():
-        import time as _t
-        await _asyncio.sleep(10)
-        today = datetime.now(timezone.utc).date().isoformat()
-        now_iso = datetime.now(timezone.utc).isoformat()
-        supabase.table('yt_canal_upload_diario').upsert({
-            'channel_id': channel_id,
-            'channel_name': channel_name,
-            'data': today,
-            'status': 'sucesso',
-            'upload_realizado': True,
-            'video_titulo': '[TESTE] Simulacao de Upload',
-            'hora_processamento': now_iso,
-            'tentativa_numero': 99,
-            'erro_mensagem': None
-        }, on_conflict='channel_id,data,tentativa_numero').execute()
-        # Limpa cache do dash para polling pegar imediato
-        _dash_cache['data'] = None
-        _dash_cache['timestamp'] = 0
-        logger.info(f"[TESTE] Upload simulado com sucesso para {channel_name}")
-
-    background_tasks.add_task(simular_upload)
-
-    return {
-        'status': 'processing',
-        'message': f'[TESTE] Upload simulado iniciado para {channel_name} (10 segundos)',
-        'channel_id': channel_id
-    }
-
-
 @app.get("/api/yt-upload/historico-completo")
 async def get_historico_completo(
     days: int = 30,
@@ -6309,7 +6261,7 @@ DASH_UPLOAD_HTML = '''
         var _successChannelId = null;
         var _errorChannelId = null;
         var _statusBeforeUpload = null;
-        var _testMode = new URLSearchParams(window.location.search).get('test') === '1';
+
         function _getChannelStatus(data, channelId) {
             if (data && data.subnichos) {
                 for (var sub in data.subnichos) {
@@ -6321,11 +6273,10 @@ DASH_UPLOAD_HTML = '''
             return null;
         }
         async function forcarUpload(channelId, channelName) {
-            var msg = _testMode ? '[TESTE] Simular upload de ' + channelName + '? (10 segundos)' : 'Forcar upload do canal ' + channelName + '?\\n\\nO proximo video "done" da planilha sera enviado.';
+            var msg = 'Forcar upload do canal ' + channelName + '?\\n\\nO proximo video "done" da planilha sera enviado.';
             if (!confirm(msg)) return;
             var botao = event.target.closest('.btn-icon');
             _uploadingChannelId = channelId;
-            var endpoint = _testMode ? '/api/yt-upload/force-test/' : '/api/yt-upload/force/';
             try {
                 // Captura status ANTES do upload para comparar depois
                 var preXhr = new XMLHttpRequest();
@@ -6336,7 +6287,7 @@ DASH_UPLOAD_HTML = '''
                 }
                 botao.innerHTML = '\\u23F3';
                 botao.classList.add('btn-icon--uploading');
-                var response = await fetch(endpoint + channelId, { method: 'POST' });
+                var response = await fetch('/api/yt-upload/force/' + channelId, { method: 'POST' });
                 var result = await response.json();
                 if (response.ok && result.status !== 'sem_video' && result.status !== 'no_video') {
                     var tentativas = 0;
