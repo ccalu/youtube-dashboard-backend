@@ -17,16 +17,21 @@ class MonetizationCollector:
     def __init__(self):
         self.db = SupabaseClient()
 
-        # YouTube API Keys (mesmas do dashboard)
+        # YouTube API Keys (13 ativas - suspensas: 3,4,5,6,30,31,32)
         self.api_keys = [
-            os.environ.get("YOUTUBE_API_KEY_3"),
-            os.environ.get("YOUTUBE_API_KEY_4"),
-            os.environ.get("YOUTUBE_API_KEY_5"),
-            os.environ.get("YOUTUBE_API_KEY_6"),
             os.environ.get("YOUTUBE_API_KEY_7"),
             os.environ.get("YOUTUBE_API_KEY_8"),
             os.environ.get("YOUTUBE_API_KEY_9"),
             os.environ.get("YOUTUBE_API_KEY_10"),
+            os.environ.get("YOUTUBE_API_KEY_21"),
+            os.environ.get("YOUTUBE_API_KEY_22"),
+            os.environ.get("YOUTUBE_API_KEY_23"),
+            os.environ.get("YOUTUBE_API_KEY_24"),
+            os.environ.get("YOUTUBE_API_KEY_25"),
+            os.environ.get("YOUTUBE_API_KEY_26"),
+            os.environ.get("YOUTUBE_API_KEY_27"),
+            os.environ.get("YOUTUBE_API_KEY_28"),
+            os.environ.get("YOUTUBE_API_KEY_29"),
         ]
 
         self.api_keys = [k for k in self.api_keys if k]
