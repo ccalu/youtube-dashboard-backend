@@ -6308,7 +6308,18 @@ DASH_UPLOAD_HTML = '''
         var _uploadingChannelId = null;
         var _successChannelId = null;
         var _errorChannelId = null;
+        var _statusBeforeUpload = null;
         var _testMode = new URLSearchParams(window.location.search).get('test') === '1';
+        function _getChannelStatus(data, channelId) {
+            if (data && data.subnichos) {
+                for (var sub in data.subnichos) {
+                    for (var i = 0; i < data.subnichos[sub].length; i++) {
+                        if (data.subnichos[sub][i].channel_id === channelId) return data.subnichos[sub][i].status;
+                    }
+                }
+            }
+            return null;
+        }
         async function forcarUpload(channelId, channelName) {
             var msg = _testMode ? '[TESTE] Simular upload de ' + channelName + '? (10 segundos)' : 'Forcar upload do canal ' + channelName + '?\\n\\nO proximo video "done" da planilha sera enviado.';
             if (!confirm(msg)) return;
@@ -6316,6 +6327,13 @@ DASH_UPLOAD_HTML = '''
             _uploadingChannelId = channelId;
             var endpoint = _testMode ? '/api/yt-upload/force-test/' : '/api/yt-upload/force/';
             try {
+                // Captura status ANTES do upload para comparar depois
+                var preXhr = new XMLHttpRequest();
+                preXhr.open('GET', '/api/dash-upload/status', false);
+                preXhr.send();
+                if (preXhr.status === 200) {
+                    _statusBeforeUpload = _getChannelStatus(JSON.parse(preXhr.responseText), channelId);
+                }
                 botao.innerHTML = '\\u23F3';
                 botao.classList.add('btn-icon--uploading');
                 var response = await fetch(endpoint + channelId, { method: 'POST' });
@@ -6328,6 +6346,7 @@ DASH_UPLOAD_HTML = '''
                         if (tentativas > maxTentativas) {
                             clearInterval(pollInterval);
                             _uploadingChannelId = null;
+                            _statusBeforeUpload = null;
                             atualizar();
                             return;
                         }
@@ -6337,33 +6356,27 @@ DASH_UPLOAD_HTML = '''
                             if (xhr.readyState === 4 && xhr.status === 200) {
                                 try {
                                     var data = JSON.parse(xhr.responseText);
-                                    if (data.subnichos) {
-                                        for (var sub in data.subnichos) {
-                                            for (var i = 0; i < data.subnichos[sub].length; i++) {
-                                                if (data.subnichos[sub][i].channel_id === channelId) {
-                                                    var st = data.subnichos[sub][i].status;
-                                                    if (st === 'sucesso') {
-                                                        clearInterval(pollInterval);
-                                                        _uploadingChannelId = null;
-                                                        _successChannelId = channelId;
-                                                        atualizar();
-                                                        setTimeout(function() {
-                                                            _successChannelId = null;
-                                                            atualizar();
-                                                        }, 15000);
-                                                    } else if (st === 'erro') {
-                                                        clearInterval(pollInterval);
-                                                        _uploadingChannelId = null;
-                                                        _errorChannelId = channelId;
-                                                        atualizar();
-                                                        setTimeout(function() {
-                                                            _errorChannelId = null;
-                                                            atualizar();
-                                                        }, 5000);
-                                                    }
-                                                    return;
-                                                }
-                                            }
+                                    var st = _getChannelStatus(data, channelId);
+                                    if (st && st !== _statusBeforeUpload) {
+                                        clearInterval(pollInterval);
+                                        _uploadingChannelId = null;
+                                        _statusBeforeUpload = null;
+                                        if (st === 'sucesso') {
+                                            _successChannelId = channelId;
+                                            atualizar();
+                                            setTimeout(function() {
+                                                _successChannelId = null;
+                                                atualizar();
+                                            }, 15000);
+                                        } else if (st === 'erro') {
+                                            _errorChannelId = channelId;
+                                            atualizar();
+                                            setTimeout(function() {
+                                                _errorChannelId = null;
+                                                atualizar();
+                                            }, 5000);
+                                        } else {
+                                            atualizar();
                                         }
                                     }
                                 } catch(e) {}
@@ -6374,13 +6387,16 @@ DASH_UPLOAD_HTML = '''
                 } else if (result.status === 'sem_video' || result.status === 'no_video') {
                     alert('Sem videos disponiveis na planilha de ' + channelName);
                     _uploadingChannelId = null;
+                    _statusBeforeUpload = null;
                 } else {
                     alert('Erro: ' + (result.detail || result.message || 'Falha ao iniciar upload'));
                     _uploadingChannelId = null;
+                    _statusBeforeUpload = null;
                 }
             } catch (error) {
                 alert('Erro de conexao: ' + error.message);
                 _uploadingChannelId = null;
+                _statusBeforeUpload = null;
             }
         }
         var _historicoData = [];
