@@ -1,8 +1,10 @@
 # 06 - YouTube Data Collection System
 
-**Arquivo:** `D:\ContentFactory\youtube-dashboard-backend\collector.py` (792 linhas)
+> **ATUALIZADO 16/02/2026:** Agora usa `playlistItems.list` (1 unit) em vez de `search.list` (100 units) para busca de vídeos. 13 API keys ativas (KEY_7-10 + KEY_21-29). Economia de 95% de quota.
+
+**Arquivo:** `D:\ContentFactory\youtube-dashboard-backend\collector.py`
 **Classe Principal:** `YouTubeCollector`
-**Propósito:** Sistema robusto de coleta de dados do YouTube com 20 API keys, rate limiting inteligente, e retry logic
+**Propósito:** Sistema robusto de coleta de dados do YouTube com 13 API keys ativas, rate limiting inteligente, e retry logic
 
 ---
 
@@ -28,21 +30,25 @@ O `YouTubeCollector` é o coração do sistema de mineração de dados do YouTub
 ### Capacidade Total
 
 ```python
-# 20 API Keys × 10,000 units/dia = 200,000 units/dia
+# 13 API Keys ativas × 10,000 units/dia = 130,000 units/dia
+# (7 chaves suspensas: KEY_3,4,5,6,30,31,32)
 #
 # Custos por requisição:
-# - search.list = 100 units (MUITO CARA!)
+# - playlistItems.list = 1 unit (busca de vídeos - OTIMIZADO 13/02/2026!)
 # - channels.list = 1 unit
 # - videos.list = 1 unit
+# - commentThreads.list = 1 unit (comentários)
+# - search.list = 100 units (NÃO USADO MAIS!)
 #
 # Coleta típica por canal:
-# - get_channel_id (se não cached): 1-100 units
+# - get_channel_id (se não cached): 1 unit
 # - get_channel_info: 1 unit
-# - get_channel_videos (30 dias): ~100-200 units
-# - get_video_details (batches): 1-2 units
+# - get_channel_videos (playlistItems, 30 dias): ~1-3 units
+# - get_video_details (batches de 50): 1-2 units
+# - commentThreads (só canais nossos): ~20 units
 #
-# Total médio: 150-300 units/canal
-# Capacidade: ~650-1300 canais/dia (mas limitamos a 80 por questão de qualidade)
+# Total médio: ~5-6 units/canal minerado, ~25 units/canal nosso
+# Total diário (~232 canais): ~1,324 units (~1% da quota)
 ```
 
 ### Localização no Sistema
@@ -151,13 +157,14 @@ rate_limiter.record_request()
 
 ```python
 def __init__(self):
-    # 1. Carregar 20 API keys do ambiente
+    # 1. Carregar 13 API keys ativas do ambiente
+    # Ativas: KEY_7 a KEY_10 + KEY_21 a KEY_29
+    # Suspensas: KEY_3,4,5,6,30,31,32
     self.api_keys = [
-        os.environ.get("YOUTUBE_API_KEY_3"),
-        os.environ.get("YOUTUBE_API_KEY_4"),
-        # ... KEY_5 a KEY_10 ...
+        os.environ.get("YOUTUBE_API_KEY_7"),
+        # ... KEY_8 a KEY_10 ...
         os.environ.get("YOUTUBE_API_KEY_21"),
-        # ... KEY_22 a KEY_32 ...
+        # ... KEY_22 a KEY_29 ...
     ]
 
     # 2. Filtrar keys None (não configuradas)
@@ -194,9 +201,9 @@ def __init__(self):
 
 | Atributo | Tipo | Descrição |
 |----------|------|-----------|
-| `api_keys` | List[str] | 20 chaves do YouTube (KEY_3-10 + KEY_21-32) |
+| `api_keys` | List[str] | 13 chaves ativas do YouTube (KEY_7-10 + KEY_21-29) |
 | `rate_limiters` | Dict[int, RateLimiter] | Um rate limiter por chave |
-| `current_key_index` | int | Índice da chave atual (0-19) |
+| `current_key_index` | int | Índice da chave atual (0-12) |
 | `exhausted_keys_date` | Dict[int, date] | Chaves esgotadas + data |
 | `suspended_keys` | Set[int] | Chaves com 403 genérico |
 | `total_quota_units` | int | Total de units gastos |
@@ -210,21 +217,25 @@ def __init__(self):
 ### Configuração (Railway)
 
 ```bash
-# No Railway, configurar 20 variáveis de ambiente:
-YOUTUBE_API_KEY_3=AIzaSy...
-YOUTUBE_API_KEY_4=AIzaSy...
-YOUTUBE_API_KEY_5=AIzaSy...
+# No Railway, 13 chaves ativas configuradas:
+YOUTUBE_API_KEY_7=AIzaSy...
+YOUTUBE_API_KEY_8=AIzaSy...
+YOUTUBE_API_KEY_9=AIzaSy...
+YOUTUBE_API_KEY_10=AIzaSy...
+YOUTUBE_API_KEY_21=AIzaSy...
 # ... até ...
-YOUTUBE_API_KEY_32=AIzaSy...
+YOUTUBE_API_KEY_29=AIzaSy...
+# SUSPENSAS (removidas): KEY_3,4,5,6,30,31,32
 ```
 
-### Por que KEY_3 a KEY_32?
+### Histórico das Chaves
 
-**Histórico:**
+**Evolução:**
 - KEY_1 e KEY_2 foram usadas inicialmente
 - Depois expandimos para KEY_3 a KEY_10 (8 chaves)
 - Depois adicionamos KEY_21 a KEY_32 (12 chaves)
-- **Total: 20 chaves**
+- **13/02/2026:** Google suspendeu 7 chaves (KEY_3,4,5,6,30,31,32)
+- **Ativas agora: 13 chaves** (KEY_7-10 + KEY_21-29)
 
 ### Estados das Chaves
 
@@ -317,15 +328,21 @@ def rotate_to_next_key(self):
 def get_request_cost(self, url: str) -> int:
     """
     Calcula o custo REAL em units de cada requisição
-    - search.list = 100 units (CARA!)
+    - playlistItems.list = 1 unit (busca de vídeos - OTIMIZADO!)
     - channels.list = 1 unit
     - videos.list = 1 unit
+    - commentThreads.list = 1 unit
+    - search.list = 100 units (NÃO USADO MAIS!)
     """
     if "/search" in url:
-        return 100  # Search é MUITO caro!
+        return 100  # Search é MUITO caro! (não usado desde 13/02/2026)
+    elif "/playlistItems" in url:
+        return 1  # playlistItems.list = 1 unit (100x mais barato que search!)
     elif "/channels" in url:
         return 1
     elif "/videos" in url:
+        return 1
+    elif "/commentThreads" in url:
         return 1
     else:
         return 1
@@ -672,27 +689,16 @@ async def get_channel_info(self, channel_id: str, canal_name: str) -> Optional[D
 
 ### 4. get_channel_videos() - Lista de Vídeos
 
-**Linhas:** 536-605
-**Custo:** ~100-200 units (search.list é cara!)
+**Linhas:** 567-650+
+**Custo:** ~1-3 units por canal (playlistItems.list = 1 unit/página!)
+
+> **OTIMIZADO 13/02/2026:** Substituiu `search.list` (100 units) por `playlistItems.list` (1 unit). Economia de 99% de quota por canal!
 
 ```python
-async def get_channel_videos(
-    self,
-    channel_id: str,
-    canal_name: str,
-    days: int = 30
-) -> List[Dict[str, Any]]:
+async def get_channel_videos(self, channel_id: str, canal_name: str, days: int = 30):
     """
-    Get channel videos - AGORA BUSCA APENAS 30 DIAS (em vez de 60)
-    Isso economiza ~40-50% de quota!
-
-    Retorna lista de vídeos com:
-    - video_id
-    - titulo (HTML decoded)
-    - url_video
-    - data_publicacao
-    - views_atuais, likes, comentarios
-    - duracao (segundos)
+    Get channel videos usando playlistItems.list (1 unit) em vez de search.list (100 units)
+    Economia de 99% de quota! Mesmos dados retornados.
     """
     if not self.is_valid_channel_id(channel_id):
         logger.warning(f"❌ {canal_name}: Invalid channel ID")
@@ -706,23 +712,24 @@ async def get_channel_videos(
     page_token = None
     cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
 
+    # Converter channel_id (UC...) para uploads playlist_id (UU...)
+    uploads_playlist_id = "UU" + channel_id[2:]
+
     logger.info(f"🔍 {canal_name}: Buscando vídeos desde {cutoff_date.date()} (últimos {days} dias)")
 
-    # Loop de paginação
-    while True:
+    reached_cutoff = False
+
+    while not reached_cutoff:
         if self.all_keys_exhausted():
             logger.warning(f"⚠️ {canal_name}: Keys exhausted during video fetch")
             break
 
-        # Search API (100 units!)
-        url = f"{self.base_url}/search"
+        # playlistItems API (1 unit!) - em vez de search (100 units!)
+        url = f"{self.base_url}/playlistItems"
         params = {
-            'part': 'id,snippet',
-            'channelId': channel_id,
-            'type': 'video',
-            'order': 'date',
-            'maxResults': 50,
-            'publishedAfter': cutoff_date.isoformat()
+            'part': 'snippet,contentDetails',
+            'playlistId': uploads_playlist_id,
+            'maxResults': 50
         }
 
         if page_token:
@@ -730,32 +737,52 @@ async def get_channel_videos(
 
         data = await self.make_api_request(url, params, canal_name)
 
-        if not data:
-            logger.warning(f"⚠️ {canal_name}: API request returned None")
+        if not data or not data.get('items'):
             break
 
-        if not data.get('items'):
-            logger.info(f"ℹ️ {canal_name}: No more videos found")
-            break
+        # Extrair video IDs e filtrar por data
+        video_ids_in_range = []
+        video_snippets = {}
 
-        # Buscar detalhes dos vídeos (1 unit por batch de 50)
-        video_ids = [item['id']['videoId'] for item in data['items']]
-        video_details = await self.get_video_details(video_ids, canal_name)
+        for item in data['items']:
+            video_id = item['contentDetails']['videoId']
+            published_at = item['contentDetails'].get('videoPublishedAt',
+                           item['snippet'].get('publishedAt', ''))
 
-        # Combinar search results + details
-        for item, details in zip(data['items'], video_details):
-            if details:
-                video_info = {
-                    'video_id': item['id']['videoId'],
-                    'titulo': decode_html_entities(item['snippet']['title']),  # Decodifica &#39; etc
-                    'url_video': f"https://www.youtube.com/watch?v={item['id']['videoId']}",
-                    'data_publicacao': item['snippet']['publishedAt'],
-                    'views_atuais': details.get('view_count', 0),
-                    'likes': details.get('like_count', 0),
-                    'comentarios': details.get('comment_count', 0),
-                    'duracao': details.get('duration_seconds', 0)
-                }
-                videos.append(video_info)
+            if published_at:
+                try:
+                    pub_date = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
+                    if pub_date < cutoff_date:
+                        # Vídeos vêm do mais recente ao mais antigo
+                        # Se encontrou um fora do período, pode parar
+                        reached_cutoff = True
+                        break
+                except (ValueError, TypeError):
+                    pass
+
+            video_ids_in_range.append(video_id)
+            video_snippets[video_id] = {
+                'title': item['snippet'].get('title', ''),
+                'publishedAt': published_at
+            }
+
+        if video_ids_in_range:
+            # Buscar detalhes dos vídeos (1 unit por batch de 50)
+            video_details = await self.get_video_details(video_ids_in_range, canal_name)
+
+            for vid_id, details in zip(video_ids_in_range, video_details):
+                if details:
+                    video_info = {
+                        'video_id': vid_id,
+                        'titulo': decode_html_entities(video_snippets[vid_id]['title']),
+                        'url_video': f"https://www.youtube.com/watch?v={vid_id}",
+                        'data_publicacao': video_snippets[vid_id]['publishedAt'],
+                        'views_atuais': details.get('view_count', 0),
+                        'likes': details.get('like_count', 0),
+                        'comentarios': details.get('comment_count', 0),
+                        'duracao': details.get('duration_seconds', 0)
+                    }
+                    videos.append(video_info)
 
         # Próxima página
         page_token = data.get('nextPageToken')
@@ -1062,7 +1089,18 @@ async def get_canal_data(self, url_canal: str, canal_name: str) -> tuple[Optiona
 canal_data, videos_data = await collector.get_canal_data(canal['url_canal'], canal['nome_canal'])
 ```
 
-**Benefício:** Economia de ~50% da quota diária (elimina chamadas duplicadas de search.list)
+**Benefício:** Economia de ~50% da quota diária (elimina chamadas duplicadas)
+
+### 5b. playlistItems.list substitui search.list (NOVO - 13/02/2026)
+
+**Problema:** `search.list` custava 100 units por request. Com ~232 canais, gastava ~25,000+ units/dia.
+
+**Solução:** `playlistItems.list` custa apenas 1 unit por request!
+- Converte `channel_id` (UC...) para uploads playlist (UU...) trocando 2 primeiros chars
+- Filtra por data no código (para quando encontra vídeo mais antigo que cutoff)
+- Mesmos dados retornados
+
+**Resultado:** ~1,324 units/dia total (era ~26,380). Economia de 95%!
 
 ### 6. Timeout Aumentado (NOVO - 17/01/2026)
 
@@ -1223,12 +1261,12 @@ async def reset_suspended_keys():
 **Sintoma:**
 ```
 ❌ All keys exhausted or suspended!
-🔑 Chaves restantes: 0/20
+🔑 Chaves restantes: 0/13
 ```
 
 **Causas:**
-1. Quota diária excedida (200,000 units gastos)
-2. Muitos search.list (100 units cada)
+1. Quota diária excedida (130,000 units gastos)
+2. Improvável com playlistItems.list (gasto diário ~1,324 units)
 3. Muitos canais coletados no mesmo dia
 
 **Solução:**
@@ -1247,7 +1285,7 @@ GET /api/coletas/historico
 **Sintoma:**
 ```
 ❌ KEY SUSPENDED (403 genérico) on key 3
-🔑 Chaves restantes: 15/20
+🔑 Chaves restantes: 10/13
 ```
 
 **Causas:**
@@ -1324,11 +1362,11 @@ await collector.get_channel_id("URL_AQUI", "TEST")
 ### Problema 5: Coleta muito lenta
 
 **Sintoma:**
-- Coleta de 80 canais leva > 30 minutos
+- Coleta de ~232 canais leva muito tempo
 
 **Causas:**
 1. RateLimiter aguardando muito
-2. Muitos canais com @handles (100 units cada)
+2. Timeout de conexão em canais específicos
 3. Muitos vídeos por canal
 
 **Solução:**
@@ -1460,28 +1498,31 @@ git push origin main
 
 ## Métricas de Performance
 
-### Coleta Típica (80 canais)
+### Coleta Típica (~232 canais) - ATUALIZADO 16/02/2026
 
 ```
-🎬 INICIANDO COLETA: 80 canais
-📊 Quota inicial disponível: 200,000 units
-⏱️ Tempo estimado: 15-25 minutos
+🎬 INICIANDO COLETA: ~232 canais
+📊 Quota inicial disponível: 130,000 units (13 chaves)
+⏱️ Tempo estimado: 10-20 minutos
 
-Breakdown por canal:
+Breakdown por canal minerado (~189 canais):
 - get_channel_id (cached): 0 units
-- get_channel_id (novo): 1-100 units
 - get_channel_info: 1 unit
-- get_channel_videos (30d): ~100-150 units
+- get_channel_videos (playlistItems, 30d): ~1-3 units
 - get_video_details: 1-2 units
+Total médio: ~5-6 units/canal
 
-Total médio: 150-250 units/canal
+Breakdown por canal nosso (~43 canais):
+- Mesmo que minerado + comentários
+- commentThreads.list: ~20 units/canal
+Total médio: ~25 units/canal
 
-80 canais × 200 units = 16,000 units (8% da quota)
+232 canais total: ~1,324 units (~1% da quota)
 
 ✅ COLETA FINALIZADA
-📊 Quota usada: 16,234 units
-🔑 Chaves ativas: 20/20
-⏱️ Duração: 18 minutos
+📊 Quota usada: ~1,324 units
+🔑 Chaves ativas: 13/13
+⏱️ Duração: ~15 minutos
 ```
 
 ---
@@ -1495,9 +1536,11 @@ Total médio: 150-250 units/canal
 
 **Documentação YouTube API:**
 - [Quota Limits](https://developers.google.com/youtube/v3/getting-started#quota)
-- [Search.list](https://developers.google.com/youtube/v3/docs/search/list) - 100 units
+- [PlaylistItems.list](https://developers.google.com/youtube/v3/docs/playlistItems/list) - 1 unit (USADO para vídeos!)
+- [Search.list](https://developers.google.com/youtube/v3/docs/search/list) - 100 units (NÃO USADO MAIS)
 - [Channels.list](https://developers.google.com/youtube/v3/docs/channels/list) - 1 unit
 - [Videos.list](https://developers.google.com/youtube/v3/docs/videos/list) - 1 unit
+- [CommentThreads.list](https://developers.google.com/youtube/v3/docs/commentThreads/list) - 1 unit
 
 **Ver também:**
 - `05_DATABASE_SCHEMA.md` - Estrutura do banco (canais_monitorados, videos_historico)
@@ -1506,5 +1549,5 @@ Total médio: 150-250 units/canal
 
 ---
 
-**Última atualização:** 12/01/2026
-**Versão collector.py:** 792 linhas (20 API keys)
+**Última atualização:** 16/02/2026
+**Versão collector.py:** ~730 linhas (13 API keys ativas, playlistItems.list)

@@ -5,6 +5,40 @@
 
 ---
 
+## [16/02/2026 - v15] - Otimização Crítica de Quota API (95% economia)
+
+### ⚡ Otimização: playlistItems.list substitui search.list
+
+**Data:** 13/02/2026 (deploy) | 16/02/2026 (validação)
+**Status:** ✅ Em produção no Railway
+**Desenvolvedor:** Cellibs & Claude
+
+### O que foi implementado
+1. **Reescrita de `get_channel_videos()` no collector.py:**
+   - Substituiu `search.list` (100 units) por `playlistItems.list` (1 unit)
+   - Converte channel_id UC... → uploads playlist UU... (troca 2 primeiros chars)
+   - Filtra por data no código (para ao encontrar vídeo mais antigo que cutoff)
+   - Resultado: 100x mais barato por canal
+
+2. **Atualização de `get_request_cost()`:**
+   - Adicionado custo de `/playlistItems` = 1 unit
+
+3. **Remoção de 7 chaves API suspensas:**
+   - Removidas: KEY_3, KEY_4, KEY_5, KEY_6, KEY_30, KEY_31, KEY_32
+   - 13 chaves ativas: KEY_7-10, KEY_21-29
+   - Capacidade: 130,000 units/dia
+
+### Resultado
+- **Antes:** ~26,380 units/dia (2-3 chaves)
+- **Depois:** ~1,324 units/dia (0-1 chave)
+- **Economia:** 95% de quota API
+
+### Commits importantes
+- `3421567` - perf: Trocar search.list por playlistItems.list na coleta de vídeos
+- `6a0f0a0` - fix: Remover 7 chaves API suspensas pelo Google
+
+---
+
 ## [11/02/2026 - v14] - Sistema de Calendário Empresarial Completo
 
 ### 📅 Feature: Calendário para os 4 Sócios
