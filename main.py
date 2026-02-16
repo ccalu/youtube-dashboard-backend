@@ -6009,7 +6009,7 @@ def _extrair_hora(timestamp_str):
         return None
 
 _dash_cache = {'data': None, 'timestamp': 0}
-_DASH_CACHE_TTL = 10
+_DASH_CACHE_TTL = 3
 
 DASH_UPLOAD_HTML = '''
 <!DOCTYPE html>
