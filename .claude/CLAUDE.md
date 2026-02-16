@@ -101,6 +101,79 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 - Pode melhorar lógica existente
 - SEMPRE fazer backup antes de mudanças grandes
 
+## 🆕 ATUALIZAÇÕES RECENTES (16/02/2026):
+
+### ⚡ OTIMIZAÇÃO CRÍTICA: Quota API 95% mais barata ✅
+**Desenvolvido:** 13/02/2026 (commit `3421567`)
+**Validado:** 16/02/2026
+**Status:** ✅ Em produção no Railway
+
+**Problema identificado:**
+- `collector.py` usava `search.list` (100 units/request!) para buscar vídeos de cada canal
+- Com ~232 canais: ~25,520 units/dia só em busca de vídeos
+- Gastava 2-3 chaves API por coleta
+
+**Solução implementada:**
+1. **`get_channel_videos()` reescrita** para usar `playlistItems.list` (1 unit/request)
+   - Converte `channel_id` (UC...) → uploads playlist (UU...) trocando 2 primeiros chars
+   - Filtra por data no código (últimos 30 dias) - para quando encontra vídeo mais antigo
+   - Busca detalhes com `videos.list` em batch de 50 (já existia)
+
+2. **`get_request_cost()` atualizada** com custo de playlistItems = 1 unit
+
+3. **7 chaves API suspensas removidas** (KEY_3,4,5,6,30,31,32)
+   - 13 chaves ativas: KEY_7-10, KEY_21-29
+
+**Resultado:**
+| Métrica | Antes | Depois |
+|---------|-------|--------|
+| Custo vídeos (232 canais) | ~25,520 units | ~464 units |
+| Custo comentários (43 canais) | ~860 units | ~860 units |
+| **Total diário** | **~26,380** | **~1,324** |
+| **Chaves usadas** | 2-3 | 0-1 |
+| **Economia** | - | **95%** |
+
+**Histórico de coleta no dashboard:**
+- Campo `requisicoes_usadas` mostra total de TODAS as chamadas API (vídeos + comentários + channels + detalhes)
+- Contabilização via `collector.total_quota_units` que soma custos de cada endpoint
+- A partir de 16/02 o histórico reflete os novos valores otimizados
+
+### 🎬 Animação de Upload Forçado no Dashboard ✅
+**Desenvolvido:** 16/02/2026
+**Status:** ✅ 100% funcional
+
+**O que foi implementado:**
+1. **Animação visual ao forçar upload:**
+   - Clicou e confirmou → botão vira ⏳ girando + pulsando (CSS spin + pulse)
+   - Upload com sucesso → botão vira ✅ por 15 segundos + tabela atualiza imediatamente
+   - Upload com erro → botão vira ❌ por 5 segundos
+   - Sem vídeo na planilha → alert em até 12 segundos + botão volta ao normal
+
+2. **Polling inteligente:**
+   - Captura status ANTES do upload para comparar mudanças
+   - Polling a cada 3s (máximo 4 tentativas = 12s timeout)
+   - Estado preservado entre rebuilds da tabela (variáveis globais)
+
+3. **Correções relacionadas:**
+   - `upload_map` prioriza `sucesso > erro > sem_video` (múltiplos registros/dia)
+   - Backend retorna `sem_video` imediato se verificação de planilha falha
+   - Cache do dashboard reduzido de 10s para 3s (`_DASH_CACHE_TTL`)
+
+**Arquivos alterados:** `main.py` (CSS, JS `forcarUpload()`, endpoint force, `upload_map`)
+
+### 🔧 Correção OAuth + Script Re-auth ✅
+**Desenvolvido:** 16/02/2026
+**Status:** ✅ Corrigido
+
+**Problema:** Canal "Crônicas da Coroa" com `invalid_grant` - refresh token revogado
+**Solução:** Re-autorização via `reauth_channel_oauth.py` (script reescrito)
+- Aceita `channel_id` como argumento CLI ou lista interativa
+- Usa `localhost:8080` redirect (mesmo que wizard v3)
+- Inclui 4 scopes OAuth obrigatórios
+- Valida token com YouTube API antes de salvar
+
+---
+
 ## 🆕 ATUALIZAÇÕES RECENTES (03/02/2026):
 
 ### 🔧 CORREÇÃO CRÍTICA: OAuth Scopes para Playlists ✅

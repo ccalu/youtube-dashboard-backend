@@ -1,5 +1,5 @@
 # SISTEMA DE DASHBOARD UPLOAD - DOCUMENTACAO COMPLETA
-*Ultima atualizacao: 13/02/2026*
+*Ultima atualizacao: 16/02/2026*
 
 ## VISAO GERAL
 
@@ -19,7 +19,7 @@ Sistema completo de automacao de upload para YouTube com dashboard de monitorame
 ### Acesso Online
 - **URL Producao:** `https://youtube-dashboard-backend-production.up.railway.app/dash-upload`
 - **Implementado em:** `main.py` (linhas 5994-6741)
-- **Cache:** 10 segundos (compartilhado entre usuarios)
+- **Cache:** 3 segundos (compartilhado entre usuarios, reduzido de 10s em 16/02/2026)
 - **Atualizacao automatica:** A cada 5 segundos via JavaScript
 
 ### Vantagens sobre v1 (local)
@@ -38,7 +38,7 @@ Sistema completo de automacao de upload para YouTube com dashboard de monitorame
 
 ### Detalhes Tecnicos da v2
 - **Template HTML:** Inline no main.py (~495 linhas HTML/CSS/JS)
-- **Cache:** `_dash_cache` com TTL de 10s para evitar queries repetidas
+- **Cache:** `_dash_cache` com TTL de 3s para evitar queries repetidas
 - **Funcao auxiliar:** `_extrair_hora()` para timestamps
 - **Ordenacao subnichos:** Mais uploads com sucesso aparecem primeiro
 - **URLs relativas:** Funciona tanto local (localhost:8000) quanto Railway
@@ -100,6 +100,10 @@ Titulos de video com maximo de 7 palavras + reticencias para manter layout limpo
 
 #### 7. Botoes de Acao por Canal
 - **Upload Forcado** - Forca upload do proximo video "done" da planilha
+  - Animacao: botao vira ⏳ girando+pulsando ao clicar
+  - Sucesso: botao vira ✅ por 15 segundos + tabela atualiza imediatamente
+  - Erro: botao vira ❌ por 5 segundos
+  - Sem video: alert em ate 12 segundos + botao volta ao normal
 - **Historico** - Abre modal de historico individual
 - **Sheets** - Link direto para Google Sheets do canal
 
@@ -118,6 +122,17 @@ Funcao `extrair_hora()` extrai HH:MM do timestamp sem conversao de timezone (ser
 ### Botoes de Acao
 - Hover: `opacity 0.9` + `box-shadow: 0 2px 8px`
 - Clique: `scale(0.92)` (0.1s)
+
+### Animacao de Upload Forcado (16/02/2026)
+- **Uploading (⏳):** `@keyframes upload-spin` (rotacao 2s) + `upload-pulse` (opacity 1.2s)
+  - Classe `.btn-icon--uploading` com background roxo suave
+  - `pointer-events: none` para evitar cliques duplos
+- **Sucesso (✅):** `@keyframes success-pop` (scale 0.5→1.2→1, 0.4s)
+  - Classe `.btn-icon--upload-success` com background verde suave
+  - Dura 15 segundos, depois restaura botao normal
+- **Erro (❌):** Classe `.btn-icon--upload-error` com background vermelho suave
+  - Dura 5 segundos
+- **Estado preservado:** Variaveis globais `_uploadingChannelId`, `_successChannelId`, `_errorChannelId` mantêm estado entre rebuilds da tabela (que ocorrem a cada 5s)
 
 ### Modais
 - Abrir: Fade-in 0.2s + slide-down 0.25s (visibility + opacity)
@@ -226,8 +241,9 @@ Pagina HTML completa do dashboard (retorna HTMLResponse).
 
 #### GET /api/dash-upload/status
 Retorna stats gerais + canais agrupados por subnicho.
-- Cache de 10 segundos (`_dash_cache`)
+- Cache de 3 segundos (`_dash_cache`)
 - Busca `yt_channels` (ativos + upload_automatico) e `yt_canal_upload_diario` (hoje)
+- `upload_map` com prioridade: sucesso > erro > sem_video (quando canal tem multiplos registros no dia)
 - Monetizados forcados: 2 channel_ids hardcoded
 - Agrupamento inteligente: monetizados separados, guerra agrupada
 - Ordenacao: subnichos com mais sucesso primeiro, canais por status
@@ -269,6 +285,7 @@ youtube-dashboard-backend/
 |   |-- oauth_manager.py              # Gestao de tokens OAuth
 |   |-- sheets.py                     # Integracao Google Sheets
 |   |-- database.py                   # Interacoes Supabase
+|-- reauth_channel_oauth.py           # Re-autorizacao OAuth de canal existente
 |-- _features/dash_upload/            # Documentacao + backup
 |   |-- DASHBOARD_UPLOAD_SISTEMA_ATUAL.md (este arquivo)
 |   |-- COMANDOS_RAPIDOS.md
@@ -302,6 +319,11 @@ python dash_upload_final.py
 1. Verificar token OAuth: `python check_oauth_definitivo.py`
 2. Verificar planilha (colunas corretas)
 3. Upload manual: `python forcar_upload_manual_fixed.py --canal "Nome do Canal"`
+4. Re-autorizar OAuth: `python reauth_channel_oauth.py [channel_id]`
+
+### Token OAuth revogado (invalid_grant)
+- Causa: Google revogou refresh token (projeto em testing mode, ou permissao revogada)
+- Solucao: `python reauth_channel_oauth.py` para re-autorizar com novos tokens
 
 ### Erro 403 ao adicionar playlist
 - Canal precisa refazer OAuth com todos os 4 scopes
@@ -310,6 +332,18 @@ python dash_upload_final.py
 ---
 
 ## HISTORICO DE ALTERACOES
+
+### 16/02/2026 - Animacao de Upload Forcado + Correcoes
+- Animacao visual completa ao forcar upload (⏳ girando → ✅ check 15s ou ❌ erro 5s)
+- CSS: 3 keyframes (upload-spin, upload-pulse, success-pop) + 3 classes de estado
+- JS: `forcarUpload()` reescrito com polling inteligente (compara status antes/depois)
+- Estado preservado entre rebuilds da tabela via variaveis globais
+- `upload_map` com prioridade sucesso > erro > sem_video (multiplos registros/dia)
+- Timeout de 12 segundos (4 tentativas x 3s) para sem_video
+- Backend retorna `sem_video` imediato se `_find_ready_video` falha
+- Cache reduzido de 10s para 3s (`_DASH_CACHE_TTL`)
+- Script `reauth_channel_oauth.py` reescrito (aceita channel_id como argumento)
+- Correcao OAuth "Cronicas da Coroa" (invalid_grant → re-autorizacao)
 
 ### 13/02/2026 - Dashboard v2 Integrado no Railway
 - **Dashboard v2 integrado no main.py** (linhas 5994-6741)
