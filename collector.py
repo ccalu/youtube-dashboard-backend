@@ -193,16 +193,22 @@ class YouTubeCollector:
 
     def get_request_cost(self, url: str) -> int:
         """
-        🆕 CALCULA O CUSTO REAL EM UNITS DE CADA REQUISIÇÃO
-        - search.list = 100 units (CARA!)
+        CALCULA O CUSTO REAL EM UNITS DE CADA REQUISIÇÃO
+        - search.list = 100 units (CARA! - não usar)
+        - playlistItems.list = 1 unit (substituto do search)
         - channels.list = 1 unit
         - videos.list = 1 unit
+        - commentThreads.list = 1 unit
         """
         if "/search" in url:
             return 100  # Search é MUITO caro!
+        elif "/playlistItems" in url:
+            return 1  # playlistItems.list = 1 unit (100x mais barato que search!)
         elif "/channels" in url:
             return 1
         elif "/videos" in url:
+            return 1
+        elif "/commentThreads" in url:
             return 1
         else:
             return 1
@@ -560,8 +566,8 @@ class YouTubeCollector:
 
     async def get_channel_videos(self, channel_id: str, canal_name: str, days: int = 30) -> List[Dict[str, Any]]:
         """
-        🆕 Get channel videos - AGORA BUSCA APENAS 30 DIAS (em vez de 60)
-        Isso economiza ~40-50% de quota!
+        Get channel videos usando playlistItems.list (1 unit) em vez de search.list (100 units)
+        Economia de 99% de quota! Mesmos dados retornados.
         """
         if not self.is_valid_channel_id(channel_id):
             logger.warning(f"❌ {canal_name}: Invalid channel ID")
@@ -575,21 +581,23 @@ class YouTubeCollector:
         page_token = None
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
 
+        # Converter channel_id (UC...) para uploads playlist_id (UU...)
+        uploads_playlist_id = "UU" + channel_id[2:]
+
         logger.info(f"🔍 {canal_name}: Buscando vídeos desde {cutoff_date.date()} (últimos {days} dias)")
 
-        while True:
+        reached_cutoff = False
+
+        while not reached_cutoff:
             if self.all_keys_exhausted():
                 logger.warning(f"⚠️ {canal_name}: Keys exhausted during video fetch")
                 break
 
-            url = f"{self.base_url}/search"
+            url = f"{self.base_url}/playlistItems"
             params = {
-                'part': 'id,snippet',
-                'channelId': channel_id,
-                'type': 'video',
-                'order': 'date',
-                'maxResults': 50,
-                'publishedAfter': cutoff_date.isoformat()
+                'part': 'snippet,contentDetails',
+                'playlistId': uploads_playlist_id,
+                'maxResults': 50
             }
 
             if page_token:
@@ -605,22 +613,52 @@ class YouTubeCollector:
                 logger.info(f"ℹ️ {canal_name}: No more videos found")
                 break
 
-            video_ids = [item['id']['videoId'] for item in data['items']]
-            video_details = await self.get_video_details(video_ids, canal_name)
+            # Extrair video IDs e filtrar por data
+            video_ids_in_range = []
+            video_snippets = {}
 
-            for item, details in zip(data['items'], video_details):
-                if details:
-                    video_info = {
-                        'video_id': item['id']['videoId'],
-                        'titulo': decode_html_entities(item['snippet']['title']),
-                        'url_video': f"https://www.youtube.com/watch?v={item['id']['videoId']}",
-                        'data_publicacao': item['snippet']['publishedAt'],
-                        'views_atuais': details.get('view_count', 0),
-                        'likes': details.get('like_count', 0),
-                        'comentarios': details.get('comment_count', 0),
-                        'duracao': details.get('duration_seconds', 0)
-                    }
-                    videos.append(video_info)
+            for item in data['items']:
+                video_id = item['contentDetails']['videoId']
+                published_at = item['contentDetails'].get('videoPublishedAt', item['snippet'].get('publishedAt', ''))
+
+                # Verificar se o vídeo está dentro do período
+                if published_at:
+                    try:
+                        pub_date = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
+                        if pub_date < cutoff_date:
+                            # Vídeos são ordenados do mais recente ao mais antigo
+                            # Se encontrou um fora do período, pode parar
+                            reached_cutoff = True
+                            break
+                    except (ValueError, TypeError):
+                        pass
+
+                video_ids_in_range.append(video_id)
+                video_snippets[video_id] = {
+                    'title': item['snippet'].get('title', ''),
+                    'publishedAt': published_at
+                }
+
+            if video_ids_in_range:
+                video_details = await self.get_video_details(video_ids_in_range, canal_name)
+
+                for vid_id, details in zip(video_ids_in_range, video_details):
+                    if details:
+                        snippet = video_snippets[vid_id]
+                        video_info = {
+                            'video_id': vid_id,
+                            'titulo': decode_html_entities(snippet['title']),
+                            'url_video': f"https://www.youtube.com/watch?v={vid_id}",
+                            'data_publicacao': snippet['publishedAt'],
+                            'views_atuais': details.get('view_count', 0),
+                            'likes': details.get('like_count', 0),
+                            'comentarios': details.get('comment_count', 0),
+                            'duracao': details.get('duration_seconds', 0)
+                        }
+                        videos.append(video_info)
+
+            if reached_cutoff:
+                break
 
             page_token = data.get('nextPageToken')
             if not page_token:
