@@ -6128,6 +6128,12 @@ DASH_UPLOAD_HTML = '''
         .btn-icon:active { transform: scale(0.9); }
         .btn-icon:disabled { opacity: 0.3; cursor: not-allowed; }
         .btn-icon:disabled:hover { background: transparent; border-color: transparent; }
+        @keyframes upload-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes upload-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes success-pop { 0% { transform: scale(0.5); opacity: 0; } 50% { transform: scale(1.2); } 100% { transform: scale(1); opacity: 1; } }
+        .btn-icon--uploading { animation: upload-spin 2s linear infinite, upload-pulse 1.2s ease-in-out infinite; background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.3); pointer-events: none; color: var(--text-primary); }
+        .btn-icon--upload-success { animation: success-pop 0.4s ease-out; background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.3); pointer-events: none; }
+        .btn-icon--upload-error { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.3); pointer-events: none; }
         .status-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(20, 20, 21, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--border-primary); padding: 10px 32px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-tertiary); z-index: 50; }
         .status-bar-left, .status-bar-right { display: flex; align-items: center; gap: 16px; }
         .status-bar-sep { width: 1px; height: 12px; background: var(--border-primary); }
@@ -6254,30 +6260,79 @@ DASH_UPLOAD_HTML = '''
         async function forcarUpload(channelId, channelName) {
             if (!confirm('Forcar upload do canal ' + channelName + '?\\n\\nO proximo video "done" da planilha sera enviado.')) return;
             var botao = event.target.closest('.btn-icon');
-            var linha = botao.closest('tr');
-            var statusCell = linha.querySelector('td:nth-child(2)');
-            var statusOriginal = statusCell.innerHTML;
+            var emojiOriginal = botao.innerHTML;
             try {
-                statusCell.innerHTML = statusOriginal + ' <span style="color:var(--text-tertiary);">...</span>';
-                botao.disabled = true;
+                botao.innerHTML = '\\u23F3';
+                botao.classList.add('btn-icon--uploading');
                 var response = await fetch('/api/yt-upload/force/' + channelId, { method: 'POST' });
                 var result = await response.json();
-                if (response.ok) {
-                    statusCell.innerHTML = '<span class="status-badge status-badge--success">Processando</span>';
-                    setTimeout(function() { statusCell.innerHTML = statusOriginal; atualizar(); }, 5000);
+                if (response.ok && result.status !== 'sem_video' && result.status !== 'no_video') {
+                    var tentativas = 0;
+                    var maxTentativas = 40;
+                    var pollInterval = setInterval(function() {
+                        tentativas++;
+                        if (tentativas > maxTentativas) {
+                            clearInterval(pollInterval);
+                            botao.innerHTML = emojiOriginal;
+                            botao.classList.remove('btn-icon--uploading');
+                            atualizar();
+                            return;
+                        }
+                        var xhr = new XMLHttpRequest();
+                        xhr.open('GET', '/api/dash-upload/status', true);
+                        xhr.onreadystatechange = function() {
+                            if (xhr.readyState === 4 && xhr.status === 200) {
+                                try {
+                                    var data = JSON.parse(xhr.responseText);
+                                    if (data.subnichos) {
+                                        for (var sub in data.subnichos) {
+                                            for (var i = 0; i < data.subnichos[sub].length; i++) {
+                                                if (data.subnichos[sub][i].channel_id === channelId) {
+                                                    var st = data.subnichos[sub][i].status;
+                                                    if (st === 'sucesso') {
+                                                        clearInterval(pollInterval);
+                                                        botao.classList.remove('btn-icon--uploading');
+                                                        botao.innerHTML = '\\u2705';
+                                                        botao.classList.add('btn-icon--upload-success');
+                                                        atualizar();
+                                                        setTimeout(function() {
+                                                            botao.innerHTML = emojiOriginal;
+                                                            botao.classList.remove('btn-icon--upload-success');
+                                                        }, 5000);
+                                                    } else if (st === 'erro') {
+                                                        clearInterval(pollInterval);
+                                                        botao.classList.remove('btn-icon--uploading');
+                                                        botao.innerHTML = '\\u274C';
+                                                        botao.classList.add('btn-icon--upload-error');
+                                                        atualizar();
+                                                        setTimeout(function() {
+                                                            botao.innerHTML = emojiOriginal;
+                                                            botao.classList.remove('btn-icon--upload-error');
+                                                        }, 3000);
+                                                    }
+                                                    return;
+                                                }
+                                            }
+                                        }
+                                    }
+                                } catch(e) {}
+                            }
+                        };
+                        xhr.send();
+                    }, 3000);
                 } else if (result.status === 'sem_video' || result.status === 'no_video') {
                     alert('Sem videos disponiveis na planilha de ' + channelName);
-                    statusCell.innerHTML = statusOriginal;
+                    botao.innerHTML = emojiOriginal;
+                    botao.classList.remove('btn-icon--uploading');
                 } else {
-                    statusCell.innerHTML = '<span class="status-badge status-badge--error">Erro</span>';
                     alert('Erro: ' + (result.detail || result.message || 'Falha ao iniciar upload'));
-                    setTimeout(function() { statusCell.innerHTML = statusOriginal; }, 5000);
+                    botao.innerHTML = emojiOriginal;
+                    botao.classList.remove('btn-icon--uploading');
                 }
-                botao.disabled = false;
             } catch (error) {
                 alert('Erro de conexao: ' + error.message);
-                statusCell.innerHTML = statusOriginal;
-                botao.disabled = false;
+                botao.innerHTML = emojiOriginal;
+                botao.classList.remove('btn-icon--uploading');
             }
         }
         var _historicoData = [];
