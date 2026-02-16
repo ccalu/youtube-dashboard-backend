@@ -6617,7 +6617,13 @@ async def dash_upload_status():
             .eq('data', today)\
             .execute()
 
-        upload_map = {u['channel_id']: u for u in uploads.data}
+        # Prioridade: sucesso > erro > sem_video (quando canal tem multiplos registros no dia)
+        _status_priority = {'sucesso': 0, 'erro': 1, 'sem_video': 2}
+        upload_map = {}
+        for u in uploads.data:
+            cid = u['channel_id']
+            if cid not in upload_map or _status_priority.get(u.get('status'), 9) < _status_priority.get(upload_map[cid].get('status'), 9):
+                upload_map[cid] = u
 
         subnichos_dict = defaultdict(list)
         stats = {'total': 0, 'sucesso': 0, 'erro': 0, 'sem_video': 0, 'pendente': 0}
