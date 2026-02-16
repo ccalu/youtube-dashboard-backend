@@ -6306,9 +6306,8 @@ DASH_UPLOAD_HTML = '''
             if (seta) seta.classList.toggle('open');
         }
         var _uploadingChannelId = null;
-        function _getBotaoUpload(channelId) {
-            return document.querySelector('.btn-icon--upload[data-channel-id="' + channelId + '"]');
-        }
+        var _successChannelId = null;
+        var _errorChannelId = null;
         var _testMode = new URLSearchParams(window.location.search).get('test') === '1';
         async function forcarUpload(channelId, channelName) {
             var msg = _testMode ? '[TESTE] Simular upload de ' + channelName + '? (10 segundos)' : 'Forcar upload do canal ' + channelName + '?\\n\\nO proximo video "done" da planilha sera enviado.';
@@ -6346,33 +6345,21 @@ DASH_UPLOAD_HTML = '''
                                                     if (st === 'sucesso') {
                                                         clearInterval(pollInterval);
                                                         _uploadingChannelId = null;
+                                                        _successChannelId = channelId;
                                                         atualizar();
                                                         setTimeout(function() {
-                                                            var btn = _getBotaoUpload(channelId);
-                                                            if (btn) {
-                                                                btn.innerHTML = '\\u2705';
-                                                                btn.classList.add('btn-icon--upload-success');
-                                                                setTimeout(function() {
-                                                                    var btn2 = _getBotaoUpload(channelId);
-                                                                    if (btn2) { btn2.innerHTML = '\\u{1F4E4}'; btn2.classList.remove('btn-icon--upload-success'); }
-                                                                }, 5000);
-                                                            }
-                                                        }, 100);
+                                                            _successChannelId = null;
+                                                            atualizar();
+                                                        }, 15000);
                                                     } else if (st === 'erro') {
                                                         clearInterval(pollInterval);
                                                         _uploadingChannelId = null;
+                                                        _errorChannelId = channelId;
                                                         atualizar();
                                                         setTimeout(function() {
-                                                            var btn = _getBotaoUpload(channelId);
-                                                            if (btn) {
-                                                                btn.innerHTML = '\\u274C';
-                                                                btn.classList.add('btn-icon--upload-error');
-                                                                setTimeout(function() {
-                                                                    var btn2 = _getBotaoUpload(channelId);
-                                                                    if (btn2) { btn2.innerHTML = '\\u{1F4E4}'; btn2.classList.remove('btn-icon--upload-error'); }
-                                                                }, 3000);
-                                                            }
-                                                        }, 100);
+                                                            _errorChannelId = null;
+                                                            atualizar();
+                                                        }, 5000);
                                                     }
                                                     return;
                                                 }
@@ -6387,19 +6374,13 @@ DASH_UPLOAD_HTML = '''
                 } else if (result.status === 'sem_video' || result.status === 'no_video') {
                     alert('Sem videos disponiveis na planilha de ' + channelName);
                     _uploadingChannelId = null;
-                    botao.innerHTML = '\\u{1F4E4}';
-                    botao.classList.remove('btn-icon--uploading');
                 } else {
                     alert('Erro: ' + (result.detail || result.message || 'Falha ao iniciar upload'));
                     _uploadingChannelId = null;
-                    botao.innerHTML = '\\u{1F4E4}';
-                    botao.classList.remove('btn-icon--uploading');
                 }
             } catch (error) {
                 alert('Erro de conexao: ' + error.message);
                 _uploadingChannelId = null;
-                botao.innerHTML = '\\u{1F4E4}';
-                botao.classList.remove('btn-icon--uploading');
             }
         }
         var _historicoData = [];
@@ -6599,6 +6580,10 @@ DASH_UPLOAD_HTML = '''
                                     var safeName = escapeHtml(canal.channel_name).replace(/"/g, '&quot;');
                                     if (_uploadingChannelId === canal.channel_id) {
                                         html += '<button class="btn-icon btn-icon--upload btn-icon--uploading" data-channel-id="' + canal.channel_id + '" data-channel-name="' + safeName + '" title="Uploading...">&#x23F3;</button>';
+                                    } else if (_successChannelId === canal.channel_id) {
+                                        html += '<button class="btn-icon btn-icon--upload btn-icon--upload-success" data-channel-id="' + canal.channel_id + '" data-channel-name="' + safeName + '" title="Upload concluido!">&#x2705;</button>';
+                                    } else if (_errorChannelId === canal.channel_id) {
+                                        html += '<button class="btn-icon btn-icon--upload btn-icon--upload-error" data-channel-id="' + canal.channel_id + '" data-channel-name="' + safeName + '" title="Erro no upload">&#x274C;</button>';
                                     } else {
                                         html += '<button class="btn-icon btn-icon--upload" data-channel-id="' + canal.channel_id + '" data-channel-name="' + safeName + '" title="Forcar upload">&#x1F4E4;</button>';
                                     }
