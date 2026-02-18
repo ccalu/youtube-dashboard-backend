@@ -105,21 +105,21 @@ class CommentsDB:
 
                 records.append(record)
 
-            # Inserir no banco (upsert para evitar duplicatas)
-            response = self.client.table('video_comments').upsert(
-                records,
-                on_conflict='comment_id'
-            ).execute()
+            # Filtrar apenas comentários que ainda não existem no banco (INSERT, nunca sobrescrever)
+            existing = self.client.table('video_comments').select('comment_id').eq('video_id', video_id).execute()
+            existing_ids = set(r['comment_id'] for r in existing.data) if existing.data else set()
+            new_records = [r for r in records if r.get('comment_id') not in existing_ids]
 
-            if response.data:
-                logger.info(f"✅ {len(records)} comentários salvos para vídeo {video_id}")
+            if new_records:
+                response = self.client.table('video_comments').insert(new_records).execute()
+                logger.info(f"✅ {len(new_records)} novos comentários inseridos para vídeo {video_id} ({len(records) - len(new_records)} já existiam)")
 
                 # Atualizar resumo do vídeo
                 await self.update_video_summary(video_id, canal_id)
                 return True
             else:
-                logger.error(f"❌ Erro ao salvar comentários: sem resposta")
-                return False
+                logger.info(f"ℹ️ Todos {len(records)} comentários já existem para vídeo {video_id}")
+                return True
 
         except Exception as e:
             logger.error(f"❌ Erro ao salvar comentários: {e}")
