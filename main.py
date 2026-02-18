@@ -3484,6 +3484,21 @@ async def run_collection_job():
                                                     comments=comments_to_save
                                                 )
                                                 logger.info(f"💾 {len(comments_to_save)} comentários salvos (sem análise) para {canal['nome_canal']}")
+
+                                                # Canais em português: marcar como traduzido (não precisa GPT)
+                                                canal_lingua = (canal.get('lingua') or '').lower()
+                                                if 'portug' in canal_lingua or canal_lingua in ('pt', 'pt-br'):
+                                                    try:
+                                                        for c in comments_to_save:
+                                                            if c.get('comment_id'):
+                                                                supabase.table('video_comments').update({
+                                                                    'is_translated': True,
+                                                                    'comment_text_pt': c.get('comment_text_original', '')
+                                                                }).eq('comment_id', c['comment_id']).execute()
+                                                        logger.info(f"🇧🇷 {len(comments_to_save)} comentários PT marcados como traduzidos para {canal['nome_canal']}")
+                                                    except Exception as pt_err:
+                                                        logger.error(f"Erro ao marcar comentários PT: {pt_err}")
+
                                             except Exception as save_error:
                                                 logger.error(f"❌ Erro ao salvar comentários no banco: {save_error}")
                                                 # Registrar falha de salvamento
