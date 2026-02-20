@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Analise de Conteudo - Plano</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', -apple-system, sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            line-height: 1.6;
+            padding: 20px;
+        }
+        .container { max-width: 960px; margin: 0 auto; }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 40px 0 30px;
+            border-bottom: 1px solid #1a1a2e;
+            margin-bottom: 40px;
+        }
+        .header h1 { font-size: 28px; color: #fff; margin-bottom: 8px; }
+        .header .subtitle { color: #8b8ba0; font-size: 15px; }
+        .header .date { color: #555; font-size: 13px; margin-top: 12px; }
+
+        /* Sections */
+        .section { margin-bottom: 40px; }
+        .section-title {
+            font-size: 20px; color: #a78bfa; margin-bottom: 16px;
+            padding-bottom: 8px; border-bottom: 1px solid #1a1a2e;
+        }
+        .section p { color: #c8c8d8; margin-bottom: 12px; font-size: 15px; }
+        .section strong { color: #e0e0f0; }
+
+        /* Highlights */
+        .highlight-green {
+            background: #6ee7b708; border: 1px solid #6ee7b725;
+            border-radius: 12px; padding: 24px; margin: 24px 0;
+        }
+        .highlight-green h3 { color: #6ee7b7; font-size: 16px; margin-bottom: 12px; }
+        .highlight-green p { color: #c8c8d8; font-size: 14px; }
+
+        /* Cards */
+        .card {
+            background: #12121e; border: 1px solid #1e1e35;
+            border-radius: 10px; padding: 18px; margin-bottom: 16px;
+        }
+        .card h3 {
+            font-size: 13px; text-transform: uppercase;
+            letter-spacing: 0.5px; margin-bottom: 10px;
+        }
+        .card ul { list-style: none; padding: 0; }
+        .card li {
+            color: #c8c8d8; font-size: 14px; padding: 4px 0;
+            padding-left: 18px; position: relative;
+        }
+        .card li::before {
+            content: ">"; position: absolute; left: 0; color: #4a4a6a;
+        }
+
+        /* Sheet info */
+        .sheet-info {
+            background: #12121e; border: 1px solid #1e1e35;
+            border-radius: 10px; padding: 20px; margin: 20px 0;
+        }
+        .sheet-info h3 { color: #6ee7b7; font-size: 15px; margin-bottom: 14px; }
+        .sheet-cols {
+            display: grid; grid-template-columns: 60px 1fr;
+            gap: 6px 12px; font-size: 14px;
+        }
+        .sheet-cols .col { color: #60a5fa; font-weight: 700; font-family: 'Courier New', monospace; }
+        .sheet-cols .col-key { color: #fbbf24; font-weight: 700; font-family: 'Courier New', monospace; }
+        .sheet-cols .desc { color: #c8c8d8; }
+        .sheet-note {
+            color: #fbbf24; font-size: 13px; margin-top: 14px;
+            padding: 10px; background: #fbbf2408; border-radius: 6px;
+        }
+
+        /* ========== MOCKUP DASHBOARD ========== */
+        .mock {
+            background: #0c0c16; border: 1px solid #1e1e35;
+            border-radius: 14px; overflow: hidden; margin: 24px 0;
+        }
+        .mock-label {
+            padding: 10px 16px; font-size: 11px; color: #7a7a9a;
+            text-transform: uppercase; letter-spacing: 1px;
+            background: #08080f; border-bottom: 1px solid #1a1a2e;
+        }
+
+        /* Tabs */
+        .mock-tabs {
+            display: flex; background: #0a0a12;
+            border-bottom: 1px solid #1e1e35;
+        }
+        .mock-tab {
+            padding: 12px 24px; font-size: 14px; color: #7a7a9a;
+            cursor: default; position: relative;
+        }
+        .mock-tab.active {
+            color: #a78bfa;
+        }
+        .mock-tab.active::after {
+            content: ""; position: absolute; bottom: 0; left: 0; right: 0;
+            height: 2px; background: #a78bfa;
+        }
+
+        /* Mock body */
+        .mock-body { padding: 24px; }
+
+        /* Subnicho header */
+        .subnicho-header {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 14px; margin-top: 20px;
+        }
+        .subnicho-header:first-child { margin-top: 0; }
+        .subnicho-name {
+            font-size: 15px; font-weight: 700; color: #60a5fa;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .subnicho-count {
+            font-size: 11px; color: #8b8ba0; background: #60a5fa15;
+            padding: 2px 8px; border-radius: 4px;
+        }
+
+        /* Data table */
+        .data-table {
+            width: 100%; border-collapse: collapse; margin-bottom: 8px;
+        }
+        .data-table th {
+            text-align: left; font-size: 11px; color: #7a7a9a;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            padding: 8px 10px; border-bottom: 1px solid #1a1a2e;
+            font-weight: 600; white-space: nowrap;
+        }
+        .data-table td {
+            font-size: 13px; color: #d0d0e0; padding: 10px 10px;
+            border-bottom: 1px solid #0f0f1a; white-space: nowrap;
+        }
+        .data-table tr:hover td { background: #12121e; }
+        .data-table .canal-name { color: #e0e0f0; font-weight: 600; }
+        .data-table .num { font-family: 'Courier New', monospace; font-size: 13px; color: #d0d0e0; }
+        .data-table .num-green { color: #6ee7b7; font-family: 'Courier New', monospace; font-size: 13px; }
+        .data-table .estrutura {
+            color: #fbbf24; font-weight: 700; font-family: 'Courier New', monospace;
+            font-size: 13px; background: #fbbf2410; padding: 2px 8px;
+            border-radius: 4px; display: inline-block;
+        }
+        .data-table .video-name { color: #e0e0f0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+        .data-table .age { color: #9a9ab0; font-size: 12px; }
+        .data-table .trend-up { color: #6ee7b7; font-size: 11px; margin-left: 3px; }
+        .data-table .trend-down { color: #f87171; font-size: 11px; margin-left: 3px; }
+        .data-table .trend-same { color: #7a7a9a; font-size: 11px; margin-left: 3px; }
+        .nota-rodape {
+            font-size: 13px; color: #8b8ba0; margin-top: 12px; padding: 10px 14px;
+            background: #10101c; border: 1px solid #1e1e35; border-radius: 8px;
+        }
+        .nota-rodape strong { color: #fbbf24; }
+
+        /* Canal title in modal */
+        .modal-title {
+            font-size: 18px; color: #fff; margin-bottom: 4px;
+        }
+        .modal-subtitle { font-size: 13px; color: #8b8ba0; margin-bottom: 20px; }
+
+        /* Historico items */
+        .hist-item {
+            display: flex; align-items: center; gap: 14px;
+            padding: 14px 16px; background: #10101c; border: 1px solid #1a1a2e;
+            border-radius: 8px; margin-bottom: 8px; cursor: default;
+        }
+        .hist-item:hover { border-color: #a78bfa40; background: #13132a; }
+        .hist-icon {
+            width: 32px; height: 32px; border-radius: 8px; background: #a78bfa15;
+            display: flex; align-items: center; justify-content: center;
+            color: #a78bfa; font-size: 14px; flex-shrink: 0;
+        }
+        .hist-info { flex: 1; }
+        .hist-date { font-size: 14px; color: #e0e0f0; font-weight: 600; }
+        .hist-meta { font-size: 12px; color: #8b8ba0; margin-top: 2px; }
+        .hist-arrow { color: #2a2a40; font-size: 16px; }
+
+        /* Relatorio geral stats */
+        .stats-grid {
+            display: grid; grid-template-columns: repeat(5, 1fr);
+            gap: 12px; margin-bottom: 24px;
+        }
+        .stat-card {
+            background: #10101c; border: 1px solid #1a1a2e;
+            border-radius: 10px; padding: 14px; text-align: center;
+        }
+        .stat-value { font-size: 22px; font-weight: 700; color: #fff; font-family: 'Courier New', monospace; }
+        .stat-label { font-size: 11px; color: #8b8ba0; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 4px; }
+        .stat-diff { font-size: 11px; color: #6ee7b7; margin-top: 4px; }
+        .stat-diff.red { color: #f87171; }
+
+        /* Analise placeholder */
+        .analise-placeholder {
+            background: #a78bfa08; border: 1px dashed #a78bfa30;
+            border-radius: 10px; padding: 30px; text-align: center;
+        }
+        .analise-placeholder .icon { font-size: 36px; margin-bottom: 12px; }
+        .analise-placeholder .ph-title { color: #a78bfa; font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+        .analise-placeholder .ph-sub { color: #7a7a9a; font-size: 13px; margin-bottom: 16px; }
+        .analise-placeholder .items {
+            text-align: left; max-width: 380px; margin: 0 auto;
+            background: #0a0a12; border-radius: 8px; padding: 16px 20px;
+        }
+        .analise-placeholder .items div {
+            color: #9a9ab0; font-size: 14px; padding: 5px 0; padding-left: 20px;
+            position: relative;
+        }
+        .analise-placeholder .items div::before {
+            content: ">"; position: absolute; left: 0; color: #a78bfa60;
+        }
+
+        /* Destaques */
+        .destaque-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 14px; background: #10101c; border-radius: 8px;
+            margin-bottom: 6px;
+        }
+        .destaque-label { font-size: 12px; color: #8b8ba0; }
+        .destaque-value { font-size: 13px; color: #e0e0f0; }
+        .destaque-metric { font-size: 13px; color: #6ee7b7; font-weight: 600; font-family: 'Courier New', monospace; }
+
+        /* Decisoes */
+        .decisao {
+            background: #12121e; border: 1px solid #fbbf2420;
+            border-radius: 10px; padding: 20px; margin-bottom: 16px;
+        }
+        .decisao h3 { color: #fbbf24; font-size: 15px; margin-bottom: 12px; }
+        .decisao .question {
+            color: #d0d0e0; font-size: 14px; padding: 6px 0;
+            padding-left: 22px; position: relative;
+        }
+        .decisao .question::before {
+            content: "?"; position: absolute; left: 2px;
+            color: #fbbf24; font-weight: 700;
+        }
+        .decisao .hint {
+            color: #7a7a9a; font-size: 12px; font-style: italic;
+            padding-left: 22px; margin-top: -2px; margin-bottom: 6px;
+        }
+
+        .footer {
+            text-align: center; padding: 30px 0; color: #3a3a50;
+            font-size: 13px; border-top: 1px solid #1a1a2e; margin-top: 40px;
+        }
+
+        @media (max-width: 700px) {
+            body { padding: 12px; }
+            .stats-grid { grid-template-columns: repeat(3, 1fr); }
+            .data-table { font-size: 11px; }
+            .data-table th, .data-table td { padding: 6px 4px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="header">
+        <h1>Dashboard de Analise de Conteudo</h1>
+        <div class="subtitle">Analise semanal de performance dos nossos canais e videos</div>
+        <div class="date">19/02/2026 &middot; Marcelo + Micha</div>
+    </div>
+
+    <!-- A Ideia -->
+    <div class="section">
+        <h2 class="section-title">A Ideia</h2>
+        <p>
+            Um dashboard web que toda <strong>segunda-feira</strong> gera um relatorio de performance dos nossos videos.
+            Mostra as metricas de cada canal e cada video, cruza com as <strong>planilhas de producao</strong> (titulo, copy, estrutura usada)
+            e monta uma visao clara do que esta funcionando.
+        </p>
+        <p>
+            <strong>So entram videos da nova fase</strong> &mdash; videos que tem a coluna A preenchida na planilha. Videos antigos sao ignorados.
+        </p>
+    </div>
+
+    <!-- Cerebro -->
+    <div class="highlight-green">
+        <h3>O Cerebro do Sistema</h3>
+        <p>
+            Cada relatorio semanal é <strong>salvo no banco</strong>. O sistema sempre analisa a semana atual <strong>+ todas as analises anteriores</strong>.
+            É um cerebro que se auto-alimenta &mdash; quanto mais semanas, mais inteligente.
+        </p>
+        <p style="margin-top: 14px; padding: 14px; background: #0a0a0f; border-radius: 8px; font-size: 13px; line-height: 2;">
+            <strong style="color:#6ee7b7">Semana 1:</strong> Primeiros dados, analise inicial<br>
+            <strong style="color:#6ee7b7">Semana 2:</strong> Analise da semana + compara com a anterior<br>
+            <strong style="color:#6ee7b7">Semana 5:</strong> Tendencias por canal comecam a aparecer<br>
+            <strong style="color:#6ee7b7">Semana 10+:</strong> Cerebro robusto &mdash; sabe o que funciona em cada canal<br>
+            <span style="color:#3a3a50; font-size:12px;">Mais semanas = mais dados = analises mais precisas</span>
+        </p>
+    </div>
+
+    <!-- Fonte dos dados -->
+    <div class="section">
+        <h2 class="section-title">Fonte dos Dados</h2>
+
+        <div class="sheet-info">
+            <h3>Planilhas de Producao (Google Sheets - 1 por canal)</h3>
+            <div class="sheet-cols">
+                <span class="col-key">Col A</span><span class="desc"><strong style="color:#fbbf24;">Estrutura de copy/titulo (FILTRO PRINCIPAL)</strong></span>
+                <span class="col">Col B</span><span class="desc">Titulo do video</span>
+                <span class="col">Col C</span><span class="desc">Descricao do video</span>
+                <span class="col">Col D</span><span class="desc">Script / Copy do video</span>
+                <span class="col">Col E</span><span class="desc">Status (produzido ou "to do")</span>
+            </div>
+            <div class="sheet-note">
+                So entram videos com <strong>coluna A preenchida</strong> = nova fase de producao.
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="color:#60a5fa;">Banco de Dados (Supabase - coleta automatica diaria)</h3>
+            <ul>
+                <li>Views, likes, comentarios (snapshots diarios)</li>
+                <li>Inscritos e crescimento</li>
+                <li>43 canais monitorados</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3 style="color:#60a5fa;">YouTube Analytics API (precisa ativar)</h3>
+            <ul>
+                <li>CTR &mdash; % que clicou depois de ver o titulo/thumb</li>
+                <li>Retencao &mdash; % do video que as pessoas assistem</li>
+                <li>Watch time, fontes de trafego</li>
+            </ul>
+            <p style="color:#fbbf24; font-size:12px; margin-top:8px;">Precisa re-autorizar OAuth dos canais (adicionar 1 escopo)</p>
+        </div>
+    </div>
+
+    <!-- ==================== ESTRUTURA DO DASHBOARD ==================== -->
+    <div class="section">
+        <h2 class="section-title">Estrutura do Dashboard</h2>
+
+        <!-- ===== TELA PRINCIPAL ===== -->
+        <div class="mock">
+            <div class="mock-label">Tela Principal</div>
+            <div class="mock-tabs">
+                <div class="mock-tab active">Principal</div>
+                <div class="mock-tab">Relatorio Geral</div>
+            </div>
+            <div class="mock-body">
+
+                <div class="subnicho-header">
+                    <span class="subnicho-name">Monetizados</span>
+                    <span class="subnicho-count">3 canais</span>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Canal</th>
+                            <th>Videos</th>
+                            <th>Inscritos</th>
+                            <th>Views *</th>
+                            <th>CTR</th>
+                            <th>Ret.</th>
+                            <th>Coment. *</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="canal-name">Cronicas da Coroa</td>
+                            <td class="num">4</td>
+                            <td class="num">156.8k</td>
+                            <td class="num-green">+12.4k</td>
+                            <td class="num">7.8% <span class="trend-up">&#9650;</span></td>
+                            <td class="num">58% <span class="trend-up">&#9650;</span></td>
+                            <td class="num-green">+23</td>
+                        </tr>
+                        <tr>
+                            <td class="canal-name">Reinos Sombrios</td>
+                            <td class="num">3</td>
+                            <td class="num">89.2k</td>
+                            <td class="num-green">+8.1k</td>
+                            <td class="num">6.5% <span class="trend-same">&#9644;</span></td>
+                            <td class="num">52% <span class="trend-up">&#9650;</span></td>
+                            <td class="num-green">+15</td>
+                        </tr>
+                        <tr>
+                            <td class="canal-name">Trono de Sangue</td>
+                            <td class="num">2</td>
+                            <td class="num">45.1k</td>
+                            <td class="num-green">+5.3k</td>
+                            <td class="num">5.9% <span class="trend-down">&#9660;</span></td>
+                            <td class="num">47% <span class="trend-down">&#9660;</span></td>
+                            <td class="num-green">+8</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="subnicho-header">
+                    <span class="subnicho-name">Relatos de Guerra</span>
+                    <span class="subnicho-count">2 canais</span>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Canal</th>
+                            <th>Videos</th>
+                            <th>Inscritos</th>
+                            <th>Views *</th>
+                            <th>CTR</th>
+                            <th>Ret.</th>
+                            <th>Coment. *</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="canal-name">Ecos da Guerra</td>
+                            <td class="num">3</td>
+                            <td class="num">32.4k</td>
+                            <td class="num-green">+6.7k</td>
+                            <td class="num">7.1% <span class="trend-up">&#9650;</span></td>
+                            <td class="num">55% <span class="trend-up">&#9650;</span></td>
+                            <td class="num-green">+12</td>
+                        </tr>
+                        <tr>
+                            <td class="canal-name">Frente de Batalha</td>
+                            <td class="num">2</td>
+                            <td class="num">18.9k</td>
+                            <td class="num-green">+3.2k</td>
+                            <td class="num">5.4% <span class="trend-same">&#9644;</span></td>
+                            <td class="num">44% <span class="trend-down">&#9660;</span></td>
+                            <td class="num-green">+5</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="nota-rodape">
+                    <strong>Views</strong> e <strong>Comentarios</strong> = desde o ultimo relatorio &nbsp;&nbsp;|&nbsp;&nbsp;
+                    <strong>CTR</strong> e <strong>Retencao</strong> = media historica (com tendencia) &nbsp;&nbsp;|&nbsp;&nbsp;
+                    Clique no canal para ver detalhes
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== MODAL: ABA VIDEOS ===== -->
+        <div class="mock">
+            <div class="mock-label">Modal do Canal (ao clicar)</div>
+            <div class="mock-tabs">
+                <div class="mock-tab active">Videos</div>
+                <div class="mock-tab">Analise</div>
+                <div class="mock-tab">Historico</div>
+            </div>
+            <div class="mock-body">
+                <div class="modal-title">Cronicas da Coroa</div>
+                <div class="modal-subtitle">Apenas videos com coluna A preenchida (nova fase)</div>
+
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Estr.</th>
+                            <th>Video</th>
+                            <th>Views</th>
+                            <th>CTR</th>
+                            <th>Ret.</th>
+                            <th>Likes</th>
+                            <th>Coment.</th>
+                            <th>Idade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="estrutura">A3</span></td>
+                            <td class="video-name">O Segredo dos Reis</td>
+                            <td class="num">45.2k</td>
+                            <td class="num">8.2%</td>
+                            <td class="num">62%</td>
+                            <td class="num">1.2k</td>
+                            <td class="num">89</td>
+                            <td class="age">10 dias</td>
+                        </tr>
+                        <tr>
+                            <td><span class="estrutura">B1</span></td>
+                            <td class="video-name">A Maldicao Oculta</td>
+                            <td class="num">38.1k</td>
+                            <td class="num">7.8%</td>
+                            <td class="num">55%</td>
+                            <td class="num">980</td>
+                            <td class="num">67</td>
+                            <td class="age">8 dias</td>
+                        </tr>
+                        <tr>
+                            <td><span class="estrutura">A3</span></td>
+                            <td class="video-name">Reis que Destruiram</td>
+                            <td class="num">31.4k</td>
+                            <td class="num">6.9%</td>
+                            <td class="num">51%</td>
+                            <td class="num">750</td>
+                            <td class="num">45</td>
+                            <td class="age">12 dias</td>
+                        </tr>
+                        <tr>
+                            <td><span class="estrutura">C2</span></td>
+                            <td class="video-name">O Trono Proibido</td>
+                            <td class="num">18.7k</td>
+                            <td class="num">5.1%</td>
+                            <td class="num">43%</td>
+                            <td class="num">420</td>
+                            <td class="num">28</td>
+                            <td class="age">7 dias</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ===== MODAL: ABA ANALISE ===== -->
+        <div class="mock">
+            <div class="mock-label">Modal do Canal - Aba Analise</div>
+            <div class="mock-tabs">
+                <div class="mock-tab">Videos</div>
+                <div class="mock-tab active">Analise</div>
+                <div class="mock-tab">Historico</div>
+            </div>
+            <div class="mock-body">
+                <div class="modal-title">Cronicas da Coroa</div>
+                <div class="modal-subtitle">Analise da LLM (semana atual + historico acumulado)</div>
+
+                <div class="analise-placeholder">
+                    <div class="icon">&#129504;</div>
+                    <div class="ph-title">Analise Inteligente (LLM)</div>
+                    <div class="ph-sub">Front ja pronto &mdash; sera ativado na fase de integracao com LLM</div>
+                    <div class="items">
+                        <div>Padroes de titulo que funcionam neste canal</div>
+                        <div>Estilos de copy com melhor retencao</div>
+                        <div>Comparacao entre estruturas (Col A) e resultados</div>
+                        <div>Insights acumulados das semanas anteriores</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== MODAL: ABA HISTORICO ===== -->
+        <div class="mock">
+            <div class="mock-label">Modal do Canal - Aba Historico</div>
+            <div class="mock-tabs">
+                <div class="mock-tab">Videos</div>
+                <div class="mock-tab">Analise</div>
+                <div class="mock-tab active">Historico</div>
+            </div>
+            <div class="mock-body">
+                <div class="modal-title">Cronicas da Coroa</div>
+                <div class="modal-subtitle">Analises anteriores deste canal (clique para abrir)</div>
+
+                <div class="hist-item">
+                    <div class="hist-icon">+</div>
+                    <div class="hist-info">
+                        <div class="hist-date">Analise 17/02/2026</div>
+                        <div class="hist-meta">4 videos &nbsp;&middot;&nbsp; CTR medio: 7.8% &nbsp;&middot;&nbsp; Retencao: 58%</div>
+                    </div>
+                    <div class="hist-arrow">&rsaquo;</div>
+                </div>
+                <div class="hist-item">
+                    <div class="hist-icon">+</div>
+                    <div class="hist-info">
+                        <div class="hist-date">Analise 10/02/2026</div>
+                        <div class="hist-meta">3 videos &nbsp;&middot;&nbsp; CTR medio: 6.2% &nbsp;&middot;&nbsp; Retencao: 51%</div>
+                    </div>
+                    <div class="hist-arrow">&rsaquo;</div>
+                </div>
+                <div class="hist-item">
+                    <div class="hist-icon">+</div>
+                    <div class="hist-info">
+                        <div class="hist-date">Analise 03/02/2026</div>
+                        <div class="hist-meta">2 videos &nbsp;&middot;&nbsp; CTR medio: 5.8% &nbsp;&middot;&nbsp; Retencao: 48%</div>
+                    </div>
+                    <div class="hist-arrow">&rsaquo;</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== ABA RELATORIO GERAL ===== -->
+        <div class="mock">
+            <div class="mock-label">Aba Relatorio Geral</div>
+            <div class="mock-tabs">
+                <div class="mock-tab">Principal</div>
+                <div class="mock-tab active">Relatorio Geral</div>
+            </div>
+            <div class="mock-body">
+                <div class="modal-title">Relatorio Geral &mdash; Semana 17/02 a 23/02</div>
+                <div class="modal-subtitle">Visao macro de todos os canais + comparacao com semana anterior</div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">14</div>
+                        <div class="stat-label">Videos</div>
+                        <div class="stat-diff">+3 vs anterior</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">89.4k</div>
+                        <div class="stat-label">Views</div>
+                        <div class="stat-diff">+24% vs anterior</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">6.8%</div>
+                        <div class="stat-label">CTR Medio</div>
+                        <div class="stat-diff">+0.6 vs anterior</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">52%</div>
+                        <div class="stat-label">Retencao</div>
+                        <div class="stat-diff">+4% vs anterior</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">187</div>
+                        <div class="stat-label">Comentarios</div>
+                        <div class="stat-diff">+31 vs anterior</div>
+                    </div>
+                </div>
+
+                <div style="font-size:14px; color:#60a5fa; font-weight:600; margin-bottom:12px; text-transform:uppercase; letter-spacing:0.5px;">Destaques da Semana</div>
+                <div class="destaque-row">
+                    <span class="destaque-label">Mais views</span>
+                    <span class="destaque-value">O Segredo dos Reis &nbsp;<span style="color:#7a7a9a">(Cronicas da Coroa)</span></span>
+                    <span class="destaque-metric">45.2k</span>
+                </div>
+                <div class="destaque-row">
+                    <span class="destaque-label">Melhor CTR</span>
+                    <span class="destaque-value">O Segredo dos Reis &nbsp;<span style="color:#7a7a9a">(Cronicas da Coroa)</span></span>
+                    <span class="destaque-metric">8.2%</span>
+                </div>
+                <div class="destaque-row">
+                    <span class="destaque-label">Melhor retencao</span>
+                    <span class="destaque-value">O Segredo dos Reis &nbsp;<span style="color:#7a7a9a">(Cronicas da Coroa)</span></span>
+                    <span class="destaque-metric">62%</span>
+                </div>
+                <div class="destaque-row">
+                    <span class="destaque-label">Mais comentarios</span>
+                    <span class="destaque-value">O Segredo dos Reis &nbsp;<span style="color:#7a7a9a">(Cronicas da Coroa)</span></span>
+                    <span class="destaque-metric">89</span>
+                </div>
+
+                <div style="font-size:14px; color:#60a5fa; font-weight:600; margin: 24px 0 12px; text-transform:uppercase; letter-spacing:0.5px;">Relatorios Anteriores</div>
+                <div class="hist-item">
+                    <div class="hist-icon">+</div>
+                    <div class="hist-info">
+                        <div class="hist-date">Semana 10/02 &mdash; 16/02</div>
+                        <div class="hist-meta">12 videos &nbsp;&middot;&nbsp; +72.1k views &nbsp;&middot;&nbsp; CTR: 6.2%</div>
+                    </div>
+                    <div class="hist-arrow">&rsaquo;</div>
+                </div>
+                <div class="hist-item">
+                    <div class="hist-icon">+</div>
+                    <div class="hist-info">
+                        <div class="hist-date">Semana 03/02 &mdash; 09/02</div>
+                        <div class="hist-meta">8 videos &nbsp;&middot;&nbsp; +45.3k views &nbsp;&middot;&nbsp; CTR: 5.8%</div>
+                    </div>
+                    <div class="hist-arrow">&rsaquo;</div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Decisoes -->
+    <div class="section">
+        <h2 class="section-title">Decisoes do Micha</h2>
+        <p style="margin-bottom: 20px;">Pra comecar a construir:</p>
+
+        <div class="decisao">
+            <h3>1. Criterios de Filtro</h3>
+            <div class="question">Views minimas pra um video entrar no relatorio?</div>
+            <div class="hint">Pode variar por subnicho (ex: Monetizados = 10k, Guerra = 5k)</div>
+            <div class="question">Quantos dias minimo desde a publicacao?</div>
+            <div class="hint">Sugestao: 7 dias (tempo pro video performar)</div>
+        </div>
+
+        <div class="decisao">
+            <h3>2. Coluna A - Estruturas</h3>
+            <div class="question">Quais valores vao aparecer na coluna A?</div>
+            <div class="hint">Ex: A1, A2, B1, C3... o que cada letra/numero representa?</div>
+        </div>
+
+        <div class="decisao">
+            <h3>3. Planilhas</h3>
+            <div class="question">Compartilhar os IDs das planilhas de cada canal</div>
+            <div class="hint">Formato: Col A = estrutura, B = titulo, C = descricao, D = script, E = status</div>
+        </div>
+
+        <div class="decisao">
+            <h3>4. Para o futuro (aba Analise)</h3>
+            <div class="question">Como voce analisa copy e titulo hoje? Quais seus criterios?</div>
+            <div class="hint">Isso vai alimentar a LLM quando ativarmos a aba de analise</div>
+        </div>
+    </div>
+
+    <div class="footer">
+        Relatorio toda segunda-feira &middot; Salvo no banco &middot; Cerebro acumulativo<br>
+        <br>
+        19/02/2026 &middot; Marcelo + Micha
+    </div>
+
+</div>
+</body>
+</html>
