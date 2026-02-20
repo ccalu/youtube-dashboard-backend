@@ -6850,6 +6850,148 @@ async def dash_upload_historico_completo():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# ============================================================================
+# ANALISE DE ESTRUTURA DE COPY - MVP
+# ============================================================================
+
+from copy_analysis_agent import (
+    run_analysis as copy_run_analysis,
+    get_latest_analysis as copy_get_latest,
+    get_analysis_history as copy_get_history,
+    get_video_mappings as copy_get_mappings,
+    get_all_channels_for_analysis as copy_get_channels
+)
+
+
+@app.post("/api/analise-copy/{channel_id}")
+async def trigger_copy_analysis(channel_id: str, background_tasks: BackgroundTasks):
+    """
+    Dispara analise de estrutura de copy para um canal.
+    Roda em background e retorna imediatamente.
+    """
+    try:
+        # Rodar sincrono (analise demora ~10-30s por canal)
+        result = copy_run_analysis(channel_id)
+        return result
+    except Exception as e:
+        logger.error(f"Erro analise copy {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/analise-copy/{channel_id}/latest")
+async def get_latest_copy_analysis(channel_id: str):
+    """Retorna a analise mais recente de estrutura de copy de um canal."""
+    try:
+        result = copy_get_latest(channel_id)
+        if not result:
+            raise HTTPException(status_code=404, detail=f"Nenhuma analise encontrada para canal {channel_id}")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro buscar analise copy {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/analise-copy/{channel_id}/historico")
+async def get_copy_analysis_history(
+    channel_id: str,
+    limit: int = 20,
+    offset: int = 0
+):
+    """
+    Retorna historico de analises com paginacao.
+    Params: limit (default 20, max 100), offset (default 0)
+    """
+    try:
+        limit = min(limit, 100)
+        offset = max(offset, 0)
+        return copy_get_history(channel_id, limit=limit, offset=offset)
+    except Exception as e:
+        logger.error(f"Erro historico copy {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/analise-copy/{channel_id}/videos")
+async def get_copy_analysis_videos(
+    channel_id: str,
+    run_id: int = 0,
+    structure: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0
+):
+    """
+    Retorna mapeamento video-estrutura de uma analise com paginacao.
+    Se run_id=0, usa a analise mais recente.
+    Params: run_id, structure (filtro A-G), limit (max 200), offset
+    """
+    try:
+        if run_id == 0:
+            latest = copy_get_latest(channel_id)
+            if not latest:
+                raise HTTPException(status_code=404, detail="Nenhuma analise encontrada")
+            run_id = latest["id"]
+
+        limit = min(limit, 200)
+        offset = max(offset, 0)
+        return copy_get_mappings(run_id, limit=limit, offset=offset, structure_filter=structure)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro videos copy {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/analise-copy/run-all")
+async def run_copy_analysis_all():
+    """
+    Roda analise de copy para TODOS os canais nosso com spreadsheet configurado.
+    Retorna resumo de cada canal.
+    """
+    try:
+        channels = copy_get_channels()
+        if not channels:
+            return {"success": False, "error": "Nenhum canal encontrado com spreadsheet configurado"}
+
+        results = []
+        success_count = 0
+        error_count = 0
+
+        for ch in channels:
+            try:
+                result = copy_run_analysis(ch["channel_id"])
+                results.append({
+                    "channel_id": ch["channel_id"],
+                    "channel_name": ch.get("channel_name", ""),
+                    "success": result.get("success", False),
+                    "summary": result.get("summary"),
+                    "error": result.get("error")
+                })
+                if result.get("success"):
+                    success_count += 1
+                else:
+                    error_count += 1
+            except Exception as e:
+                results.append({
+                    "channel_id": ch["channel_id"],
+                    "channel_name": ch.get("channel_name", ""),
+                    "success": False,
+                    "error": str(e)
+                })
+                error_count += 1
+
+        return {
+            "success": True,
+            "total_channels": len(channels),
+            "success_count": success_count,
+            "error_count": error_count,
+            "results": results
+        }
+    except Exception as e:
+        logger.error(f"Erro run-all copy: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)

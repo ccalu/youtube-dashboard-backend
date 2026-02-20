@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MVP: Agente de Analise de Estrutura de Copy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a24;
+            --bg-card: #16161f;
+            --text-primary: #e8e8ed;
+            --text-secondary: #a0a0b0;
+            --text-muted: #6b6b7b;
+            --accent: #00d4aa;
+            --accent-dim: rgba(0, 212, 170, 0.15);
+            --accent-glow: rgba(0, 212, 170, 0.3);
+            --warning: #ff6b6b;
+            --warning-dim: rgba(255, 107, 107, 0.15);
+            --highlight: #ffd93d;
+            --highlight-dim: rgba(255, 217, 61, 0.1);
+            --purple: #a78bfa;
+            --purple-dim: rgba(167, 139, 250, 0.15);
+            --orange: #ff9f43;
+            --orange-dim: rgba(255, 159, 67, 0.15);
+            --blue: #54a0ff;
+            --blue-dim: rgba(84, 160, 255, 0.15);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-accent: rgba(0, 212, 170, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.8;
+            font-size: 16px;
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 300px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            padding: 2rem 1.5rem;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            margin-bottom: 2rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sidebar-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--accent);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .sidebar-subtitle {
+            font-size: 1rem;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .nav-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .nav-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+        }
+
+        .nav-link {
+            display: block;
+            padding: 0.6rem 0.75rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.85rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            margin-bottom: 0.25rem;
+        }
+
+        .nav-link:hover {
+            background: var(--accent-dim);
+            color: var(--accent);
+        }
+
+        /* Main content */
+        .main {
+            flex: 1;
+            margin-left: 300px;
+            padding: 3rem 4rem;
+            max-width: 1000px;
+        }
+
+        /* Typography */
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            line-height: 1.2;
+        }
+
+        h1 .accent {
+            color: var(--accent);
+        }
+
+        h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-top: 3.5rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--accent);
+            display: inline-block;
+        }
+
+        h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        h4 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        p {
+            margin-bottom: 1.5rem;
+            color: var(--text-secondary);
+        }
+
+        strong {
+            color: var(--text-primary);
+        }
+
+        /* Insight boxes */
+        .insight-box {
+            background: linear-gradient(135deg, var(--accent-dim) 0%, transparent 100%);
+            border-left: 3px solid var(--accent);
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+            font-weight: 500;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .insight-box.warning {
+            background: linear-gradient(135deg, var(--warning-dim) 0%, transparent 100%);
+            border-left-color: var(--warning);
+        }
+
+        .insight-box.highlight {
+            background: linear-gradient(135deg, var(--highlight-dim) 0%, transparent 100%);
+            border-left-color: var(--highlight);
+        }
+
+        .insight-box.purple {
+            background: linear-gradient(135deg, var(--purple-dim) 0%, transparent 100%);
+            border-left-color: var(--purple);
+        }
+
+        .insight-box.orange {
+            background: linear-gradient(135deg, var(--orange-dim) 0%, transparent 100%);
+            border-left-color: var(--orange);
+        }
+
+        .insight-box.blue {
+            background: linear-gradient(135deg, var(--blue-dim) 0%, transparent 100%);
+            border-left-color: var(--blue);
+        }
+
+        /* Highlight card */
+        .highlight-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-accent);
+            border-radius: 12px;
+            padding: 2rem;
+            margin: 2.5rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .highlight-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent), transparent);
+        }
+
+        .highlight-card .label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--accent);
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .highlight-card p {
+            color: var(--text-primary);
+            font-size: 1.1rem;
+            margin-bottom: 0;
+        }
+
+        /* Divider */
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, var(--accent), transparent);
+            margin: 3rem 0;
+        }
+
+        /* Meta info */
+        .meta {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Decision table */
+        .decision-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+            font-size: 0.9rem;
+        }
+
+        .decision-table th {
+            background: var(--bg-tertiary);
+            color: var(--accent);
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 2px solid var(--accent);
+        }
+
+        .decision-table td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        .decision-table tr:hover td {
+            background: var(--bg-tertiary);
+        }
+
+        .decision-table td:first-child {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        /* Flow diagram */
+        .flow-diagram {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .flow-step {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .flow-step:last-child {
+            margin-bottom: 0;
+        }
+
+        .flow-step-header {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+            padding: 0.4rem 0.75rem;
+            border-radius: 4px;
+            display: inline-block;
+            margin-bottom: 0.75rem;
+        }
+
+        .flow-step-header.green {
+            background: var(--accent-dim);
+            color: var(--accent);
+        }
+
+        .flow-step-header.yellow {
+            background: var(--highlight-dim);
+            color: var(--highlight);
+        }
+
+        .flow-step-header.blue {
+            background: var(--blue-dim);
+            color: var(--blue);
+        }
+
+        .flow-step-header.purple {
+            background: var(--purple-dim);
+            color: var(--purple);
+        }
+
+        .flow-step-header.orange {
+            background: var(--orange-dim);
+            color: var(--orange);
+        }
+
+        .flow-step-content {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .flow-step-output {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .flow-arrow {
+            text-align: center;
+            color: var(--accent);
+            font-size: 1.5rem;
+            margin: 0.5rem 0;
+        }
+
+        /* Code block */
+        .code-block {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+
+        .code-block .accent {
+            color: var(--accent);
+        }
+
+        .code-block .warning {
+            color: var(--warning);
+        }
+
+        .code-block .highlight {
+            color: var(--highlight);
+        }
+
+        .code-block .purple {
+            color: var(--purple);
+        }
+
+        .code-block .blue {
+            color: var(--blue);
+        }
+
+        .code-block .orange {
+            color: var(--orange);
+        }
+
+        .code-block .muted {
+            color: var(--text-muted);
+        }
+
+        /* Status list */
+        .status-list {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .status-item:last-child {
+            border-bottom: none;
+        }
+
+        .status-icon {
+            font-size: 1.25rem;
+        }
+
+        .status-text {
+            color: var(--text-secondary);
+        }
+
+        .status-text strong {
+            color: var(--text-primary);
+        }
+
+        /* Tags */
+        .tag {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-right: 0.5rem;
+        }
+
+        .tag.green {
+            background: var(--accent-dim);
+            color: var(--accent);
+        }
+
+        .tag.yellow {
+            background: var(--highlight-dim);
+            color: var(--highlight);
+        }
+
+        .tag.orange {
+            background: var(--orange-dim);
+            color: var(--orange);
+        }
+
+        .tag.red {
+            background: var(--warning-dim);
+            color: var(--warning);
+        }
+
+        .tag.blue {
+            background: var(--blue-dim);
+            color: var(--blue);
+        }
+
+        .tag.purple {
+            background: var(--purple-dim);
+            color: var(--purple);
+        }
+
+        /* Final statement */
+        .final-statement {
+            background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-tertiary) 100%);
+            border: 2px solid var(--accent);
+            border-radius: 16px;
+            padding: 2.5rem;
+            margin: 3rem 0;
+            text-align: center;
+        }
+
+        .final-statement .big-text {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .final-statement p {
+            color: var(--text-primary);
+            font-size: 1.15rem;
+            margin-bottom: 0;
+        }
+
+        /* Variable box */
+        .variable-box {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            margin: 1rem 0;
+        }
+
+        .variable-title {
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+
+        .variable-list {
+            color: var(--text-secondary);
+            padding-left: 1.25rem;
+        }
+
+        .variable-list li {
+            margin-bottom: 0.25rem;
+        }
+
+        /* Phase indicator */
+        .phase-indicator {
+            display: flex;
+            gap: 0.5rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+
+        .phase {
+            flex: 1;
+            min-width: 150px;
+            padding: 1rem;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid transparent;
+        }
+
+        .phase.active {
+            border-color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        .phase-number {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+        }
+
+        .phase.active .phase-number {
+            color: var(--accent);
+        }
+
+        .phase-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .phase.active .phase-name {
+            color: var(--text-primary);
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .sidebar {
+                display: none;
+            }
+            .main {
+                margin-left: 0;
+                padding: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">Analise Automatica de Canais</div>
+                <div class="sidebar-subtitle">MVP: Estrutura de Copy</div>
+            </div>
+
+            <nav class="nav-section">
+                <div class="nav-label">Contexto</div>
+                <a href="#problema" class="nav-link">O Problema</a>
+                <a href="#variaveis" class="nav-link">Variaveis e Metricas</a>
+            </nav>
+
+            <nav class="nav-section">
+                <div class="nav-label">Decisoes de Design</div>
+                <a href="#decisoes" class="nav-link">Tabela de Decisoes</a>
+                <a href="#fontes" class="nav-link">Fontes de Dados</a>
+            </nav>
+
+            <nav class="nav-section">
+                <div class="nav-label">Logica de Analise</div>
+                <a href="#coleta" class="nav-link">Coleta e Filtros</a>
+                <a href="#agregacao" class="nav-link">Agregacao</a>
+                <a href="#classificacao" class="nav-link">Classificacao</a>
+                <a href="#anomalias" class="nav-link">Anomalias</a>
+                <a href="#temporal" class="nav-link">Comparacao Temporal</a>
+            </nav>
+
+            <nav class="nav-section">
+                <div class="nav-label">Output</div>
+                <a href="#relatorio" class="nav-link">Formato do Relatorio</a>
+                <a href="#memoria" class="nav-link">Memoria Acumulativa</a>
+            </nav>
+
+            <nav class="nav-section">
+                <div class="nav-label">Futuro</div>
+                <a href="#limites" class="nav-link">Limites do MVP</a>
+                <a href="#evolucoes" class="nav-link">Evolucoes Futuras</a>
+            </nav>
+        </aside>
+
+        <main class="main">
+            <h1><span class="accent">&#128202;</span> MVP: AGENTE DE ANALISE DE <span class="accent">ESTRUTURA DE COPY</span></h1>
+
+            <p class="meta">Especificacao do Agente Inicial &bull; Fevereiro 2026 &bull; Status: Brainstorm Concluido</p>
+
+            <section id="problema">
+                <h2>O PROBLEMA</h2>
+
+                <p>Temos multiplos canais do YouTube em diferentes idiomas e subnichos. Cada canal recebe conteudo produzido com diferentes <strong>estruturas de copywriting</strong> (A-G dependendo do subnicho), diferentes micronichos, diferentes estruturas de titulo e diferentes temas.</p>
+
+                <p>Conforme os canais crescem, videos viralizam e outros flopam. Precisamos entender <strong>quais variaveis subjetivas</strong> do conteudo correlacionam com <strong>quais metricas objetivas</strong> de performance.</p>
+
+                <div class="insight-box">
+                    <strong>Objetivo:</strong> Entender quais estruturas de copy funcionam e quais nao funcionam em cada canal, com dados empiricos acumulados ao longo do tempo.
+                </div>
+
+                <div class="highlight-card">
+                    <div class="label">Escopo do MVP</div>
+                    <p><strong>1 unica variavel subjetiva:</strong> Estrutura de Copy</p>
+                    <p style="margin-top: 0.75rem;"><strong>Cruzada com:</strong> Metricas objetivas do YouTube (retencao, watch time, views)</p>
+                    <p style="margin-top: 0.75rem;"><strong>Escopo:</strong> 1 agente especializado por canal</p>
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <section id="variaveis">
+                <h2>VARIAVEIS E METRICAS</h2>
+
+                <h3>Variaveis Subjetivas (o que controlamos)</h3>
+
+                <div class="variable-box">
+                    <div class="variable-title">&#9989; Estrutura de Copy (MVP)</div>
+                    <ul class="variable-list">
+                        <li>Abordagem narrativa do script (A-G)</li>
+                        <li>Ja registrada na <strong>coluna A</strong> das planilhas de producao</li>
+                    </ul>
+                </div>
+
+                <div class="variable-box">
+                    <div class="variable-title" style="color: var(--text-muted);">&#128338; Micronicho (futuro)</div>
+                    <ul class="variable-list">
+                        <li>Subcategoria tematica dentro do nicho</li>
+                    </ul>
+                </div>
+
+                <div class="variable-box">
+                    <div class="variable-title" style="color: var(--text-muted);">&#128338; Estrutura de Titulo (futuro)</div>
+                    <ul class="variable-list">
+                        <li>Padrao/formula do titulo do video</li>
+                    </ul>
+                </div>
+
+                <div class="variable-box">
+                    <div class="variable-title" style="color: var(--text-muted);">&#128338; Tema e Adequacao Cultural (futuro)</div>
+                    <ul class="variable-list">
+                        <li>Assunto especifico + fit com audiencia local</li>
+                    </ul>
+                </div>
+
+                <h3>Metricas Objetivas (o que o YouTube nos da)</h3>
+
+                <div class="status-list">
+                    <div class="status-item">
+                        <span class="status-icon"><span class="tag green">PRIMARIA</span></span>
+                        <span class="status-text"><strong>Retencao media %</strong> &mdash; mede qualidade do CONTEUDO/SCRIPT diretamente</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-icon"><span class="tag blue">CONTEXTO</span></span>
+                        <span class="status-text"><strong>Watch time medio (min)</strong> &mdash; engajamento absoluto (contextualiza retencao vs duracao)</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-icon"><span class="tag blue">CONTEXTO</span></span>
+                        <span class="status-text"><strong>Views totais</strong> &mdash; dimensao de alcance</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-icon"><span class="tag yellow">INFO</span></span>
+                        <span class="status-text"><strong>Duracao do video</strong> &mdash; para contextualizar comparacoes de retencao</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-icon"><span class="tag yellow">INFO</span></span>
+                        <span class="status-text"><strong>Data de publicacao</strong> &mdash; para filtro de maturidade (7+ dias)</span>
+                    </div>
+                </div>
+
+                <div class="insight-box purple">
+                    <strong>Por que retencao e a metrica primaria?</strong> Estrutura de copy afeta diretamente a retencao (como a historia e contada segura ou nao a pessoa). NAO afeta CTR (isso e titulo + thumbnail). Portanto, retencao e o indicador mais puro de performance da copy.
+                </div>
+
+                <div class="insight-box highlight">
+                    <strong>Sobre duracao variavel:</strong> Videos dentro do mesmo canal variam bastante em duracao. Retencao % e inversamente correlacionada com duracao (video de 8min tem retencao % naturalmente maior que de 18min). Por isso o relatorio mostra <strong>retencao % E watch time lado a lado</strong> para evitar distorcoes.
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <section id="decisoes">
+                <h2>DECISOES DE DESIGN</h2>
+
+                <table class="decision-table">
+                    <thead>
+                        <tr>
+                            <th>Aspecto</th>
+                            <th>Decisao</th>
+                            <th>Motivo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Escopo</td>
+                            <td>1 agente por canal</td>
+                            <td>Cada canal tem audiencia e dinamica proprias</td>
+                        </tr>
+                        <tr>
+                            <td>Variavel subjetiva</td>
+                            <td>Estrutura de copy (unica)</td>
+                            <td>MVP focado, outras variaveis em agentes futuros</td>
+                        </tr>
+                        <tr>
+                            <td>Metrica primaria</td>
+                            <td>Retencao media %</td>
+                            <td>Copy afeta retencao, nao CTR</td>
+                        </tr>
+                        <tr>
+                            <td>Metricas complementares</td>
+                            <td>Watch time + Views</td>
+                            <td>Watch time contextualiza duracao; views da alcance</td>
+                        </tr>
+                        <tr>
+                            <td>Referencial</td>
+                            <td>Media do canal</td>
+                            <td>Se auto-ajusta conforme o canal cresce</td>
+                        </tr>
+                        <tr>
+                            <td>Maturidade minima</td>
+                            <td>7 dias</td>
+                            <td>1 semana completa para dados confiaveis</td>
+                        </tr>
+                        <tr>
+                            <td>Amostra minima</td>
+                            <td>3 videos por estrutura</td>
+                            <td>Abaixo de 3 = "dados insuficientes"</td>
+                        </tr>
+                        <tr>
+                            <td>Consistencia</td>
+                            <td>Info extra (nao entra no ranking)</td>
+                            <td>Mencionada nas observacoes quando relevante</td>
+                        </tr>
+                        <tr>
+                            <td>Anomalias</td>
+                            <td>Reportar + flaggar</td>
+                            <td>Nao tenta explicar, so sinaliza para investigacao</td>
+                        </tr>
+                        <tr>
+                            <td>Recomendacoes</td>
+                            <td>Nao</td>
+                            <td>So dados e observacoes. Decisao e humana</td>
+                        </tr>
+                        <tr>
+                            <td>Frequencia</td>
+                            <td>Sob demanda</td>
+                            <td>Roda quando o usuario quiser</td>
+                        </tr>
+                        <tr>
+                            <td>Formato output</td>
+                            <td>Ranking + contexto narrativo</td>
+                            <td>Numeros + interpretacao textual</td>
+                        </tr>
+                        <tr>
+                            <td>Memoria</td>
+                            <td>Banco acumulativo + resumo anterior</td>
+                            <td>Tendencias ao longo do tempo</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <div class="divider"></div>
+
+            <section id="fontes">
+                <h2>FONTES DE DADOS</h2>
+
+                <h3>YouTube API (metricas objetivas)</h3>
+
+                <div class="status-list">
+                    <div class="status-item">
+                        <span class="status-icon">&#128202;</span>
+                        <span class="status-text"><strong>Retencao media %</strong> &mdash; principal metrica de ranking</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-icon">&#9200;</span>
+                        <span class="status-text"><strong>Watch time medio</strong> &mdash; engajamento absoluto (minutos)</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-icon">&#128065;</span>
+                        <span class="status-text"><strong>Views totais</strong> &mdash; dimensao de alcance</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-icon">&#128247;</span>
+                        <span class="status-text"><strong>Duracao do video</strong> &mdash; para contextualizar retencao %</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-icon">&#128197;</span>
+                        <span class="status-text"><strong>Data de publicacao</strong> &mdash; para filtro de maturidade (7+ dias)</span>
+                    </div>
+                </div>
+
+                <h3>Planilha de Producao (variavel subjetiva)</h3>
+
+                <div class="insight-box">
+                    <strong>Coluna A</strong> &mdash; Letra da estrutura de copy (A, B, C, D, E, F, G). Ja populada automaticamente pelo sistema de upload de scripts.
+                </div>
+
+                <div class="insight-box blue">
+                    <strong>Matching:</strong> O agente cruza videos do YouTube com a planilha de producao por titulo do video ou video ID (a definir na implementacao tecnica).
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <section id="coleta">
+                <h2>LOGICA DE ANALISE</h2>
+
+                <h3>Passo 1: Coleta e Filtros</h3>
+
+                <div class="flow-diagram">
+                    <div class="flow-step">
+                        <div class="flow-step-header green">COLETA</div>
+                        <div class="flow-step-content">
+                            Puxar lista de videos do canal via YouTube API<br>
+                            Para cada video: retencao %, watch time, views, duracao, data publicacao
+                        </div>
+                    </div>
+                    <div class="flow-arrow">&darr;</div>
+                    <div class="flow-step">
+                        <div class="flow-step-header yellow">FILTRO DE MATURIDADE</div>
+                        <div class="flow-step-content">
+                            Somente videos com <strong>7+ dias</strong> desde publicacao<br>
+                            Videos mais recentes sao excluidos (dados ainda nao confiaveis)
+                        </div>
+                    </div>
+                    <div class="flow-arrow">&darr;</div>
+                    <div class="flow-step">
+                        <div class="flow-step-header blue">CRUZAMENTO</div>
+                        <div class="flow-step-content">
+                            Cruzar cada video com planilha de producao<br>
+                            Obter estrutura de copy (coluna A) para cada video
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="agregacao">
+                <h3>Passo 2: Agregacao por Estrutura</h3>
+
+                <div class="flow-diagram">
+                    <div class="flow-step">
+                        <div class="flow-step-header purple">AGRUPAMENTO</div>
+                        <div class="flow-step-content">
+                            Agrupar videos por estrutura de copy (A, B, C, D, E, F, G)<br>
+                            Contar numero de videos (N) por estrutura
+                        </div>
+                    </div>
+                    <div class="flow-arrow">&darr;</div>
+                    <div class="flow-step">
+                        <div class="flow-step-header orange">FILTRO DE AMOSTRA</div>
+                        <div class="flow-step-content">
+                            Se N &lt; 3 &rarr; mover para secao <strong>"dados insuficientes"</strong><br>
+                            Se N &ge; 3 &rarr; calcular metricas agregadas
+                        </div>
+                    </div>
+                    <div class="flow-arrow">&darr;</div>
+                    <div class="flow-step">
+                        <div class="flow-step-header green">CALCULO</div>
+                        <div class="flow-step-content">
+                            Para cada estrutura com 3+ videos:<br>
+                            &bull; Retencao media %<br>
+                            &bull; Watch time medio (minutos)<br>
+                            &bull; Views media<br>
+                            &bull; Duracao media<br>
+                            &bull; Desvio da retencao (para nota de consistencia)
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="classificacao">
+                <h3>Passo 3: Classificacao</h3>
+
+                <div class="insight-box">
+                    <strong>Referencial = Media do canal.</strong> Calcular media GERAL de retencao de todos os videos analisados. Cada estrutura e comparada contra essa media.
+                </div>
+
+                <div class="status-list">
+                    <div class="status-item">
+                        <span class="status-icon"><span class="tag green">ACIMA</span></span>
+                        <span class="status-text">Retencao da estrutura <strong>acima</strong> da media geral do canal</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-icon"><span class="tag yellow">MEDIA</span></span>
+                        <span class="status-text">Retencao dentro de uma margem pequena da media</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-icon"><span class="tag red">ABAIXO</span></span>
+                        <span class="status-text">Retencao da estrutura <strong>abaixo</strong> da media geral do canal</span>
+                    </div>
+                </div>
+
+                <p>Ranking final: estruturas ordenadas por retencao media % (maior para menor).</p>
+            </section>
+
+            <section id="anomalias">
+                <h3>Passo 4: Deteccao de Anomalias</h3>
+
+                <p>Para cada estrutura, verificar se existe algum video que foge significativamente do padrao:</p>
+
+                <div class="status-list">
+                    <div class="status-item">
+                        <span class="status-icon">&#128200;</span>
+                        <span class="status-text">Views <strong>significativamente acima</strong> da media da estrutura (ex: 5x+)</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-icon">&#128201;</span>
+                        <span class="status-text">Views significativamente <strong>abaixo</strong> da media da estrutura</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-icon">&#128203;</span>
+                        <span class="status-text">Retencao <strong>muito diferente</strong> dos demais videos da mesma estrutura</span>
+                    </div>
+                </div>
+
+                <div class="insight-box warning">
+                    <strong>Tratamento:</strong> Anomalias sao reportadas como FATO + FLAGGED para investigacao manual. O agente NAO tenta explicar por que o video destoou.
+                </div>
+            </section>
+
+            <section id="temporal">
+                <h3>Passo 5: Comparacao Temporal</h3>
+
+                <p>Se existe analise anterior, o agente compara:</p>
+
+                <div class="status-list">
+                    <div class="status-item">
+                        <span class="status-icon">&#8593;</span>
+                        <span class="status-text">Retencao media de cada estrutura: <strong>subiu, caiu, ou estavel</strong></span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-icon">&#8645;</span>
+                        <span class="status-text">Ranking: alguma estrutura <strong>mudou de posicao</strong></span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-icon">&#10024;</span>
+                        <span class="status-text">Estruturas novas que entraram no ranking (atingiram 3+ videos)</span>
+                    </div>
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <section id="relatorio">
+                <h2>FORMATO DO RELATORIO</h2>
+
+                <div class="insight-box purple">
+                    <strong>Formato escolhido: Ranking + Contexto Narrativo.</strong> Tabela com numeros para referencia rapida + paragrafos explicando o que os dados significam e o que observar.
+                </div>
+
+                <div class="code-block"><span class="accent">&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;</span>
+<span class="accent">RELATORIO [NOME DO CANAL] | DD-MM-AAAA</span>
+<span class="accent">&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;&#9552;</span>
+
+<span class="muted">Videos analisados:</span> X <span class="muted">(de Y total, Z excluidos por maturidade &lt;7 dias)</span>
+<span class="muted">Periodo:</span> DD-MM a DD-MM
+<span class="muted">Media geral do canal:</span> <span class="highlight">XX%</span> retencao | X.X min watch time | XK views
+
+<span class="accent">&#9472;&#9472;&#9472; RANKING POR ESTRUTURA DE COPY &#9472;&#9472;&#9472;</span>
+
+ #  Estrutura   Ret%    Watch Time   Views Med   Videos   Status
+ 1  A           <span class="accent">42%</span>     5.2 min      45K         5        <span class="accent">Acima</span>
+ 2  C           38%     4.8 min      32K         4        <span class="highlight">Media</span>
+ 3  B           36%     4.5 min      28K         5        <span class="highlight">Media</span>
+ 4  E           34%     4.1 min      22K         4        <span class="highlight">Media</span>
+ 5  D           33%     3.9 min      20K         3        <span class="warning">Abaixo</span>
+ 6  F           <span class="warning">28%</span>     3.1 min      18K         6        <span class="warning">Abaixo</span>
+
+<span class="accent">&#9472;&#9472;&#9472; OBSERVACOES &#9472;&#9472;&#9472;</span>
+
+<span class="purple">Estrutura A lidera com margem consistente (+6% acima da media).
+Todos os 5 videos performaram acima da media, sem excecoes.
+Watch time tambem o mais alto do canal.</span>
+
+<span class="warning">Estrutura F e a pior em retencao, consistentemente abaixo da media.
+POREM, anomalia detectada &#8212; ver secao abaixo.</span>
+
+<span class="orange">Estrutura D mostra alta volatilidade &#8212; retencao varia de 22%
+a 48% entre videos, sugerindo que performance depende mais do
+tema/titulo do que da estrutura em si.</span>
+
+<span class="accent">&#9472;&#9472;&#9472; ANOMALIAS (FLAGGED) &#9472;&#9472;&#9472;</span>
+
+<span class="warning">&#9888;</span> <span class="highlight">Estrutura F &#8212; Video "Titulo do Video"</span>
+   Retencao: 35% (vs 26% media da estrutura)
+   Views: 300K (vs 18K media da estrutura &#8212; <span class="warning">16.7x acima</span>)
+   Publicado: DD-MM-AAAA
+   NOTA: Unico video da Estrutura F acima da media do canal
+
+<span class="accent">&#9472;&#9472;&#9472; DADOS INSUFICIENTES (&lt;3 videos) &#9472;&#9472;&#9472;</span>
+
+ Estrutura   Videos   Ret% (parcial)   Nota
+ G           1        41%              Aguardando mais videos
+
+<span class="accent">&#9472;&#9472;&#9472; vs. ANALISE ANTERIOR (DD-MM-AAAA) &#9472;&#9472;&#9472;</span>
+
+ Estrutura   Anterior   Atual   Variacao   Ranking
+ A           39%        <span class="accent">42%</span>     <span class="accent">+3%</span>        Manteve 1o
+ C           37%        38%     +1%        Manteve 2o
+ F           31%        <span class="warning">28%</span>     <span class="warning">-3%</span>        Caiu 5o&#8594;6o
+
+<span class="purple">Estrutura A consolida lideranca pela segunda analise
+consecutiva. Estrutura F continua em queda.</span></div>
+            </section>
+
+            <div class="divider"></div>
+
+            <section id="memoria">
+                <h2>MEMORIA ACUMULATIVA</h2>
+
+                <h3>Banco de Dados (arquivo estruturado)</h3>
+
+                <div class="insight-box">
+                    Arquivo JSON ou CSV que armazena, para <strong>cada rodada</strong> de analise: data, metricas por estrutura (retencao %, watch time, views, N videos, status), media geral do canal, lista de anomalias.
+                </div>
+
+                <p>Isso permite ao agente consultar o <strong>historico completo</strong> e identificar tendencias de longo prazo:</p>
+
+                <div class="highlight-card">
+                    <div class="label">Exemplo de Insight Temporal</div>
+                    <p>"Estrutura A tem melhorado consistentemente nos ultimos 3 meses: 35% &rarr; 39% &rarr; 42%. Estrutura F tem declinado: 34% &rarr; 31% &rarr; 28%."</p>
+                </div>
+
+                <h3>Resumo da Ultima Analise</h3>
+
+                <div class="insight-box blue">
+                    O relatorio mais recente fica disponivel como referencia rapida para a secao <strong>"vs. Analise Anterior"</strong> do proximo relatorio. Permite comparacao imediata sem precisar consultar todo o historico.
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <section id="limites">
+                <h2>LIMITES DO MVP</h2>
+
+                <p>Escopo deliberadamente reduzido. O que este agente <strong>NAO</strong> faz:</p>
+
+                <div class="status-list">
+                    <div class="status-item">
+                        <span class="status-icon">&#10060;</span>
+                        <span class="status-text">Nao analisa <strong>micronichos</strong> (qual tema performa melhor)</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-icon">&#10060;</span>
+                        <span class="status-text">Nao analisa <strong>estruturas de titulo</strong> (qual padrao gera mais CTR)</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-icon">&#10060;</span>
+                        <span class="status-text">Nao analisa <strong>adequacao cultural</strong> (temas locais vs. universais)</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-icon">&#10060;</span>
+                        <span class="status-text">Nao explica <strong>por que</strong> um video viralizou ou flopou</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-icon">&#10060;</span>
+                        <span class="status-text">Nao compara entre <strong>canais/idiomas</strong></span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-icon">&#10060;</span>
+                        <span class="status-text">Nao sugere <strong>novos conteudos</strong></span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-icon">&#10060;</span>
+                        <span class="status-text">Nao da <strong>recomendacoes</strong> de acao (so dados + observacoes)</span>
+                    </div>
+                </div>
+
+                <div class="insight-box warning">
+                    <strong>Cada um desses itens e candidato a agente futuro.</strong> O MVP faz uma coisa bem feita. Complexidade e adicionada incrementalmente.
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <section id="evolucoes">
+                <h2>EVOLUCOES FUTURAS</h2>
+
+                <div class="phase-indicator">
+                    <div class="phase active">
+                        <div class="phase-number">Fase 1</div>
+                        <div class="phase-name">MVP Copy</div>
+                    </div>
+                    <div class="phase">
+                        <div class="phase-number">Fase 2</div>
+                        <div class="phase-name">Retencao Avancada</div>
+                    </div>
+                    <div class="phase">
+                        <div class="phase-number">Fase 3</div>
+                        <div class="phase-name">Multi-Agente</div>
+                    </div>
+                    <div class="phase">
+                        <div class="phase-number">Fase 4</div>
+                        <div class="phase-name">Cross-Agent</div>
+                    </div>
+                </div>
+
+                <h3>Fase 2: Retencao por Pontos-Chave</h3>
+
+                <div class="insight-box">
+                    Analisar retencao em marcos especificos (<strong>30s, 1min, 3min, 5min, 50%, fim</strong>) para diagnosticar ONDE a audiencia desiste. Permite avaliar a forca do hook, do meio, e do fechamento separadamente.
+                </div>
+
+                <h3>Fase 3: Agentes Especializados</h3>
+
+                <div class="insight-box purple">
+                    <strong>Agente de Micronichos:</strong> Cruza performance com micronicho/tema do video
+                </div>
+
+                <div class="insight-box blue">
+                    <strong>Agente de Titulos:</strong> Analisa padroes de titulo vs. CTR
+                </div>
+
+                <div class="insight-box orange">
+                    <strong>Agente Cultural:</strong> Analisa adequacao de temas por mercado/idioma
+                </div>
+
+                <h3>Fase 4: Cross-Agent Intelligence</h3>
+
+                <div class="highlight-card">
+                    <div class="label">Visao de Longo Prazo</div>
+                    <p>Agentes se comunicam e cruzam insights entre si. Exemplo: "Estrutura A performa bem, ESPECIALMENTE quando combinada com micronicho X e estrutura de titulo Y em mercados de lingua latina."</p>
+                </div>
+
+                <div class="final-statement">
+                    <div class="big-text">DADOS &rarr; PADROES &rarr; DECISOES MELHORES</div>
+                    <p>O MVP e o primeiro tijolo. Cada fase adiciona uma camada de inteligencia que se acumula ao longo do tempo.</p>
+                </div>
+
+                <p class="meta" style="margin-top: 3rem; text-align: center;">
+                    Documento criado: Fevereiro 2026 &bull; Versao: 1.0 &bull; Status: Especificacao pronta para implementacao
+                </p>
+            </section>
+        </main>
+    </div>
+</body>
+</html>

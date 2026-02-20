@@ -1,7 +1,8 @@
 """
-Coleta OAuth de Métricas de Monetização
+Coleta OAuth de Métricas via YouTube Analytics API
 Roda automaticamente no Railway às 5 AM
-Coleta revenue REAL via YouTube Analytics API (OAuth)
+- Canais monetizados: revenue + analytics completo
+- Canais nao-monetizados (com OAuth): analytics (retencao, views, watch time)
 """
 import os
 import sys
@@ -57,14 +58,36 @@ SUPABASE_HEADERS = {
 # =============================================================================
 
 def get_channels():
-    """Busca todos os canais monetizados no Supabase"""
+    """Busca todos os canais com tokens OAuth (monetizados + nao-monetizados)"""
+    # Passo 1: Buscar todos channel_ids que possuem tokens OAuth
+    resp_tokens = requests.get(
+        f"{SUPABASE_URL}/rest/v1/yt_oauth_tokens",
+        params={"select": "channel_id"},
+        headers={"apikey": AUTH_KEY, "Authorization": f"Bearer {AUTH_KEY}"}
+    )
+    if resp_tokens.status_code != 200 or not resp_tokens.json():
+        log.error(f"Erro ao buscar tokens OAuth: {resp_tokens.text if resp_tokens.status_code != 200 else 'nenhum token'}")
+        return []
+
+    channel_ids = list(set(t["channel_id"] for t in resp_tokens.json() if t.get("channel_id")))
+    if not channel_ids:
+        return []
+
+    # Passo 2: Buscar info dos canais
+    ids_str = ",".join(channel_ids)
     resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/yt_channels",
-        params={"is_monetized": "eq.true"},
+        params={
+            "channel_id": f"in.({ids_str})",
+            "select": "channel_id,channel_name,proxy_name,is_monetized,subnicho"
+        },
         headers={"apikey": AUTH_KEY, "Authorization": f"Bearer {AUTH_KEY}"}
     )
     if resp.status_code == 200:
-        return resp.json()
+        channels = resp.json()
+        monetized = sum(1 for c in channels if c.get("is_monetized"))
+        log.info(f"Canais com OAuth: {len(channels)} total ({monetized} monetizados, {len(channels) - monetized} nao-monetizados)")
+        return channels
     log.error(f"Erro ao buscar canais: {resp.text}")
     return []
 
@@ -189,17 +212,20 @@ def collect_country_metrics(channel_id, access_token, start_date, end_date):
     return resp.json().get("rows", [])
 
 def collect_video_metrics(channel_id, access_token, start_date, end_date):
-    """Coleta métricas por vídeo"""
+    """
+    Coleta métricas de analytics por vídeo (retencao, watch time, views).
+    Views/likes/comments ja sao coletados pelo collector.py (Data API v3) em videos_historico.
+    Retorna: [video_id, views, avgViewDuration, avgViewPercentage, cardClickRate]
+    """
     headers = {"Authorization": f"Bearer {access_token}"}
 
-    # Buscar métricas
     resp = requests.get(
         "https://youtubeanalytics.googleapis.com/v2/reports",
         params={
             "ids": f"channel=={channel_id}",
             "startDate": start_date,
             "endDate": end_date,
-            "metrics": "estimatedRevenue,views,likes,comments,subscribersGained,averageViewDuration,averageViewPercentage,cardClickRate",
+            "metrics": "views,averageViewDuration,averageViewPercentage,cardClickRate",
             "dimensions": "video",
             "sort": "-views",
             "maxResults": "50"
@@ -208,15 +234,10 @@ def collect_video_metrics(channel_id, access_token, start_date, end_date):
     )
 
     if resp.status_code != 200:
-        log.error(f"Erro métricas vídeo: {resp.status_code}")
+        log.error(f"Erro métricas vídeo: {resp.status_code} - {resp.text[:200]}")
         return []
 
-    rows = resp.json().get("rows", [])
-
-    # Títulos removidos - OAuth não deve usar YouTube Data API v3
-    # Videos serão salvos apenas com video_id e métricas
-
-    return rows
+    return resp.json().get("rows", [])
 
 # =============================================================================
 # NOVAS FUNÇÕES DE COLETA - ANALYTICS AVANÇADO
@@ -464,18 +485,20 @@ def save_country_metrics(channel_id, rows, date):
     return saved
 
 def save_video_metrics(channel_id, rows):
-    """Salva métricas por vídeo no Supabase (tabela atual - valores totais)"""
+    """
+    Salva métricas de analytics por vídeo no Supabase.
+    Formato row: [video_id, views, avgViewDuration, avgViewPercentage, cardClickRate]
+    Likes/comments/subscribers ja coletados pelo collector.py em videos_historico.
+    """
     saved = 0
     for row in rows:
         data = {
             "channel_id": channel_id,
             "video_id": row[0],
-            "revenue": float(row[1]),
-            "views": int(row[2]),
-            "likes": int(row[3]),
-            "comments": int(row[4]),
-            "subscribers_gained": int(row[5]),
-            "title": "",  # Titulo removido - OAuth nao usa Data API v3
+            "views": int(row[1]),
+            "avg_view_duration": float(row[2]) if len(row) > 2 else None,
+            "avg_retention_pct": float(row[3]) if len(row) > 3 else None,
+            "card_click_rate": float(row[4]) if len(row) > 4 else None,
             "updated_at": datetime.now().isoformat()
         }
 
@@ -490,19 +513,20 @@ def save_video_metrics(channel_id, rows):
     return saved
 
 def save_video_daily(channel_id, rows, date):
-    """Salva histórico diário por vídeo no Supabase"""
+    """
+    Salva histórico diário de analytics por vídeo no Supabase.
+    Formato row: [video_id, views, avgViewDuration, avgViewPercentage, cardClickRate]
+    """
     saved = 0
     for row in rows:
         data = {
             "channel_id": channel_id,
             "video_id": row[0],
             "date": date,
-            "revenue": float(row[1]),
-            "views": int(row[2]),
-            "likes": int(row[3]),
-            "comments": int(row[4]),
-            "subscribers_gained": int(row[5]),
-            "title": ""  # Titulo removido - OAuth nao usa Data API v3
+            "views": int(row[1]),
+            "avg_view_duration": float(row[2]) if len(row) > 2 else None,
+            "avg_retention_pct": float(row[3]) if len(row) > 3 else None,
+            "card_click_rate": float(row[4]) if len(row) > 4 else None,
         }
 
         resp = requests.post(
@@ -709,11 +733,13 @@ def save_device_metrics(channel_id, date, rows):
 
 async def collect_oauth_metrics():
     """
-    Coleta métricas OAuth dos canais monetizados
+    Coleta métricas OAuth de TODOS canais com tokens OAuth.
+    - Monetizados: revenue + analytics completo
+    - Nao-monetizados: analytics (retencao, views, watch time)
     Chamado automaticamente pelo scheduler às 5 AM
     """
     log.info("=" * 60)
-    log.info("INICIANDO COLETA OAUTH (REVENUE REAL)")
+    log.info("INICIANDO COLETA OAUTH (ANALYTICS + REVENUE)")
     log.info("=" * 60)
 
     # Datas - Ajustado para delay do YouTube (2-3 dias)
@@ -721,9 +747,9 @@ async def collect_oauth_metrics():
     end_date = (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d")
     start_date = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d")
 
-    # Buscar canais
+    # Buscar canais (todos com OAuth tokens)
     channels = get_channels()
-    log.info(f"Canais monetizados: {len(channels)}")
+    log.info(f"Canais para coletar: {len(channels)}")
 
     success_count = 0
     error_count = 0
@@ -732,11 +758,13 @@ async def collect_oauth_metrics():
         channel_id = channel["channel_id"]
         channel_name = channel.get("channel_name", channel_id)
         proxy_name = channel.get("proxy_name")
+        is_monetized = channel.get("is_monetized", False)
+        mode_label = "MONETIZADO" if is_monetized else "ANALYTICS"
 
         if proxy_name:
-            log.info(f"\n[{channel_name}] Iniciando coleta OAuth... (proxy: {proxy_name})")
+            log.info(f"\n[{channel_name}] [{mode_label}] Iniciando coleta OAuth... (proxy: {proxy_name})")
         else:
-            log.info(f"\n[{channel_name}] Iniciando coleta OAuth... (credenciais isoladas)")
+            log.info(f"\n[{channel_name}] [{mode_label}] Iniciando coleta OAuth... (credenciais isoladas)")
 
         try:
             # Buscar credenciais (proxy ou isoladas)
@@ -778,29 +806,36 @@ async def collect_oauth_metrics():
             # Atualizar token no banco
             update_tokens(channel_id, access_token)
 
-            # Coletar métricas diárias
-            daily_rows = collect_daily_metrics(channel_id, access_token, start_date, end_date)
-            saved_daily = save_daily_metrics(channel_id, daily_rows)
-            log.info(f"[{channel_name}] Métricas diárias: {saved_daily} dias salvos")
-
-            # Coletar métricas por país (apenas do dia anterior)
             yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
-            country_rows = collect_country_metrics(channel_id, access_token, yesterday, yesterday)
-            saved_country = save_country_metrics(channel_id, country_rows, yesterday)
-            log.info(f"[{channel_name}] Métricas por país: {saved_country} países salvos")
+            today = datetime.now().strftime("%Y-%m-%d")
 
-            # Coletar métricas por vídeo
+            # =====================================================
+            # MONETIZADOS: coleta completa (revenue + analytics)
+            # =====================================================
+            if is_monetized:
+                # Métricas diárias (revenue por dia)
+                daily_rows = collect_daily_metrics(channel_id, access_token, start_date, end_date)
+                saved_daily = save_daily_metrics(channel_id, daily_rows)
+                log.info(f"[{channel_name}] Métricas diárias: {saved_daily} dias salvos")
+
+                # Métricas por país (revenue por país)
+                country_rows = collect_country_metrics(channel_id, access_token, yesterday, yesterday)
+                saved_country = save_country_metrics(channel_id, country_rows, yesterday)
+                log.info(f"[{channel_name}] Métricas por país: {saved_country} países salvos")
+
+            # =====================================================
+            # TODOS: métricas por vídeo (retencao, views, etc.)
+            # =====================================================
             video_rows = collect_video_metrics(channel_id, access_token, start_date, end_date)
             saved_video = save_video_metrics(channel_id, video_rows)
             log.info(f"[{channel_name}] Métricas por vídeo: {saved_video} vídeos salvos")
 
-            # Salvar histórico diário por vídeo (snapshot de hoje)
-            today = datetime.now().strftime("%Y-%m-%d")
+            # Histórico diário por vídeo (snapshot de hoje)
             saved_video_daily = save_video_daily(channel_id, video_rows, today)
             log.info(f"[{channel_name}] Histórico diário vídeos: {saved_video_daily} registros")
 
             # =============================================================
-            # COLETA DE ANALYTICS AVANÇADO (NOVAS MÉTRICAS)
+            # ANALYTICS AVANÇADO (traffic, search, demographics, devices)
             # =============================================================
             log.info(f"[{channel_name}] Iniciando coleta de analytics avançado...")
 
@@ -833,7 +868,10 @@ async def collect_oauth_metrics():
             # update_channel_info(channel_id, access_token)
 
             # Log de sucesso
-            log_collection(channel_id, "success", f"Coletados {saved_daily} dias, {saved_country} países, {saved_video} vídeos")
+            if is_monetized:
+                log_collection(channel_id, "success", f"[MONETIZADO] {saved_video} vídeos, {saved_daily} dias, {saved_country} países")
+            else:
+                log_collection(channel_id, "success", f"[ANALYTICS] {saved_video} vídeos coletados (retencao + views)")
             success_count += 1
 
         except Exception as e:
@@ -841,8 +879,11 @@ async def collect_oauth_metrics():
             log_collection(channel_id, "error", str(e)[:200])
             error_count += 1
 
+    monetized_count = sum(1 for c in channels if c.get("is_monetized"))
+    analytics_count = len(channels) - monetized_count
     log.info("\n" + "=" * 60)
     log.info(f"COLETA OAUTH FINALIZADA - Sucesso: {success_count} | Erros: {error_count}")
+    log.info(f"  Monetizados: {monetized_count} | Analytics-only: {analytics_count}")
     log.info("=" * 60)
 
     return {"success": success_count, "errors": error_count}
