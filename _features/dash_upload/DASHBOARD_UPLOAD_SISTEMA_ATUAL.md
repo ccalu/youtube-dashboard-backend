@@ -243,7 +243,7 @@ Pagina HTML completa do dashboard (retorna HTMLResponse).
 Retorna stats gerais + canais agrupados por subnicho.
 - Cache de 3 segundos (`_dash_cache`)
 - Busca `yt_channels` (ativos + upload_automatico) e `yt_canal_upload_diario` (hoje)
-- `upload_map` com prioridade: sucesso > erro > sem_video (quando canal tem multiplos registros no dia)
+- `upload_map` com prioridade: sucesso > erro > sem_video; quando mesmo status, pega o MAIS RECENTE (created_at)
 - Monetizados forcados: 2 channel_ids hardcoded
 - Agrupamento inteligente: monetizados separados, guerra agrupada
 - Ordenacao: subnichos com mais sucesso primeiro, canais por status

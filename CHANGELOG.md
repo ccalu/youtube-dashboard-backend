@@ -5,6 +5,58 @@
 
 ---
 
+## [23/02/2026 - v16] - Agente de Copy Analysis + Fix Dashboard Upload
+
+### 🧠 Agente de Análise de Copy (MVP)
+
+**Data:** 20-23/02/2026
+**Status:** ✅ MVP completo
+**Desenvolvedor:** Cellibs & Claude
+
+### O que foi implementado
+1. **`copy_analysis_agent.py` criado (~1550 linhas):**
+   - Lê planilha de copy (coluna A = estrutura de copy)
+   - Match com vídeos do YouTube (similaridade 90%+ palavra-por-palavra)
+   - Busca retenção/watch time via yt_video_metrics + fallback Analytics API
+   - Gera ranking por estrutura, observações LLM, anomalias, comparação histórica
+   - Relatório alinhado com HTML spec
+
+2. **`monetization_oauth_collector.py` criado:**
+   - Coleta views, averageViewDuration, averageViewPercentage via Analytics API
+   - Paginação completa (200/página)
+   - Salva em yt_video_metrics via UPSERT
+
+3. **Campo `copy_spreadsheet_id` adicionado em `yt_channels`:**
+   - Separação total: `spreadsheet_id` = upload, `copy_spreadsheet_id` = análise de copy
+   - 21 planilhas de copy salvas no novo campo
+
+4. **Analytics API habilitado em 21 canais:**
+   - Scope `yt-analytics.readonly` adicionado
+   - OAuth reauth completo nos 21 canais
+   - Validado: todos retornando dados de retenção
+
+5. **Endpoints novos:**
+   - `/api/copy-analysis/run/{channel_id}` - Roda análise de 1 canal
+   - `/api/copy-analysis/run-all` - Roda análise de todos
+   - `/api/copy-analysis/reports/{channel_id}` - Lista relatórios
+   - `/api/copy-analysis/channels` - Lista canais disponíveis
+
+### 🔧 Fix: Dashboard Upload Map
+- `upload_map` agora mostra upload mais recente quando múltiplos sucessos no dia
+- Antes: pegava o primeiro sucesso (vídeo antigo ficava aparecendo)
+- Adicionado `created_at` no select da query
+
+### 🏢 Mission Control
+- 3 novos endpoints para escritório virtual
+- `mission_control.py` módulo separado
+
+### Commits importantes
+- `9d7fa19` - fix: Dashboard mostra ultimo upload do dia + separar planilhas copy/upload
+- `84e37c9` - fix: Remover scopes do Credentials para evitar invalid_scope no refresh
+- `e659c7b` - feat: Alinhar agente de copy com HTML spec + preparar Analytics API
+
+---
+
 ## [16/02/2026 - v15] - Otimização Crítica de Quota API (95% economia)
 
 ### ⚡ Otimização: playlistItems.list substitui search.list

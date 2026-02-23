@@ -25,6 +25,9 @@ API REST que gerencia coleta de dados YouTube, notificações e transcrições.
 - `database.py` - Client Supabase + queries
 - `daily_uploader.py` - Orquestrador de upload diário (1025 linhas)
 - `dash_upload_final.py` - Dashboard de upload Flask porta 5006 (887 linhas)
+- `copy_analysis_agent.py` - Agente de análise de copy (~1550 linhas)
+- `monetization_oauth_collector.py` - Coleta métricas Analytics API
+- `mission_control.py` - Mission Control escritório virtual
 - `requirements.txt` - Dependências Python
 
 ## 🔗 INTEGRAÇÕES:
@@ -100,6 +103,53 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 - Pode criar novos endpoints
 - Pode melhorar lógica existente
 - SEMPRE fazer backup antes de mudanças grandes
+
+## 🆕 ATUALIZAÇÕES RECENTES (23/02/2026):
+
+### 🧠 Agente de Análise de Copy - MVP Completo ✅
+**Desenvolvido:** 20-23/02/2026
+**Status:** ✅ MVP completo, aguardando dados de copy nas planilhas
+
+**O que foi implementado:**
+1. **`copy_analysis_agent.py`** - Agente que analisa estruturas de copy por canal
+   - Lê planilha de copy (coluna A = estrutura)
+   - Match com vídeos do YouTube (similaridade 90%+ palavra-por-palavra)
+   - Busca retenção/watch time via `yt_video_metrics` + fallback Analytics API
+   - Gera ranking por estrutura de copy
+   - LLM (GPT-4o) gera observações narrativas e tendências
+   - Relatório completo alinhado com HTML spec do Micha
+
+2. **`monetization_oauth_collector.py`** - Coleta métricas via YouTube Analytics API
+   - Coleta views, averageViewDuration, averageViewPercentage por vídeo
+   - Paginação completa (200 por página, sem limite)
+   - Salva em `yt_video_metrics` via UPSERT
+
+3. **Campo `copy_spreadsheet_id` em `yt_channels`:**
+   - Planilhas de copy analysis separadas das planilhas de upload (`spreadsheet_id`)
+   - 21 canais com planilhas de copy configuradas
+   - **CRÍTICO:** `spreadsheet_id` = upload, `copy_spreadsheet_id` = análise de copy. NUNCA misturar!
+
+4. **Analytics API habilitado em 21 canais:**
+   - Scope `yt-analytics.readonly` adicionado ao OAuth
+   - Reauth feito em todos os 21 canais
+   - Endpoints: `/api/copy-analysis/run/{channel_id}`, `/api/copy-analysis/run-all`, etc.
+
+### 🔧 Fix: Dashboard Upload Mostra Último Vídeo ✅
+**Desenvolvido:** 23/02/2026
+**Status:** ✅ Corrigido e em produção
+
+**Problema:** Quando canal tinha múltiplos uploads com sucesso no dia, dashboard mostrava o primeiro (vídeo antigo)
+**Solução:** `upload_map` agora pega o mais recente por `created_at` quando mesmo status
+**Arquivo:** `main.py` (linha ~6645)
+
+### 🏢 Mission Control - Escritório Virtual ✅
+**Desenvolvido:** 23/02/2026
+**Status:** ✅ Endpoints funcionais
+
+- 3 novos endpoints: `/mission-control`, `/api/mission-control/status`, `/api/mission-control/sala/{canal_id}`
+- `mission_control.py` - Módulo separado com HTML + dados
+
+---
 
 ## 🆕 ATUALIZAÇÕES RECENTES (16/02/2026):
 
