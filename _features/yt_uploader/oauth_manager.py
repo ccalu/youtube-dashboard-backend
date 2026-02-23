@@ -70,20 +70,19 @@ class OAuthManager:
                 "Migre para yt_channel_credentials para isolamento total."
             )
 
-        # 4. Cria objeto Credentials com scopes completos
+        # 4. Cria objeto Credentials SEM scopes
+        # IMPORTANTE: Não passar scopes aqui! A biblioteca google-auth envia
+        # os scopes no request de refresh_grant(). Se o refresh_token foi
+        # autorizado com scopes diferentes (ex: canal antigo sem yt-analytics),
+        # o Google retorna "invalid_scope: Bad Request".
+        # Sem scopes, o refresh retorna um token com os MESMOS scopes da
+        # autorização original - funciona para todos os canais.
         credentials = Credentials(
             token=oauth.get('access_token'),
             refresh_token=oauth.get('refresh_token'),
             token_uri="https://oauth2.googleapis.com/token",
             client_id=client_id,
-            client_secret=client_secret,
-            scopes=[
-                'https://www.googleapis.com/auth/youtube.upload',
-                'https://www.googleapis.com/auth/youtube',
-                'https://www.googleapis.com/auth/youtube.force-ssl',
-                'https://www.googleapis.com/auth/spreadsheets',
-                'https://www.googleapis.com/auth/yt-analytics.readonly'
-            ]
+            client_secret=client_secret
         )
 
         # 4.1. Define expiry do token para verificação correta

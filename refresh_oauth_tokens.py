@@ -82,19 +82,16 @@ def refresh_tokens():
         # Se não tem expiry, considera expirado
         expiry = datetime.now(timezone.utc) - timedelta(hours=1)
 
+    # NÃO passar scopes aqui! A lib google-auth envia os scopes no
+    # refresh_grant() e o Google rejeita com "invalid_scope" se o
+    # refresh_token não foi autorizado com todos os scopes listados.
+    # Sem scopes, o refresh retorna token com os mesmos scopes originais.
     credentials = Credentials(
         token=oauth_data['access_token'],
         refresh_token=oauth_data['refresh_token'],
         token_uri='https://oauth2.googleapis.com/token',
         client_id=creds_data['client_id'],
-        client_secret=creds_data['client_secret'],
-        scopes=[
-            'https://www.googleapis.com/auth/youtube.upload',
-            'https://www.googleapis.com/auth/youtube',
-            'https://www.googleapis.com/auth/youtube.force-ssl',
-            'https://www.googleapis.com/auth/spreadsheets',
-            'https://www.googleapis.com/auth/yt-analytics.readonly'
-        ]
+        client_secret=creds_data['client_secret']
     )
 
     # Define a expiração manualmente
