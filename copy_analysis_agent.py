@@ -119,6 +119,30 @@ def _normalize_title(title: str) -> str:
     return t
 
 
+def _title_similarity(title_a: str, title_b: str) -> float:
+    """
+    Calcula similaridade entre dois titulos normalizados.
+    Compara palavra por palavra NA MESMA ORDEM.
+    Retorna 0.0 a 1.0 (1.0 = identico).
+    """
+    words_a = title_a.split()
+    words_b = title_b.split()
+
+    if not words_a or not words_b:
+        return 0.0
+
+    # Contar palavras que batem na mesma posicao (ordem importa)
+    matches = 0
+    max_len = max(len(words_a), len(words_b))
+    min_len = min(len(words_a), len(words_b))
+
+    for i in range(min_len):
+        if words_a[i] == words_b[i]:
+            matches += 1
+
+    return matches / max_len if max_len > 0 else 0.0
+
+
 def match_videos(channel_id: str, sheet_data: List[Dict]) -> List[Dict]:
     """
     Cruza titulos da planilha com videos do banco.
@@ -155,7 +179,8 @@ def match_videos(channel_id: str, sheet_data: List[Dict]) -> List[Dict]:
     for u in upload_videos:
         titulo = u.get("video_titulo", "")
         vid = u.get("youtube_video_id", "")
-        if titulo and vid and titulo not in exact_map:
+        norm = _normalize_title(titulo) if titulo else ""
+        if titulo and vid and titulo not in exact_map and norm not in normalized_map:
             upload_data = {
                 "video_id": vid,
                 "titulo": titulo,
@@ -164,7 +189,7 @@ def match_videos(channel_id: str, sheet_data: List[Dict]) -> List[Dict]:
                 "views_atuais": None
             }
             exact_map[titulo] = upload_data
-            normalized_map[_normalize_title(titulo)] = upload_data
+            normalized_map[norm] = upload_data
 
     matched = []
     no_match = []
@@ -183,11 +208,20 @@ def match_videos(channel_id: str, sheet_data: List[Dict]) -> List[Dict]:
             if norm_title in normalized_map:
                 video_data = normalized_map[norm_title]
             else:
-                # 3. Match parcial (titulo da planilha contido no titulo do banco)
-                for db_title, db_data in exact_map.items():
-                    if norm_title and _normalize_title(db_title).startswith(norm_title):
-                        video_data = db_data
-                        break
+                # 3. Match por similaridade (90% minimo, mesma ordem de palavras)
+                # Safety net para diferencas minimas que normalizar nao resolveu
+                # 90% garante que nao confunde estruturas com titulos parecidos
+                if norm_title and len(norm_title) >= 10:
+                    best_score = 0.0
+                    best_data = None
+                    for db_title, db_data in exact_map.items():
+                        score = _title_similarity(norm_title, _normalize_title(db_title))
+                        if score >= 0.90 and score > best_score:
+                            best_score = score
+                            best_data = db_data
+                    if best_data:
+                        video_data = best_data
+                        logger.debug(f"Match por similaridade ({best_score:.0%}): \"{sheet_title}\"")
 
         if video_data:
             published_at = video_data.get("data_publicacao")
@@ -303,7 +337,7 @@ def _fetch_upload_history(channel_id: str) -> List[Dict]:
 
 def get_retention_data(channel_id: str, video_ids: List[str]) -> Dict[str, Dict]:
     """
-    Busca retencao por video. Tenta banco primeiro, depois API.
+    Busca retencao por video. Tenta banco primeiro (batch), depois API.
 
     Returns:
         {video_id: {retention_pct, watch_time_min, views, duration_sec}}
@@ -311,34 +345,38 @@ def get_retention_data(channel_id: str, video_ids: List[str]) -> Dict[str, Dict]
     if not video_ids:
         return {}
 
-    # 1. Tentar buscar do banco (yt_video_metrics)
+    # 1. Buscar do banco em batch (yt_video_metrics)
     result = {}
-    missing_ids = []
+    batch_size = 50  # Supabase suporta filtro in.() com muitos IDs
 
-    for vid in video_ids:
+    for i in range(0, len(video_ids), batch_size):
+        batch = video_ids[i:i + batch_size]
+        ids_str = ",".join(batch)
         resp = requests.get(
             f"{SUPABASE_URL}/rest/v1/yt_video_metrics",
             params={
                 "channel_id": f"eq.{channel_id}",
-                "video_id": f"eq.{vid}",
+                "video_id": f"in.({ids_str})",
                 "avg_retention_pct": "not.is.null",
                 "select": "video_id,avg_retention_pct,avg_view_duration,views",
-                "limit": "1",
                 "order": "updated_at.desc"
             },
             headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
         )
 
         if resp.status_code == 200 and resp.json():
-            row = resp.json()[0]
-            avg_dur = row.get("avg_view_duration") or 0
-            result[vid] = {
-                "retention_pct": row.get("avg_retention_pct"),
-                "watch_time_min": round(avg_dur / 60, 2) if avg_dur else None,
-                "views": row.get("views")
-            }
-        else:
-            missing_ids.append(vid)
+            for row in resp.json():
+                vid = row.get("video_id")
+                if vid and vid not in result:  # Primeiro = mais recente (order desc)
+                    avg_dur = row.get("avg_view_duration") or 0
+                    result[vid] = {
+                        "retention_pct": row.get("avg_retention_pct"),
+                        "watch_time_min": round(avg_dur / 60, 2) if avg_dur else None,
+                        "views": row.get("views")
+                    }
+
+    # 2. Videos sem retencao no banco → tentar API
+    missing_ids = [vid for vid in video_ids if vid not in result]
 
     if missing_ids:
         logger.info(f"Canal {channel_id}: {len(missing_ids)} videos sem retencao no banco, tentando API...")
@@ -379,41 +417,62 @@ def _fetch_retention_from_api(channel_id: str, video_ids: List[str]) -> Dict[str
         return result
 
     # Query YouTube Analytics API (ultimos 365 dias para pegar todos videos)
+    # Pagina de 200 em 200 para pegar TODOS (mesmo padrao do collector)
     end_date = (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d")
     start_date = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%d")
 
-    resp = requests.get(
-        "https://youtubeanalytics.googleapis.com/v2/reports",
-        params={
-            "ids": f"channel=={channel_id}",
-            "startDate": start_date,
-            "endDate": end_date,
-            "metrics": "averageViewDuration,averageViewPercentage,views,estimatedMinutesWatched",
-            "dimensions": "video",
-            "sort": "-views",
-            "maxResults": "200"
-        },
-        headers={"Authorization": f"Bearer {access_token}"}
-    )
-
-    if resp.status_code != 200:
-        logger.error(f"YouTube Analytics API erro: {resp.status_code} - {resp.text[:200]}")
-        return result
-
-    rows = resp.json().get("rows", [])
+    all_rows = []
+    page_size = 200
+    start_index = 1
     video_id_set = set(video_ids)
 
-    for row in rows:
+    while True:
+        resp = requests.get(
+            "https://youtubeanalytics.googleapis.com/v2/reports",
+            params={
+                "ids": f"channel=={channel_id}",
+                "startDate": start_date,
+                "endDate": end_date,
+                "metrics": "averageViewDuration,averageViewPercentage,views,estimatedMinutesWatched",
+                "dimensions": "video",
+                "sort": "-views",
+                "maxResults": str(page_size),
+                "startIndex": str(start_index)
+            },
+            headers={"Authorization": f"Bearer {access_token}"}
+        )
+
+        if resp.status_code != 200:
+            logger.error(f"YouTube Analytics API erro: {resp.status_code} - {resp.text[:200]}")
+            break
+
+        rows = resp.json().get("rows", [])
+        if not rows:
+            break
+
+        all_rows.extend(rows)
+
+        # Se ja encontrou todos os videos que faltavam, para
+        found_so_far = sum(1 for r in all_rows if r[0] in video_id_set)
+        if found_so_far >= len(video_ids):
+            break
+
+        if len(rows) < page_size:
+            break
+
+        start_index += page_size
+
+    for row in all_rows:
         vid = row[0]
         if vid in video_id_set:
-            avg_dur = float(row[1]) if row[1] else 0
+            avg_dur = float(row[1]) if len(row) > 1 and row[1] else 0
             result[vid] = {
-                "retention_pct": float(row[2]) if row[2] else None,
+                "retention_pct": float(row[2]) if len(row) > 2 and row[2] else None,
                 "watch_time_min": round(avg_dur / 60, 2) if avg_dur else None,
-                "views": int(row[3]) if row[3] else None
+                "views": int(row[3]) if len(row) > 3 and row[3] else None
             }
 
-    logger.info(f"YouTube Analytics API: {len(result)} videos com retencao de {len(rows)} total")
+    logger.info(f"YouTube Analytics API: {len(result)} videos com retencao de {len(all_rows)} total")
     return result
 
 
@@ -630,6 +689,7 @@ def analyze_copy_performance(
                     "structure": structure,
                     "retention": v_ret,
                     "views": v_views,
+                    "published_at": v.get("published_at"),
                     "reasons": reasons
                 })
 
@@ -656,21 +716,25 @@ def analyze_copy_performance(
 
 def compare_with_previous(channel_id: str, current_results: Dict) -> Optional[Dict]:
     """
-    Busca ultima analise do canal e compara.
+    Busca a ultima analise do canal e compara.
+    A ultima analise ja contem a memoria acumulada de todas as anteriores
+    (cadeia: 2a se baseia na 1a, 3a se baseia na 2a que ja tem contexto da 1a, etc).
 
     Returns:
         {
             "previous_date": "...",
+            "previous_avg": float,
+            "previous_report": str,  # relatorio completo anterior (memoria acumulada)
             "changes": {A: {prev_retention, curr_retention, diff, rank_change}, ...},
             "new_structures": ["G"],
         }
     """
-    # Buscar analise mais recente
+    # Buscar analise mais recente (que ja carrega toda a inteligencia acumulada)
     resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/copy_analysis_runs",
         params={
             "channel_id": f"eq.{channel_id}",
-            "select": "run_date,results_json,channel_avg_retention",
+            "select": "run_date,results_json,channel_avg_retention,report_text",
             "order": "run_date.desc",
             "limit": "1"
         },
@@ -682,8 +746,11 @@ def compare_with_previous(channel_id: str, current_results: Dict) -> Optional[Di
 
     prev = resp.json()[0]
     prev_results = prev.get("results_json") or {}
+    if isinstance(prev_results, str):
+        prev_results = json.loads(prev_results)
     prev_structures = prev_results.get("structures", {})
     prev_date = prev.get("run_date", "")
+    prev_report = prev.get("report_text", "")
 
     if not prev_structures:
         return None
@@ -721,6 +788,7 @@ def compare_with_previous(channel_id: str, current_results: Dict) -> Optional[Di
     return {
         "previous_date": prev_date,
         "previous_avg": prev.get("channel_avg_retention"),
+        "previous_report": prev_report,
         "changes": changes,
         "new_structures": new_structures
     }
@@ -734,11 +802,15 @@ def generate_llm_insights(
     channel_name: str,
     analysis: Dict,
     comparison: Optional[Dict]
-) -> Optional[str]:
+) -> Optional[Dict]:
     """
     Envia dados brutos para GPT-4o-mini analisar.
     O GPT e o analista - recebe todos os dados video a video e gera
     a analise completa: padroes, anomalias, correlacoes, tendencias.
+
+    Memoria acumulativa: recebe o relatorio anterior completo como contexto.
+    Cada relatorio ja carrega as conclusoes de todos os anteriores,
+    entao a LLM sempre tem a inteligencia acumulada para comparar.
 
     Returns:
         Texto com analise completa da LLM ou None se falhar
@@ -804,51 +876,103 @@ def generate_llm_insights(
                 data_block += f"  Novas no ranking: {', '.join(comparison['new_structures'])}\n"
             data_block += "\n"
 
+        # Incluir relatorio anterior completo como memoria acumulada
+        # Cada relatorio ja contem as conclusoes de todos os anteriores (cadeia acumulativa)
+        previous_report_block = ""
+        if comparison and comparison.get("previous_report"):
+            prev_date = comparison.get("previous_date", "")
+            if isinstance(prev_date, str) and "T" in prev_date:
+                try:
+                    prev_date = datetime.fromisoformat(prev_date.replace("Z", "+00:00")).strftime("%d/%m/%Y")
+                except (ValueError, TypeError):
+                    pass
+            previous_report_block = f"""
+
+RELATORIO ANTERIOR COMPLETO ({prev_date}):
+(Este relatorio ja contem as conclusoes acumuladas de todas as analises anteriores.
+Use-o como base para comparar evolucao, confirmar ou revisar tendencias, e construir em cima das conclusoes anteriores.)
+
+{comparison['previous_report']}
+
+FIM DO RELATORIO ANTERIOR.
+"""
+
         prompt = f"""Voce e um analista de dados de YouTube. Sua funcao e analisar a performance de diferentes estruturas de copywriting (A-G) em um canal.
 
 Cada video do canal foi produzido com uma estrutura de copy diferente. A metrica PRIMARIA e retencao % (mede qualidade do script). Watch time e views sao metricas de CONTEXTO.
 
-ANALISE OS DADOS E PRODUZA:
+O ranking numerico, a tabela de anomalias e a tabela comparativa JA SAO gerados automaticamente pelo sistema. Voce NAO precisa repetir tabelas, rankings ou dados de anomalias individuais.
 
-1. CLASSIFICACAO: Para cada estrutura com 3+ videos, classifique como:
-   - ACIMA: retencao da estrutura > media do canal + 2%
-   - MEDIA: retencao dentro de ±2% da media do canal
-   - ABAIXO: retencao da estrutura < media do canal - 2%
+Seu trabalho e produzir a ANALISE NARRATIVA em 2 blocos separados:
 
-2. OBSERVACOES: Para cada estrutura relevante, comente:
-   - Lider: qual estrutura lidera e com que margem
-   - Consistencia: desvio padrao baixo (<5%) = consistente, alto (>10%) = volatil
-   - Se alguma estrutura tem performance que parece depender mais do tema do que da copy (alta volatilidade)
-   - Pior: qual estrutura e consistentemente a pior
+VOCE TEM MEMORIA ACUMULATIVA. Se houver um relatorio anterior abaixo, ele contem TODAS as conclusoes e tendencias identificadas ate agora. Sua analise atual DEVE:
+- Se basear no relatorio anterior como referencia
+- Confirmar ou revisar tendencias identificadas anteriormente
+- Notar evolucoes (ex: "Estrutura A consolida lideranca pela terceira analise consecutiva")
+- Construir em cima das conclusoes anteriores, nunca ignorar o historico
+{previous_report_block}
 
-3. ANOMALIAS: Se algum video individual destoa muito da media da sua estrutura:
-   - Views muito acima (5x+) ou muito abaixo da media da estrutura
-   - Retencao muito diferente (>15% de diferenca) da media da estrutura
-   - Apenas SINALIZE como fato. NAO tente explicar por que aconteceu.
+PRODUZA EXATAMENTE 2 BLOCOS, separados pelo marcador exato:
 
-4. TENDENCIAS (se houver comparacao temporal): comente se alguma estrutura esta subindo, caindo, ou consolidando posicao.
+[OBSERVACOES]
+Paragrafos narrativos sobre a analise DESTA SEMANA:
+- Qual estrutura lidera e com que margem sobre a media do canal
+- Consistencia: desvio padrao baixo (<5%) = consistente, alto (>10%) = volatil
+- Se alguma estrutura tem performance que parece depender mais do tema do que da copy (alta volatilidade)
+- Qual estrutura e consistentemente a pior e por que margem
+- Qualquer padrao relevante que os numeros mostram
+
+[TENDENCIAS]
+Paragrafos narrativos sobre a EVOLUCAO ao longo do tempo (SO se houver relatorio anterior):
+- Quais estruturas estao subindo, caindo, ou consolidando posicao
+- Compare com as conclusoes do relatorio anterior
+- Identifique padroes que se confirmam ou se revertem
+- Exemplo: "Estrutura A consolida lideranca pela segunda analise consecutiva, subindo de 39% para 42%"
+- Se esta e a primeira analise (sem relatorio anterior), escreva apenas: "Primeira analise. Sem dados anteriores para comparacao."
 
 REGRAS:
 - Seja DIRETO e FACTUAL. Cite os numeros.
 - NAO invente dados. So use o que esta nos dados abaixo.
 - NAO de recomendacoes de acao. Decisao e humana.
 - NAO tente explicar POR QUE um video viralizou ou flopou.
+- NAO repita tabelas de ranking, anomalias ou comparacao (o sistema ja gera isso).
 - Escreva em portugues.
 - Paragrafos curtos separados por linha em branco.
+- Escreva o quanto for necessario. NAO resuma ou corte a analise.
+- Use EXATAMENTE os marcadores [OBSERVACOES] e [TENDENCIAS] para separar os blocos.
 
-DADOS:
+DADOS DA SEMANA ATUAL:
 {data_block}"""
 
         response = client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=800,
             temperature=0.3
         )
 
         llm_text = response.choices[0].message.content.strip()
         logger.info(f"LLM analise gerada ({response.usage.total_tokens} tokens)")
-        return llm_text
+
+        # Split em 2 blocos: observacoes e tendencias
+        result = {"observacoes": "", "tendencias": ""}
+
+        if "[TENDENCIAS]" in llm_text:
+            parts = llm_text.split("[TENDENCIAS]")
+            obs_part = parts[0]
+            tend_part = parts[1].strip() if len(parts) > 1 else ""
+
+            # Limpar marcador [OBSERVACOES] do inicio
+            obs_part = obs_part.replace("[OBSERVACOES]", "").strip()
+
+            result["observacoes"] = obs_part
+            result["tendencias"] = tend_part
+        elif "[OBSERVACOES]" in llm_text:
+            result["observacoes"] = llm_text.replace("[OBSERVACOES]", "").strip()
+        else:
+            # Fallback: tudo vai como observacoes
+            result["observacoes"] = llm_text
+
+        return result
 
     except ImportError:
         logger.warning("openai nao instalado - pulando analise LLM")
@@ -868,30 +992,63 @@ def generate_report(
     comparison: Optional[Dict],
     total_sheet_videos: int,
     total_no_match: int,
-    llm_insights: Optional[str] = None
+    llm_insights: Optional[Dict] = None
 ) -> str:
-    """Gera relatorio formatado no estilo do MVP spec."""
+    """
+    Gera relatorio formatado no estilo EXATO do HTML spec.
+    Ordem das secoes:
+    1. Header + meta (videos, periodo, media)
+    2. RANKING POR ESTRUTURA DE COPY (tabela)
+    3. OBSERVACOES (narrativa da LLM)
+    4. ANOMALIAS FLAGGED (dados estruturados)
+    5. DADOS INSUFICIENTES (<3 videos)
+    6. vs. ANALISE ANTERIOR (tabela + narrativa de tendencias da LLM)
+    """
     now = datetime.now().strftime("%d-%m-%Y")
     ch_avg = analysis["channel_avg"]
     structures = analysis["structures"]
     insufficient = analysis["insufficient"]
     anomalies = analysis["anomalies"]
     excluded = analysis.get("excluded_immature", 0)
-    total_analyzed = len(analysis.get("all_videos", []))
+    all_videos = analysis.get("all_videos", [])
+    total_analyzed = len(all_videos)
+
+    # Calcular periodo (min/max de published_at dos videos analisados)
+    dates = []
+    for v in all_videos:
+        pub = v.get("published_at")
+        if pub:
+            if isinstance(pub, str):
+                try:
+                    pub = datetime.fromisoformat(pub.replace("Z", "+00:00"))
+                except (ValueError, TypeError):
+                    continue
+            if isinstance(pub, datetime):
+                dates.append(pub)
+
+    periodo_str = ""
+    if dates:
+        min_date = min(dates).strftime("%d-%m")
+        max_date = max(dates).strftime("%d-%m")
+        periodo_str = f"{min_date} a {max_date}"
 
     lines = []
+
+    # === HEADER ===
     lines.append("=" * 60)
     lines.append(f"RELATORIO {channel_name} | {now}")
     lines.append("=" * 60)
     lines.append("")
     lines.append(f"Videos analisados: {total_analyzed} (de {total_sheet_videos} na planilha, "
                  f"{excluded} excluidos por maturidade <7 dias, {total_no_match} sem match)")
+    if periodo_str:
+        lines.append(f"Periodo: {periodo_str}")
     lines.append(f"Media geral do canal: {ch_avg['retention']:.1f}% retencao | "
                  f"{ch_avg['watch_time']:.1f} min watch time | "
                  f"{ch_avg['views']:,.0f} views")
     lines.append("")
 
-    # Ranking
+    # === RANKING POR ESTRUTURA DE COPY ===
     lines.append("--- RANKING POR ESTRUTURA DE COPY ---")
     lines.append("")
     lines.append(f" {'#':<3} {'Estr.':<8} {'Ret%':<8} {'Watch Time':<13} {'Views Med':<12} {'Videos':<8} {'Status'}")
@@ -909,15 +1066,72 @@ def generate_report(
 
     lines.append("")
 
-    # Analise do GPT (a inteligencia - classificacoes, padroes, anomalias)
-    if llm_insights:
-        lines.append("--- ANALISE ---")
+    # === OBSERVACOES (narrativa da LLM) ===
+    obs_text = ""
+    tend_text = ""
+    if llm_insights and isinstance(llm_insights, dict):
+        obs_text = llm_insights.get("observacoes", "")
+        tend_text = llm_insights.get("tendencias", "")
+    elif llm_insights and isinstance(llm_insights, str):
+        # Fallback: se receber string pura (compatibilidade)
+        obs_text = llm_insights
+
+    if obs_text:
+        lines.append("--- OBSERVACOES ---")
         lines.append("")
-        for line in llm_insights.split("\n"):
+        for line in obs_text.split("\n"):
             lines.append(line)
         lines.append("")
 
-    # Dados insuficientes
+    # === ANOMALIAS (FLAGGED) ===
+    if anomalies:
+        lines.append("--- ANOMALIAS (FLAGGED) ---")
+        lines.append("")
+
+        for anom in anomalies:
+            s = anom["structure"]
+            title = anom["title"]
+            ret = anom["retention"]
+            views = anom["views"]
+
+            # Buscar media da estrutura para comparacao
+            struct_data = structures.get(s, {})
+            avg_ret = struct_data.get("avg_retention", 0)
+            avg_views = struct_data.get("avg_views", 0)
+
+            lines.append(f"! Estrutura {s} -- Video \"{title}\"")
+
+            # Retenção vs média
+            if avg_ret > 0:
+                lines.append(f"   Retencao: {ret:.1f}% (vs {avg_ret:.1f}% media da estrutura)")
+
+            # Views vs média
+            if avg_views > 0 and views > 0:
+                if views > avg_views:
+                    multiplier = views / avg_views
+                    lines.append(f"   Views: {views:,.0f} (vs {avg_views:,.0f} media da estrutura -- {multiplier:.1f}x acima)")
+                elif views < avg_views:
+                    multiplier = avg_views / views
+                    lines.append(f"   Views: {views:,.0f} (vs {avg_views:,.0f} media da estrutura -- {multiplier:.1f}x abaixo)")
+
+            # Data de publicação
+            pub = anom.get("published_at")
+            if pub:
+                if isinstance(pub, str):
+                    try:
+                        pub = datetime.fromisoformat(pub.replace("Z", "+00:00"))
+                    except (ValueError, TypeError):
+                        pub = None
+                if isinstance(pub, datetime):
+                    lines.append(f"   Publicado: {pub.strftime('%d-%m-%Y')}")
+
+            # Reasons detalhados
+            for reason in anom.get("reasons", []):
+                lines.append(f"   NOTA: {reason}")
+
+            lines.append("")
+
+    # === DADOS INSUFICIENTES (<3 videos) ===
     if insufficient:
         lines.append("--- DADOS INSUFICIENTES (<3 videos) ---")
         lines.append("")
@@ -927,8 +1141,8 @@ def generate_report(
             lines.append(f" {structure:<8} {data_ins['count']:<8} {ret_str:<18} Aguardando mais videos")
         lines.append("")
 
-    # Comparacao temporal
-    if comparison:
+    # === vs. ANALISE ANTERIOR + TENDENCIAS ===
+    if comparison and comparison.get("changes"):
         prev_date = comparison.get("previous_date", "")
         if isinstance(prev_date, str) and "T" in prev_date:
             try:
@@ -959,6 +1173,12 @@ def generate_report(
 
         lines.append("")
 
+        # Narrativa de tendencias da LLM (após tabela comparativa)
+        if tend_text:
+            for line in tend_text.split("\n"):
+                lines.append(line)
+            lines.append("")
+
     lines.append("=" * 60)
     return "\n".join(lines)
 
@@ -972,7 +1192,8 @@ def save_analysis(
     channel_name: str,
     analysis: Dict,
     comparison: Optional[Dict],
-    report_text: str
+    report_text: str,
+    total_no_match: int = 0
 ) -> Optional[int]:
     """Salva analise no banco (memoria acumulativa)."""
     ch_avg = analysis["channel_avg"]
@@ -985,11 +1206,22 @@ def save_analysis(
             vc["published_at"] = vc["published_at"].isoformat()
         all_videos_serialized.append(vc)
 
+    # Serializar comparison (sem o previous_report para nao duplicar dados)
+    comparison_serialized = None
+    if comparison:
+        comparison_serialized = {
+            "previous_date": comparison.get("previous_date"),
+            "previous_avg": comparison.get("previous_avg"),
+            "changes": comparison.get("changes", {}),
+            "new_structures": comparison.get("new_structures", [])
+        }
+
     run_data = {
         "channel_id": channel_id,
         "channel_name": channel_name,
         "total_videos_analyzed": len(all_videos_serialized),
         "total_videos_excluded": analysis.get("excluded_immature", 0),
+        "total_videos_no_match": total_no_match,
         "channel_avg_retention": ch_avg.get("retention"),
         "channel_avg_watch_time": ch_avg.get("watch_time"),
         "channel_avg_views": ch_avg.get("views"),
@@ -998,6 +1230,7 @@ def save_analysis(
             "insufficient": analysis["insufficient"],
             "channel_avg": ch_avg,
             "anomalies": analysis.get("anomalies", []),
+            "comparison": comparison_serialized,
             "videos": all_videos_serialized
         }),
         "report_text": report_text
@@ -1096,7 +1329,7 @@ def run_analysis(channel_id: str) -> Dict:
     report = generate_report(channel_name, analysis, comparison, len(sheet_data), total_no_match, llm_insights)
 
     # 8. Salvar
-    run_id = save_analysis(channel_id, channel_name, analysis, comparison, report)
+    run_id = save_analysis(channel_id, channel_name, analysis, comparison, report, total_no_match)
 
     logger.info(f"ANALISE COMPLETA: {channel_name} | run_id={run_id}")
     logger.info(f"  Structures: {len(analysis['structures'])} | "

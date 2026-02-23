@@ -215,29 +215,50 @@ def collect_video_metrics(channel_id, access_token, start_date, end_date):
     """
     Coleta métricas de analytics por vídeo (retencao, watch time, views).
     Views/likes/comments ja sao coletados pelo collector.py (Data API v3) em videos_historico.
+    Pagina para pegar TODOS os videos do canal (sem limite de 50).
     Retorna: [video_id, views, avgViewDuration, avgViewPercentage, cardClickRate]
     """
     headers = {"Authorization": f"Bearer {access_token}"}
+    all_rows = []
+    page_size = 200
+    start_index = 1
 
-    resp = requests.get(
-        "https://youtubeanalytics.googleapis.com/v2/reports",
-        params={
-            "ids": f"channel=={channel_id}",
-            "startDate": start_date,
-            "endDate": end_date,
-            "metrics": "views,averageViewDuration,averageViewPercentage,cardClickRate",
-            "dimensions": "video",
-            "sort": "-views",
-            "maxResults": "50"
-        },
-        headers=headers
-    )
+    while True:
+        resp = requests.get(
+            "https://youtubeanalytics.googleapis.com/v2/reports",
+            params={
+                "ids": f"channel=={channel_id}",
+                "startDate": start_date,
+                "endDate": end_date,
+                "metrics": "views,averageViewDuration,averageViewPercentage,cardClickRate",
+                "dimensions": "video",
+                "sort": "-views",
+                "maxResults": str(page_size),
+                "startIndex": str(start_index)
+            },
+            headers=headers
+        )
 
-    if resp.status_code != 200:
-        log.error(f"Erro métricas vídeo: {resp.status_code} - {resp.text[:200]}")
-        return []
+        if resp.status_code != 200:
+            log.error(f"Erro métricas vídeo: {resp.status_code} - {resp.text[:200]}")
+            break
 
-    return resp.json().get("rows", [])
+        rows = resp.json().get("rows", [])
+        if not rows:
+            break
+
+        all_rows.extend(rows)
+
+        if len(rows) < page_size:
+            break
+
+        start_index += page_size
+        log.info(f"[{channel_id}] Paginando métricas vídeo... {len(all_rows)} até agora")
+
+    if len(all_rows) > 200:
+        log.info(f"[{channel_id}] Total de vídeos com analytics: {len(all_rows)}")
+
+    return all_rows
 
 # =============================================================================
 # NOVAS FUNÇÕES DE COLETA - ANALYTICS AVANÇADO

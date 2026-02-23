@@ -88,7 +88,13 @@ def refresh_tokens():
         token_uri='https://oauth2.googleapis.com/token',
         client_id=creds_data['client_id'],
         client_secret=creds_data['client_secret'],
-        scopes=['https://www.googleapis.com/auth/youtube.upload']
+        scopes=[
+            'https://www.googleapis.com/auth/youtube.upload',
+            'https://www.googleapis.com/auth/youtube',
+            'https://www.googleapis.com/auth/youtube.force-ssl',
+            'https://www.googleapis.com/auth/spreadsheets',
+            'https://www.googleapis.com/auth/yt-analytics.readonly'
+        ]
     )
 
     # Define a expiração manualmente
