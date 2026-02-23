@@ -6638,17 +6638,23 @@ async def dash_upload_status():
 
         today = datetime.now(timezone.utc).date().isoformat()
         uploads = supabase.table('yt_canal_upload_diario')\
-            .select('channel_id, status, upload_realizado, video_titulo, hora_processamento, erro_mensagem')\
+            .select('channel_id, status, upload_realizado, video_titulo, hora_processamento, erro_mensagem, created_at')\
             .eq('data', today)\
             .execute()
 
         # Prioridade: sucesso > erro > sem_video (quando canal tem multiplos registros no dia)
+        # Quando mesmo status, pega o MAIS RECENTE (created_at maior)
         _status_priority = {'sucesso': 0, 'erro': 1, 'sem_video': 2}
         upload_map = {}
         for u in uploads.data:
             cid = u['channel_id']
-            if cid not in upload_map or _status_priority.get(u.get('status'), 9) < _status_priority.get(upload_map[cid].get('status'), 9):
+            new_prio = _status_priority.get(u.get('status'), 9)
+            if cid not in upload_map:
                 upload_map[cid] = u
+            else:
+                old_prio = _status_priority.get(upload_map[cid].get('status'), 9)
+                if new_prio < old_prio or (new_prio == old_prio and (u.get('created_at') or '') > (upload_map[cid].get('created_at') or '')):
+                    upload_map[cid] = u
 
         subnichos_dict = defaultdict(list)
         stats = {'total': 0, 'sucesso': 0, 'erro': 0, 'sem_video': 0, 'pendente': 0}
@@ -6990,6 +6996,32 @@ async def run_copy_analysis_all():
     except Exception as e:
         logger.error(f"Erro run-all copy: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# =========================================================================
+# MISSION CONTROL - Escritório Virtual
+# =========================================================================
+try:
+    from mission_control import MISSION_CONTROL_HTML, get_mission_control_data, get_sala_detail
+
+    @app.get("/mission-control", response_class=HTMLResponse)
+    async def mission_control_page():
+        """Mission Control - Escritório Virtual com agentes"""
+        return MISSION_CONTROL_HTML
+
+    @app.get("/api/mission-control/status")
+    async def mission_control_status():
+        """Retorna dados de todos os setores, salas e agentes"""
+        return await get_mission_control_data(db)
+
+    @app.get("/api/mission-control/sala/{canal_id}")
+    async def mission_control_sala(canal_id: int):
+        """Retorna detalhes de uma sala específica"""
+        return await get_sala_detail(db, canal_id)
+
+    logger.info("Mission Control inicializado com sucesso!")
+except Exception as e:
+    logger.warning(f"Mission Control nao inicializado: {e}")
 
 
 if __name__ == "__main__":

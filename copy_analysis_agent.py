@@ -1288,10 +1288,10 @@ def run_analysis(channel_id: str) -> Dict:
         return {"success": False, "error": f"Canal {channel_id} nao encontrado em yt_channels"}
 
     channel_name = channel_info.get("channel_name", channel_id)
-    spreadsheet_id = channel_info.get("spreadsheet_id")
+    spreadsheet_id = channel_info.get("copy_spreadsheet_id")
 
     if not spreadsheet_id:
-        return {"success": False, "error": f"Canal {channel_name} nao tem spreadsheet_id configurado"}
+        return {"success": False, "error": f"Canal {channel_name} nao tem copy_spreadsheet_id configurado"}
 
     logger.info(f"Canal: {channel_name} | Planilha: {spreadsheet_id}")
 
@@ -1360,7 +1360,7 @@ def _get_channel_info(channel_id: str) -> Optional[Dict]:
         f"{SUPABASE_URL}/rest/v1/yt_channels",
         params={
             "channel_id": f"eq.{channel_id}",
-            "select": "channel_id,channel_name,spreadsheet_id,subnicho,lingua,is_monetized"
+            "select": "channel_id,channel_name,copy_spreadsheet_id,subnicho,lingua,is_monetized"
         },
         headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
     )
@@ -1519,7 +1519,7 @@ def get_all_channels_for_analysis() -> List[Dict]:
             f"{SUPABASE_URL}/rest/v1/yt_channels",
             params={
                 "is_active": "eq.true",
-                "spreadsheet_id": "not.is.null",
+                "copy_spreadsheet_id": "not.is.null",
                 "select": "channel_id,channel_name,subnicho,is_monetized",
                 "order": "is_monetized.desc,channel_name.asc",
                 "limit": str(page_size),
