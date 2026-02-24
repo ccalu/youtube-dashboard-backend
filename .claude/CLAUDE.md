@@ -19,13 +19,14 @@ API REST que gerencia coleta de dados YouTube, notificações e transcrições.
 8. **DOCUMENTAR APÓS FINALIZAR** - Toda feature completa DEVE ser documentada imediatamente
 
 ## 📂 ARQUIVOS PRINCIPAIS:
-- `main.py` - FastAPI app + endpoints (1122 linhas)
+- `main.py` - FastAPI app + endpoints
 - `collector.py` - YouTube collector + rotação de API keys (727 linhas)
 - `notifier.py` - Sistema de notificações inteligente (394 linhas)
 - `database.py` - Client Supabase + queries
 - `daily_uploader.py` - Orquestrador de upload diário (1025 linhas)
 - `dash_upload_final.py` - Dashboard de upload Flask porta 5006 (887 linhas)
-- `copy_analysis_agent.py` - Agente de análise de copy (~1550 linhas)
+- `copy_analysis_agent.py` - Agente de análise de copy/performance (~1550 linhas)
+- `authenticity_agent.py` - Agente de Score de Autenticidade (~1100 linhas)
 - `monetization_oauth_collector.py` - Coleta métricas Analytics API
 - `mission_control.py` - Mission Control escritório virtual
 - `requirements.txt` - Dependências Python
@@ -94,13 +95,18 @@ python main.py
 
 **Documentação completa:** `.claude/3_SISTEMA_COMENTARIOS/`
 
-### 📊 Dashboard de Análise de Copy:
-- `GET /dash-analise-copy` - Dashboard visual de análise de copy (HTML)
-- `GET /api/dash-analise-copy/channels` - Canais para sidebar (agrupados por subnicho)
-- `POST /api/analise-copy/{id}` - Gerar análise de copy para 1 canal
-- `POST /api/analise-copy/run-all` - Rodar análise de todos os canais
-- `GET /api/analise-copy/{id}/latest` - Último relatório de análise
-- `GET /api/analise-copy/{id}/historico` - Histórico de análises
+### 📊 Dashboard de Análise (Performance + Autenticidade):
+- `GET /dash-analise-copy` - Dashboard visual unificado (HTML)
+- `GET /api/dash-analise-copy/channels` - Canais para sidebar (com auth_score)
+- `POST /api/analise-completa/{id}` - Relatório unificado (roda 2 agentes)
+- `POST /api/analise-completa/run-all` - Rodar todos (fila, 1 por vez)
+- `POST /api/analise-copy/{id}` - Análise de performance individual
+- `POST /api/analise-copy/run-all` - Performance de todos os canais
+- `GET /api/analise-copy/{id}/latest` - Último relatório de performance
+- `GET /api/analise-copy/{id}/historico` - Histórico de performance
+- `GET /api/analise-autenticidade/{id}/latest` - Último score de autenticidade
+- `GET /api/analise-autenticidade/{id}/historico` - Histórico de autenticidade
+- `GET /api/analise-autenticidade/overview` - Overview de todos os canais
 
 Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 
@@ -114,6 +120,67 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 
 ## 🆕 ATUALIZAÇÕES RECENTES (24/02/2026):
 
+### 🛡 Agente de Score de Autenticidade + Relatório Unificado ✅
+**Desenvolvido:** 24/02/2026
+**Status:** ✅ Implementado, testado (205/205 testes), aguardando dados nas planilhas
+**Commit:** `89aa376`
+**Motivo:** Canais derrubados por "Inauthentic Content" (política YouTube Julho 2025)
+
+**Arquitetura: 2 agentes, 1 relatório**
+```
+POST /api/analise-completa/{channel_id}
+         |
+         ├── copy_analysis_agent.run_analysis()     → performance (retenção, ranking)
+         ├── authenticity_agent.run_analysis()       → autenticidade (variedade, score)
+         |
+         └── _build_unified_report() combina os 2 em 1 texto
+```
+
+**1. `authenticity_agent.py` (~1100 linhas) - NOVO:**
+   - Score de Autenticidade 0-100 (mais alto = mais autêntico/seguro)
+   - 2 fatores (50/50):
+     - Variedade de Estruturas (Col A): Shannon entropy, dominância, quantidade usada de 7
+     - Diversidade de Títulos (Col B): Jaccard similarity, serial patterns, keyword stuffing, near-duplicates
+   - Níveis: EXCELENTE (80+), BOM (60-80), ATENCAO (40-60), RISCO (20-40), CRITICO (0-20)
+   - Alertas automáticos: score < 40, fator individual < 30, queda > 15 pontos vs anterior
+   - LLM (GPT-4o-mini): gera [DIAGNOSTICO] + [RECOMENDACOES] + [TENDENCIAS]
+   - Memória cumulativa: cada análise carrega relatório anterior para contexto
+   - Importa funções do `copy_analysis_agent.py` (read_copy_structures, _normalize_title, etc.)
+
+**2. Migration `016_authenticity_tables.sql`:**
+   - Tabela `authenticity_analysis_runs`: channel_id, authenticity_score, authenticity_level, structure_score, title_score, results_json (JSONB), report_text, has_alerts, alert_count
+   - 4 indexes (channel_id, channel+date, score DESC, alerts)
+
+**3. Endpoints novos no `main.py`:**
+   - `POST /api/analise-completa/{channel_id}` - Roda os 2 agentes, retorna relatório unificado
+   - `POST /api/analise-completa/run-all` - Fila: 1 canal por vez, pula erros, retorna resumo
+   - `GET /api/analise-autenticidade/{id}/latest` - Última análise de autenticidade
+   - `GET /api/analise-autenticidade/{id}/historico` - Histórico paginado
+   - `GET /api/analise-autenticidade/overview` - Overview de todos os canais com summary
+
+**4. Dashboard atualizado (`/dash-analise-copy`):**
+   - Título: "Performance + Autenticidade"
+   - Botão "Gerar Relatório" chama `/api/analise-completa/{id}` (roda 2 agentes)
+   - Botão "Rodar Todos" chama `/api/analise-completa/run-all`
+   - Sidebar: badge colorido com score de autenticidade + "!" para alertas
+   - `loadLatestReport()` busca performance + autenticidade em paralelo (Promise.all)
+   - `renderCombinedReport()` mostra score card no topo + 2 seções de relatório
+   - `renderReportLines()` nova função que renderiza ambos formatos (performance e autenticidade)
+   - Novas CSS classes: auth-badge (5 níveis), section-header (diag/rec/tend/alert), score-line, distribution-bar, report-section-divider
+
+**5. Testes realizados (205/205 PASS):**
+   - Tabela Supabase: INSERT/SELECT/DELETE/paginação (5/5)
+   - Funções do agente: scores, alertas, relatório (40/40)
+   - Endpoints API: overview, latest, historico, unificado, sidebar, HTML (43/43)
+   - Dashboard HTML/JS: CSS, funções, URLs, integridade (82/82)
+   - Integração E2E: save, compare, unified report, histórico (35/35)
+
+**CRÍTICO - Relação entre agentes:**
+- Os 2 agentes NÃO se comunicam diretamente
+- O endpoint `/api/analise-completa/` é o "gerente" que chama cada um sequencialmente
+- Cada agente tem sua própria tabela (`copy_analysis_runs` / `authenticity_analysis_runs`)
+- `_build_unified_report()` combina os 2 relatórios em 1 texto formatado
+
 ### 📊 Dashboard Visual de Análise de Copy ✅
 **Desenvolvido:** 24/02/2026
 **Status:** ✅ Em produção no Railway
@@ -121,28 +188,11 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 
 **O que foi implementado:**
 1. **Dashboard visual completo (`/dash-analise-copy`):**
-   - ~750 linhas de HTML/CSS/JS inline em `main.py` como constante `DASH_COPY_ANALYSIS_HTML`
+   - HTML/CSS/JS inline em `main.py` como constante `DASH_COPY_ANALYSIS_HTML`
    - Sidebar com 21 canais agrupados por subnicho com ícones coloridos
    - Cores por subnicho: $ Monetizados (verde), ⚔ Guerra (verde-escuro), ♛ Sombrias (roxo), ☠ Terror (bordô #7c1d3e), ○ Desmonetizados (vermelho #ef4444)
    - Badges de idioma (PT, EN, ES, DE, FR, IT, PL, RU, JP, KR, TR, AR) antes dos nomes
-   - Subnichos ordenados: Monetizados primeiro, depois Guerra, Sombrias, Terror, Desmonetizados
-   - Área principal renderiza `report_text` formatado com cores por seção (ranking, observações, anomalias, dados insuficientes, vs anterior)
-   - Botões: Gerar Relatório (individual), Rodar Todos, Ver Histórico
-   - Modal de histórico com lista de análises passadas
    - Dark theme com JetBrains Mono + Plus Jakarta Sans
-   - Scrollbar profissional (5px, cor accent, aparece apenas no hover)
-   - Responsivo (sidebar esconde no mobile)
-   - 100% isolado - nenhum endpoint existente foi modificado
-
-2. **2 novos endpoints:**
-   - `GET /dash-analise-copy` - Página HTML (HTMLResponse)
-   - `GET /api/dash-analise-copy/channels` - Canais para sidebar (agrupados por subnicho + última análise)
-
-3. **Usa APIs existentes:**
-   - `GET /api/analise-copy/{id}/latest`
-   - `GET /api/analise-copy/{id}/historico`
-   - `POST /api/analise-copy/{id}`
-   - `POST /api/analise-copy/run-all`
 
 ### 🔧 Bug Fixes (24/02/2026):
 1. **Erro 500 no Railway:** Endpoint usava `copy_get_channels()` (HTTP requests internos) que falhava no Railway. Reescrito para usar supabase client diretamente
@@ -152,18 +202,6 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 
 ### 🔧 Fix Database (24/02/2026):
 - Canal "Archives de Guerre": subnicho corrigido de "Relatos de Guerra" para "Monetizados" (estava mal configurado)
-
-**Arquivos alterados:**
-- `main.py` - Constante `DASH_COPY_ANALYSIS_HTML` + 2 novos endpoints + scrollbar CSS
-- `copy_analysis_agent.py` - Adicionado `lingua` ao select em `get_all_channels_for_analysis()`
-
-**Commits:**
-- `2645add` - feat: Dashboard visual de Analise de Copy
-- `d64e1b0` - feat: Cores por subnicho + bandeiras de idioma
-- `9765bb8` - fix: Corrigir erro 500 (supabase client direto)
-- `e186807` - fix: Cores subnicho (Terror bordo, Desmonetizados vermelho)
-- `305dcf8` - fix: Trocar emojis por siglas (encoding Railway)
-- `39c20f8` - ui: Scrollbar profissional na sidebar
 
 ---
 
