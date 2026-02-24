@@ -7032,8 +7032,15 @@ except Exception as e:
 async def dash_copy_analysis_channels():
     """Lista canais com copy_spreadsheet_id agrupados por subnicho + ultima analise."""
     try:
-        # 1. Busca canais com copy_spreadsheet_id
-        channels = copy_get_channels()
+        # 1. Busca canais com copy_spreadsheet_id (direto via supabase client)
+        ch_resp = supabase.table("yt_channels")\
+            .select("channel_id,channel_name,subnicho,is_monetized,lingua")\
+            .eq("is_active", True)\
+            .not_.is_("copy_spreadsheet_id", "null")\
+            .order("is_monetized", desc=True)\
+            .order("channel_name")\
+            .execute()
+        channels = ch_resp.data or []
         if not channels:
             return {"subnichos": {}, "stats": {"total": 0, "com_relatorio": 0}}
 
