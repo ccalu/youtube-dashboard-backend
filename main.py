@@ -7451,8 +7451,8 @@ function getSubnichoStyle(sub) {
         'Relatos de Guerra': {color:'#4a8c50', icon:'\u2694'},
         'Guerras e Civilizacoes': {color:'#f97316', icon:'\u26E8'},
         'Guerras e Civiliza\u00e7\u00f5es': {color:'#f97316', icon:'\u26E8'},
-        'Terror': {color:'#ef4444', icon:'\u2620'},
-        'Desmonetizados': {color:'#71717a', icon:'\u25CB'}
+        'Terror': {color:'#7c1d3e', icon:'\u2620'},
+        'Desmonetizados': {color:'#ef4444', icon:'\u25CB'}
     };
     return map[sub] || {color:'#64748b', icon:'\u25C6'};
 }
