@@ -7024,6 +7024,750 @@ except Exception as e:
     logger.warning(f"Mission Control nao inicializado: {e}")
 
 
+# =========================================================================
+# DASHBOARD ANALISE DE COPY - Visualizacao de Relatorios
+# =========================================================================
+
+@app.get("/api/dash-analise-copy/channels")
+async def dash_copy_analysis_channels():
+    """Lista canais com copy_spreadsheet_id agrupados por subnicho + ultima analise."""
+    try:
+        # 1. Busca canais com copy_spreadsheet_id
+        channels = copy_get_channels()
+        if not channels:
+            return {"subnichos": {}, "stats": {"total": 0, "com_relatorio": 0}}
+
+        # 2. Busca ultima analise de cada canal
+        channel_ids = [c["channel_id"] for c in channels]
+        last_analyses = {}
+
+        # Buscar em batches de 20
+        for i in range(0, len(channel_ids), 20):
+            batch = channel_ids[i:i+20]
+            batch_str = ",".join(batch)
+            resp = supabase.table("copy_analysis_runs")\
+                .select("channel_id,run_date,channel_avg_retention")\
+                .in_("channel_id", batch)\
+                .order("run_date", desc=True)\
+                .execute()
+
+            for row in resp.data:
+                cid = row["channel_id"]
+                if cid not in last_analyses:
+                    last_analyses[cid] = {
+                        "last_date": row["run_date"],
+                        "avg_retention": row.get("channel_avg_retention")
+                    }
+
+        # 3. Agrupa por subnicho
+        subnichos = {}
+        com_relatorio = 0
+        for ch in channels:
+            sub = ch.get("subnicho", "Outros") or "Outros"
+            if sub not in subnichos:
+                subnichos[sub] = []
+
+            analysis = last_analyses.get(ch["channel_id"])
+            last_date = None
+            avg_ret = None
+            if analysis:
+                last_date = analysis["last_date"]
+                avg_ret = analysis["avg_retention"]
+                com_relatorio += 1
+
+            subnichos[sub].append({
+                "channel_id": ch["channel_id"],
+                "channel_name": ch.get("channel_name", ""),
+                "is_monetized": ch.get("is_monetized", False),
+                "last_analysis_date": last_date,
+                "avg_retention": avg_ret
+            })
+
+        return {
+            "subnichos": subnichos,
+            "stats": {
+                "total": len(channels),
+                "com_relatorio": com_relatorio
+            }
+        }
+    except Exception as e:
+        logger.error(f"Erro dash-analise-copy channels: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+DASH_COPY_ANALYSIS_HTML = '''<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analise de Copy - Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg-primary: #0a0a0f;
+    --bg-secondary: #12121a;
+    --bg-tertiary: #1a1a24;
+    --bg-card: #16161f;
+    --text-primary: #e8e8ed;
+    --text-secondary: #a0a0b0;
+    --text-muted: #6b6b7b;
+    --accent: #00d4aa;
+    --accent-dim: rgba(0, 212, 170, 0.15);
+    --warning: #ff6b6b;
+    --warning-dim: rgba(255, 107, 107, 0.15);
+    --highlight: #ffd93d;
+    --highlight-dim: rgba(255, 217, 61, 0.1);
+    --purple: #a78bfa;
+    --purple-dim: rgba(167, 139, 250, 0.15);
+    --orange: #ff9f43;
+    --blue: #54a0ff;
+    --border: rgba(255, 255, 255, 0.08);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+.container { display:flex; min-height:100vh; }
+
+/* Sidebar */
+.sidebar {
+    width: 280px;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    padding: 1.5rem 1rem;
+    position: fixed;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 10;
+}
+.sidebar-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+.sidebar-title {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    font-weight: 600;
+}
+.sidebar-subtitle {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-top: 0.25rem;
+}
+.sidebar-stats {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+}
+.sidebar-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+.btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+.btn-accent {
+    background: var(--accent);
+    color: #000;
+    flex: 1;
+}
+.btn-accent:hover { opacity: 0.85; }
+.btn-accent:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+.subnicho-group { margin-bottom: 1rem; }
+.subnicho-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem;
+    font-weight: 600;
+    padding-left: 0.5rem;
+}
+.channel-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 2px;
+}
+.channel-item:hover { background: var(--bg-tertiary); }
+.channel-item.active { background: var(--accent-dim); border-left: 3px solid var(--accent); }
+.channel-name {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 170px;
+}
+.channel-item.active .channel-name { color: var(--accent); font-weight: 600; }
+.channel-date {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+}
+.channel-date.has-data { color: var(--accent); }
+
+/* Main area */
+.main {
+    margin-left: 280px;
+    flex: 1;
+    padding: 2rem 3rem;
+    min-height: 100vh;
+}
+.main-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+.main-title { font-size: 1.2rem; font-weight: 700; }
+.main-actions { display: flex; gap: 0.5rem; }
+
+/* Report area */
+.report-container {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.report-header-line {
+    color: var(--accent);
+    font-weight: 600;
+}
+.report-title {
+    color: var(--accent);
+    font-size: 1rem;
+    font-weight: 700;
+}
+.report-meta { color: var(--text-secondary); }
+.report-meta .val { color: var(--highlight); font-weight: 600; }
+.section-header {
+    color: var(--accent);
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+.section-header.obs { color: var(--purple); }
+.section-header.anom { color: var(--warning); }
+.section-header.insuf { color: var(--text-muted); }
+.section-header.comp { color: var(--blue); }
+.ranking-line { color: var(--text-primary); }
+.tag-acima { color: var(--accent); font-weight: 700; }
+.tag-media { color: var(--highlight); font-weight: 600; }
+.tag-abaixo { color: var(--warning); font-weight: 700; }
+.anomaly-line { color: var(--warning); font-weight: 600; }
+.anomaly-detail { color: var(--text-secondary); padding-left: 0.5rem; }
+.narrative { color: var(--purple); }
+.comp-positive { color: var(--accent); }
+.comp-negative { color: var(--warning); }
+.insuf-line { color: var(--text-muted); }
+.table-header-line { color: var(--text-muted); font-size: 0.78rem; }
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-muted);
+}
+.empty-state h2 { color: var(--text-secondary); margin-bottom: 1rem; font-size: 1.1rem; }
+.empty-state p { margin-bottom: 1.5rem; }
+
+/* Loading */
+.loading { text-align: center; padding: 3rem; color: var(--accent); }
+.loading-spinner {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 0.5rem;
+    vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Modal */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+.modal h3 { color: var(--accent); margin-bottom: 1rem; }
+.modal-close {
+    float: right;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    cursor: pointer;
+}
+.modal-close:hover { color: var(--text-primary); }
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 4px;
+    border: 1px solid var(--border);
+}
+.history-item:hover { border-color: var(--accent); background: var(--accent-dim); }
+.history-date { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-weight: 600; }
+.history-info { color: var(--text-muted); font-size: 0.8rem; }
+
+@media (max-width: 1024px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; padding: 1.5rem; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title">Dashboard</div>
+            <div class="sidebar-subtitle">Analise de Copy</div>
+            <div class="sidebar-stats" id="sidebarStats">Carregando...</div>
+        </div>
+        <div class="sidebar-actions">
+            <button class="btn btn-accent" onclick="runAll()" id="btnRunAll">Rodar Todos</button>
+        </div>
+        <div id="channelList">
+            <div class="loading"><span class="loading-spinner"></span> Carregando canais...</div>
+        </div>
+    </aside>
+    <main class="main">
+        <div class="main-header">
+            <div class="main-title" id="mainTitle">Selecione um canal</div>
+            <div class="main-actions" id="mainActions" style="display:none">
+                <button class="btn btn-accent" onclick="runAnalysis()" id="btnRun">Gerar Relatorio</button>
+                <button class="btn btn-secondary" onclick="showHistory()" id="btnHistory">Historico</button>
+            </div>
+        </div>
+        <div id="reportArea">
+            <div class="empty-state">
+                <h2>Analise de Estrutura de Copy</h2>
+                <p>Selecione um canal na sidebar para visualizar o relatorio<br>ou clique em "Rodar Todos" para gerar analises.</p>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div class="modal-overlay" id="historyModal">
+    <div class="modal">
+        <button class="modal-close" onclick="closeHistory()">&times;</button>
+        <h3>Historico de Relatorios</h3>
+        <div id="historyList">
+            <div class="loading"><span class="loading-spinner"></span> Carregando...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+var _selectedChannel = null;
+var _channelsData = {};
+
+function loadChannels() {
+    fetch('/api/dash-analise-copy/channels')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var el = document.getElementById('channelList');
+            var stats = document.getElementById('sidebarStats');
+            var s = data.stats || {};
+            stats.textContent = s.total + ' canais | ' + s.com_relatorio + ' com relatorio';
+
+            var html = '';
+            var subnichos = data.subnichos || {};
+            var keys = Object.keys(subnichos).sort();
+            for (var i = 0; i < keys.length; i++) {
+                var sub = keys[i];
+                var channels = subnichos[sub];
+                html += '<div class="subnicho-group">';
+                html += '<div class="subnicho-label">' + escHtml(sub) + '</div>';
+                for (var j = 0; j < channels.length; j++) {
+                    var ch = channels[j];
+                    _channelsData[ch.channel_id] = ch;
+                    var dateStr = '--';
+                    var dateClass = '';
+                    if (ch.last_analysis_date) {
+                        var d = new Date(ch.last_analysis_date);
+                        dateStr = pad(d.getDate()) + '/' + pad(d.getMonth()+1);
+                        dateClass = ' has-data';
+                    }
+                    html += '<div class="channel-item" id="ch-' + ch.channel_id + '" onclick="selectChannel(\\'' + ch.channel_id + '\\')">';
+                    html += '<span class="channel-name" title="' + escHtml(ch.channel_name) + '">' + escHtml(ch.channel_name) + '</span>';
+                    html += '<span class="channel-date' + dateClass + '">' + dateStr + '</span>';
+                    html += '</div>';
+                }
+                html += '</div>';
+            }
+            el.innerHTML = html;
+        })
+        .catch(function(e) {
+            document.getElementById('channelList').innerHTML = '<div class="empty-state"><p>Erro ao carregar canais</p></div>';
+        });
+}
+
+function selectChannel(channelId) {
+    _selectedChannel = channelId;
+    var items = document.querySelectorAll('.channel-item');
+    for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
+    var el = document.getElementById('ch-' + channelId);
+    if (el) el.classList.add('active');
+
+    var ch = _channelsData[channelId] || {};
+    document.getElementById('mainTitle').textContent = ch.channel_name || channelId;
+    document.getElementById('mainActions').style.display = 'flex';
+
+    loadLatestReport(channelId);
+}
+
+function loadLatestReport(channelId) {
+    var area = document.getElementById('reportArea');
+    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando relatorio...</div>';
+
+    fetch('/api/analise-copy/' + channelId + '/latest')
+        .then(function(r) {
+            if (r.status === 404) return null;
+            return r.json();
+        })
+        .then(function(data) {
+            if (!data) {
+                area.innerHTML = '<div class="empty-state"><h2>Nenhuma analise encontrada</h2><p>Clique em "Gerar Relatorio" para criar a primeira analise deste canal.</p></div>';
+                return;
+            }
+            renderReport(data, area);
+        })
+        .catch(function(e) {
+            area.innerHTML = '<div class="empty-state"><p>Erro ao carregar relatorio: ' + escHtml(e.message) + '</p></div>';
+        });
+}
+
+function renderReport(data, container) {
+    var text = data.report_text || '';
+    if (!text) {
+        container.innerHTML = '<div class="empty-state"><p>Relatorio sem conteudo</p></div>';
+        return;
+    }
+
+    var runDate = data.run_date ? new Date(data.run_date).toLocaleString('pt-BR') : '';
+    var infoHtml = runDate ? '<div style="color:var(--text-muted);font-size:0.75rem;margin-bottom:1rem;font-family:sans-serif;">Gerado em: ' + runDate + '</div>' : '';
+
+    var lines = text.split('\\n');
+    var html = '';
+    var inSection = '';
+
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        var trimmed = line.trim();
+
+        // Header lines (====)
+        if (/^={10,}/.test(trimmed)) {
+            html += '<div class="report-header-line">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Report title (RELATORIO ...)
+        if (/^RELATORIO /.test(trimmed)) {
+            html += '<div class="report-title">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Section headers (--- NAME ---)
+        if (/^---\\s+(.+?)\\s+---/.test(trimmed)) {
+            var secName = trimmed.replace(/^---\\s+/, '').replace(/\\s+---$/, '');
+            var secClass = 'section-header';
+            if (/OBSERVAC/.test(secName)) { secClass += ' obs'; inSection = 'obs'; }
+            else if (/ANOMAL/.test(secName)) { secClass += ' anom'; inSection = 'anom'; }
+            else if (/INSUFICIENTE/.test(secName)) { secClass += ' insuf'; inSection = 'insuf'; }
+            else if (/ANTERIOR/.test(secName)) { secClass += ' comp'; inSection = 'comp'; }
+            else { inSection = 'ranking'; }
+            html += '<div class="' + secClass + '">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Empty line
+        if (trimmed === '') {
+            html += '<br>';
+            continue;
+        }
+
+        // Anomaly line (! Estrutura ...)
+        if (/^!\\s+Estrutura/.test(trimmed)) {
+            html += '<div class="anomaly-line">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Anomaly detail (   Retencao: ... / Views: ... / Publicado: ... / NOTA: ...)
+        if (inSection === 'anom' && /^\\s{2,}/.test(line)) {
+            html += '<div class="anomaly-detail">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Meta lines (Videos analisados / Periodo / Media geral)
+        if (/^Videos analisados/.test(trimmed) || /^Periodo:/.test(trimmed) || /^Media geral/.test(trimmed)) {
+            var metaHtml = escHtml(line);
+            metaHtml = metaHtml.replace(/(\\d+\\.?\\d*%)/g, '<span class="val">$1</span>');
+            metaHtml = metaHtml.replace(/(\\d+\\.?\\d* min)/g, '<span class="val">$1</span>');
+            metaHtml = metaHtml.replace(/(\\d[\\d,]+ views)/g, '<span class="val">$1</span>');
+            html += '<div class="report-meta">' + metaHtml + '</div>';
+            continue;
+        }
+
+        // Table header line (# / Estr. / dashes)
+        if (/^\\s*#\\s+Estr/.test(trimmed) || /^\\s*Estr\\.?\\s+/.test(trimmed) || /^\\s*[─-]{3,}/.test(trimmed)) {
+            html += '<div class="table-header-line">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Ranking lines (contain Acima/Media/Abaixo)
+        if (/Acima|Media|Abaixo/.test(trimmed) && inSection === 'ranking') {
+            var rLine = escHtml(line);
+            rLine = rLine.replace(/Acima(\\s*\\([^)]*\\))?/g, '<span class="tag-acima">Acima$1</span>');
+            rLine = rLine.replace(/Media(\\s*\\([^)]*\\))?/g, '<span class="tag-media">Media$1</span>');
+            rLine = rLine.replace(/Abaixo(\\s*\\([^)]*\\))?/g, '<span class="tag-abaixo">Abaixo$1</span>');
+            html += '<div class="ranking-line">' + rLine + '</div>';
+            continue;
+        }
+
+        // Comparison lines (with +X% or -X%)
+        if (inSection === 'comp' && /[+-]\\d+\\.?\\d*%/.test(trimmed)) {
+            var cLine = escHtml(line);
+            cLine = cLine.replace(/(\\+\\d+\\.?\\d*%)/g, '<span class="comp-positive">$1</span>');
+            cLine = cLine.replace(/(\\-\\d+\\.?\\d*%)/g, '<span class="comp-negative">$1</span>');
+            cLine = cLine.replace(/(Subiu[^<]*)/g, '<span class="comp-positive">$1</span>');
+            cLine = cLine.replace(/(Caiu[^<]*)/g, '<span class="comp-negative">$1</span>');
+            html += '<div class="ranking-line">' + cLine + '</div>';
+            continue;
+        }
+
+        // Insufficient data lines
+        if (inSection === 'insuf') {
+            html += '<div class="insuf-line">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Observation/narrative text
+        if (inSection === 'obs' || (inSection === 'comp' && !/^\\s*\\d/.test(trimmed) && !/^\\s*Estr/.test(trimmed) && !/^Estruturas novas/.test(trimmed))) {
+            html += '<div class="narrative">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Default
+        html += '<div>' + escHtml(line) + '</div>';
+    }
+
+    container.innerHTML = infoHtml + '<div class="report-container">' + html + '</div>';
+}
+
+function runAnalysis() {
+    if (!_selectedChannel) return;
+    var ch = _channelsData[_selectedChannel] || {};
+    if (!confirm('Gerar relatorio para ' + (ch.channel_name || _selectedChannel) + '?\\n\\nIsso pode demorar 10-30 segundos.')) return;
+
+    var btn = document.getElementById('btnRun');
+    btn.disabled = true;
+    btn.textContent = 'Gerando...';
+    var area = document.getElementById('reportArea');
+    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Gerando relatorio... (10-30s)</div>';
+
+    fetch('/api/analise-copy/' + _selectedChannel, { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            btn.disabled = false;
+            btn.textContent = 'Gerar Relatorio';
+            if (data.success && data.report) {
+                renderReport({ report_text: data.report, run_date: new Date().toISOString() }, area);
+                loadChannels();
+            } else {
+                area.innerHTML = '<div class="empty-state"><h2>Erro na analise</h2><p>' + escHtml(data.error || 'Erro desconhecido') + '</p></div>';
+            }
+        })
+        .catch(function(e) {
+            btn.disabled = false;
+            btn.textContent = 'Gerar Relatorio';
+            area.innerHTML = '<div class="empty-state"><p>Erro: ' + escHtml(e.message) + '</p></div>';
+        });
+}
+
+function runAll() {
+    if (!confirm('Rodar analise de TODOS os canais?\\n\\nIsso pode demorar varios minutos.')) return;
+    var btn = document.getElementById('btnRunAll');
+    btn.disabled = true;
+    btn.textContent = 'Rodando...';
+
+    fetch('/api/analise-copy/run-all', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            btn.disabled = false;
+            btn.textContent = 'Rodar Todos';
+            var msg = 'Concluido! ' + (data.success_count || 0) + ' sucesso, ' + (data.error_count || 0) + ' erros de ' + (data.total_channels || 0) + ' canais.';
+            alert(msg);
+            loadChannels();
+            if (_selectedChannel) loadLatestReport(_selectedChannel);
+        })
+        .catch(function(e) {
+            btn.disabled = false;
+            btn.textContent = 'Rodar Todos';
+            alert('Erro: ' + e.message);
+        });
+}
+
+function showHistory() {
+    if (!_selectedChannel) return;
+    document.getElementById('historyModal').classList.add('active');
+    var el = document.getElementById('historyList');
+    el.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando...</div>';
+
+    fetch('/api/analise-copy/' + _selectedChannel + '/historico?limit=30')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var items = data.items || [];
+            if (items.length === 0) {
+                el.innerHTML = '<div class="empty-state"><p>Nenhum historico encontrado</p></div>';
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i];
+                var d = new Date(item.run_date);
+                var dateStr = pad(d.getDate()) + '/' + pad(d.getMonth()+1) + '/' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+                var ret = item.channel_avg_retention ? item.channel_avg_retention.toFixed(1) + '%' : '--';
+                var vids = item.total_videos_analyzed || '--';
+                html += '<div class="history-item" onclick="loadHistoryReport(' + item.id + ')">';
+                html += '<span class="history-date">' + dateStr + '</span>';
+                html += '<span class="history-info">' + vids + ' videos | ret: ' + ret + '</span>';
+                html += '</div>';
+            }
+            el.innerHTML = html;
+        })
+        .catch(function(e) {
+            el.innerHTML = '<div class="empty-state"><p>Erro: ' + e.message + '</p></div>';
+        });
+}
+
+function loadHistoryReport(runId) {
+    closeHistory();
+    if (!_selectedChannel) return;
+    var area = document.getElementById('reportArea');
+    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando relatorio...</div>';
+
+    fetch('/api/analise-copy/' + _selectedChannel + '/latest')
+        .then(function(r) { return r.json(); })
+        .then(function(latest) {
+            // Se o runId for o mais recente, ja temos
+            if (latest && latest.id === runId) {
+                renderReport(latest, area);
+                return;
+            }
+            // Buscar historico e encontrar o run especifico
+            return fetch('/api/analise-copy/' + _selectedChannel + '/historico?limit=100')
+                .then(function(r2) { return r2.json(); })
+                .then(function(hist) {
+                    var items = hist.items || [];
+                    // Historico nao traz report_text (so sumario)
+                    // Precisamos do report_text - buscar da tabela diretamente
+                    // Como nao temos endpoint por run_id, mostramos o sumario
+                    for (var i = 0; i < items.length; i++) {
+                        if (items[i].id === runId) {
+                            var info = items[i];
+                            var html = '<div class="report-container">';
+                            html += '<div class="report-title">Relatorio de ' + new Date(info.run_date).toLocaleDateString('pt-BR') + '</div><br>';
+                            html += '<div class="report-meta">Videos analisados: <span class="val">' + (info.total_videos_analyzed || '--') + '</span></div>';
+                            html += '<div class="report-meta">Retencao media: <span class="val">' + (info.channel_avg_retention ? info.channel_avg_retention.toFixed(1) + '%' : '--') + '</span></div>';
+                            html += '<div class="report-meta">Watch time medio: <span class="val">' + (info.channel_avg_watch_time ? info.channel_avg_watch_time.toFixed(1) + ' min' : '--') + '</span></div>';
+                            html += '<div class="report-meta">Views media: <span class="val">' + (info.channel_avg_views ? Math.round(info.channel_avg_views).toLocaleString() : '--') + '</span></div>';
+                            html += '<br><div style="color:var(--text-muted)">Relatorio detalhado disponivel apenas para a analise mais recente.</div>';
+                            html += '</div>';
+                            area.innerHTML = html;
+                            return;
+                        }
+                    }
+                    area.innerHTML = '<div class="empty-state"><p>Relatorio nao encontrado</p></div>';
+                });
+        })
+        .catch(function(e) {
+            area.innerHTML = '<div class="empty-state"><p>Erro: ' + e.message + '</p></div>';
+        });
+}
+
+function closeHistory() {
+    document.getElementById('historyModal').classList.remove('active');
+}
+
+function escHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+// Init
+loadChannels();
+</script>
+</body>
+</html>'''
+
+
+@app.get("/dash-analise-copy", response_class=HTMLResponse)
+async def dash_copy_analysis_page():
+    """Dashboard de Analise de Copy - Interface web"""
+    return DASH_COPY_ANALYSIS_HTML
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
