@@ -6041,6 +6041,7 @@ DASH_UPLOAD_HTML = '''
     <title>Upload Dashboard</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect rx='20' width='100' height='100' fill='%230f3460'/><path d='M50 25L50 65M35 40L50 25L65 40' stroke='%2322c55e' stroke-width='8' stroke-linecap='round' stroke-linejoin='round' fill='none'/><rect x='25' y='70' width='50' height='6' rx='3' fill='%2322c55e'/></svg>">
     <style>
         :root {
             --bg-primary: #0a0a0b;
@@ -7108,6 +7109,7 @@ DASH_COPY_ANALYSIS_HTML = '''<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect rx='20' width='100' height='100' fill='%230a0a0f'/><path d='M25 70L40 45L55 55L75 30' stroke='%2300d4aa' stroke-width='7' stroke-linecap='round' stroke-linejoin='round' fill='none'/><circle cx='75' cy='30' r='6' fill='%2300d4aa'/></svg>">
 <title>Analise de Copy - Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
