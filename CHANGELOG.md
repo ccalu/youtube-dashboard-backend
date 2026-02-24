@@ -5,6 +5,62 @@
 
 ---
 
+## [24/02/2026 - v17] - Dashboard Visual de Análise de Copy
+
+### 📊 Feature: Dashboard de Análise de Copy em Produção
+
+**Data:** 24/02/2026
+**Status:** ✅ Em produção no Railway
+**Desenvolvedor:** Cellibs & Claude
+**URL:** `https://youtube-dashboard-backend-production.up.railway.app/dash-analise-copy`
+
+### O que foi implementado
+1. **Dashboard visual completo (`/dash-analise-copy`):**
+   - ~750 linhas HTML/CSS/JS inline em `main.py` (constante `DASH_COPY_ANALYSIS_HTML`)
+   - Sidebar com 21 canais agrupados por subnicho com ícones coloridos
+   - Cores: $ Monetizados (verde), ⚔ Guerra (verde-escuro), ♛ Sombrias (roxo), ☠ Terror (bordô), ○ Desmonetizados (vermelho)
+   - Badges de idioma estilizados (PT, EN, ES, DE, FR, IT, PL, RU, JP, KR, TR, AR)
+   - Subnichos ordenados: Monetizados → Guerra → Sombrias → Terror → Desmonetizados
+   - Área principal renderiza `report_text` com cores por seção
+   - Botões: Gerar Relatório, Rodar Todos, Ver Histórico
+   - Modal de histórico com análises passadas
+   - Dark theme (JetBrains Mono + Plus Jakarta Sans)
+   - Scrollbar profissional (5px, accent color, hover-only)
+   - Responsivo (sidebar esconde no mobile)
+
+2. **2 novos endpoints:**
+   - `GET /dash-analise-copy` - Página HTML (HTMLResponse)
+   - `GET /api/dash-analise-copy/channels` - Canais para sidebar (agrupados por subnicho + última análise)
+
+3. **Usa APIs existentes da v16:**
+   - `GET /api/analise-copy/{id}/latest`
+   - `GET /api/analise-copy/{id}/historico`
+   - `POST /api/analise-copy/{id}`
+   - `POST /api/analise-copy/run-all`
+
+### Bug fixes
+1. **Erro 500 no Railway:** `copy_get_channels()` fazia HTTP requests internos que falhavam. Reescrito para usar supabase client diretamente
+2. **Emojis surrogate pair:** `\uD83C\uDDE7` causava encoding error. Substituídos por styled badges (PT, EN, etc.)
+3. **Cores subnicho:** Terror = bordô (#7c1d3e), Desmonetizados = vermelho (#ef4444)
+4. **Campo `lingua` faltando:** Adicionado ao select em `get_all_channels_for_analysis()` e ao endpoint de canais
+
+### Database fix
+- Archives de Guerre: subnicho corrigido de "Relatos de Guerra" para "Monetizados"
+
+### Arquivos alterados
+- `main.py` - `DASH_COPY_ANALYSIS_HTML` constante + 2 novos endpoints + scrollbar CSS
+- `copy_analysis_agent.py` - campo `lingua` adicionado ao select
+
+### Commits importantes
+- `2645add` - feat: Dashboard visual de Analise de Copy
+- `d64e1b0` - feat: Cores por subnicho + bandeiras de idioma
+- `9765bb8` - fix: Corrigir erro 500 (supabase client direto)
+- `e186807` - fix: Cores subnicho (Terror bordo, Desmonetizados vermelho)
+- `305dcf8` - fix: Trocar emojis por siglas (encoding Railway)
+- `39c20f8` - ui: Scrollbar profissional na sidebar
+
+---
+
 ## [23/02/2026 - v16] - Agente de Copy Analysis + Fix Dashboard Upload
 
 ### 🧠 Agente de Análise de Copy (MVP)

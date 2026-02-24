@@ -94,6 +94,14 @@ python main.py
 
 **Documentação completa:** `.claude/3_SISTEMA_COMENTARIOS/`
 
+### 📊 Dashboard de Análise de Copy:
+- `GET /dash-analise-copy` - Dashboard visual de análise de copy (HTML)
+- `GET /api/dash-analise-copy/channels` - Canais para sidebar (agrupados por subnicho)
+- `POST /api/analise-copy/{id}` - Gerar análise de copy para 1 canal
+- `POST /api/analise-copy/run-all` - Rodar análise de todos os canais
+- `GET /api/analise-copy/{id}/latest` - Último relatório de análise
+- `GET /api/analise-copy/{id}/historico` - Histórico de análises
+
 Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 
 ## 🔧 PARA CLAUDE CODE:
@@ -103,6 +111,61 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 - Pode criar novos endpoints
 - Pode melhorar lógica existente
 - SEMPRE fazer backup antes de mudanças grandes
+
+## 🆕 ATUALIZAÇÕES RECENTES (24/02/2026):
+
+### 📊 Dashboard Visual de Análise de Copy ✅
+**Desenvolvido:** 24/02/2026
+**Status:** ✅ Em produção no Railway
+**URL:** `https://youtube-dashboard-backend-production.up.railway.app/dash-analise-copy`
+
+**O que foi implementado:**
+1. **Dashboard visual completo (`/dash-analise-copy`):**
+   - ~750 linhas de HTML/CSS/JS inline em `main.py` como constante `DASH_COPY_ANALYSIS_HTML`
+   - Sidebar com 21 canais agrupados por subnicho com ícones coloridos
+   - Cores por subnicho: $ Monetizados (verde), ⚔ Guerra (verde-escuro), ♛ Sombrias (roxo), ☠ Terror (bordô #7c1d3e), ○ Desmonetizados (vermelho #ef4444)
+   - Badges de idioma (PT, EN, ES, DE, FR, IT, PL, RU, JP, KR, TR, AR) antes dos nomes
+   - Subnichos ordenados: Monetizados primeiro, depois Guerra, Sombrias, Terror, Desmonetizados
+   - Área principal renderiza `report_text` formatado com cores por seção (ranking, observações, anomalias, dados insuficientes, vs anterior)
+   - Botões: Gerar Relatório (individual), Rodar Todos, Ver Histórico
+   - Modal de histórico com lista de análises passadas
+   - Dark theme com JetBrains Mono + Plus Jakarta Sans
+   - Scrollbar profissional (5px, cor accent, aparece apenas no hover)
+   - Responsivo (sidebar esconde no mobile)
+   - 100% isolado - nenhum endpoint existente foi modificado
+
+2. **2 novos endpoints:**
+   - `GET /dash-analise-copy` - Página HTML (HTMLResponse)
+   - `GET /api/dash-analise-copy/channels` - Canais para sidebar (agrupados por subnicho + última análise)
+
+3. **Usa APIs existentes:**
+   - `GET /api/analise-copy/{id}/latest`
+   - `GET /api/analise-copy/{id}/historico`
+   - `POST /api/analise-copy/{id}`
+   - `POST /api/analise-copy/run-all`
+
+### 🔧 Bug Fixes (24/02/2026):
+1. **Erro 500 no Railway:** Endpoint usava `copy_get_channels()` (HTTP requests internos) que falhava no Railway. Reescrito para usar supabase client diretamente
+2. **Emojis surrogate pair:** `\uD83C\uDDE7` causava erro de encoding no Railway. Substituídos por badges estilizados (PT, EN, etc.)
+3. **Cores subnicho incorretas:** Terror = bordô/vinho (#7c1d3e), Desmonetizados = vermelho (#ef4444)
+4. **Campo `lingua` faltando:** Adicionado ao select em `get_all_channels_for_analysis()` e ao response do endpoint de canais
+
+### 🔧 Fix Database (24/02/2026):
+- Canal "Archives de Guerre": subnicho corrigido de "Relatos de Guerra" para "Monetizados" (estava mal configurado)
+
+**Arquivos alterados:**
+- `main.py` - Constante `DASH_COPY_ANALYSIS_HTML` + 2 novos endpoints + scrollbar CSS
+- `copy_analysis_agent.py` - Adicionado `lingua` ao select em `get_all_channels_for_analysis()`
+
+**Commits:**
+- `2645add` - feat: Dashboard visual de Analise de Copy
+- `d64e1b0` - feat: Cores por subnicho + bandeiras de idioma
+- `9765bb8` - fix: Corrigir erro 500 (supabase client direto)
+- `e186807` - fix: Cores subnicho (Terror bordo, Desmonetizados vermelho)
+- `305dcf8` - fix: Trocar emojis por siglas (encoding Railway)
+- `39c20f8` - ui: Scrollbar profissional na sidebar
+
+---
 
 ## 🆕 ATUALIZAÇÕES RECENTES (23/02/2026):
 
