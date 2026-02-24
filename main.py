@@ -7151,7 +7151,18 @@ body {
     height: 100vh;
     overflow-y: auto;
     z-index: 10;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0,212,170,0.2) transparent;
 }
+.sidebar::-webkit-scrollbar { width: 5px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb {
+    background: rgba(0,212,170,0.15);
+    border-radius: 10px;
+    transition: background 0.2s;
+}
+.sidebar::-webkit-scrollbar-thumb:hover { background: rgba(0,212,170,0.35); }
+.sidebar:not(:hover)::-webkit-scrollbar-thumb { background: transparent; }
 .sidebar-header {
     margin-bottom: 1.5rem;
     padding-bottom: 1rem;
