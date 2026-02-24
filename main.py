@@ -7220,9 +7220,16 @@ body {
     font-size: 0.75rem;
 }
 .channel-flag {
-    font-size: 0.7rem;
-    margin-right: 0.2rem;
+    font-size: 0.55rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(0,212,170,0.15);
+    color: var(--accent);
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-right: 0.3rem;
     flex-shrink: 0;
+    letter-spacing: 0.03em;
 }
 .channel-info {
     display: flex;
@@ -7461,18 +7468,18 @@ function getFlag(lingua) {
     if (!lingua) return '';
     var l = lingua.toLowerCase();
     var map = {
-        'pt':'\uD83C\uDDE7\uD83C\uDDF7','portugues':'\uD83C\uDDE7\uD83C\uDDF7','portuguese':'\uD83C\uDDE7\uD83C\uDDF7',
-        'en':'\uD83C\uDDFA\uD83C\uDDF8','ingles':'\uD83C\uDDFA\uD83C\uDDF8','english':'\uD83C\uDDFA\uD83C\uDDF8',
-        'es':'\uD83C\uDDEA\uD83C\uDDF8','espanhol':'\uD83C\uDDEA\uD83C\uDDF8','spanish':'\uD83C\uDDEA\uD83C\uDDF8',
-        'de':'\uD83C\uDDE9\uD83C\uDDEA','alemao':'\uD83C\uDDE9\uD83C\uDDEA','german':'\uD83C\uDDE9\uD83C\uDDEA',
-        'fr':'\uD83C\uDDEB\uD83C\uDDF7','frances':'\uD83C\uDDEB\uD83C\uDDF7','french':'\uD83C\uDDEB\uD83C\uDDF7',
-        'it':'\uD83C\uDDEE\uD83C\uDDF9','italiano':'\uD83C\uDDEE\uD83C\uDDF9','italian':'\uD83C\uDDEE\uD83C\uDDF9',
-        'pl':'\uD83C\uDDF5\uD83C\uDDF1','polones':'\uD83C\uDDF5\uD83C\uDDF1','polish':'\uD83C\uDDF5\uD83C\uDDF1',
-        'ru':'\uD83C\uDDF7\uD83C\uDDFA','russo':'\uD83C\uDDF7\uD83C\uDDFA','russian':'\uD83C\uDDF7\uD83C\uDDFA',
-        'ja':'\uD83C\uDDEF\uD83C\uDDF5','japones':'\uD83C\uDDEF\uD83C\uDDF5','japanese':'\uD83C\uDDEF\uD83C\uDDF5',
-        'ko':'\uD83C\uDDF0\uD83C\uDDF7','coreano':'\uD83C\uDDF0\uD83C\uDDF7','korean':'\uD83C\uDDF0\uD83C\uDDF7',
-        'tr':'\uD83C\uDDF9\uD83C\uDDF7','turco':'\uD83C\uDDF9\uD83C\uDDF7','turkish':'\uD83C\uDDF9\uD83C\uDDF7',
-        'ar':'\uD83C\uDDF8\uD83C\uDDE6','arabic':'\uD83C\uDDF8\uD83C\uDDE6','arabe':'\uD83C\uDDF8\uD83C\uDDE6'
+        'pt':'PT','portugues':'PT','portuguese':'PT',
+        'en':'EN','ingles':'EN','english':'EN',
+        'es':'ES','espanhol':'ES','spanish':'ES',
+        'de':'DE','alemao':'DE','german':'DE',
+        'fr':'FR','frances':'FR','french':'FR',
+        'it':'IT','italiano':'IT','italian':'IT',
+        'pl':'PL','polones':'PL','polish':'PL',
+        'ru':'RU','russo':'RU','russian':'RU',
+        'ja':'JP','japones':'JP','japanese':'JP',
+        'ko':'KR','coreano':'KR','korean':'KR',
+        'tr':'TR','turco':'TR','turkish':'TR',
+        'ar':'AR','arabic':'AR','arabe':'AR'
     };
     return map[l] || '';
 }
