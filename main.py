@@ -7078,6 +7078,7 @@ async def dash_copy_analysis_channels():
             subnichos[sub].append({
                 "channel_id": ch["channel_id"],
                 "channel_name": ch.get("channel_name", ""),
+                "lingua": ch.get("lingua", ""),
                 "is_monetized": ch.get("is_monetized", False),
                 "last_analysis_date": last_date,
                 "avg_retention": avg_ret
@@ -7201,10 +7202,26 @@ body {
     font-size: 0.65rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--text-muted);
     margin-bottom: 0.4rem;
     font-weight: 600;
     padding-left: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.subnicho-icon {
+    font-size: 0.75rem;
+}
+.channel-flag {
+    font-size: 0.7rem;
+    margin-right: 0.2rem;
+    flex-shrink: 0;
+}
+.channel-info {
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    min-width: 0;
 }
 .channel-item {
     display: flex;
@@ -7420,6 +7437,39 @@ body {
 var _selectedChannel = null;
 var _channelsData = {};
 
+function getSubnichoStyle(sub) {
+    var map = {
+        'Monetizados': {color:'#22c55e', icon:'$'},
+        'Historias Sombrias': {color:'#8b5cf6', icon:'\u265B'},
+        'Relatos de Guerra': {color:'#4a8c50', icon:'\u2694'},
+        'Guerras e Civilizacoes': {color:'#f97316', icon:'\u26E8'},
+        'Guerras e Civiliza\u00e7\u00f5es': {color:'#f97316', icon:'\u26E8'},
+        'Terror': {color:'#ef4444', icon:'\u2620'},
+        'Desmonetizados': {color:'#71717a', icon:'\u25CB'}
+    };
+    return map[sub] || {color:'#64748b', icon:'\u25C6'};
+}
+
+function getFlag(lingua) {
+    if (!lingua) return '';
+    var l = lingua.toLowerCase();
+    var map = {
+        'pt':'\uD83C\uDDE7\uD83C\uDDF7','portugues':'\uD83C\uDDE7\uD83C\uDDF7','portuguese':'\uD83C\uDDE7\uD83C\uDDF7',
+        'en':'\uD83C\uDDFA\uD83C\uDDF8','ingles':'\uD83C\uDDFA\uD83C\uDDF8','english':'\uD83C\uDDFA\uD83C\uDDF8',
+        'es':'\uD83C\uDDEA\uD83C\uDDF8','espanhol':'\uD83C\uDDEA\uD83C\uDDF8','spanish':'\uD83C\uDDEA\uD83C\uDDF8',
+        'de':'\uD83C\uDDE9\uD83C\uDDEA','alemao':'\uD83C\uDDE9\uD83C\uDDEA','german':'\uD83C\uDDE9\uD83C\uDDEA',
+        'fr':'\uD83C\uDDEB\uD83C\uDDF7','frances':'\uD83C\uDDEB\uD83C\uDDF7','french':'\uD83C\uDDEB\uD83C\uDDF7',
+        'it':'\uD83C\uDDEE\uD83C\uDDF9','italiano':'\uD83C\uDDEE\uD83C\uDDF9','italian':'\uD83C\uDDEE\uD83C\uDDF9',
+        'pl':'\uD83C\uDDF5\uD83C\uDDF1','polones':'\uD83C\uDDF5\uD83C\uDDF1','polish':'\uD83C\uDDF5\uD83C\uDDF1',
+        'ru':'\uD83C\uDDF7\uD83C\uDDFA','russo':'\uD83C\uDDF7\uD83C\uDDFA','russian':'\uD83C\uDDF7\uD83C\uDDFA',
+        'ja':'\uD83C\uDDEF\uD83C\uDDF5','japones':'\uD83C\uDDEF\uD83C\uDDF5','japanese':'\uD83C\uDDEF\uD83C\uDDF5',
+        'ko':'\uD83C\uDDF0\uD83C\uDDF7','coreano':'\uD83C\uDDF0\uD83C\uDDF7','korean':'\uD83C\uDDF0\uD83C\uDDF7',
+        'tr':'\uD83C\uDDF9\uD83C\uDDF7','turco':'\uD83C\uDDF9\uD83C\uDDF7','turkish':'\uD83C\uDDF9\uD83C\uDDF7',
+        'ar':'\uD83C\uDDF8\uD83C\uDDE6','arabic':'\uD83C\uDDF8\uD83C\uDDE6','arabe':'\uD83C\uDDF8\uD83C\uDDE6'
+    };
+    return map[l] || '';
+}
+
 function loadChannels() {
     fetch('/api/dash-analise-copy/channels')
         .then(function(r) { return r.json(); })
@@ -7431,12 +7481,20 @@ function loadChannels() {
 
             var html = '';
             var subnichos = data.subnichos || {};
-            var keys = Object.keys(subnichos).sort();
+            var order = ['Monetizados','Relatos de Guerra','Historias Sombrias','Terror','Guerras e Civilizacoes','Desmonetizados'];
+            var keys = Object.keys(subnichos).sort(function(a,b) {
+                var ia = order.indexOf(a), ib = order.indexOf(b);
+                if (ia === -1) ia = 99; if (ib === -1) ib = 99;
+                return ia - ib;
+            });
             for (var i = 0; i < keys.length; i++) {
                 var sub = keys[i];
                 var channels = subnichos[sub];
+                var sStyle = getSubnichoStyle(sub);
                 html += '<div class="subnicho-group">';
-                html += '<div class="subnicho-label">' + escHtml(sub) + '</div>';
+                html += '<div class="subnicho-label" style="color:' + sStyle.color + ';">';
+                html += '<span class="subnicho-icon">' + sStyle.icon + '</span>';
+                html += escHtml(sub) + ' <span style="opacity:0.5;font-size:0.6rem;">(' + channels.length + ')</span></div>';
                 for (var j = 0; j < channels.length; j++) {
                     var ch = channels[j];
                     _channelsData[ch.channel_id] = ch;
@@ -7447,8 +7505,12 @@ function loadChannels() {
                         dateStr = pad(d.getDate()) + '/' + pad(d.getMonth()+1);
                         dateClass = ' has-data';
                     }
+                    var flag = getFlag(ch.lingua || '');
                     html += '<div class="channel-item" id="ch-' + ch.channel_id + '" onclick="selectChannel(\\'' + ch.channel_id + '\\')">';
+                    html += '<div class="channel-info">';
+                    if (flag) html += '<span class="channel-flag">' + flag + '</span>';
                     html += '<span class="channel-name" title="' + escHtml(ch.channel_name) + '">' + escHtml(ch.channel_name) + '</span>';
+                    html += '</div>';
                     html += '<span class="channel-date' + dateClass + '">' + dateStr + '</span>';
                     html += '</div>';
                 }

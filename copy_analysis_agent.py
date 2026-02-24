@@ -1520,7 +1520,7 @@ def get_all_channels_for_analysis() -> List[Dict]:
             params={
                 "is_active": "eq.true",
                 "copy_spreadsheet_id": "not.is.null",
-                "select": "channel_id,channel_name,subnicho,is_monetized",
+                "select": "channel_id,channel_name,subnicho,is_monetized,lingua",
                 "order": "is_monetized.desc,channel_name.asc",
                 "limit": str(page_size),
                 "offset": str(offset)
