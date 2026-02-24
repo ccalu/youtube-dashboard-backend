@@ -6999,6 +6999,264 @@ async def run_copy_analysis_all():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ============================================================================
+# ANALISE DE AUTENTICIDADE + RELATORIO UNIFICADO
+# ============================================================================
+
+from authenticity_agent import (
+    run_analysis as auth_run_analysis,
+    get_latest_analysis as auth_get_latest,
+    get_analysis_history as auth_get_history,
+    get_risk_overview as auth_get_overview
+)
+
+
+@app.post("/api/analise-completa/{channel_id}")
+async def trigger_unified_analysis(channel_id: str):
+    """
+    Roda os 2 agentes (performance + autenticidade) e retorna relatorio unificado.
+    """
+    try:
+        copy_result = None
+        auth_result = None
+        errors = []
+
+        # 1. Agente de Performance (copy analysis)
+        try:
+            copy_result = copy_run_analysis(channel_id)
+        except Exception as e:
+            logger.error(f"Erro agente performance {channel_id}: {e}")
+            errors.append(f"Performance: {str(e)}")
+
+        # 2. Agente de Autenticidade
+        try:
+            auth_result = auth_run_analysis(channel_id)
+        except Exception as e:
+            logger.error(f"Erro agente autenticidade {channel_id}: {e}")
+            errors.append(f"Autenticidade: {str(e)}")
+
+        # 3. Combinar relatorios
+        unified_report = _build_unified_report(copy_result, auth_result)
+
+        channel_name = ""
+        if copy_result and copy_result.get("success"):
+            channel_name = copy_result.get("channel_name", "")
+        elif auth_result and auth_result.get("success"):
+            channel_name = auth_result.get("channel_name", "")
+
+        return {
+            "success": True,
+            "channel_id": channel_id,
+            "channel_name": channel_name,
+            "report": unified_report,
+            "performance": {
+                "success": copy_result.get("success", False) if copy_result else False,
+                "error": copy_result.get("error") if copy_result and not copy_result.get("success") else None,
+                "summary": copy_result.get("summary") if copy_result else None
+            },
+            "authenticity": {
+                "success": auth_result.get("success", False) if auth_result else False,
+                "error": auth_result.get("error") if auth_result and not auth_result.get("success") else None,
+                "score": auth_result.get("score") if auth_result else None,
+                "level": auth_result.get("level") if auth_result else None,
+                "alerts": auth_result.get("alerts", []) if auth_result else [],
+                "summary": auth_result.get("summary") if auth_result else None
+            },
+            "errors": errors if errors else None
+        }
+    except Exception as e:
+        logger.error(f"Erro analise completa {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/analise-completa/run-all")
+async def run_unified_analysis_all():
+    """
+    Roda analise completa (performance + autenticidade) para TODOS os canais.
+    Processa 1 por vez em fila. Pula erros e continua.
+    """
+    try:
+        channels = copy_get_channels()
+        if not channels:
+            return {"success": False, "error": "Nenhum canal encontrado com spreadsheet configurado"}
+
+        results = []
+        success_count = 0
+        error_count = 0
+
+        for ch in channels:
+            ch_id = ch["channel_id"]
+            ch_name = ch.get("channel_name", "")
+            logger.info(f"Analise completa: processando {ch_name} ({ch_id})")
+
+            ch_result = {
+                "channel_id": ch_id,
+                "channel_name": ch_name,
+                "performance": {"success": False},
+                "authenticity": {"success": False}
+            }
+
+            # Agente 1: Performance
+            try:
+                copy_res = copy_run_analysis(ch_id)
+                ch_result["performance"] = {
+                    "success": copy_res.get("success", False),
+                    "error": copy_res.get("error") if not copy_res.get("success") else None
+                }
+            except Exception as e:
+                ch_result["performance"] = {"success": False, "error": str(e)}
+
+            # Agente 2: Autenticidade
+            try:
+                auth_res = auth_run_analysis(ch_id)
+                ch_result["authenticity"] = {
+                    "success": auth_res.get("success", False),
+                    "score": auth_res.get("score"),
+                    "level": auth_res.get("level"),
+                    "error": auth_res.get("error") if not auth_res.get("success") else None
+                }
+            except Exception as e:
+                ch_result["authenticity"] = {"success": False, "error": str(e)}
+
+            # Contar sucesso se pelo menos 1 agente rodou
+            if ch_result["performance"]["success"] or ch_result["authenticity"]["success"]:
+                success_count += 1
+            else:
+                error_count += 1
+
+            results.append(ch_result)
+
+        return {
+            "success": True,
+            "total_channels": len(channels),
+            "success_count": success_count,
+            "error_count": error_count,
+            "results": results
+        }
+    except Exception as e:
+        logger.error(f"Erro run-all completa: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def _build_unified_report(copy_result: dict, auth_result: dict) -> str:
+    """Combina os relatorios dos 2 agentes em 1 texto unificado."""
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
+    channel_name = ""
+    if copy_result and copy_result.get("success"):
+        channel_name = copy_result.get("channel_name", "")
+    elif auth_result and auth_result.get("success"):
+        channel_name = auth_result.get("channel_name", "")
+
+    parts = []
+    parts.append("=" * 60)
+    parts.append(f"RELATORIO COMPLETO | {channel_name} | {now}")
+    parts.append("=" * 60)
+    parts.append("")
+
+    # Secao 1: Performance
+    parts.append("=" * 60)
+    parts.append("  ANALISE DE PERFORMANCE")
+    parts.append("=" * 60)
+    parts.append("")
+
+    if copy_result and copy_result.get("success") and copy_result.get("report"):
+        # Pegar o conteudo do relatorio de performance (pula header e footer)
+        copy_lines = copy_result["report"].split("\n")
+        # Pula as linhas de header (===, RELATORIO..., ===) e footer (===)
+        content_lines = []
+        skip_header = True
+        for line in copy_lines:
+            if skip_header:
+                if line.strip().startswith("=") or line.strip().startswith("RELATORIO "):
+                    continue
+                if line.strip() == "":
+                    continue
+                skip_header = False
+            # Pula o footer (ultima linha de ===)
+            content_lines.append(line)
+        # Remove trailing === se houver
+        while content_lines and content_lines[-1].strip().startswith("=" * 10):
+            content_lines.pop()
+        parts.extend(content_lines)
+    elif copy_result and not copy_result.get("success"):
+        parts.append(f"  Erro: {copy_result.get('error', 'desconhecido')}")
+    else:
+        parts.append("  Agente de performance nao executado.")
+    parts.append("")
+
+    # Secao 2: Autenticidade
+    parts.append("=" * 60)
+    parts.append("  SCORE DE AUTENTICIDADE")
+    parts.append("=" * 60)
+    parts.append("")
+
+    if auth_result and auth_result.get("success") and auth_result.get("report"):
+        auth_lines = auth_result["report"].split("\n")
+        content_lines = []
+        skip_header = True
+        for line in auth_lines:
+            if skip_header:
+                if line.strip().startswith("=") or line.strip().startswith("SCORE DE AUTENTICIDADE"):
+                    continue
+                if line.strip() == "":
+                    continue
+                skip_header = False
+            content_lines.append(line)
+        while content_lines and content_lines[-1].strip().startswith("=" * 10):
+            content_lines.pop()
+        parts.extend(content_lines)
+    elif auth_result and not auth_result.get("success"):
+        parts.append(f"  Erro: {auth_result.get('error', 'desconhecido')}")
+    else:
+        parts.append("  Agente de autenticidade nao executado.")
+    parts.append("")
+
+    parts.append("=" * 60)
+
+    return "\n".join(parts)
+
+
+# --- Endpoints individuais de autenticidade ---
+
+@app.get("/api/analise-autenticidade/{channel_id}/latest")
+async def get_latest_auth_analysis(channel_id: str):
+    """Retorna a analise de autenticidade mais recente."""
+    try:
+        result = auth_get_latest(channel_id)
+        if not result:
+            raise HTTPException(status_code=404, detail=f"Nenhuma analise de autenticidade para {channel_id}")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro buscar autenticidade {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/analise-autenticidade/{channel_id}/historico")
+async def get_auth_analysis_history(channel_id: str, limit: int = 20, offset: int = 0):
+    """Retorna historico de analises de autenticidade."""
+    try:
+        limit = min(limit, 100)
+        offset = max(offset, 0)
+        return auth_get_history(channel_id, limit=limit, offset=offset)
+    except Exception as e:
+        logger.error(f"Erro historico autenticidade {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/analise-autenticidade/overview")
+async def get_auth_overview():
+    """Retorna overview de scores de autenticidade de todos os canais."""
+    try:
+        return auth_get_overview()
+    except Exception as e:
+        logger.error(f"Erro overview autenticidade: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # =========================================================================
 # MISSION CONTROL - Escritório Virtual
 # =========================================================================
@@ -7045,14 +7303,13 @@ async def dash_copy_analysis_channels():
         if not channels:
             return {"subnichos": {}, "stats": {"total": 0, "com_relatorio": 0}}
 
-        # 2. Busca ultima analise de cada canal
+        # 2. Busca ultima analise de performance de cada canal
         channel_ids = [c["channel_id"] for c in channels]
         last_analyses = {}
 
         # Buscar em batches de 20
         for i in range(0, len(channel_ids), 20):
             batch = channel_ids[i:i+20]
-            batch_str = ",".join(batch)
             resp = supabase.table("copy_analysis_runs")\
                 .select("channel_id,run_date,channel_avg_retention")\
                 .in_("channel_id", batch)\
@@ -7067,6 +7324,28 @@ async def dash_copy_analysis_channels():
                         "avg_retention": row.get("channel_avg_retention")
                     }
 
+        # 2b. Busca ultima analise de autenticidade de cada canal
+        last_auth = {}
+        for i in range(0, len(channel_ids), 20):
+            batch = channel_ids[i:i+20]
+            try:
+                auth_resp = supabase.table("authenticity_analysis_runs")\
+                    .select("channel_id,run_date,authenticity_score,authenticity_level,has_alerts")\
+                    .in_("channel_id", batch)\
+                    .order("run_date", desc=True)\
+                    .execute()
+                for row in auth_resp.data:
+                    cid = row["channel_id"]
+                    if cid not in last_auth:
+                        last_auth[cid] = {
+                            "auth_score": row.get("authenticity_score"),
+                            "auth_level": row.get("authenticity_level"),
+                            "auth_date": row["run_date"],
+                            "has_alerts": row.get("has_alerts", False)
+                        }
+            except Exception:
+                pass  # Tabela pode nao existir ainda
+
         # 3. Agrupa por subnicho
         subnichos = {}
         com_relatorio = 0
@@ -7076,6 +7355,7 @@ async def dash_copy_analysis_channels():
                 subnichos[sub] = []
 
             analysis = last_analyses.get(ch["channel_id"])
+            auth = last_auth.get(ch["channel_id"])
             last_date = None
             avg_ret = None
             if analysis:
@@ -7089,7 +7369,10 @@ async def dash_copy_analysis_channels():
                 "lingua": ch.get("lingua", ""),
                 "is_monetized": ch.get("is_monetized", False),
                 "last_analysis_date": last_date,
-                "avg_retention": avg_ret
+                "avg_retention": avg_ret,
+                "auth_score": auth["auth_score"] if auth else None,
+                "auth_level": auth["auth_level"] if auth else None,
+                "has_alerts": auth["has_alerts"] if auth else False
             })
 
         return {
@@ -7110,7 +7393,7 @@ DASH_COPY_ANALYSIS_HTML = '''<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect rx='20' width='100' height='100' fill='%230a0a0f'/><path d='M25 70L40 45L55 55L75 30' stroke='%2300d4aa' stroke-width='7' stroke-linecap='round' stroke-linejoin='round' fill='none'/><circle cx='75' cy='30' r='6' fill='%2300d4aa'/></svg>">
-<title>Analise de Copy - Dashboard</title>
+<title>Analise Completa - Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -7342,6 +7625,47 @@ body {
 .insuf-line { color: var(--text-muted); }
 .table-header-line { color: var(--text-muted); font-size: 0.78rem; }
 
+/* Auth score badge in sidebar */
+.auth-badge {
+    font-size: 0.6rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 1px 5px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-left: 0.3rem;
+}
+.auth-badge.excelente { background: rgba(0,212,170,0.2); color: #00d4aa; }
+.auth-badge.bom { background: rgba(0,212,170,0.15); color: #00d4aa; }
+.auth-badge.atencao { background: rgba(255,217,61,0.2); color: #ffd93d; }
+.auth-badge.risco { background: rgba(255,107,107,0.2); color: #ff6b6b; }
+.auth-badge.critico { background: rgba(255,50,50,0.3); color: #ff3232; }
+.auth-alert-dot { color: #ff6b6b; margin-left: 2px; font-size: 0.6rem; }
+
+/* Authenticity report sections */
+.section-header.diag { color: var(--orange); }
+.section-header.rec { color: var(--accent); }
+.section-header.tend { color: var(--blue); }
+.section-header.alert { color: var(--warning); }
+.section-header.struct { color: var(--purple); }
+.section-header.title-sec { color: var(--highlight); }
+.section-header.auth-main { color: var(--orange); font-size: 1rem; }
+.section-header.perf-main { color: var(--accent); font-size: 1rem; }
+.alert-line { color: var(--warning); font-weight: 600; }
+.score-line { color: var(--highlight); font-weight: 700; font-size: 0.95rem; }
+.distribution-bar { color: var(--text-secondary); }
+
+/* Report section divider */
+.report-section-divider {
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 1rem;
+    margin: 2rem 0 1rem 0;
+    padding: 0.5rem 0;
+    border-top: 2px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+
 /* Empty state */
 .empty-state {
     text-align: center;
@@ -7423,7 +7747,7 @@ body {
     <aside class="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-title">Dashboard</div>
-            <div class="sidebar-subtitle">Analise de Copy</div>
+            <div class="sidebar-subtitle">Performance + Autenticidade</div>
             <div class="sidebar-stats" id="sidebarStats">Carregando...</div>
         </div>
         <div class="sidebar-actions">
@@ -7443,8 +7767,8 @@ body {
         </div>
         <div id="reportArea">
             <div class="empty-state">
-                <h2>Analise de Estrutura de Copy</h2>
-                <p>Selecione um canal na sidebar para visualizar o relatorio<br>ou clique em "Rodar Todos" para gerar analises.</p>
+                <h2>Analise Completa</h2>
+                <p>Selecione um canal na sidebar para visualizar o relatorio<br>ou clique em "Rodar Todos" para gerar analises de performance + autenticidade.</p>
             </div>
         </div>
     </main>
@@ -7537,6 +7861,11 @@ function loadChannels() {
                     html += '<div class="channel-info">';
                     if (flag) html += '<span class="channel-flag">' + flag + '</span>';
                     html += '<span class="channel-name" title="' + escHtml(ch.channel_name) + '">' + escHtml(ch.channel_name) + '</span>';
+                    if (ch.auth_score != null) {
+                        var authLvl = (ch.auth_level || '').toLowerCase();
+                        html += '<span class="auth-badge ' + authLvl + '">' + Math.round(ch.auth_score) + '</span>';
+                        if (ch.has_alerts) html += '<span class="auth-alert-dot">!</span>';
+                    }
                     html += '</div>';
                     html += '<span class="channel-date' + dateClass + '">' + dateStr + '</span>';
                     html += '</div>';
@@ -7568,17 +7897,26 @@ function loadLatestReport(channelId) {
     var area = document.getElementById('reportArea');
     area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando relatorio...</div>';
 
-    fetch('/api/analise-copy/' + channelId + '/latest')
-        .then(function(r) {
-            if (r.status === 404) return null;
-            return r.json();
-        })
-        .then(function(data) {
-            if (!data) {
+    // Buscar performance e autenticidade em paralelo
+    var copyPromise = fetch('/api/analise-copy/' + channelId + '/latest')
+        .then(function(r) { return r.status === 404 ? null : r.json(); })
+        .catch(function() { return null; });
+
+    var authPromise = fetch('/api/analise-autenticidade/' + channelId + '/latest')
+        .then(function(r) { return r.status === 404 ? null : r.json(); })
+        .catch(function() { return null; });
+
+    Promise.all([copyPromise, authPromise])
+        .then(function(results) {
+            var copyData = results[0];
+            var authData = results[1];
+
+            if (!copyData && !authData) {
                 area.innerHTML = '<div class="empty-state"><h2>Nenhuma analise encontrada</h2><p>Clique em "Gerar Relatorio" para criar a primeira analise deste canal.</p></div>';
                 return;
             }
-            renderReport(data, area);
+
+            renderCombinedReport(copyData, authData, area);
         })
         .catch(function(e) {
             area.innerHTML = '<div class="empty-state"><p>Erro ao carregar relatorio: ' + escHtml(e.message) + '</p></div>';
@@ -7702,18 +8040,208 @@ function renderReport(data, container) {
     container.innerHTML = infoHtml + '<div class="report-container">' + html + '</div>';
 }
 
+function renderCombinedReport(copyData, authData, container) {
+    var html = '';
+
+    // Header com data mais recente
+    var latestDate = null;
+    if (copyData && copyData.run_date) latestDate = copyData.run_date;
+    if (authData && authData.run_date) {
+        if (!latestDate || new Date(authData.run_date) > new Date(latestDate)) {
+            latestDate = authData.run_date;
+        }
+    }
+    var dateHtml = latestDate ? '<div style="color:var(--text-muted);font-size:0.75rem;margin-bottom:1rem;font-family:sans-serif;">Ultimo relatorio: ' + new Date(latestDate).toLocaleString('pt-BR') + '</div>' : '';
+
+    // Auth score summary badge no topo (se disponivel)
+    if (authData && authData.authenticity_score != null) {
+        var aScore = Math.round(authData.authenticity_score);
+        var aLevel = (authData.authenticity_level || '').toUpperCase();
+        var aColor = aScore >= 80 ? '#00d4aa' : aScore >= 60 ? '#00d4aa' : aScore >= 40 ? '#ffd93d' : aScore >= 20 ? '#ff6b6b' : '#ff3232';
+        html += '<div style="display:flex;gap:1.5rem;align-items:center;margin-bottom:1.5rem;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+        html += '<div style="text-align:center;">';
+        html += '<div style="font-size:2rem;font-weight:800;color:' + aColor + ';font-family:JetBrains Mono,monospace;">' + aScore + '<span style="font-size:0.9rem;opacity:0.6">/100</span></div>';
+        html += '<div style="font-size:0.7rem;font-weight:700;color:' + aColor + ';letter-spacing:0.1em;">' + escHtml(aLevel) + '</div>';
+        html += '</div>';
+        html += '<div style="flex:1;">';
+        html += '<div style="font-size:0.85rem;font-weight:600;color:var(--text-primary);margin-bottom:0.3rem;">Score de Autenticidade</div>';
+        var structScore = authData.structure_score != null ? Math.round(authData.structure_score) : '--';
+        var titleScore = authData.title_score != null ? Math.round(authData.title_score) : '--';
+        html += '<div style="font-size:0.75rem;color:var(--text-secondary);">Estruturas: ' + structScore + '/100 | Titulos: ' + titleScore + '/100</div>';
+        if (authData.has_alerts) {
+            html += '<div style="font-size:0.72rem;color:#ff6b6b;margin-top:0.2rem;">! ' + (authData.alert_count || '') + ' alerta(s)</div>';
+        }
+        html += '</div>';
+        html += '</div>';
+    }
+
+    // Secao 1: Performance (copy analysis)
+    if (copyData && copyData.report_text) {
+        html += '<div class="report-section-divider">ANALISE DE PERFORMANCE</div>';
+        html += '<div class="report-container" style="margin-bottom:2rem;">';
+        html += renderReportLines(copyData.report_text);
+        html += '</div>';
+    }
+
+    // Secao 2: Autenticidade
+    if (authData && authData.report_text) {
+        html += '<div class="report-section-divider" style="border-top-color:var(--orange);color:var(--orange);">SCORE DE AUTENTICIDADE</div>';
+        html += '<div class="report-container">';
+        html += renderReportLines(authData.report_text);
+        html += '</div>';
+    }
+
+    if (!copyData && !authData) {
+        html = '<div class="empty-state"><h2>Nenhuma analise encontrada</h2></div>';
+    }
+
+    container.innerHTML = dateHtml + html;
+}
+
+function renderReportLines(text) {
+    if (!text) return '';
+    var lines = text.split('\\n');
+    var html = '';
+    var inSection = '';
+
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        var trimmed = line.trim();
+
+        // Header lines (====)
+        if (/^={10,}/.test(trimmed)) {
+            html += '<div class="report-header-line">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Report title (RELATORIO ... / SCORE DE AUTENTICIDADE ... / RELATORIO COMPLETO ...)
+        if (/^(RELATORIO |SCORE DE AUTENTICIDADE )/.test(trimmed)) {
+            html += '<div class="report-title">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Score geral line
+        if (/^SCORE GERAL:/.test(trimmed)) {
+            html += '<div class="score-line">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Section headers (--- NAME ---)
+        if (/^---\\s+(.+?)\\s+---/.test(trimmed)) {
+            var secName = trimmed.replace(/^---\\s+/, '').replace(/\\s+---$/, '');
+            var secClass = 'section-header';
+            if (/OBSERVAC/.test(secName)) { secClass += ' obs'; inSection = 'obs'; }
+            else if (/ANOMAL/.test(secName)) { secClass += ' anom'; inSection = 'anom'; }
+            else if (/INSUFICIENTE/.test(secName)) { secClass += ' insuf'; inSection = 'insuf'; }
+            else if (/ANTERIOR/.test(secName)) { secClass += ' comp'; inSection = 'comp'; }
+            else if (/DIAGNOSTICO/.test(secName)) { secClass += ' diag'; inSection = 'diag'; }
+            else if (/RECOMENDAC/.test(secName)) { secClass += ' rec'; inSection = 'rec'; }
+            else if (/TENDENCIA/.test(secName)) { secClass += ' tend'; inSection = 'tend'; }
+            else if (/ALERTA/.test(secName)) { secClass += ' alert'; inSection = 'alert'; }
+            else if (/ESTRUTURA/.test(secName)) { secClass += ' struct'; inSection = 'struct'; }
+            else if (/TITULO/.test(secName)) { secClass += ' title-sec'; inSection = 'title-sec'; }
+            else { inSection = 'ranking'; }
+            html += '<div class="' + secClass + '">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Empty line
+        if (trimmed === '') {
+            html += '<br>';
+            continue;
+        }
+
+        // Alert line (! ...)
+        if (/^!\\s+/.test(trimmed) || (inSection === 'alert' && /^\\s+!\\s+/.test(line))) {
+            html += '<div class="alert-line">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Anomaly line (! Estrutura ...)
+        if (/^!\\s+Estrutura/.test(trimmed)) {
+            html += '<div class="anomaly-line">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Anomaly detail
+        if (inSection === 'anom' && /^\\s{2,}/.test(line)) {
+            html += '<div class="anomaly-detail">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Meta lines (Videos analisados / Periodo / Media geral)
+        if (/^Videos analisados/.test(trimmed) || /^Periodo:/.test(trimmed) || /^Media geral/.test(trimmed)) {
+            var metaHtml = escHtml(line);
+            metaHtml = metaHtml.replace(/(\\d+\\.?\\d*%)/g, '<span class="val">$1</span>');
+            metaHtml = metaHtml.replace(/(\\d+\\.?\\d* min)/g, '<span class="val">$1</span>');
+            metaHtml = metaHtml.replace(/(\\d[\\d,]+ views)/g, '<span class="val">$1</span>');
+            html += '<div class="report-meta">' + metaHtml + '</div>';
+            continue;
+        }
+
+        // Distribution bars (A: XX videos ...)
+        if (/^\\s+[A-G]:\\s+\\d+\\s+videos/.test(line)) {
+            html += '<div class="distribution-bar">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Table header line (# / Estr. / dashes)
+        if (/^\\s*#\\s+Estr/.test(trimmed) || /^\\s*Estr\\.?\\s+/.test(trimmed) || /^\\s*[\\u2500-]{3,}/.test(trimmed) || /^\\s+Fator/.test(trimmed)) {
+            html += '<div class="table-header-line">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Ranking lines (contain Acima/Media/Abaixo)
+        if (/Acima|Media|Abaixo/.test(trimmed) && inSection === 'ranking') {
+            var rLine = escHtml(line);
+            rLine = rLine.replace(/Acima(\\s*\\([^)]*\\))?/g, '<span class="tag-acima">Acima$1</span>');
+            rLine = rLine.replace(/Media(\\s*\\([^)]*\\))?/g, '<span class="tag-media">Media$1</span>');
+            rLine = rLine.replace(/Abaixo(\\s*\\([^)]*\\))?/g, '<span class="tag-abaixo">Abaixo$1</span>');
+            html += '<div class="ranking-line">' + rLine + '</div>';
+            continue;
+        }
+
+        // Comparison lines (with +X or -X)
+        if (inSection === 'comp' && /[+-]\\d+\\.?\\d*/.test(trimmed)) {
+            var cLine = escHtml(line);
+            cLine = cLine.replace(/(\\+\\d+\\.?\\d*)/g, '<span class="comp-positive">$1</span>');
+            cLine = cLine.replace(/(\\-\\d+\\.?\\d*)/g, '<span class="comp-negative">$1</span>');
+            cLine = cLine.replace(/(Subiu[^<]*)/g, '<span class="comp-positive">$1</span>');
+            cLine = cLine.replace(/(Caiu[^<]*)/g, '<span class="comp-negative">$1</span>');
+            html += '<div class="ranking-line">' + cLine + '</div>';
+            continue;
+        }
+
+        // Insufficient data lines
+        if (inSection === 'insuf') {
+            html += '<div class="insuf-line">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Narrative text (obs, diag, rec, tend)
+        if (inSection === 'obs' || inSection === 'diag' || inSection === 'rec' || inSection === 'tend' || (inSection === 'comp' && !/^\\s*\\d/.test(trimmed) && !/^\\s*Estr/.test(trimmed) && !/^Estruturas novas/.test(trimmed))) {
+            html += '<div class="narrative">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Default
+        html += '<div>' + escHtml(line) + '</div>';
+    }
+    return html;
+}
+
 function runAnalysis() {
     if (!_selectedChannel) return;
     var ch = _channelsData[_selectedChannel] || {};
-    if (!confirm('Gerar relatorio para ' + (ch.channel_name || _selectedChannel) + '?\\n\\nIsso pode demorar 10-30 segundos.')) return;
+    if (!confirm('Gerar relatorio completo (performance + autenticidade) para ' + (ch.channel_name || _selectedChannel) + '?\\n\\nIsso pode demorar 30-60 segundos.')) return;
 
     var btn = document.getElementById('btnRun');
     btn.disabled = true;
     btn.textContent = 'Gerando...';
     var area = document.getElementById('reportArea');
-    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Gerando relatorio... (10-30s)</div>';
+    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Gerando relatorio completo... (30-60s)</div>';
 
-    fetch('/api/analise-copy/' + _selectedChannel, { method: 'POST' })
+    fetch('/api/analise-completa/' + _selectedChannel, { method: 'POST' })
         .then(function(r) { return r.json(); })
         .then(function(data) {
             btn.disabled = false;
@@ -7722,7 +8250,9 @@ function runAnalysis() {
                 renderReport({ report_text: data.report, run_date: new Date().toISOString() }, area);
                 loadChannels();
             } else {
-                area.innerHTML = '<div class="empty-state"><h2>Erro na analise</h2><p>' + escHtml(data.error || 'Erro desconhecido') + '</p></div>';
+                var errMsg = '';
+                if (data.errors) errMsg = data.errors.join(' | ');
+                area.innerHTML = '<div class="empty-state"><h2>Erro na analise</h2><p>' + escHtml(errMsg || 'Erro desconhecido') + '</p></div>';
             }
         })
         .catch(function(e) {
@@ -7733,12 +8263,12 @@ function runAnalysis() {
 }
 
 function runAll() {
-    if (!confirm('Rodar analise de TODOS os canais?\\n\\nIsso pode demorar varios minutos.')) return;
+    if (!confirm('Rodar analise completa (performance + autenticidade) de TODOS os canais?\\n\\nIsso pode demorar varios minutos.')) return;
     var btn = document.getElementById('btnRunAll');
     btn.disabled = true;
     btn.textContent = 'Rodando...';
 
-    fetch('/api/analise-copy/run-all', { method: 'POST' })
+    fetch('/api/analise-completa/run-all', { method: 'POST' })
         .then(function(r) { return r.json(); })
         .then(function(data) {
             btn.disabled = false;
