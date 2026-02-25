@@ -28,6 +28,7 @@ API REST que gerencia coleta de dados YouTube, notificações e transcrições.
 - `copy_analysis_agent.py` - Agente de análise de copy/performance (~1550 linhas)
 - `authenticity_agent.py` - Agente de Score de Autenticidade (~1100 linhas)
 - `monetization_oauth_collector.py` - Coleta métricas Analytics API
+- `ctr_collector.py` - CTR Collector via YouTube Reporting API (~824 linhas)
 - `mission_control.py` - Mission Control escritório virtual
 - `requirements.txt` - Dependências Python
 
@@ -108,6 +109,12 @@ python main.py
 - `GET /api/analise-autenticidade/{id}/historico` - Histórico de autenticidade
 - `GET /api/analise-autenticidade/overview` - Overview de todos os canais
 
+### 📊 CTR Data (Impressões + Click-Through Rate):
+- `POST /api/ctr/setup-jobs` - Setup inicial: cria Reporting API jobs (rodar 1x)
+- `POST /api/ctr/collect` - Trigger manual: baixa CSVs e atualiza CTR
+- `GET /api/ctr/jobs` - Status de todos os reporting jobs
+- `GET /api/ctr/{channel_id}/latest` - CTR por vídeo + CTR médio do canal
+
 Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 
 ## 🔧 PARA CLAUDE CODE:
@@ -117,6 +124,89 @@ Ver documentação completa em: D:\ContentFactory\.claude\DASHBOARD_MINERACAO.md
 - Pode criar novos endpoints
 - Pode melhorar lógica existente
 - SEMPRE fazer backup antes de mudanças grandes
+
+## 🆕 ATUALIZAÇÕES RECENTES (25/02/2026):
+
+### 📊 CTR Collector via YouTube Reporting API ✅
+**Desenvolvido:** 25/02/2026
+**Status:** ✅ Implementado, 21 jobs criados, aguardando primeiros CSVs (~48h)
+**Commit:** `8519920`
+
+**Por que Reporting API?**
+- YouTube Analytics API **NÃO** suporta `videoThumbnailImpressions` com `dimension=video` (retorna erro 400)
+- YouTube Reporting API é a **única** forma de obter CTR por vídeo individual
+- Report type: `channel_reach_basic_a1` (gera CSV diário com impressions + CTR por vídeo)
+
+**Arquitetura:**
+```
+1. SETUP (1x só):  POST /api/ctr/setup-jobs → cria job no Google por canal
+2. Google gera:    1 CSV por dia automaticamente (cada CSV = 1 dia de dados)
+3. COLETA SEMANAL: Domingo 8AM (SP) → baixa 7 CSVs → soma + CTR ponderado
+4. SALVA:          PATCH em yt_video_metrics (impressions + ctr) + yt_channels (avg_ctr)
+```
+
+**1. `ctr_collector.py` (~824 linhas) - NOVO:**
+   - 20 funções: OAuth, reporting jobs, download CSV, agregação, salvamento
+   - `get_or_create_job()`: auto-provisioning (canais novos ganham job automaticamente)
+   - `download_and_parse_csv()`: baixa CSV (com suporte a gzip) e parseia
+   - `aggregate_weekly_data()`: soma impressões + CTR médio ponderado (`total_cliques / total_impressões`)
+   - `save_ctr_data()`: **PATCH-only** em `yt_video_metrics` (nunca INSERT, nunca sobrescreve outros campos)
+   - `save_channel_avg_ctr()`: salva `avg_ctr` + `total_impressions` em `yt_channels`
+   - `setup_all_jobs()`: setup inicial para todos os canais com OAuth
+   - `collect_ctr_reports()`: orquestra coleta semanal completa
+
+**2. Migration `017_ctr_reporting_tables.sql`:**
+   - `yt_video_metrics`: +`impressions` (BIGINT) + `ctr` (FLOAT)
+   - `yt_video_daily`: +`impressions` (BIGINT) + `ctr` (FLOAT)
+   - `yt_channels`: +`avg_ctr` (FLOAT) + `total_impressions` (BIGINT)
+   - Nova tabela `yt_reporting_jobs`: channel_id, job_id, status, last_report_date
+   - 3 indexes para performance
+
+**3. Endpoints novos no `main.py`:**
+   - `POST /api/ctr/setup-jobs` - Cria jobs no Google (rodar 1x)
+   - `POST /api/ctr/collect` - Trigger manual (BackgroundTasks)
+   - `GET /api/ctr/jobs` - Status de todos os jobs (com nomes dos canais)
+   - `GET /api/ctr/{channel_id}/latest` - CTR por vídeo + `channel_stats` (avg_ctr, total_impressions, avg_ctr_percent)
+
+**4. Scheduler semanal:**
+   - Domingo 8:00 AM São Paulo (11:00 UTC)
+   - Separado da coleta diária das 5AM
+   - 10 min delay no startup (evita sobrecarga no deploy)
+   - Auto-provisioning: canais novos ganham job na próxima execução
+
+**5. Detalhes técnicos críticos:**
+   - `save_ctr_data` é PATCH-only: verifica se vídeo existe, se sim PATCH, se não SKIP
+   - Nunca insere rows novas em `yt_video_metrics` (evita poluir tabela)
+   - Supabase UPSERT via `Prefer: resolution=merge-duplicates` NÃO funciona para todas tabelas
+   - Solução: INSERT → fallback PATCH on 409 conflict (usado em `save_reporting_job`)
+   - Cada CSV cobre 1 dia (NÃO cumulativo) — por isso baixa 7 CSVs por semana
+   - CTR médio ponderado = `total_cliques / total_impressões` (não média simples)
+
+**6. Pré-requisitos:**
+   - ✅ OAuth scope `yt-analytics.readonly` (já configurado nos 21 canais)
+   - ✅ YouTube Reporting API ativada no Google Cloud Console
+   - ✅ 21/21 reporting jobs criados e ativos
+
+**7. Testes realizados (72/72 PASS):**
+   - Arquivos e imports (22/22)
+   - Schema Supabase: todas colunas existem (4/4)
+   - 21 canais OAuth + 21/21 token refresh (3/3)
+   - Agregação matemática (5/5)
+   - save_ctr_data PATCH-only + fake video ignorado (5/5)
+   - save_channel_avg_ctr (3/3)
+   - CRUD yt_reporting_jobs (5/5)
+   - Endpoints no main.py (5/5)
+   - Scheduler lógica domingo 8AM (10/10)
+   - get_channel_ctr com channel_stats (6/6)
+   - Setup 21/21 jobs no Google (4/4)
+
+**Timeline:**
+- 25/02: Jobs criados → Google começa a gerar CSVs
+- ~27/02: Primeiros CSVs disponíveis (~48h) + retroativo até 60 dias
+- 01/03 (domingo): Primeira coleta automática
+- Pode testar manualmente a partir de 27/02 via `POST /api/ctr/collect`
+
+---
 
 ## 🆕 ATUALIZAÇÕES RECENTES (24/02/2026):
 
