@@ -4063,7 +4063,15 @@ async def startup_event():
         else:
             logger.info("📌 Daily upload system disabled (set DAILY_UPLOAD_ENABLED=true to enable)")
 
-        logger.info("✅ Schedulers started (Railway environment + Scanner + Upload Worker)")
+        # CTR Collector - Weekly (domingo 8AM Sao Paulo = 11AM UTC, apos coleta diaria das 5AM)
+        try:
+            asyncio.create_task(schedule_weekly_ctr_collection())
+            logger.info("✅ Weekly CTR collector scheduler started")
+            logger.info("📅 CTR collection scheduled for Sundays 8:00 AM (Sao Paulo)")
+        except Exception as e:
+            logger.warning(f"⚠️ CTR collector scheduler disabled: {e}")
+
+        logger.info("✅ Schedulers started (Railway environment + Scanner + Upload Worker + CTR)")
     else:
         logger.warning("⚠️ LOCAL ENVIRONMENT - Schedulers DISABLED")
         logger.warning("⚠️ Use /api/collect-data endpoint for manual collection")
@@ -4107,6 +4115,49 @@ async def schedule_daily_collection():
         except Exception as e:
             logger.error(f"❌ Scheduled collection failed: {e}")
             await asyncio.sleep(3600)
+
+
+# ========================================
+# CTR WEEKLY SCHEDULER (domingo 8AM Sao Paulo, apos coleta diaria das 5AM)
+# ========================================
+
+async def schedule_weekly_ctr_collection():
+    """Background task para coleta semanal de CTR (domingos 8AM Sao Paulo = 11AM UTC)."""
+    # Aguardar 10 minutos antes de iniciar (evitar sobrecarga no deploy)
+    await asyncio.sleep(600)
+    logger.info("✅ CTR weekly scheduler ativo")
+
+    while True:
+        try:
+            now = datetime.now(timezone.utc)
+
+            # Calcular proximo domingo 11:00 UTC (= 8:00 AM Sao Paulo)
+            days_until_sunday = (6 - now.weekday()) % 7
+            if days_until_sunday == 0 and now.hour >= 11:
+                days_until_sunday = 7  # Ja passou, proximo domingo
+
+            next_run = (now + timedelta(days=days_until_sunday)).replace(
+                hour=11, minute=0, second=0, microsecond=0
+            )
+
+            sleep_seconds = (next_run - now).total_seconds()
+
+            logger.info(f"📊 CTR: Next collection: {next_run.isoformat()} (Sunday 8AM Sao Paulo)")
+            logger.info(f"📊 CTR: Sleeping for {sleep_seconds/3600:.1f} hours")
+
+            await asyncio.sleep(sleep_seconds)
+
+            logger.info("📊 Starting weekly CTR collection...")
+            try:
+                from ctr_collector import collect_ctr_reports
+                result = await collect_ctr_reports()
+                logger.info(f"✅ CTR collection completed: {result.get('success', 0)} success, {result.get('errors', 0)} errors, {result.get('total_records', 0)} records")
+            except Exception as e:
+                logger.error(f"❌ CTR collection failed: {e}")
+
+        except Exception as e:
+            logger.error(f"❌ CTR scheduler error: {e}")
+            await asyncio.sleep(3600)  # Retry em 1 hora
 
 
 # ========================================
@@ -8385,6 +8436,53 @@ loadChannels();
 async def dash_copy_analysis_page():
     """Dashboard de Analise de Copy - Interface web"""
     return DASH_COPY_ANALYSIS_HTML
+
+
+# =========================================================================
+# CTR DATA - YouTube Reporting API (Impressoes + Click-Through Rate)
+# =========================================================================
+
+@app.post("/api/ctr/setup-jobs")
+async def setup_ctr_jobs():
+    """One-time setup: cria Reporting API jobs para todos os canais com OAuth."""
+    try:
+        from ctr_collector import setup_all_jobs
+        result = await setup_all_jobs()
+        return result
+    except Exception as e:
+        logger.error(f"Erro setup CTR jobs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ctr/collect")
+async def trigger_ctr_collection(background_tasks: BackgroundTasks):
+    """Manual trigger: baixa CSVs de CTR disponiveis para todos os canais."""
+    try:
+        from ctr_collector import collect_ctr_reports
+        background_tasks.add_task(collect_ctr_reports)
+        return {"message": "CTR collection started in background", "status": "processing"}
+    except Exception as e:
+        logger.error(f"Erro trigger CTR collection: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/ctr/jobs")
+async def list_ctr_jobs():
+    """Lista todos os reporting jobs e seus status."""
+    try:
+        from ctr_collector import get_all_jobs_status
+        return await get_all_jobs_status()
+    except Exception as e:
+        logger.error(f"Erro list CTR jobs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/ctr/{channel_id}/latest")
+async def get_channel_ctr_data(channel_id: str, limit: int = 50):
+    """Retorna dados de CTR (impressoes + click-through rate) dos videos de um canal."""
+    try:
+        from ctr_collector import get_channel_ctr
+        return await get_channel_ctr(channel_id, limit)
+    except Exception as e:
+        logger.error(f"Erro get CTR data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
