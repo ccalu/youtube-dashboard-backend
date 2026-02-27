@@ -106,9 +106,11 @@ AGENTES_V2_TEMPLATE = [
         'camada': 2, 'cor': '#f97316',
         'skin': '#ffcc99', 'shirt': '#f97316', 'hair': '#c0392b',
         'descricao': 'Temas - Descobre assuntos especificos com potencial viral',
-        'implementado': False,
-        'api_run': None, 'api_latest': None, 'api_historico': None,
-        'analysis_table': None,
+        'implementado': True,
+        'api_run': '/api/analise-temas/{channel_id}',
+        'api_latest': '/api/analise-temas/{channel_id}/latest',
+        'api_historico': '/api/analise-temas/{channel_id}/historico',
+        'analysis_table': 'theme_analysis_runs',
     },
     {
         'id': 6, 'tipo': 'recomendador', 'nome': 'Recomendador',
@@ -4434,7 +4436,8 @@ function fetchAgentStatus(channelId, agentType) {
     'estrutura_copy': '/api/analise-copy/',
     'autenticidade': '/api/analise-autenticidade/',
     'micronichos': '/api/analise-micronichos/',
-    'titulo_estrutura': '/api/analise-titulo/'
+    'titulo_estrutura': '/api/analise-titulo/',
+    'temas': '/api/analise-temas/'
   };
   var baseUrl = latestUrlMap[agentType] || '/api/analise-copy/';
 
@@ -4508,6 +4511,18 @@ function renderAgentStatus(data, agentType) {
       var topStruct = data.structures_list[0];
       html += '<div class="sb-status-row"><span class="sb-status-label">Top estrutura</span><span class="sb-status-val st-green">' + escapeHtml(topStruct.structure || topStruct.name || '') + '</span></div>';
     }
+  } else if (agentType === 'temas') {
+    var themeCount = data.theme_count;
+    if (themeCount) {
+      html += '<div class="sb-status-row"><span class="sb-status-label">Temas</span><span class="sb-status-val st-blue">' + themeCount + '</span></div>';
+    }
+    if (data.ranking_json && data.ranking_json.length > 0) {
+      var topTheme = data.ranking_json[0];
+      html += '<div class="sb-status-row"><span class="sb-status-label">Top tema</span><span class="sb-status-val st-green">' + escapeHtml(topTheme.theme || '') + '</span></div>';
+      if (topTheme.score !== undefined) {
+        html += '<div class="sb-status-row"><span class="sb-status-label">Score</span><span class="sb-status-val">' + Math.round(topTheme.score) + '/100</span></div>';
+      }
+    }
   }
 
   div.innerHTML = html || '<div class="sb-loading">Dados disponiveis</div>';
@@ -4542,7 +4557,8 @@ function runAgentAnalysis(channelId, agentType) {
     'estrutura_copy': '/api/analise-completa/',
     'autenticidade': '/api/analise-completa/',
     'micronichos': '/api/analise-micronichos/',
-    'titulo_estrutura': '/api/analise-titulo/'
+    'titulo_estrutura': '/api/analise-titulo/',
+    'temas': '/api/analise-temas/'
   };
   var url = (runUrlMap[agentType] || '/api/analise-completa/') + channelId;
 
@@ -4582,7 +4598,8 @@ function loadAgentReport(channelId, agentType) {
     'estrutura_copy': '/api/analise-copy/',
     'autenticidade': '/api/analise-autenticidade/',
     'micronichos': '/api/analise-micronichos/',
-    'titulo_estrutura': '/api/analise-titulo/'
+    'titulo_estrutura': '/api/analise-titulo/',
+    'temas': '/api/analise-temas/'
   };
   var baseUrl = latestUrlMap[agentType] || '/api/analise-copy/';
 
