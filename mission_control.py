@@ -389,6 +389,8 @@ async def get_mission_control_data(db):
             if not yt_channel_id:
                 base_name = re.sub(r'\s*\(.*?\)\s*$', '', nome_lower).strip()
                 yt_channel_id = yt_name_map.get(base_name)
+                if yt_channel_id:
+                    nome_lower = base_name
 
             # Build agent statuses from overview
             ag_statuses = {}
@@ -625,8 +627,22 @@ const TILE_SIZE = 16;
 const WALK_SPEED = 48;
 const WALK_FRAME_DUR = 0.15;
 const TYPE_FRAME_DUR = 0.3;
+const READ_FRAME_DUR = 0.5;
 const SIT_OFFSET = 6;
 const _ = '';
+
+// Office Life Engine timing
+const WORK_CYCLE_MIN = 15.0;
+const WORK_CYCLE_MAX = 40.0;
+const BREAK_CYCLE_MIN = 5.0;
+const BREAK_CYCLE_MAX = 15.0;
+const COFFEE_WAIT_TIME = 4.0;  // seconds standing at cooler
+const SLEEP_TIME_MIN = 8.0;
+const SLEEP_TIME_MAX = 15.0;
+const PHONE_TIME_MIN = 5.0;
+const PHONE_TIME_MAX = 8.0;
+const CHAT_TIME_MIN = 5.0;
+const CHAT_TIME_MAX = 8.0;
 
 // -- Direction enum ------------------------------------------
 const Direction = { DOWN: 0, LEFT: 1, RIGHT: 2, UP: 3 };
@@ -2339,7 +2355,12 @@ var TILE_WALL = 0;
 var TILE_FLOOR = 1;
 
 // Character states
-var CharState = { IDLE: 'idle', WALK: 'walk', TYPE: 'type' };
+var CharState = { IDLE: 'idle', WALK: 'walk', TYPE: 'type', READ: 'read', SLEEP: 'sleep', COFFEE: 'coffee', PHONE: 'phone', CHAT: 'chat' };
+
+// Particle system
+var particles = [];
+var MAX_PARTICLES = 200;
+var gameTime = 0;  // global time accumulator for visual effects
 
 // Room grid
 var ROOM_COLS = 14;
@@ -2988,20 +3009,39 @@ function buildRoom(canal, themeKey, roomIndex) {
     var globalId = (roomIndex || 0) * 100 + ai;
     var ch = createCharacter(globalId, ai % AGENT_PALETTES.length, sId, seat);
 
-    // Set initial state based on backend status
-    var status = (ag.status || '').toLowerCase();
-    if (status === 'done' || status === 'working' || status === 'running') {
-      ch.isActive = true;
-      ch.state = CharState.TYPE;
-    } else if (status === 'idle' || status === 'waiting') {
-      ch.isActive = false;
-      ch.state = CharState.IDLE;
-      ch.wanderTimer = randomRange(WANDER_PAUSE_MIN, WANDER_PAUSE_MAX);
-    } else {
-      // Placeholder agent
-      ch.isActive = true;
-      ch.state = CharState.TYPE;
+    // Set initial state — all agents start in cycle (mix realista)
+    var isImpl = ag.implementado !== false;
+    if (!isImpl) {
       ch.isPlaceholder = true;
+    }
+    // Stagger: some start working, some start on break
+    var startRoll = Math.random();
+    if (startRoll < 0.65) {
+      // Start working (60% TYPE, 40% READ)
+      ch.cyclePhase = 'work';
+      ch.cycleTimer = randomRange(5, WORK_CYCLE_MAX);
+      ch.state = Math.random() < 0.6 ? CharState.TYPE : CharState.READ;
+      ch.isActive = true;
+    } else {
+      // Start on a break
+      ch.cyclePhase = 'break';
+      ch.cycleTimer = randomRange(3, BREAK_CYCLE_MAX);
+      var breakRoll = Math.random();
+      if (breakRoll < 0.3) {
+        ch.breakType = 'phone';
+        ch.state = CharState.PHONE;
+        ch.dir = Direction.DOWN;
+      } else if (breakRoll < 0.5) {
+        ch.breakType = 'sleep';
+        ch.state = CharState.SLEEP;
+      } else {
+        ch.breakType = 'walk';
+        ch.state = CharState.IDLE;
+        ch.isActive = false;
+        ch.wanderTimer = randomRange(1, 4);
+        ch.wanderCount = 0;
+        ch.wanderLimit = randomInt(2, 4);
+      }
     }
 
     // Attach full agent data + canal info
@@ -3020,7 +3060,18 @@ function buildRoom(canal, themeKey, roomIndex) {
 
   var walkableTiles = getWalkableTiles(tileMap, blockedTiles);
 
-  return {
+  // Store decoration positions for coffee run pathfinding
+  var decorationTiles = [];
+  for (var dti = 0; dti < decLayout.length; dti++) {
+    decorationTiles.push({ type: decLayout[dti].type, col: decLayout[dti].col, row: decLayout[dti].row });
+  }
+
+  // Set roomIdx on characters
+  for (var chi = 0; chi < characters.length; chi++) {
+    characters[chi]._roomIdx = roomIndex;
+  }
+
+  var roomObj = {
     canal: canal,
     tileMap: tileMap,
     furniture: furniture,
@@ -3028,12 +3079,15 @@ function buildRoom(canal, themeKey, roomIndex) {
     characters: characters,
     blockedTiles: blockedTiles,
     walkableTiles: walkableTiles,
+    decorationTiles: decorationTiles,
     floorColor: theme.floorColor,
     wallColor: theme.wallColor,
     floorSprite: theme.floorSprite || null,
     themeKey: themeKey,
-    theme: theme
+    theme: theme,
+    roomIndex: roomIndex
   };
+  return roomObj;
 }
 
 // ============================================================
@@ -3065,6 +3119,8 @@ function createCharacter(id, palette, seatId, seat) {
   var col = seat ? seat.seatCol : 1;
   var row = seat ? seat.seatRow : 1;
   var center = tileCenter(col, row);
+  // Stagger initial cycle timers so agents don't sync
+  var initialWork = randomRange(3, WORK_CYCLE_MAX);
   return {
     id: id,
     state: CharState.TYPE,
@@ -3085,88 +3141,325 @@ function createCharacter(id, palette, seatId, seat) {
     seatId: seatId,
     seatTimer: 0,
     isPlaceholder: false,
-    agentData: null
+    agentData: null,
+    // Office Life Engine
+    cyclePhase: 'work',
+    cycleTimer: initialWork,
+    breakType: null,
+    _nextState: null,
+    _coffeeTarget: null,
+    _chatPartner: null,
+    _sparkTimer: 0,
+    _trailTimer: 0,
+    _steamTimer: 0,
+    _roomIdx: 0
   };
 }
 
-function updateCharacter(ch, dt, walkableTiles, seats, tileMap, blockedTiles) {
-  ch.frameTimer += dt;
-
-  if (ch.state === CharState.TYPE) {
-    // Typing animation
-    if (ch.frameTimer >= TYPE_FRAME_DUR) {
-      ch.frameTimer -= TYPE_FRAME_DUR;
-      ch.frame = (ch.frame + 1) % 2;
-    }
-    // If no longer active, stand up
-    if (!ch.isActive) {
-      if (ch.seatTimer > 0) {
-        ch.seatTimer -= dt;
-        return;
-      }
-      ch.seatTimer = 0;
-      ch.state = CharState.IDLE;
-      ch.frame = 0;
-      ch.frameTimer = 0;
-      ch.wanderTimer = randomRange(WANDER_PAUSE_MIN, WANDER_PAUSE_MAX);
-      ch.wanderCount = 0;
-      ch.wanderLimit = randomInt(WANDER_MOVES_MIN, WANDER_MOVES_MAX);
-    }
+function pickBreakType(room, ch) {
+  // Check if room has bookshelves or coolers/plants
+  var hasBookshelf = false, hasCooler = false;
+  var decs = room.decorationTiles || [];
+  for (var i = 0; i < decs.length; i++) {
+    if (decs[i].type === 'bookshelf') hasBookshelf = true;
+    if (decs[i].type === 'cooler' || decs[i].type === 'plant') hasCooler = true;
   }
-  else if (ch.state === CharState.IDLE) {
-    ch.frame = 0;
-    // If became active, pathfind to seat
-    if (ch.isActive) {
-      if (!ch.seatId) {
-        ch.state = CharState.TYPE;
+  // 20% bookshelf, 20% coffee, 20% phone, 15% sleep, 15% walk, 10% chat
+  var r = Math.random();
+  if (r < 0.20 && hasBookshelf) return 'bookshelf';
+  if (r < 0.40 && hasCooler) return 'coffee';
+  if (r < 0.60) return 'phone';
+  if (r < 0.75) return 'sleep';
+  if (r < 0.90) return 'walk';
+  return 'chat';
+}
+
+function startWork(ch, seats, tileMap, blockedTiles) {
+  ch.cyclePhase = 'work';
+  ch.cycleTimer = randomRange(WORK_CYCLE_MIN, WORK_CYCLE_MAX);
+  var workType = Math.random() < 0.6 ? CharState.TYPE : CharState.READ;
+  // Walk to seat if not there
+  if (ch.seatId) {
+    var seat = seats[ch.seatId];
+    if (seat && (ch.tileCol !== seat.seatCol || ch.tileRow !== seat.seatRow)) {
+      var path = findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, tileMap, blockedTiles);
+      if (path.length > 0) {
+        ch.path = path;
+        ch.moveProgress = 0;
+        ch.state = CharState.WALK;
+        ch._nextState = workType;
         ch.frame = 0;
         ch.frameTimer = 0;
         return;
       }
-      var seat = seats[ch.seatId];
-      if (seat) {
-        var path = findPath(ch.tileCol, ch.tileRow, seat.seatCol, seat.seatRow, tileMap, blockedTiles);
-        if (path.length > 0) {
-          ch.path = path;
-          ch.moveProgress = 0;
-          ch.state = CharState.WALK;
-          ch.frame = 0;
-          ch.frameTimer = 0;
-        } else {
-          ch.state = CharState.TYPE;
-          ch.dir = seat.facingDir;
-          ch.frame = 0;
-          ch.frameTimer = 0;
+    }
+    ch.state = workType;
+    ch.dir = seat ? seat.facingDir : ch.dir;
+  } else {
+    ch.state = workType;
+  }
+  ch.frame = 0;
+  ch.frameTimer = 0;
+}
+
+function startBreak(ch, room, seats, tileMap, blockedTiles) {
+  ch.cyclePhase = 'break';
+  ch.breakType = pickBreakType(room, ch);
+  ch.cycleTimer = randomRange(BREAK_CYCLE_MIN, BREAK_CYCLE_MAX);
+  ch.frame = 0;
+  ch.frameTimer = 0;
+
+  switch (ch.breakType) {
+    case 'bookshelf':
+      // Find nearest bookshelf, walk there and read
+      var bDecTiles = room.decorationTiles || [];
+      var bBest = null, bBestDist = 9999;
+      for (var bd = 0; bd < bDecTiles.length; bd++) {
+        if (bDecTiles[bd].type === 'bookshelf') {
+          var bDist = Math.abs(bDecTiles[bd].col - ch.tileCol) + Math.abs(bDecTiles[bd].row - ch.tileRow);
+          if (bDist < bBestDist) { bBestDist = bDist; bBest = bDecTiles[bd]; }
         }
       }
-      return;
-    }
-    // Countdown wander timer
-    ch.wanderTimer -= dt;
-    if (ch.wanderTimer <= 0) {
-      // Return to seat for rest?
-      if (ch.wanderCount >= ch.wanderLimit && ch.seatId) {
-        var seat2 = seats[ch.seatId];
-        if (seat2) {
-          var path2 = findPath(ch.tileCol, ch.tileRow, seat2.seatCol, seat2.seatRow, tileMap, blockedTiles);
-          if (path2.length > 0) {
-            ch.path = path2;
+      if (bBest) {
+        var bAdjRow = Math.min(bBest.row + 2, ROOM_ROWS - 2);
+        var bpath = findPath(ch.tileCol, ch.tileRow, bBest.col, bAdjRow, tileMap, blockedTiles);
+        if (bpath.length > 0) {
+          ch.path = bpath;
+          ch.moveProgress = 0;
+          ch.state = CharState.WALK;
+          ch._nextState = CharState.READ;
+          ch._coffeeTarget = bBest;
+          ch.cycleTimer = randomRange(6, 12);
+          return;
+        }
+      }
+      // Fallback to walk
+      ch.breakType = 'walk';
+      ch.state = CharState.IDLE;
+      ch.wanderTimer = randomRange(1, 3);
+      ch.wanderCount = 0;
+      ch.wanderLimit = randomInt(2, 4);
+      break;
+
+    case 'coffee':
+      // Find nearest cooler or plant decoration
+      var decTiles = room.decorationTiles || [];
+      var best = null, bestDist = 9999;
+      for (var d = 0; d < decTiles.length; d++) {
+        var dt2 = decTiles[d];
+        if (dt2.type === 'cooler' || dt2.type === 'plant') {
+          var dist = Math.abs(dt2.col - ch.tileCol) + Math.abs(dt2.row - ch.tileRow);
+          if (dist < bestDist) { bestDist = dist; best = dt2; }
+        }
+      }
+      if (best) {
+        // Walk to tile adjacent to decoration
+        var adjCol = best.col;
+        var adjRow = Math.min(best.row + 1, ROOM_ROWS - 2);
+        var cpath = findPath(ch.tileCol, ch.tileRow, adjCol, adjRow, tileMap, blockedTiles);
+        if (cpath.length > 0) {
+          ch.path = cpath;
+          ch.moveProgress = 0;
+          ch.state = CharState.WALK;
+          ch._nextState = CharState.COFFEE;
+          ch._coffeeTarget = best;
+          ch.cycleTimer = COFFEE_WAIT_TIME + cpath.length * 0.3;
+          return;
+        }
+      }
+      // Fallback to walk
+      ch.breakType = 'walk';
+      ch.state = CharState.IDLE;
+      ch.wanderTimer = randomRange(1, 3);
+      ch.wanderCount = 0;
+      ch.wanderLimit = randomInt(2, 4);
+      break;
+
+    case 'sleep':
+      // Go to seat if not there, then sleep
+      if (ch.seatId) {
+        var sSeat = seats[ch.seatId];
+        if (sSeat && (ch.tileCol !== sSeat.seatCol || ch.tileRow !== sSeat.seatRow)) {
+          var spath = findPath(ch.tileCol, ch.tileRow, sSeat.seatCol, sSeat.seatRow, tileMap, blockedTiles);
+          if (spath.length > 0) {
+            ch.path = spath;
             ch.moveProgress = 0;
             ch.state = CharState.WALK;
-            ch.frame = 0;
-            ch.frameTimer = 0;
+            ch._nextState = CharState.SLEEP;
             return;
           }
         }
+        ch.dir = sSeat ? sSeat.facingDir : ch.dir;
       }
-      // Pick random walkable tile
-      if (walkableTiles.length > 0) {
-        var target = walkableTiles[Math.floor(Math.random() * walkableTiles.length)];
-        var path3 = findPath(ch.tileCol, ch.tileRow, target.col, target.row, tileMap, blockedTiles);
-        if (path3.length > 0) {
-          ch.path = path3;
+      ch.state = CharState.SLEEP;
+      ch.cycleTimer = randomRange(SLEEP_TIME_MIN, SLEEP_TIME_MAX);
+      break;
+
+    case 'phone':
+      ch.state = CharState.PHONE;
+      ch.dir = Direction.DOWN;
+      ch.cycleTimer = randomRange(PHONE_TIME_MIN, PHONE_TIME_MAX);
+      break;
+
+    case 'walk':
+      ch.state = CharState.IDLE;
+      ch.wanderTimer = randomRange(1, 3);
+      ch.wanderCount = 0;
+      ch.wanderLimit = randomInt(2, 4);
+      break;
+
+    case 'chat':
+      // Find another agent in break or idle in same room
+      var partner = null;
+      if (room && room.characters) {
+        for (var ci = 0; ci < room.characters.length; ci++) {
+          var other = room.characters[ci];
+          if (other.id !== ch.id && other.state !== CharState.WALK && other.cyclePhase === 'break' && other.state !== CharState.CHAT) {
+            partner = other;
+            break;
+          }
+        }
+      }
+      if (partner) {
+        // Both walk to midpoint
+        var midCol = Math.round((ch.tileCol + partner.tileCol) / 2);
+        var midRow = Math.round((ch.tileRow + partner.tileRow) / 2);
+        midCol = Math.max(1, Math.min(midCol, ROOM_COLS - 2));
+        midRow = Math.max(1, Math.min(midRow, ROOM_ROWS - 2));
+        var chatPath1 = findPath(ch.tileCol, ch.tileRow, midCol, midRow, tileMap, blockedTiles);
+        var chatPath2 = findPath(partner.tileCol, partner.tileRow, midCol, Math.min(midRow + 1, ROOM_ROWS - 2), tileMap, blockedTiles);
+        if (chatPath1.length > 0) {
+          ch.path = chatPath1;
           ch.moveProgress = 0;
           ch.state = CharState.WALK;
+          ch._nextState = CharState.CHAT;
+          ch._chatPartner = partner.id;
+          ch.cycleTimer = randomRange(CHAT_TIME_MIN, CHAT_TIME_MAX);
+        }
+        if (chatPath2.length > 0) {
+          partner.path = chatPath2;
+          partner.moveProgress = 0;
+          partner.state = CharState.WALK;
+          partner._nextState = CharState.CHAT;
+          partner._chatPartner = ch.id;
+          partner.cycleTimer = randomRange(CHAT_TIME_MIN, CHAT_TIME_MAX);
+          partner.cyclePhase = 'break';
+          partner.breakType = 'chat';
+        } else {
+          // Fallback
+          ch.breakType = 'walk';
+          ch.state = CharState.IDLE;
+          ch.wanderTimer = 2;
+          ch.wanderCount = 0;
+          ch.wanderLimit = 2;
+        }
+      } else {
+        // No partner, fallback to phone
+        ch.breakType = 'phone';
+        ch.state = CharState.PHONE;
+        ch.dir = Direction.DOWN;
+        ch.cycleTimer = randomRange(PHONE_TIME_MIN, PHONE_TIME_MAX);
+      }
+      break;
+  }
+}
+
+function updateCharacter(ch, dt, walkableTiles, seats, tileMap, blockedTiles, room) {
+  ch.frameTimer += dt;
+
+  // ---- Office Life Cycle Engine ----
+  ch.cycleTimer -= dt;
+  if (ch.cycleTimer <= 0 && ch.state !== CharState.WALK) {
+    if (ch.cyclePhase === 'work') {
+      // Work done -> take a break
+      emitBurst(ch.x, ch.y, ch._roomIdx, false);
+      startBreak(ch, room, seats, tileMap, blockedTiles);
+      return;
+    } else {
+      // Break done -> back to work
+      startWork(ch, seats, tileMap, blockedTiles);
+      return;
+    }
+  }
+
+  // ---- State-specific logic ----
+  if (ch.state === CharState.TYPE) {
+    if (ch.frameTimer >= TYPE_FRAME_DUR) {
+      ch.frameTimer -= TYPE_FRAME_DUR;
+      ch.frame = (ch.frame + 1) % 2;
+    }
+    // Typing sparks effect
+    ch._sparkTimer -= dt;
+    if (ch._sparkTimer <= 0) {
+      ch._sparkTimer = 0.3 + Math.random() * 0.2;
+      // Emit spark from PC position (approximate)
+      if (ch.seatId && seats[ch.seatId]) {
+        var sparkSeat = seats[ch.seatId];
+        emitTypingSpark(ch.x, ch.y - 8, ch._roomIdx);
+      }
+    }
+  }
+  else if (ch.state === CharState.READ) {
+    if (ch.frameTimer >= READ_FRAME_DUR) {
+      ch.frameTimer -= READ_FRAME_DUR;
+      ch.frame = (ch.frame + 1) % 2;
+    }
+    // Face bookshelf if reading near one
+    if (ch._coffeeTarget && ch._coffeeTarget.type === 'bookshelf') {
+      ch.dir = directionBetween(ch.tileCol, ch.tileRow, ch._coffeeTarget.col, ch._coffeeTarget.row);
+    }
+  }
+  else if (ch.state === CharState.SLEEP) {
+    // Static, no animation frame changes
+    ch.frame = 0;
+  }
+  else if (ch.state === CharState.COFFEE) {
+    ch.frame = 0;
+    // Look toward decoration
+    if (ch._coffeeTarget) {
+      ch.dir = directionBetween(ch.tileCol, ch.tileRow, ch._coffeeTarget.col, ch._coffeeTarget.row);
+    }
+    // Emit steam
+    ch._steamTimer -= dt;
+    if (ch._steamTimer <= 0) {
+      ch._steamTimer = 0.4;
+      emitSteam(ch.x, ch.y - 4, ch._roomIdx);
+    }
+  }
+  else if (ch.state === CharState.PHONE) {
+    ch.frame = 0;
+  }
+  else if (ch.state === CharState.CHAT) {
+    ch.frame = 0;
+    // Face partner if nearby
+    if (ch._chatPartner && room && room.characters) {
+      for (var pi = 0; pi < room.characters.length; pi++) {
+        if (room.characters[pi].id === ch._chatPartner) {
+          var p = room.characters[pi];
+          ch.dir = directionBetween(ch.tileCol, ch.tileRow, p.tileCol, p.tileRow);
+          break;
+        }
+      }
+    }
+  }
+  else if (ch.state === CharState.IDLE) {
+    ch.frame = 0;
+    // Wander logic (used during break:walk)
+    ch.wanderTimer -= dt;
+    if (ch.wanderTimer <= 0) {
+      if (ch.wanderCount >= ch.wanderLimit) {
+        // Done wandering, cycle engine will handle transition
+        ch.cycleTimer = 0;
+        return;
+      }
+      if (walkableTiles.length > 0) {
+        var target = walkableTiles[Math.floor(Math.random() * walkableTiles.length)];
+        var wpath = findPath(ch.tileCol, ch.tileRow, target.col, target.row, tileMap, blockedTiles);
+        if (wpath.length > 0) {
+          ch.path = wpath;
+          ch.moveProgress = 0;
+          ch.state = CharState.WALK;
+          ch._nextState = CharState.IDLE;
           ch.frame = 0;
           ch.frameTimer = 0;
           ch.wanderCount++;
@@ -3181,43 +3474,37 @@ function updateCharacter(ch, dt, walkableTiles, seats, tileMap, blockedTiles) {
       ch.frameTimer -= WALK_FRAME_DUR;
       ch.frame = (ch.frame + 1) % 4;
     }
-
     if (ch.path.length === 0) {
       // Path complete
       var center = tileCenter(ch.tileCol, ch.tileRow);
       ch.x = center.x;
       ch.y = center.y;
 
-      if (ch.isActive) {
-        if (!ch.seatId) {
-          ch.state = CharState.TYPE;
+      // Transition to _nextState if set
+      if (ch._nextState) {
+        var ns = ch._nextState;
+        ch._nextState = null;
+        if (ns === CharState.TYPE || ns === CharState.READ) {
+          ch.state = ns;
+          if (ch.seatId && seats[ch.seatId]) ch.dir = seats[ch.seatId].facingDir;
+        } else if (ns === CharState.COFFEE) {
+          ch.state = CharState.COFFEE;
+        } else if (ns === CharState.SLEEP) {
+          ch.state = CharState.SLEEP;
+          if (ch.seatId && seats[ch.seatId]) ch.dir = seats[ch.seatId].facingDir;
+        } else if (ns === CharState.CHAT) {
+          ch.state = CharState.CHAT;
         } else {
-          var seat3 = seats[ch.seatId];
-          if (seat3 && ch.tileCol === seat3.seatCol && ch.tileRow === seat3.seatRow) {
-            ch.state = CharState.TYPE;
-            ch.dir = seat3.facingDir;
-          } else {
-            ch.state = CharState.IDLE;
-          }
+          ch.state = ns;
         }
-      } else {
-        // Check if at seat -> rest
-        if (ch.seatId) {
-          var seat4 = seats[ch.seatId];
-          if (seat4 && ch.tileCol === seat4.seatCol && ch.tileRow === seat4.seatRow) {
-            ch.state = CharState.TYPE;
-            ch.dir = seat4.facingDir;
-            ch.seatTimer = randomRange(SEAT_REST_MIN, SEAT_REST_MAX);
-            ch.wanderCount = 0;
-            ch.wanderLimit = randomInt(WANDER_MOVES_MIN, WANDER_MOVES_MAX);
-            ch.frame = 0;
-            ch.frameTimer = 0;
-            return;
-          }
-        }
-        ch.state = CharState.IDLE;
-        ch.wanderTimer = randomRange(WANDER_PAUSE_MIN, WANDER_PAUSE_MAX);
+        ch.frame = 0;
+        ch.frameTimer = 0;
+        return;
       }
+
+      // Default: go idle
+      ch.state = CharState.IDLE;
+      ch.wanderTimer = randomRange(WANDER_PAUSE_MIN, WANDER_PAUSE_MAX);
       ch.frame = 0;
       ch.frameTimer = 0;
       return;
@@ -3242,21 +3529,6 @@ function updateCharacter(ch, dt, walkableTiles, seats, tileMap, blockedTiles) {
       ch.path.shift();
       ch.moveProgress = 0;
     }
-
-    // If became active while walking, repath to seat
-    if (ch.isActive && ch.seatId) {
-      var seat5 = seats[ch.seatId];
-      if (seat5) {
-        var lastStep = ch.path[ch.path.length - 1];
-        if (!lastStep || lastStep.col !== seat5.seatCol || lastStep.row !== seat5.seatRow) {
-          var newPath = findPath(ch.tileCol, ch.tileRow, seat5.seatCol, seat5.seatRow, tileMap, blockedTiles);
-          if (newPath.length > 0) {
-            ch.path = newPath;
-            ch.moveProgress = 0;
-          }
-        }
-      }
-    }
   }
 }
 
@@ -3265,11 +3537,183 @@ function getCharacterSprite(ch, sprites) {
   if (ch.state === CharState.TYPE) {
     return sprites.typing[ch.dir][ch.frame % 2];
   }
+  if (ch.state === CharState.READ) {
+    return sprites.reading[ch.dir][ch.frame % 2];
+  }
   if (ch.state === CharState.WALK) {
     return sprites.walk[ch.dir][ch.frame % 4];
   }
-  // IDLE
-  return sprites.walk[ch.dir][1]; // standing frame
+  if (ch.state === CharState.SLEEP) {
+    // Use typing frame 0 (static sitting pose)
+    return sprites.typing[ch.dir][0];
+  }
+  // IDLE, COFFEE, PHONE, CHAT — standing frame
+  return sprites.walk[ch.dir][1];
+}
+
+// ============================================================
+// 7B. PARTICLE SYSTEM + VISUAL EFFECTS
+// ============================================================
+
+function addParticle(x, y, vx, vy, color, life, size, roomIdx, gravity) {
+  if (particles.length >= MAX_PARTICLES) return;
+  particles.push({ x: x, y: y, vx: vx, vy: vy, color: color, life: life, maxLife: life, size: size || 2, roomIdx: roomIdx, gravity: gravity !== undefined ? gravity : 30 });
+}
+
+function updateParticles(dt) {
+  for (var i = particles.length - 1; i >= 0; i--) {
+    var p = particles[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += p.gravity * dt;
+    p.life -= dt;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function renderParticlesForRoom(ctx, roomX, roomY, zoom, roomIdx) {
+  for (var i = 0; i < particles.length; i++) {
+    var p = particles[i];
+    if (p.roomIdx !== roomIdx) continue;
+    var alpha = Math.max(0, p.life / p.maxLife);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = p.color;
+    var px = Math.round(roomX + p.x * zoom);
+    var py = Math.round(roomY + p.y * zoom);
+    var ps = Math.max(1, Math.round(p.size * zoom));
+    ctx.fillRect(px, py, ps, ps);
+    ctx.restore();
+  }
+}
+
+// Aura glow around character
+function drawAura(ctx, screenX, screenY, color, time, zoom, pulse) {
+  var radius = 18 * zoom;
+  var alpha;
+  if (pulse) {
+    alpha = 0.10 + 0.15 * Math.sin(time * 3);
+  } else {
+    alpha = 0.12;
+  }
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+// Zzz floating above sleeping character
+function drawZzz(ctx, x, y, time, zoom) {
+  ctx.save();
+  ctx.font = 'bold ' + Math.round(8 * zoom) + 'px monospace';
+  var zees = ['z', 'Z', 'Z'];
+  var sizes = [7, 9, 11];
+  for (var i = 0; i < 3; i++) {
+    var phase = i * 2.1;
+    var yOff = -8 - i * 8 + Math.sin(time * 1.5 + phase) * 3;
+    var xOff = 4 + i * 5 + Math.sin(time * 0.8 + phase) * 2;
+    var alpha = 0.4 + 0.4 * Math.sin(time * 2 + phase);
+    ctx.globalAlpha = alpha;
+    ctx.font = 'bold ' + Math.round(sizes[i] * zoom) + 'px monospace';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.fillText(zees[i], Math.round(x + xOff * zoom), Math.round(y + yOff * zoom));
+  }
+  ctx.restore();
+}
+
+// Phone glow in front of character
+function drawPhoneGlow(ctx, x, y, time, zoom) {
+  ctx.save();
+  var alpha = 0.5 + 0.5 * Math.sin(time * 2.5);
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = '#a5d8ff';
+  var pw = Math.round(3 * zoom);
+  var ph = Math.round(5 * zoom);
+  ctx.fillRect(Math.round(x - pw / 2), Math.round(y + 2 * zoom), pw, ph);
+  // Small white highlight
+  ctx.fillStyle = '#fff';
+  ctx.globalAlpha = alpha * 0.6;
+  ctx.fillRect(Math.round(x - pw / 2 + zoom), Math.round(y + 3 * zoom), Math.max(1, Math.round(zoom)), Math.max(1, Math.round(2 * zoom)));
+  ctx.restore();
+}
+
+// Speech bubble with text
+function drawSpeechBubble(ctx, x, y, text, time, zoom, show) {
+  if (!show) return;
+  ctx.save();
+  var alpha = 0.85;
+  ctx.globalAlpha = alpha;
+  var fontSize = Math.round(8 * zoom);
+  ctx.font = 'bold ' + fontSize + 'px monospace';
+  var tw = ctx.measureText(text).width;
+  var bw = tw + 6 * zoom;
+  var bh = fontSize + 4 * zoom;
+  var bx = Math.round(x - bw / 2);
+  var by = Math.round(y - 12 * zoom);
+  // Bubble background
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(bx, by, Math.round(bw), Math.round(bh));
+  // Triangle
+  ctx.beginPath();
+  ctx.moveTo(x - 2 * zoom, by + bh);
+  ctx.lineTo(x + 2 * zoom, by + bh);
+  ctx.lineTo(x, by + bh + 3 * zoom);
+  ctx.closePath();
+  ctx.fill();
+  // Text
+  ctx.fillStyle = '#333';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, Math.round(x), Math.round(by + fontSize));
+  ctx.restore();
+}
+
+// Think bubble with "?" for placeholders
+function drawThinkBubble(ctx, x, y, time, zoom) {
+  var alpha = 0.5 + 0.3 * Math.sin(time * 2);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  var fontSize = Math.round(10 * zoom);
+  ctx.font = 'bold ' + fontSize + 'px monospace';
+  ctx.fillStyle = '#fbbf24';
+  ctx.textAlign = 'center';
+  var yOff = Math.sin(time * 1.5) * 2;
+  ctx.fillText('?', Math.round(x), Math.round(y - 6 * zoom + yOff * zoom));
+  ctx.restore();
+}
+
+// Steam particles for coffee
+function emitSteam(x, y, roomIdx) {
+  for (var i = 0; i < 2; i++) {
+    var sx = x + (Math.random() - 0.5) * 4;
+    addParticle(sx, y - 4, (Math.random() - 0.5) * 6, -12 - Math.random() * 8, '#ffffff', 0.8 + Math.random() * 0.4, 1.5, roomIdx, -2);
+  }
+}
+
+// Typing sparks
+function emitTypingSpark(x, y, roomIdx) {
+  addParticle(x + (Math.random() - 0.5) * 8, y, (Math.random() - 0.5) * 15, -25 - Math.random() * 15, '#FFD700', 0.25 + Math.random() * 0.15, 1, roomIdx, 10);
+}
+
+// Walk trail
+function emitTrail(x, y, color, roomIdx) {
+  addParticle(x, y + 14, (Math.random() - 0.5) * 3, -4 - Math.random() * 3, color, 0.35, 1.5, roomIdx, 0);
+}
+
+// Completion burst
+function emitBurst(x, y, roomIdx, big) {
+  var count = big ? 15 : 8;
+  var colors = ['#FFD700', '#FFA500', '#FFEC8B', '#fff'];
+  for (var i = 0; i < count; i++) {
+    var angle = (i / count) * Math.PI * 2;
+    var speed = 30 + Math.random() * 25;
+    var c = colors[Math.floor(Math.random() * colors.length)];
+    addParticle(x, y + 8, Math.cos(angle) * speed, Math.sin(angle) * speed - 20, c, 0.8 + Math.random() * 0.4, big ? 3 : 2, roomIdx, 40);
+  }
 }
 
 // ============================================================
@@ -3341,17 +3785,25 @@ function renderScene(ctx, furniture, characters, offsetX, offsetY, zoom, spriteC
     })(cached, fx, fy);
   }
 
-  // Characters
+  // Characters (with visual effects)
   for (var ci = 0; ci < characters.length; ci++) {
     var ch = characters[ci];
     var sprites = spriteCache[ch.palette];
     if (!sprites) sprites = spriteCache[0];
     var spriteData = getCharacterSprite(ch, sprites);
     var charCached = getCachedSprite(spriteData, zoom);
-    var sittingOffset = ch.state === CharState.TYPE ? SIT_OFFSET : 0;
+    // Sitting offset for TYPE, READ, SLEEP
+    var isSitting = ch.state === CharState.TYPE || ch.state === CharState.READ || ch.state === CharState.SLEEP;
+    var sittingOffset = isSitting ? SIT_OFFSET : 0;
     var drawX = Math.round(offsetX + ch.x * zoom - charCached.width / 2);
-    var drawY = Math.round(offsetY + (ch.y + sittingOffset) * zoom - charCached.height);
+    var drawY = Math.round(offsetX + (ch.y + sittingOffset) * zoom - charCached.height);
+    // Fix: use offsetY not offsetX for Y calculation
+    drawY = Math.round(offsetY + (ch.y + sittingOffset) * zoom - charCached.height);
     var charZY = ch.y + TILE_SIZE / 2 + Z_SORT_OFFSET;
+
+    // Screen center of character (for effects)
+    var charCenterX = offsetX + ch.x * zoom;
+    var charTopY = drawY;
 
     // Selected agent outline
     var isSelected = selectedCharId !== null && selectedCharId !== undefined && ch.id === selectedCharId;
@@ -3373,21 +3825,38 @@ function renderScene(ctx, furniture, characters, offsetX, offsetY, zoom, spriteC
       })(outlineCached, olDrawX, olDrawY);
     }
 
-    (function(cachedRef, dxRef, dyRef, chRef) {
+    // --- CHARACTER SPRITE ---
+    (function(cachedRef, dxRef, dyRef) {
       drawables.push({
         zY: charZY,
         draw: function(c) {
-          if (chRef.isPlaceholder) {
-            c.save();
-            c.globalAlpha = 0.45;
-            c.drawImage(cachedRef, dxRef, dyRef);
-            c.restore();
-          } else {
-            c.drawImage(cachedRef, dxRef, dyRef);
-          }
+          c.drawImage(cachedRef, dxRef, dyRef);
         }
       });
-    })(charCached, drawX, drawY, ch);
+    })(charCached, drawX, drawY);
+
+    // --- EFFECTS ABOVE CHARACTER ---
+    (function(chRef, cx, topY) {
+      drawables.push({
+        zY: charZY + 0.001,
+        draw: function(c) {
+          // Zzz for sleeping
+          if (chRef.state === CharState.SLEEP) {
+            drawZzz(c, cx, topY, gameTime + chRef.id * 0.5, zoom);
+          }
+          // Phone glow
+          if (chRef.state === CharState.PHONE) {
+            drawPhoneGlow(c, cx, topY + 16 * zoom, gameTime, zoom);
+          }
+          // Chat speech bubble
+          if (chRef.state === CharState.CHAT) {
+            var showBubble = Math.sin(gameTime * 1.5 + chRef.id) > 0;
+            drawSpeechBubble(c, cx, topY, '...', gameTime, zoom, showBubble);
+          }
+          // (placeholder effects removed)
+        }
+      });
+    })(ch, charCenterX, charTopY);
   }
 
   // Z-sort
@@ -3645,6 +4114,9 @@ function renderAllRooms(ctx, canvasW, canvasH) {
     var selCharId = (selectedAgent && selectedAgent.character) ? selectedAgent.character.id : null;
     renderScene(ctx, room.furniture, room.characters, roomX, roomY, zoom, spritesByPalette, room.tileMap, room.wallColor, selCharId);
 
+    // -- Render particles for this room --
+    renderParticlesForRoom(ctx, roomX, roomY, zoom, room.roomIndex);
+
     // -- STATS BAR: BELOW the room, separated --
     ctx.imageSmoothingEnabled = true;
     var sbY = roomY + roomH;
@@ -3772,7 +4244,8 @@ function handleClick(mx, my) {
     // Check each character
     for (var ci = 0; ci < room.characters.length; ci++) {
       var ch = room.characters[ci];
-      var sOff = ch.state === CharState.TYPE ? SIT_OFFSET : 0;
+      var isSit = ch.state === CharState.TYPE || ch.state === CharState.READ || ch.state === CharState.SLEEP;
+      var sOff = isSit ? SIT_OFFSET : 0;
       var charScreenX = roomX + ch.x * zoom;
       var charScreenY = roomY + (ch.y + sOff) * zoom;
 
@@ -4135,6 +4608,7 @@ function startMCGameLoop(canvas) {
   // Start game loop
   stopLoop = startGameLoop(canvas, {
     update: function(dt) {
+      gameTime += dt;
       // Update all characters in visible rooms
       for (var i = 0; i < visibleRooms.length; i++) {
         var room = visibleRooms[i];
@@ -4142,10 +4616,13 @@ function startMCGameLoop(canvas) {
           updateCharacter(
             room.characters[j], dt,
             room.walkableTiles, room.seats,
-            room.tileMap, room.blockedTiles
+            room.tileMap, room.blockedTiles,
+            room
           );
         }
       }
+      // Update particles
+      updateParticles(dt);
     },
     render: function(ctx) {
       renderAllRooms(ctx, canvas.width, canvas.height);

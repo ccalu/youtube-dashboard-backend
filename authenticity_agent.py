@@ -153,7 +153,7 @@ def compute_structure_score(structures: List[str]) -> Dict:
             p = count / total
             entropy -= p * math.log2(p)
 
-    max_entropy = math.log2(len(VALID_STRUCTURES))  # log2(7) = 2.807
+    max_entropy = math.log2(unique_count) if unique_count > 1 else 1.0
 
     # --- Sub-scores ---
 
@@ -387,8 +387,8 @@ def compute_title_score(titles: List[str]) -> Dict:
 
     # Score combinado
     score = (similarity_score * 0.40 +
-             serial_score * 0.25 +
-             keyword_score * 0.20 +
+             serial_score * 0.15 +
+             keyword_score * 0.30 +
              length_score * 0.15)
     score = round(max(0, min(100, score)), 1)
 
@@ -572,18 +572,14 @@ def generate_llm_analysis(
     title_metrics = title_result["metrics"]
 
     dist_lines = []
-    for letter in "ABCDEFG":
-        count = struct_metrics["distribution"].get(letter, 0)
+    for letter, count in sorted(struct_metrics["distribution"].items()):
         pct = (count / struct_metrics["total_videos"] * 100) if struct_metrics["total_videos"] > 0 else 0
-        if count > 0:
-            dist_lines.append(f"  {letter}: {count} videos ({pct:.0f}%)")
-        else:
-            dist_lines.append(f"  {letter}: 0 videos (0%)")
+        dist_lines.append(f"  {letter}: {count} videos ({pct:.0f}%)")
 
     similar_pairs_text = ""
     if title_result.get("similar_pairs"):
         pairs = title_result["similar_pairs"][:5]
-        pair_lines = [f'  "{p[0]}" vs "{p[1]}" ({p[2]}% similar)' for p in pairs]
+        pair_lines = [f'  "{p[0]}" vs "{p[1]}" ({p[2]}% similares)' for p in pairs]
         similar_pairs_text = "\n".join(pair_lines)
     else:
         similar_pairs_text = "  Nenhum par com similaridade acima de 50%"
@@ -607,19 +603,6 @@ def generate_llm_analysis(
     else:
         alerts_text = "  Nenhum alerta"
 
-    previous_block = ""
-    if comparison and comparison.get("previous_report"):
-        previous_block = f"""
-RELATORIO ANTERIOR ({comparison.get('previous_date', 'N/A')}):
-Score anterior: {comparison.get('previous_score')}/100 ({comparison.get('previous_level')})
-  Estruturas: {comparison.get('previous_structure_score')}/100
-  Titulos: {comparison.get('previous_title_score')}/100
-Diferenca: {comparison.get('score_diff'):+.1f} pontos
-
-RELATORIO ANTERIOR COMPLETO (MEMORIA ACUMULATIVA):
-{comparison['previous_report']}
-"""
-
     data_block = f"""CANAL: {channel_name}
 SUBNICHO: {subnicho}
 LINGUA: {lingua}
@@ -627,7 +610,7 @@ LINGUA: {lingua}
 SCORE GERAL DE AUTENTICIDADE: {composite['score']}/100 ({composite['level'].upper()})
 
 FATOR 1 - ESTRUTURAS DE COPY (score: {structure_result['score']}/100, peso: 50%):
-  Estruturas usadas: {struct_metrics['unique_count']} de 7 possiveis
+  Estruturas usadas: {struct_metrics['unique_count']}
   Dominante: {struct_metrics['dominant']} com {struct_metrics['dominant_pct']}%
   Entropia: {struct_metrics['entropy']} / {struct_metrics['max_entropy']} ({(struct_metrics['entropy']/struct_metrics['max_entropy']*100):.0f}% do maximo)
   Distribuicao:
@@ -649,54 +632,235 @@ ALERTAS:
 
 LISTA COMPLETA DE TITULOS ({len(titles)} videos):
 {titles_list}
+"""
 
-{previous_block}"""
+    # =====================================================================
+    # PROMPT LLM PROFISSIONAL — System + User messages separados
+    # =====================================================================
 
-    system_prompt = """Voce e um perito em identificar padroes de conteudo inautentico no YouTube.
+    system_prompt = """Voce e um perito em politicas de conteudo do YouTube, especializado em detectar
+e PREVENIR flags de "Inauthentic Content" (politica atualizada em Julho 2025).
 
-O YouTube flagga canais que parecem "produzidos em massa, baseados em template, facilmente replicaveis em escala". Os triggers incluem:
-- Template Persistence: mesma estrutura em 80%+ dos videos
-- Serial Redundancy: titulos "Parte 1/2/3" ou que diferem por 1-2 palavras
-- Metadata Clustering: padroes repetitivos nos titulos
-- Keyword Stuffing: mesma palavra dominando todos os titulos
+=== O QUE E INAUTHENTIC CONTENT ===
 
-Voce recebe os dados de UM canal e deve produzir EXATAMENTE 3 blocos, separados pelos marcadores:
+O YouTube derruba canais que parecem "produzidos em massa, baseados em template,
+facilmente replicaveis em escala". Isso NAO e sobre qualidade do conteudo — e sobre
+PADRAO DE PRODUCAO. Um canal com conteudo excelente pode ser derrubado se PARECE
+automatizado.
+
+Nosso sistema calcula um SCORE de 0-100 (mais alto = mais autentico/seguro)
+baseado em 2 fatores com peso igual (50/50). O Python calcula TUDO — voce interpreta.
+
+=== FATOR 1: VARIEDADE DE ESTRUTURAS DE COPY (50%) ===
+
+Cada video usa uma estrutura narrativa identificada por uma letra (A, B, C...).
+Cada canal tem seu proprio conjunto de letras — NAO existe um numero fixo.
+Um canal pode usar 3 estruturas, outro 8. O que importa e a DISTRIBUICAO
+entre as estruturas que o canal USA, nao quantas "poderia" usar.
+
+IMPORTANTE: Todas as metricas sao relativas ao universo REAL do canal.
+Se um canal usa 4 estruturas, a entropia maxima e log2(4)=2.0, nao log2(26).
+A dominancia e relativa ao total de videos do canal, nao a um set fixo.
+
+O sistema analisa:
+- DISTRIBUICAO: quantos videos usam cada estrutura (% do total)
+- DOMINANCIA: % da estrutura mais usada. Se 1 estrutura domina 80%+ = CRITICO
+  Parece template em massa. O YouTube ve isso como "facilmente replicavel"
+- SHANNON ENTROPY: mede a "desordem" da distribuicao
+  Entropy maxima = todas estruturas do canal com mesma frequencia
+  Entropy baixa = concentracao em poucas estruturas (padrao repetitivo)
+- QUANTIDADE: quantas estruturas diferentes o canal usa
+
+Triggers de risco:
+> Dominancia >80% = flag FORTE (1 estrutura em quase tudo)
+> Apenas 1-2 estruturas usadas = RISCO (pouca variedade)
+> Shannon entropy < 1.0 com 10+ videos = padrao repetitivo
+
+=== FATOR 2: DIVERSIDADE DE TITULOS (50%) ===
+
+Analisa TODOS os titulos do canal. 4 sub-metricas:
+
+1. SIMILARIDADE ENTRE TITULOS (peso 40% do fator):
+   Compara CADA par de titulos. Extrai palavras significativas (sem stopwords),
+   calcula % de palavras em comum.
+   - Similaridade media < 10% = titulos muito diversos (score 100)
+   - Similaridade media > 50% = titulos muito parecidos (score 0)
+   - Pares com similaridade >50% sao reportados individualmente
+   - No output, use "similaridade X%" (NAO use termos tecnicos como "Jaccard")
+
+2. PADRAO SERIAL (peso 15%):
+   Detecta "Parte 1", "Ep 2", "#3", "Vol 4", "Capitulo 5".
+   - <5% serial = OK (score 100)
+   - >50% serial = CRITICO (score 0)
+   O YouTube trata series como "conteudo formulaico replicavel"
+
+3. KEYWORD STUFFING (peso 30%):
+   Mesma palavra em muitos titulos. Ex: "Medieval" em 45% dos titulos.
+   - <25% = OK (score 100)
+   - >70% = CRITICO (score 0)
+   Repetir keywords = padrao de SEO automatizado. Este e um dos triggers
+   mais relevantes — titulos com a mesma palavra-chave repetida indicam
+   producao em massa focada em SEO, nao em criatividade
+
+4. VARIACAO DE COMPRIMENTO (peso 15%):
+   Desvio padrao do tamanho dos titulos.
+   - Desvio >15 chars = titulos variados (score 100)
+   - Desvio <3 chars = todos com mesmo tamanho (score 0)
+   Titulos com mesma estrutura/tamanho = template
+
+=== NEAR-DUPLICATES E PARES SIMILARES ===
+
+O sistema identifica:
+- PARES SIMILARES: 2 titulos com similaridade >50% (reportados com %)
+- NEAR-DUPLICATES: titulos que diferem por apenas 1-2 palavras (similaridade >75%)
+  Ex: "O Rei Mais Cruel da Idade Media" vs "O Rei Mais Sanguinario da Idade Media"
+  Isso e o trigger MAIS FORTE para Inauthentic Content — parece copy-paste com
+  substituicao de 1 palavra. SEMPRE destaque near-duplicates.
+
+=== NIVEIS DO SCORE ===
+
+- EXCELENTE (80-100): canal seguro, variado, parece humano
+- BOM (60-80): adequado, poucos riscos
+- ATENCAO (40-60): riscos moderados, precisa diversificar
+- RISCO (20-40): alto risco de flag, acao necessaria
+- CRITICO (0-20): perigo iminente de derrubada
+
+=== ALERTAS NO RELATORIO ===
+
+O sistema gera alertas automaticos no relatorio quando:
+- Score composto < 40 (zona de risco)
+- Qualquer fator individual < 30 (fator critico)
+- Queda > 15 pontos vs analise anterior (deterioracao rapida)
+
+Esses alertas fazem parte do RELATORIO — nao sao notificacoes de dashboard.
+O relatorio sera consumido por um agente-chefe (Agente 6) que toma decisoes.
+Se ha alertas ativos, sua analise DEVE explicar a gravidade e priorizar acoes.
+
+=== DIFERENCA DO AGENTE DE COPY ===
+
+O Agente de Copy (Agente 1) NAO da recomendacoes — so apresenta padroes.
+Este agente SIM da recomendacoes de acao. Porque aqui a acao e URGENTE:
+se o canal esta em risco de ser derrubado, precisa de orientacao imediata.
+
+=== REGRAS INVIOLAVEIS ===
+
+1. Seja FACTUAL — cite numeros EXATOS dos dados fornecidos
+2. NAO invente dados — use APENAS o que esta nos dados
+3. Cada recomendacao DEVE citar dados especificos (titulos reais, porcentagens)
+4. Priorize recomendacoes: [ALTA] = risco imediato, [MEDIA] = melhorar, [BAIXA] = otimizar
+5. NAO repita tabelas que o sistema ja gera automaticamente
+6. Escreva em portugues, paragrafos curtos separados por linha em branco
+7. Escreva o quanto for necessario. NAO resuma, NAO corte a analise
+8. Use EXATAMENTE os marcadores [DIAGNOSTICO], [RECOMENDACOES] e [TENDENCIAS]
+
+=== TIPO DE RACIOCINIO ESPERADO ===
+
+NAO FACA ISSO (superficial):
+"O score e 54. O fator de titulos esta baixo. Precisa melhorar."
+
+FACA ISSO (profissional — diagnostico direto, so dados relevantes, sem enrolacao):
+"Score 54/100 — nivel ATENCAO. O risco esta concentrado nos titulos, nao na copy.
+
+Diversidade de Titulos (42/100) e o fator critico. 3 pares de near-duplicates
+com similaridade acima de 65%:
+- 'O Rei Mais Cruel da Idade Media' vs 'O Rei Mais Sanguinario da Idade Media' (78% similares)
+- 'A Queda do Imperio Romano' vs 'A Queda do Imperio Bizantino' (67% similares)
+- 'Torturas Medievais que Voce Nao Acredita' vs 'Punicoes Medievais que Voce Nao Acredita' (72% similares)
+Padrao: substituicao de 1 palavra em formula identica. E exatamente o que o YouTube
+detecta como 'template-based'. Keyword 'Medieval' em 35% dos titulos reforca.
+
+Variedade de Estruturas (66/100) saudavel: 5 estruturas em uso, dominancia 39%
+(Estrutura A), entropy 1.89/2.32 (82% do maximo). Sem concentracao critica.
+
+[ALTA] Reformular os 3 pares near-duplicates. Trocar formula 'O/A [superlativo]
+[periodo]' por: perguntas ('Por que X fez Y?'), declarativas com nome proprio
+('Vlad III: O Que Ele Realmente Fez'), ou angulo inedito ('O Lado Desconhecido de X').
+
+[MEDIA] Keyword 'Medieval' (35%): substituir por 'Idade Media', 'sec. XIV',
+'Europa feudal', 'mundo antigo' em pelo menos 50% das ocorrencias.
+
+[BAIXA] Estruturas D e F tem 1 video cada (5.5%). Nos proximos 10 videos,
+incluir 3+ com essas estruturas para subir variedade."
+"""
+
+    # Montar bloco de memoria acumulativa (relatorio anterior)
+    previous_report_block = ""
+    if comparison and comparison.get("previous_report"):
+        prev_date = comparison.get("previous_date", "")
+        if isinstance(prev_date, str) and "T" in prev_date:
+            try:
+                prev_date = datetime.fromisoformat(prev_date.replace("Z", "+00:00")).strftime("%d/%m/%Y")
+            except (ValueError, TypeError):
+                pass
+        previous_report_block = f"""
+VOCE TEM MEMORIA ACUMULATIVA:
+O relatorio anterior contem TODAS as conclusoes e tendencias identificadas ate agora.
+Sua analise atual DEVE:
+- Se basear no relatorio anterior como referencia
+- Verificar se recomendacoes anteriores foram implementadas (detectavel nos dados)
+- Confirmar ou revisar tendencias com numeros
+- Construir em cima, nunca ignorar o historico
+
+RELATORIO ANTERIOR COMPLETO ({prev_date}):
+{comparison['previous_report']}
+FIM DO RELATORIO ANTERIOR.
+"""
+
+    user_prompt = f"""{previous_report_block}
+
+Produza EXATAMENTE 3 blocos:
 
 [DIAGNOSTICO]
-Paragrafos sobre o estado atual de autenticidade do canal:
-- Quais fatores sao os mais preocupantes (ou fortes) e por que
-- Se o score justifica acao imediata ou monitoramento
-- Pontos especificos de atencao baseados nos dados
+Estado atual de autenticidade. Cubra obrigatoriamente:
+
+1. SCORE GERAL: O que o score X/100 significa para o risco do canal?
+   Se esta em zona de ATENCAO, RISCO ou CRITICO, diga explicitamente.
+
+2. FATOR MAIS FRACO: Qual dos 2 fatores puxa o score para baixo?
+   Cite o score do fator e as metricas que o explicam.
+   Se ambos estao equilibrados, diga isso.
+
+3. NEAR-DUPLICATES: Se ha pares de titulos com alta similaridade,
+   cite-os entre aspas com a similaridade %. Near-duplicates sao o trigger
+   MAIS FORTE — destaque CADA par encontrado.
+
+4. ESTRUTURAS: A distribuicao esta saudavel ou concentrada?
+   Cite a dominancia % e quantas estruturas estao em uso.
+   Se 1 estrutura domina >60%, e um sinal de risco.
+
+5. ALERTAS: Se ha alertas ativos, explique a gravidade de cada um.
+
+6. AVALIACAO GERAL: O canal precisa de acao IMEDIATA ou monitoramento?
 
 [RECOMENDACOES]
-Acoes CONCRETAS para melhorar o score, cada uma com prioridade [ALTA], [MEDIA] ou [BAIXA]:
-- Cada recomendacao DEVE citar dados especificos (numeros, titulos reais, estruturas)
-- Sugestoes praticas de como diversificar
-- NAO invente dados - use APENAS o que foi fornecido
+Acoes CONCRETAS, cada uma com prioridade [ALTA], [MEDIA] ou [BAIXA]:
+
+1. Para cada recomendacao, cite o DADO ESPECIFICO que a motiva
+   (titulo real entre aspas, porcentagem exata, estrutura especifica)
+2. Para TITULOS: sugira formulas alternativas para substituir padroes
+   repetitivos. Se ha near-duplicates, mostre como reformular.
+3. Para ESTRUTURAS: sugira redistribuicao com numeros concretos
+   (ex: "nos proximos 10 videos, incluir pelo menos 3 com estrutura X")
+4. Para KEYWORD STUFFING: sugira sinonimos ou variantes
 
 [TENDENCIAS]
-(SO se houver relatorio anterior no bloco RELATORIO ANTERIOR acima)
-- Evolucao do score vs anterior
-- Se recomendacoes anteriores foram implementadas
-- Padroes que melhoraram ou pioraram
-Se NAO houver relatorio anterior, escreva: "Primeira analise. Sem dados anteriores para comparacao."
+EVOLUCAO ao longo do tempo (SO se houver relatorio anterior):
+- Score anterior vs atual (cite numeros exatos)
+- Quais recomendacoes anteriores foram implementadas (se detectavel)
+- Fatores que melhoraram ou pioraram
+- Se primeira analise: "Primeira analise. Sem dados anteriores para comparacao."
 
-REGRAS:
-- Seja FACTUAL - cite numeros dos dados fornecidos
-- NAO invente informacoes
-- Responda em portugues
-- Seja direto e objetivo
-- NAO repita tabelas ou dados que ja estao no relatorio numerico"""
+DADOS:
+{data_block}"""
 
     try:
         response = client.chat.completions.create(
             model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": data_block}
+                {"role": "user", "content": user_prompt}
             ],
-            temperature=0.3,
-            max_tokens=3000
+            temperature=0.3
         )
 
         text = response.choices[0].message.content.strip()
@@ -783,18 +947,14 @@ def generate_report(
     report.append("--- ESTRUTURAS ({}/100) ---".format(structure_result['score']))
     report.append("")
     report.append("  Distribuicao:")
-    for letter in "ABCDEFG":
-        count = struct_m["distribution"].get(letter, 0)
+    for letter, count in sorted(struct_m["distribution"].items()):
         pct = (count / struct_m["total_videos"] * 100) if struct_m["total_videos"] > 0 else 0
         bar_len = int(pct / 5)
         bar = "#" * bar_len + "." * (20 - bar_len)
-        if count > 0:
-            report.append(f"    {letter}: {count:>3} videos ({pct:>4.0f}%)  {bar}")
-        else:
-            report.append(f"    {letter}:   0 videos (  0%)  {bar}")
+        report.append(f"    {letter}: {count:>3} videos ({pct:>4.0f}%)  {bar}")
 
     report.append("")
-    report.append(f"  Estruturas usadas: {struct_m['unique_count']} de 7")
+    report.append(f"  Estruturas usadas: {struct_m['unique_count']}")
     report.append(f"  Dominante: {struct_m['dominant']} com {struct_m['dominant_pct']}%")
     report.append(f"  Entropia: {struct_m['entropy']} / {struct_m['max_entropy']}")
     report.append("")

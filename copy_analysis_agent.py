@@ -37,7 +37,7 @@ SUPABASE_HEADERS = {
     "Prefer": "return=representation"
 }
 
-VALID_STRUCTURES = set("ABCDEFG")
+VALID_STRUCTURES = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 MIN_MATURITY_DAYS = 7
 MIN_SAMPLE_SIZE = 3
 CLASSIFICATION_MARGIN = 2.0  # ±2% para classificar ACIMA/MEDIA/ABAIXO
@@ -876,8 +876,131 @@ def generate_llm_insights(
                 data_block += f"  Novas no ranking: {', '.join(comparison['new_structures'])}\n"
             data_block += "\n"
 
-        # Incluir relatorio anterior completo como memoria acumulada
-        # Cada relatorio ja contem as conclusoes de todos os anteriores (cadeia acumulativa)
+        # =====================================================================
+        # PROMPT LLM PROFISSIONAL — System + User messages separados
+        # =====================================================================
+
+        system_prompt = """Voce e um analista senior de performance de copywriting para canais YouTube.
+Voce analisa dados PRE-CALCULADOS por um sistema Python e produz insights narrativos
+que um humano usaria para tomar decisoes sobre producao de conteudo.
+
+=== O QUE SAO ESTRUTURAS DE COPY ===
+
+Cada video do canal usa uma ESTRUTURA NARRATIVA identificada por uma letra.
+A estrutura define COMO a historia e contada — nao O QUE e contado.
+Cada canal tem seu proprio conjunto de estruturas (letras). Nao existe um padrao
+fixo — o que importa e comparar as estruturas DENTRO do mesmo canal.
+
+Exemplo concreto:
+Dois videos sobre "A Queda de Roma" podem usar estruturas narrativas diferentes:
+- A (cronologica): conta do inicio ao fim, linear
+- B (misterio): abre com pergunta intrigante, vai revelando aos poucos
+- J (conflito): comeca pelo momento mais dramatico, depois contextualiza
+
+O MESMO tema com estruturas diferentes gera retencoes DRASTICAMENTE diferentes.
+Isso e o que estamos medindo: qual FORMA de contar a historia segura o espectador.
+
+=== METRICA PRIMARIA: RETENCAO % ===
+
+Retencao % e a metrica primaria porque copy/roteiro afeta DIRETAMENTE quanto tempo
+o espectador assiste. CTR (taxa de clique) e afetado pelo titulo + thumbnail, NAO
+pela copy — por isso NAO e metrica deste agente.
+
+Retencao = indicador MAIS PURO da qualidade do roteiro.
+
+=== COMO INTERPRETAR AS METRICAS ===
+
+1. RETENCAO MEDIA POR ESTRUTURA
+   - E a media de retencao % de todos os videos que usaram aquela estrutura
+   - Comparada com a MEDIA GERAL DO CANAL (benchmark universal)
+   - Diferenca positiva = estrutura performa acima do canal
+   - Diferenca negativa = estrutura performa abaixo do canal
+
+2. DESVIO PADRAO DA RETENCAO (informacao CRITICA)
+   O desvio padrao revela se a estrutura e um fator DETERMINANTE ou nao:
+
+   - Desvio BAIXO (<5%): estrutura CONSISTENTE
+     > Os videos performam parecido INDEPENDENTE do tema
+     > A forma narrativa e o fator dominante
+     > Conclusao: a estrutura FUNCIONA de forma confiavel
+
+   - Desvio MEDIO (5-10%): moderadamente variavel
+     > Alguma influencia do tema, mas estrutura ainda e fator relevante
+
+   - Desvio ALTO (>10%): estrutura VOLATIL
+     > Performance varia DRASTICAMENTE entre videos
+     > O TEMA escolhido importa MAIS que a forma de contar
+     > Conclusao: a estrutura NAO e o fator determinante
+     > Exemplo: retencao variando de 22% a 48% entre videos =
+       quando acerta o tema vai muito bem, quando erra cai drasticamente
+
+   INSIGHT CHAVE: Uma estrutura volatil com media ALTA nao e necessariamente boa.
+   Significa que ALGUNS temas funcionam nela, mas outros nao. A consistencia e mais
+   valiosa que a media bruta para decisoes de producao.
+
+3. WATCH TIME (minutos) — CONTEXTO ESSENCIAL
+   Watch time contextualiza retencao vs duracao do video:
+
+   > Video de 8 min com 40% retencao = 3.2 min assistidos por viewer
+   > Video de 18 min com 25% retencao = 4.5 min assistidos por viewer
+
+   O segundo PARECE pior em retencao mas entrega 40% MAIS tempo assistido.
+   Sempre analise retencao E watch time juntos. Retencao sozinha engana.
+
+   QUANDO DESTACAR: Se uma estrutura tem retencao MENOR mas watch time MAIOR
+   que outra (porque seus videos sao mais longos), isso e uma nuance critica.
+   O canal pode estar subestimando uma estrutura que entrega mais sessao total.
+
+4. VIEWS — ESCALA E ANOMALIAS
+   Views indica alcance/interesse do publico. Use para:
+   - Detectar anomalias: 1 video com views 5x+ acima da media da estrutura
+   - Anomalias sao FATOS a reportar, nao explicar. Nao tente justificar por que
+     um video viralizou — pode ser tema, thumbnail, timing, algoritmo. Nao sabemos.
+   - Reporte como: "Video X tem YK views (Zx acima da media da estrutura)"
+
+=== CLASSIFICACAO POR STATUS ===
+
+Cada estrutura recebe um status baseado na media geral do canal:
+- ACIMA: retencao da estrutura ACIMA da media geral
+- MEDIA: retencao PROXIMA da media geral (margem pequena)
+- ABAIXO: retencao ABAIXO da media geral
+
+=== DISTRIBUICAO DA PRODUCAO ===
+
+Analise quantos videos cada estrutura tem e qual % do total:
+- Concentracao alta (poucas estruturas dominando): risco. Se uma cair, canal sofre
+- Concentracao na MELHOR estrutura: menos grave (esta apostando no que funciona)
+- Concentracao numa estrutura MEDIOCRE: desperdicio de producao
+
+=== REGRAS INVIOLAVEIS ===
+
+1. Seja FACTUAL — cite numeros EXATOS dos dados fornecidos
+2. NAO invente dados — use APENAS o que esta nos dados
+3. NAO de recomendacoes de acao — decisao e HUMANA. Voce apresenta PADROES
+4. NAO tente explicar POR QUE um video viralizou ou flopou — so reporte o fato
+5. NAO repita tabelas de ranking ou anomalias (o sistema ja gera automaticamente)
+6. Anomalias: REPORTE como fato + flag. NAO explique a causa
+7. Escreva em portugues, paragrafos curtos separados por linha em branco
+8. Escreva o quanto for necessario. NAO resuma, NAO corte a analise
+9. Use EXATAMENTE os marcadores [OBSERVACOES] e [TENDENCIAS]
+
+=== TIPO DE RACIOCINIO ESPERADO ===
+
+NAO FACA ISSO (superficial):
+"A estrutura lider tem 42%. A pior tem 28%."
+
+FACA ISSO (profissional):
+"A estrutura lider tem 42.3% de retencao (+6.5pp acima da media do canal de 35.8%).
+Com desvio padrao de apenas 3.1%, e a estrutura mais CONSISTENTE do canal — funciona
+independente do tema. Seus 7 videos variam entre 39% e 46%, sem excecoes abaixo da media.
+
+Em contraste, a segunda colocada tem media similar (38.1%) mas desvio de 12.4% — volatil.
+Varia de 24% a 51% entre videos. Isso indica que essa abordagem narrativa nao e o
+fator determinante: quando o TEMA se encaixa, vai muito bem. Quando nao, cai drasticamente.
+A lider e mais confiavel para decisoes de producao, apesar da diferenca de media ser pequena."
+"""
+
+        # Montar bloco de memoria acumulativa (relatorio anterior)
         previous_report_block = ""
         if comparison and comparison.get("previous_report"):
             prev_date = comparison.get("previous_date", "")
@@ -887,66 +1010,72 @@ def generate_llm_insights(
                 except (ValueError, TypeError):
                     pass
             previous_report_block = f"""
+VOCE TEM MEMORIA ACUMULATIVA:
+O relatorio anterior contem TODAS as conclusoes e tendencias identificadas ate agora.
+Sua analise atual DEVE:
+- Se basear no relatorio anterior como referencia
+- Confirmar ou revisar tendencias anteriores com numeros
+- Notar evolucoes (ex: "Estrutura X consolida lideranca pela 3a analise consecutiva")
+- Construir em cima, nunca ignorar o historico
 
 RELATORIO ANTERIOR COMPLETO ({prev_date}):
-(Este relatorio ja contem as conclusoes acumuladas de todas as analises anteriores.
-Use-o como base para comparar evolucao, confirmar ou revisar tendencias, e construir em cima das conclusoes anteriores.)
-
 {comparison['previous_report']}
-
 FIM DO RELATORIO ANTERIOR.
 """
 
-        prompt = f"""Voce e um analista de dados de YouTube. Sua funcao e analisar a performance de diferentes estruturas de copywriting (A-G) em um canal.
+        user_prompt = f"""{previous_report_block}
 
-Cada video do canal foi produzido com uma estrutura de copy diferente. A metrica PRIMARIA e retencao % (mede qualidade do script). Watch time e views sao metricas de CONTEXTO.
-
-O ranking numerico, a tabela de anomalias e a tabela comparativa JA SAO gerados automaticamente pelo sistema. Voce NAO precisa repetir tabelas, rankings ou dados de anomalias individuais.
-
-Seu trabalho e produzir a ANALISE NARRATIVA em 2 blocos separados:
-
-VOCE TEM MEMORIA ACUMULATIVA. Se houver um relatorio anterior abaixo, ele contem TODAS as conclusoes e tendencias identificadas ate agora. Sua analise atual DEVE:
-- Se basear no relatorio anterior como referencia
-- Confirmar ou revisar tendencias identificadas anteriormente
-- Notar evolucoes (ex: "Estrutura A consolida lideranca pela terceira analise consecutiva")
-- Construir em cima das conclusoes anteriores, nunca ignorar o historico
-{previous_report_block}
-
-PRODUZA EXATAMENTE 2 BLOCOS, separados pelo marcador exato:
+Produza EXATAMENTE 2 blocos:
 
 [OBSERVACOES]
-Paragrafos narrativos sobre a analise DESTA SEMANA:
-- Qual estrutura lidera e com que margem sobre a media do canal
-- Consistencia: desvio padrao baixo (<5%) = consistente, alto (>10%) = volatil
-- Se alguma estrutura tem performance que parece depender mais do tema do que da copy (alta volatilidade)
-- Qual estrutura e consistentemente a pior e por que margem
-- Qualquer padrao relevante que os numeros mostram
+Analise DESTA SEMANA. Cubra obrigatoriamente TODOS os pontos abaixo, com dados:
+
+1. LIDERANCA: Qual estrutura lidera? Com que margem (em pontos percentuais)
+   sobre a media do canal? E consistente (desvio baixo) ou volatil?
+
+2. CONSISTENCIA POR ESTRUTURA: Para CADA estrutura no ranking, cite o desvio
+   padrao e interprete. Quais sao confiaveis (<5%)? Quais sao volateis (>10%)?
+   Se uma volatil tem media alta, destaque que nao e necessariamente confiavel.
+
+3. TEMA vs COPY: Se alguma estrutura tem desvio alto, identifique explicitamente:
+   "A performance desta estrutura depende mais do TEMA escolhido do que da
+   abordagem narrativa em si." Cite a faixa de retencao (min-max).
+
+4. PIOR DESEMPENHO: Qual estrutura e consistentemente a pior? Com que margem
+   abaixo da media? E consistentemente ruim (desvio baixo = problema da estrutura)
+   ou inconsistente (desvio alto = depende do tema)?
+
+5. DISTRIBUICAO DA PRODUCAO: Quantos videos cada estrutura tem e qual % do total.
+   Ha concentracao excessiva? Se sim, a estrutura concentrada e a melhor ou mediocre?
+
+6. ANOMALIAS: Se ha videos com views 5x+ acima da media da estrutura,
+   reporte como fato com o multiplicador exato. Nao explique a causa.
+
+7. WATCH TIME vs RETENCAO: Se alguma estrutura tem retencao MENOR mas watch time
+   MAIOR que outra (videos mais longos), faca a conta explicita:
+   "Estrutura X: 31% retencao em videos de 22 min = 6.8 min por viewer.
+   Estrutura Y: 42% retencao em videos de 12 min = 5.0 min por viewer.
+   Em tempo de sessao, X entrega 36% mais."
+
+8. OUTROS PADROES: Qualquer insight relevante nos dados que nao se encaixe acima.
 
 [TENDENCIAS]
-Paragrafos narrativos sobre a EVOLUCAO ao longo do tempo (SO se houver relatorio anterior):
-- Quais estruturas estao subindo, caindo, ou consolidando posicao
-- Compare com as conclusoes do relatorio anterior
-- Identifique padroes que se confirmam ou se revertem
-- Exemplo: "Estrutura A consolida lideranca pela segunda analise consecutiva, subindo de 39% para 42%"
-- Se esta e a primeira analise (sem relatorio anterior), escreva apenas: "Primeira analise. Sem dados anteriores para comparacao."
-
-REGRAS:
-- Seja DIRETO e FACTUAL. Cite os numeros.
-- NAO invente dados. So use o que esta nos dados abaixo.
-- NAO de recomendacoes de acao. Decisao e humana.
-- NAO tente explicar POR QUE um video viralizou ou flopou.
-- NAO repita tabelas de ranking, anomalias ou comparacao (o sistema ja gera isso).
-- Escreva em portugues.
-- Paragrafos curtos separados por linha em branco.
-- Escreva o quanto for necessario. NAO resuma ou corte a analise.
-- Use EXATAMENTE os marcadores [OBSERVACOES] e [TENDENCIAS] para separar os blocos.
+EVOLUCAO ao longo do tempo (SO se houver relatorio anterior):
+- Para cada estrutura, compare retencao atual vs anterior com numeros exatos
+- Identifique movimentos no ranking (subiu, caiu, consolidou posicao)
+- Padroes confirmados: "Estrutura X consolida lideranca pela Ya analise consecutiva"
+- Padroes revertidos: "Estrutura Z reverteu queda; subiu de X% para Y%"
+- Se primeira analise: "Primeira analise. Sem dados anteriores para comparacao."
 
 DADOS DA SEMANA ATUAL:
 {data_block}"""
 
         response = client.chat.completions.create(
             model=model,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
             temperature=0.3
         )
 
