@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agente 5 — Analisador de Temas</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a24;
+            --bg-card: #16161f;
+            --text-primary: #e8e8ed;
+            --text-secondary: #a0a0b0;
+            --text-muted: #6b6b7b;
+            --accent: #00d4aa;
+            --accent-dim: rgba(0, 212, 170, 0.15);
+            --warning: #ff6b6b;
+            --warning-dim: rgba(255, 107, 107, 0.15);
+            --highlight: #ffd93d;
+            --highlight-dim: rgba(255, 217, 61, 0.1);
+            --purple: #a78bfa;
+            --purple-dim: rgba(167, 139, 250, 0.15);
+            --orange: #ff9f43;
+            --orange-dim: rgba(255, 159, 67, 0.15);
+            --blue: #54a0ff;
+            --blue-dim: rgba(84, 160, 255, 0.15);
+            --cyan: #22d3ee;
+            --cyan-dim: rgba(34, 211, 238, 0.15);
+            --border: rgba(255, 255, 255, 0.08);
+            --agent-color: var(--accent);
+            --agent-dim: var(--accent-dim);
+            --border-accent: rgba(0, 212, 170, 0.3);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.8;
+            font-size: 16px;
+        }
+        .container { display: flex; min-height: 100vh; }
+
+        .sidebar {
+            width: 280px; background: var(--bg-secondary); border-right: 1px solid var(--border);
+            padding: 2rem 1.5rem; position: fixed; height: 100vh; overflow-y: auto;
+        }
+        .sidebar-header { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+        .sidebar-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--agent-color); font-weight: 600; margin-bottom: 0.5rem; }
+        .sidebar-subtitle { font-size: 1rem; color: var(--text-primary); font-weight: 600; }
+        .nav-section { margin-bottom: 1.5rem; }
+        .nav-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.75rem; font-weight: 600; }
+        .nav-link {
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 0.75rem; color: var(--text-secondary); text-decoration: none;
+            font-size: 0.85rem; border-radius: 6px; transition: all 0.2s ease; margin-bottom: 0.2rem;
+        }
+        .nav-link:hover { background: var(--agent-dim); color: var(--agent-color); }
+        .nav-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+        .main { flex: 1; margin-left: 280px; padding: 3rem 4rem; max-width: 1100px; }
+        h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem; line-height: 1.2; }
+        h1 .accent { color: var(--agent-color); }
+        h2 { font-size: 1.75rem; font-weight: 700; margin-top: 3.5rem; margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--agent-color); display: inline-block; }
+        h3 { font-size: 1.25rem; font-weight: 600; margin-top: 2rem; margin-bottom: 1rem; }
+        h4 { font-size: 1.1rem; font-weight: 600; color: var(--agent-color); margin-top: 1.5rem; margin-bottom: 0.75rem; }
+        p { margin-bottom: 1.5rem; color: var(--text-secondary); }
+        strong { color: var(--text-primary); }
+        .meta { color: var(--text-muted); font-size: 0.875rem; margin-bottom: 2rem; }
+        ul { margin: 1rem 0 1.5rem 1.5rem; }
+        ul li { color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.95rem; }
+
+        .highlight-card {
+            background: var(--bg-card); border: 1px solid var(--border-accent); border-radius: 12px;
+            padding: 2rem; margin: 2.5rem 0; position: relative; overflow: hidden;
+        }
+        .highlight-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--agent-color), transparent); }
+        .highlight-card .label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--agent-color); font-weight: 600; margin-bottom: 1rem; }
+        .highlight-card p { color: var(--text-primary); font-size: 1.1rem; margin-bottom: 0; }
+
+        .divider { height: 1px; background: linear-gradient(90deg, var(--agent-color), transparent); margin: 3rem 0; }
+
+        .insight-box {
+            background: linear-gradient(135deg, var(--agent-dim) 0%, transparent 100%);
+            border-left: 3px solid var(--agent-color); padding: 1.25rem 1.5rem; margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0; font-weight: 500; color: var(--text-primary); font-size: 1rem;
+        }
+        .insight-box.green { background: linear-gradient(135deg, var(--accent-dim) 0%, transparent 100%); border-left-color: var(--accent); }
+        .insight-box.warning { background: linear-gradient(135deg, var(--warning-dim) 0%, transparent 100%); border-left-color: var(--warning); }
+        .insight-box.highlight { background: linear-gradient(135deg, var(--highlight-dim) 0%, transparent 100%); border-left-color: var(--highlight); }
+        .insight-box.purple { background: linear-gradient(135deg, var(--purple-dim) 0%, transparent 100%); border-left-color: var(--purple); }
+        .insight-box.orange { background: linear-gradient(135deg, var(--orange-dim) 0%, transparent 100%); border-left-color: var(--orange); }
+        .insight-box.blue { background: linear-gradient(135deg, var(--blue-dim) 0%, transparent 100%); border-left-color: var(--blue); }
+        .insight-box.cyan { background: linear-gradient(135deg, var(--cyan-dim) 0%, transparent 100%); border-left-color: var(--cyan); }
+
+        .decision-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .decision-table th {
+            background: var(--bg-tertiary); color: var(--agent-color); font-weight: 600; font-size: 0.75rem;
+            text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; text-align: left; border-bottom: 2px solid var(--agent-color);
+        }
+        .decision-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+        .decision-table tr:hover td { background: var(--bg-tertiary); }
+        .decision-table td:first-child { color: var(--text-primary); font-weight: 500; }
+
+        .code-block {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 1.5rem; margin: 2rem 0; font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; overflow-x: auto; white-space: pre-wrap;
+        }
+        .code-block .accent { color: var(--accent); }
+        .code-block .warning { color: var(--warning); }
+        .code-block .muted { color: var(--text-muted); }
+
+        .metric-row { display: flex; gap: 1rem; margin: 1.5rem 0; flex-wrap: wrap; }
+        .metric-box {
+            background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 10px;
+            padding: 1rem 1.25rem; flex: 1; min-width: 140px; text-align: center;
+        }
+        .metric-value { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
+        .metric-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+        /* Hierarchy visual */
+        .hierarchy-block {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 2rem; margin: 2rem 0;
+        }
+        .hierarchy-level {
+            display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem; padding-left: 0;
+        }
+        .hierarchy-level.l1 { padding-left: 0; }
+        .hierarchy-level.l2 { padding-left: 2.5rem; }
+        .hierarchy-level.l3 { padding-left: 5rem; }
+        .hierarchy-level.l4 { padding-left: 7.5rem; }
+        .hierarchy-tag {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 600;
+            padding: 0.3rem 0.75rem; border-radius: 6px; white-space: nowrap;
+        }
+        .hierarchy-tag.nicho { background: var(--purple-dim); color: var(--purple); }
+        .hierarchy-tag.subnicho { background: var(--blue-dim); color: var(--blue); }
+        .hierarchy-tag.micro { background: var(--orange-dim); color: var(--orange); }
+        .hierarchy-tag.tema { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--accent); }
+        .hierarchy-label { font-size: 0.9rem; color: var(--text-secondary); }
+        .hierarchy-arrow { color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
+
+        /* Specificity comparison */
+        .spec-block {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 1.5rem 2rem; margin: 1.5rem 0;
+        }
+        .spec-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.75rem; }
+        .spec-row:last-child { margin-bottom: 0; }
+        .spec-icon { font-size: 1.2rem; width: 2rem; text-align: center; flex-shrink: 0; }
+        .spec-text { font-size: 0.9rem; color: var(--text-secondary); }
+        .spec-text strong { color: var(--text-primary); }
+        .spec-tag {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 600;
+            padding: 0.2rem 0.5rem; border-radius: 4px; margin-left: auto; white-space: nowrap;
+        }
+        .spec-tag.micro { background: var(--orange-dim); color: var(--orange); }
+        .spec-tag.tema { background: var(--accent-dim); color: var(--accent); }
+
+        /* Hypothesis card */
+        .hypo-card {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 1.5rem; margin: 1rem 0; position: relative;
+        }
+        .hypo-card::before {
+            content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 3px; border-radius: 12px 0 0 12px;
+        }
+        .hypo-card.a::before { background: var(--accent); }
+        .hypo-card.b::before { background: var(--blue); }
+        .hypo-card.c::before { background: var(--purple); }
+        .hypo-label {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem;
+        }
+        .hypo-card.a .hypo-label { color: var(--accent); }
+        .hypo-card.b .hypo-label { color: var(--blue); }
+        .hypo-card.c .hypo-label { color: var(--purple); }
+        .hypo-title { font-weight: 700; color: var(--text-primary); font-size: 0.95rem; margin-bottom: 0.5rem; }
+        .hypo-pattern { color: var(--text-secondary); font-size: 0.88rem; margin-bottom: 0.5rem; }
+        .hypo-evidence { color: var(--text-muted); font-size: 0.8rem; font-style: italic; }
+
+        /* Decomposition elements */
+        .decomp-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 0.75rem; margin: 1rem 0;
+        }
+        .decomp-item {
+            background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px;
+            padding: 0.75rem 1rem;
+        }
+        .decomp-cat { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--agent-color); font-weight: 600; margin-bottom: 0.25rem; }
+        .decomp-val { font-size: 0.85rem; color: var(--text-primary); }
+
+        .compare-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.85rem; }
+        .compare-table th {
+            background: var(--bg-tertiary); font-weight: 600; font-size: 0.72rem;
+            text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; text-align: left;
+            border-bottom: 2px solid var(--border);
+        }
+        .compare-table th:nth-child(2) { color: var(--purple); border-bottom-color: var(--purple); }
+        .compare-table th:nth-child(3) { color: var(--agent-color); border-bottom-color: var(--agent-color); }
+        .compare-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+        .compare-table td:first-child { color: var(--text-primary); font-weight: 500; }
+        .compare-table tr:hover td { background: var(--bg-tertiary); }
+
+        /* Score formula visual */
+        .score-formula {
+            background: var(--bg-card); border: 2px solid var(--agent-color); border-radius: 16px;
+            padding: 2rem; margin: 2rem 0; text-align: center;
+        }
+        .score-formula-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--agent-color); font-weight: 600; margin-bottom: 1.25rem; }
+        .score-formula-eq {
+            font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; font-weight: 700;
+            color: var(--text-primary); margin-bottom: 1.25rem;
+        }
+        .score-formula-eq .velocity { color: var(--agent-color); }
+        .score-formula-eq .views { color: var(--blue); }
+        .score-formula-eq .op { color: var(--text-muted); font-weight: 400; }
+        .score-parts { display: flex; gap: 2rem; justify-content: center; margin-top: 1rem; }
+        .score-part { text-align: center; }
+        .score-part-pct { font-family: 'JetBrains Mono', monospace; font-size: 1.8rem; font-weight: 700; }
+        .score-part-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem; }
+        .score-part-reason { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem; max-width: 220px; }
+
+        /* Steps visual */
+        .steps-row { display: flex; gap: 1.5rem; margin: 2rem 0; flex-wrap: wrap; }
+        .step-card {
+            flex: 1; min-width: 200px; background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 1.5rem; position: relative;
+        }
+        .step-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 12px 12px 0 0; }
+        .step-card.s1::before { background: var(--accent); }
+        .step-card.s2::before { background: var(--blue); }
+        .step-card.s3::before { background: var(--purple); }
+        .step-num {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem;
+        }
+        .step-card.s1 .step-num { color: var(--accent); }
+        .step-card.s2 .step-num { color: var(--blue); }
+        .step-card.s3 .step-num { color: var(--purple); }
+        .step-title { font-weight: 700; font-size: 1rem; color: var(--text-primary); margin-bottom: 0.5rem; }
+        .step-desc { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; }
+
+        /* Report mock */
+        .report-mock {
+            background: var(--bg-card); border: 2px solid var(--agent-color); border-radius: 16px;
+            padding: 0; margin: 2.5rem 0; overflow: hidden;
+        }
+        .report-header {
+            background: linear-gradient(135deg, var(--agent-dim), var(--bg-tertiary));
+            padding: 1.5rem 2rem; border-bottom: 1px solid var(--border);
+        }
+        .report-header-title { font-size: 1.1rem; font-weight: 700; color: var(--agent-color); margin-bottom: 0.25rem; }
+        .report-header-meta { font-size: 0.8rem; color: var(--text-muted); }
+        .report-body { padding: 2rem; }
+        .report-section-title {
+            font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em;
+            font-weight: 700; padding: 0.4rem 0.75rem; border-radius: 4px;
+            display: inline-block; margin-bottom: 1rem; margin-top: 1.5rem;
+        }
+        .report-section-title:first-child { margin-top: 0; }
+        .report-section-title.green { background: var(--accent-dim); color: var(--accent); }
+        .report-section-title.blue { background: var(--blue-dim); color: var(--blue); }
+        .report-section-title.purple { background: var(--purple-dim); color: var(--purple); }
+        .report-section-title.yellow { background: var(--highlight-dim); color: var(--highlight); }
+        .report-section-title.red { background: var(--warning-dim); color: var(--warning); }
+        .report-text { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.8; margin-bottom: 1rem; }
+        .report-text strong { color: var(--text-primary); }
+
+        .report-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; margin: 1rem 0; }
+        .report-table th {
+            background: var(--bg-tertiary); color: var(--agent-color); font-weight: 600; font-size: 0.65rem;
+            text-transform: uppercase; letter-spacing: 0.05em; padding: 0.6rem 0.6rem; text-align: left;
+            border-bottom: 2px solid var(--agent-color); white-space: nowrap;
+        }
+        .report-table td { padding: 0.6rem 0.6rem; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+        .report-table tr:hover td { background: var(--bg-tertiary); }
+        .report-table td:first-child { font-weight: 600; color: var(--text-primary); }
+        .report-table td.score-cell { font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+        .report-table .score-high { color: var(--accent); }
+        .report-table .score-mid { color: var(--highlight); }
+        .report-table .score-low { color: var(--warning); }
+
+        /* Theme decomp in report */
+        .report-theme-block {
+            background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 10px;
+            padding: 1.5rem; margin: 1rem 0;
+        }
+        .report-theme-title {
+            font-weight: 700; color: var(--text-primary); font-size: 0.95rem; margin-bottom: 0.25rem;
+        }
+        .report-theme-score {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--agent-color); margin-bottom: 1rem;
+        }
+        .report-elements {
+            display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;
+        }
+        .report-el {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px;
+            padding: 0.35rem 0.65rem; font-size: 0.75rem;
+        }
+        .report-el-cat { color: var(--agent-color); font-weight: 600; }
+        .report-el-val { color: var(--text-secondary); }
+
+        .report-hypo {
+            border-left: 2px solid; padding: 0.75rem 1rem; margin: 0.5rem 0; border-radius: 0 6px 6px 0;
+            background: var(--bg-card);
+        }
+        .report-hypo.a { border-left-color: var(--accent); }
+        .report-hypo.b { border-left-color: var(--blue); }
+        .report-hypo.c { border-left-color: var(--purple); }
+        .report-hypo-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+        .report-hypo.a .report-hypo-label { color: var(--accent); }
+        .report-hypo.b .report-hypo-label { color: var(--blue); }
+        .report-hypo.c .report-hypo-label { color: var(--purple); }
+        .report-hypo-text { font-size: 0.82rem; color: var(--text-secondary); }
+        .report-hypo-evidence { font-size: 0.75rem; color: var(--text-muted); font-style: italic; margin-top: 0.25rem; }
+
+        .report-pattern {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+            padding: 1rem 1.25rem; margin-bottom: 0.75rem;
+        }
+        .report-pattern-title { font-weight: 700; color: var(--agent-color); font-size: 0.85rem; margin-bottom: 0.25rem; }
+        .report-pattern-desc { color: var(--text-secondary); font-size: 0.82rem; }
+
+        .footer-bar { margin-top: 4rem; padding: 2rem 0; border-top: 1px solid var(--border); text-align: center; }
+        .footer-bar p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0; }
+
+        @media (max-width: 900px) {
+            .sidebar { display: none; }
+            .main { margin-left: 0; padding: 2rem 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <!-- SIDEBAR -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">Camada 2 &mdash; Analise Especializada</div>
+                <div class="sidebar-subtitle">Agente 5: Temas</div>
+            </div>
+            <div class="nav-section">
+                <div class="nav-label">Fundamento</div>
+                <a href="#oque" class="nav-link"><span class="nav-dot" style="background:var(--accent)"></span> O que e um Tema</a>
+                <a href="#hierarquia" class="nav-link"><span class="nav-dot" style="background:var(--accent)"></span> Hierarquia Completa</a>
+                <a href="#especificidade" class="nav-link"><span class="nav-dot" style="background:var(--accent)"></span> Regra de Especificidade</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-label">A Nuance Terminal</div>
+                <a href="#terminal" class="nav-link"><span class="nav-dot" style="background:var(--warning)"></span> O Problema</a>
+                <a href="#hipoteses" class="nav-link"><span class="nav-dot" style="background:var(--warning)"></span> Hipoteses Multiplas</a>
+                <a href="#agente6" class="nav-link"><span class="nav-dot" style="background:var(--warning)"></span> Agente 5 vs 6</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-label">Especificacao</div>
+                <a href="#input" class="nav-link"><span class="nav-dot" style="background:var(--blue)"></span> Input (3 dados)</a>
+                <a href="#etapas" class="nav-link"><span class="nav-dot" style="background:var(--blue)"></span> 3 Etapas de Analise</a>
+                <a href="#score" class="nav-link"><span class="nav-dot" style="background:var(--blue)"></span> Score Ponderado</a>
+                <a href="#output" class="nav-link"><span class="nav-dot" style="background:var(--blue)"></span> Output (3 blocos)</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-label">Comparacao</div>
+                <a href="#similar" class="nav-link"><span class="nav-dot" style="background:var(--purple)"></span> Semelhante ao Agente 3</a>
+                <a href="#diferente" class="nav-link"><span class="nav-dot" style="background:var(--purple)"></span> Diferente do Agente 3</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-label">Exemplo + Decisoes</div>
+                <a href="#exemplo" class="nav-link"><span class="nav-dot" style="background:var(--highlight)"></span> Relatorio Exemplo</a>
+                <a href="#decisoes" class="nav-link"><span class="nav-dot" style="background:var(--text-muted)"></span> Decisoes Tomadas</a>
+                <a href="#resumo" class="nav-link"><span class="nav-dot" style="background:var(--text-muted)"></span> Resumo Final</a>
+            </div>
+        </nav>
+
+        <!-- MAIN -->
+        <main class="main">
+
+            <!-- HEADER -->
+            <section id="oque">
+                <h1>Agente 5: Analisador de <span class="accent">Temas</span></h1>
+                <div class="meta">Camada 2 &mdash; Analise Especializada &bull; 27 de Fevereiro de 2026 &bull; Especificacao Completa</div>
+
+                <div class="highlight-card">
+                    <div class="label">Definicao</div>
+                    <p>O tema e a <strong>ultima ramificacao na hierarquia de categorizacao de conteudo</strong>. E o assunto especifico e concreto de um video individual &mdash; o nivel onde nao existe mais subdivisao possivel.</p>
+                </div>
+
+                <p>O tema e <strong>literalmente o assunto do video</strong> &mdash; nao a categoria ampla, mas o caso, evento, pessoa ou situacao especifica sendo retratada. Um tema bem identificado responde a pergunta: <strong>&ldquo;Sobre o que exatamente este video fala?&rdquo;</strong></p>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- HIERARQUIA -->
+            <section id="hierarquia">
+                <h2>Hierarquia Completa</h2>
+
+                <div class="hierarchy-block">
+                    <div class="hierarchy-level l1">
+                        <span class="hierarchy-tag nicho">Nicho</span>
+                        <span class="hierarchy-label">Historias</span>
+                    </div>
+                    <div class="hierarchy-level l1"><span class="hierarchy-arrow">&darr;</span></div>
+                    <div class="hierarchy-level l2">
+                        <span class="hierarchy-tag subnicho">SubNicho</span>
+                        <span class="hierarchy-label">Relatos de Guerra WW2</span>
+                    </div>
+                    <div class="hierarchy-level l2"><span class="hierarchy-arrow">&darr;</span></div>
+                    <div class="hierarchy-level l3">
+                        <span class="hierarchy-tag micro">MicroNicho</span>
+                        <span class="hierarchy-label">Prisioneiros nos campos de concentracao nazistas</span>
+                    </div>
+                    <div class="hierarchy-level l3"><span class="hierarchy-arrow">&darr;</span></div>
+                    <div class="hierarchy-level l4">
+                        <span class="hierarchy-tag tema">TEMA</span>
+                        <span class="hierarchy-label">A fuga de Siegfried Lederer de Auschwitz</span>
+                    </div>
+                </div>
+
+                <h3>Tema ≠ MicroNicho</h3>
+
+                <p>Essa distincao e critica. Dado o titulo:</p>
+
+                <div class="insight-box highlight">
+                    <em>&ldquo;What Ottomans Did To Christian Nuns Was Worse Than Death&rdquo;</em>
+                </div>
+
+                <div class="spec-block">
+                    <div class="spec-row">
+                        <div class="spec-icon">&#10060;</div>
+                        <div class="spec-text">O tema <strong>NAO</strong> e &ldquo;Imperio Otomano&rdquo; &mdash; isso faz parte do micronicho</div>
+                        <span class="spec-tag micro">MICRONICHO</span>
+                    </div>
+                    <div class="spec-row">
+                        <div class="spec-icon">&#9989;</div>
+                        <div class="spec-text">O tema <strong>E</strong> &ldquo;O tratamento brutal dos otomanos com freiras cristas&rdquo;</div>
+                        <span class="spec-tag tema">TEMA</span>
+                    </div>
+                </div>
+
+                <p>O Imperio Otomano contem <strong>centenas de temas possiveis</strong>. O tema e o recorte especifico que o video escolheu abordar dentro desse universo.</p>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- ESPECIFICIDADE -->
+            <section id="especificidade">
+                <h2>Regra de Especificidade</h2>
+
+                <div class="code-block"><span class="muted">// Amplo demais = micronicho</span>
+&ldquo;Nazistas&rdquo;                                    <span class="warning">&rarr; micronicho</span>
+&ldquo;Campos de concentracao&rdquo;                      <span class="warning">&rarr; micronicho (ainda amplo)</span>
+
+<span class="muted">// Especifico = tema</span>
+&ldquo;A fuga de Siegfried Lederer de Auschwitz&rdquo;     <span class="accent">&rarr; TEMA &#10003;</span></div>
+
+                <div class="insight-box">
+                    <strong>Nota sobre ramificacao:</strong> Um mesmo tema pode ser contado com estruturas de copy diferentes ou apresentado com estruturas de titulo diferentes &mdash; gerando videos distintos. Isso sera relevante em niveis futuros do sistema, mas esta fora do escopo do Agente 5.
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- O PROBLEMA TERMINAL -->
+            <section id="terminal">
+                <h2>A Nuance Fundamental: O Tema E Terminal</h2>
+
+                <h3>O Problema da Nao-Repetibilidade</h3>
+
+                <p>Nos outros agentes, o output gera uma acao direta e clara:</p>
+
+                <table class="decision-table">
+                    <thead><tr><th>Agente</th><th>Output</th><th>Acao Direta</th></tr></thead>
+                    <tbody>
+                        <tr><td>Estrutura de Copy</td><td>Estruturas que performam melhor/pior</td><td style="color:var(--accent)">Priorizar as melhores, reciclar as piores</td></tr>
+                        <tr><td>MicroNicho</td><td>Micronichos que performam melhor/pior</td><td style="color:var(--accent)">Priorizar os melhores, testar novos parecidos</td></tr>
+                        <tr><td>Estrutura de Titulo</td><td>Estruturas que funcionam/nao</td><td style="color:var(--accent)">Priorizar as certas, reciclar/testar novas</td></tr>
+                        <tr><td style="color:var(--agent-color)">Tema</td><td>Temas que performaram melhor/pior</td><td style="color:var(--warning)">...e agora?</td></tr>
+                    </tbody>
+                </table>
+
+                <div class="insight-box warning">
+                    O tema e a <strong>ultima categorizacao possivel</strong>. Se um video viralizou, nao da pra &ldquo;fazer outro video com o mesmo tema&rdquo; &mdash; o tema ja foi usado. Diferente de micronicho (que contem dezenas de temas) ou estrutura de titulo (que pode ser reutilizada infinitamente).
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- HIPOTESES -->
+            <section id="hipoteses">
+                <h2>Hipoteses de Adjacencia Tematica</h2>
+
+                <p>O Agente 5 precisa de uma habilidade que os outros nao tem: <strong>decompor um tema em seus elementos constitutivos e levantar hipoteses sobre qual elemento foi o motor do sucesso</strong>.</p>
+
+                <h3>O Principio das Hipoteses Multiplas</h3>
+
+                <p>Um tema viral nao tem um motivo obvio de sucesso &mdash; tem <strong>multiplas hipoteses possiveis</strong>. O mesmo video pode ter dado certo por razoes completamente diferentes:</p>
+
+                <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:0.5rem;">Exemplo: <em>&ldquo;What Ottomans Did To Christian Nuns Was Worse Than Death&rdquo;</em> &mdash; 150K views</p>
+
+                <div class="hypo-card a">
+                    <div class="hypo-label">Hipotese A &mdash; O opressor como motor</div>
+                    <div class="hypo-title">Imperio Otomano como figura de poder/opressao</div>
+                    <div class="hypo-pattern"><strong>Padrao:</strong> temas onde os otomanos exercem poder brutal sobre qualquer grupo vulneravel tendem a performar</div>
+                    <div class="hypo-evidence">Se verdadeiro &rarr; mais videos com otomanos como opressores (mesmas vitimas ou diferentes)</div>
+                </div>
+
+                <div class="hypo-card b">
+                    <div class="hypo-label">Hipotese B &mdash; A vitima como motor</div>
+                    <div class="hypo-title">Freiras cristas em posicao de vulnerabilidade/inocencia</div>
+                    <div class="hypo-pattern"><strong>Padrao:</strong> temas onde figuras religiosas cristas sao vitimas de opressao por qualquer imperio geram engajamento</div>
+                    <div class="hypo-evidence">Se verdadeiro &rarr; outros imperios/opressores + vitimas cristas (nao necessariamente otomanos)</div>
+                </div>
+
+                <div class="hypo-card c">
+                    <div class="hypo-label">Hipotese C &mdash; A dinamica poder-inocencia</div>
+                    <div class="hypo-title">Contraste brutal entre imperio poderoso vs grupo vulneravel/religioso</div>
+                    <div class="hypo-pattern"><strong>Padrao:</strong> temas com assimetria extrema entre opressor institucional e vitima inocente</div>
+                    <div class="hypo-evidence">Se verdadeiro &rarr; qualquer combinacao imperio + grupo religioso vulneravel</div>
+                </div>
+
+                <div class="insight-box warning">
+                    <strong>Somente analisando o tema, nao da para saber qual hipotese e a correta.</strong> E um indicio, nao uma certeza. O Agente 5 levanta todas as hipoteses plausiveis &mdash; a validacao acontece no Agente 6.
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- AGENTE 5 VS 6 -->
+            <section id="agente6">
+                <h2>Agente 5 Entrega vs Agente 6 Julga</h2>
+
+                <div class="metric-row">
+                    <div class="metric-box" style="border-color: var(--agent-color);">
+                        <div class="metric-value" style="color:var(--agent-color);">5</div>
+                        <div class="metric-label">Gera Hipoteses</div>
+                    </div>
+                    <div class="metric-box" style="border-color: var(--text-muted);">
+                        <div class="metric-value" style="color:var(--text-muted);">+</div>
+                        <div class="metric-label">Indicios</div>
+                    </div>
+                    <div class="metric-box" style="border-color: var(--orange);">
+                        <div class="metric-value" style="color:var(--orange);">6</div>
+                        <div class="metric-label">Cruza e Valida</div>
+                    </div>
+                </div>
+
+                <p>O Agente 5 entrega <strong>observacoes empiricas e hipoteses</strong>:</p>
+                <ul>
+                    <li>Ranking de temas por performance</li>
+                    <li>Decomposicao de cada tema top em seus elementos constitutivos</li>
+                    <li>2-3 hipoteses de adjacencia por tema (padrao abstrato)</li>
+                    <li>Indicios de padroes transversais</li>
+                </ul>
+
+                <p>O Agente 6 recebe isso + outputs dos Agentes 3 e 4, e ai sim <strong>julga</strong> quais hipoteses se sustentam quando cruzadas com os outros dados.</p>
+
+                <div class="insight-box green">
+                    E a <strong>soma dos indicios de agentes separados</strong> que permite ao Agente 6 ter alta taxa de assertividade. Nenhum agente sozinho conclui &mdash; cada um contribui com sua camada de evidencia.
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- INPUT -->
+            <section id="input">
+                <h2>Dados de Entrada (Input)</h2>
+
+                <p>Os mesmos <strong>3 dados basicos</strong> do Agente 3 (MicroNicho):</p>
+
+                <div class="metric-row">
+                    <div class="metric-box">
+                        <div class="metric-value" style="color:var(--agent-color);">1</div>
+                        <div class="metric-label">Titulo do Video</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-value" style="color:var(--agent-color);">2</div>
+                        <div class="metric-label">Visualizacoes</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-value" style="color:var(--agent-color);">3</div>
+                        <div class="metric-label">Tempo de Postagem</div>
+                    </div>
+                </div>
+
+                <div class="insight-box blue">
+                    <strong>Sem CTR</strong> &mdash; o tema e sobre <em>o que</em> performa, nao sobre <em>quao atrativo</em> e a apresentacao. CTR mede atratividade do titulo/thumb, nao a qualidade do tema.
+                </div>
+
+                <div class="insight-box purple">
+                    <strong>Sem retencao/watch time</strong> &mdash; esses medem qualidade da narrativa/copy, nao do tema.
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- 3 ETAPAS -->
+            <section id="etapas">
+                <h2>3 Etapas de Analise</h2>
+
+                <div class="steps-row">
+                    <div class="step-card s1">
+                        <div class="step-num">Etapa 1</div>
+                        <div class="step-title">Ranking de Temas</div>
+                        <div class="step-desc">Extrair tema de cada video, calcular Score de Performance Tematica, listar Top 10-15</div>
+                    </div>
+                    <div class="step-card s2">
+                        <div class="step-num">Etapa 2</div>
+                        <div class="step-title">Decomposicao</div>
+                        <div class="step-desc">Para cada tema top, decompor em todos os elementos constitutivos relevantes (sem limite fixo)</div>
+                    </div>
+                    <div class="step-card s3">
+                        <div class="step-num">Etapa 3</div>
+                        <div class="step-title">Hipoteses</div>
+                        <div class="step-desc">2-3 hipoteses de adjacencia por tema, descrevendo o padrao abstrato (sem titulos concretos)</div>
+                    </div>
+                </div>
+
+                <h4>Categorias de Elementos (Etapa 2)</h4>
+
+                <p>A decomposicao e ampla &mdash; sem limite fixo, porque serve como materia-prima para o Agente 6:</p>
+
+                <div class="decomp-grid">
+                    <div class="decomp-item"><div class="decomp-cat">Figura de Poder</div><div class="decomp-val">Opressor / imperio</div></div>
+                    <div class="decomp-item"><div class="decomp-cat">Vitima</div><div class="decomp-val">Grupo vulneravel</div></div>
+                    <div class="decomp-item"><div class="decomp-cat">Dinamica</div><div class="decomp-val">Tipo de conflito</div></div>
+                    <div class="decomp-item"><div class="decomp-cat">Contexto</div><div class="decomp-val">Historico / geografico</div></div>
+                    <div class="decomp-item"><div class="decomp-cat">Emocao</div><div class="decomp-val">Choque / catarse</div></div>
+                    <div class="decomp-item"><div class="decomp-cat">Periodo</div><div class="decomp-val">Era temporal</div></div>
+                    <div class="decomp-item"><div class="decomp-cat">Instituicao</div><div class="decomp-val">Sistema envolvido</div></div>
+                    <div class="decomp-item"><div class="decomp-cat">Figura Especifica</div><div class="decomp-val">Individuo nomeavel</div></div>
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- SCORE -->
+            <section id="score">
+                <h2>Score de Performance Tematica</h2>
+
+                <div class="score-formula">
+                    <div class="score-formula-title">Formula do Score</div>
+                    <div class="score-formula-eq">
+                        <span class="velocity">Velocity</span> <span class="op">&times; 50%</span> <span class="op">+</span> <span class="views">Views</span> <span class="op">&times; 50%</span>
+                    </div>
+                    <div class="score-parts">
+                        <div class="score-part">
+                            <div class="score-part-pct" style="color:var(--agent-color);">50%</div>
+                            <div class="score-part-label">Velocity</div>
+                            <div class="score-part-reason">Views &divide; dias &mdash; compara videos de idades diferentes de forma justa</div>
+                        </div>
+                        <div class="score-part">
+                            <div class="score-part-pct" style="color:var(--blue);">50%</div>
+                            <div class="score-part-label">Views Absolutas</div>
+                            <div class="score-part-reason">Volume real de audiencia alcancada &mdash; o tamanho do impacto concreto</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="insight-box">
+                    O equilibrio <strong>50/50</strong> evita que videos muito recentes com poucos views mas alta velocity dominem o ranking, e tambem evita que videos antigos com views acumuladas por tempo (nao por qualidade) dominem.
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- OUTPUT -->
+            <section id="output">
+                <h2>Dados de Saida (Output)</h2>
+
+                <p>O relatorio do Agente 5 contem <strong>3 blocos</strong>:</p>
+
+                <div class="steps-row">
+                    <div class="step-card s1">
+                        <div class="step-num">Bloco 1</div>
+                        <div class="step-title">Ranking de Temas</div>
+                        <div class="step-desc">Top 10-15 temas por Score, com views, velocity, score e titulo original</div>
+                    </div>
+                    <div class="step-card s2">
+                        <div class="step-num">Bloco 2</div>
+                        <div class="step-title">Decomposicao + Hipoteses</div>
+                        <div class="step-desc">Para cada tema: elementos constitutivos + 2-3 hipoteses com padrao abstrato + nivel de confianca</div>
+                    </div>
+                    <div class="step-card s3">
+                        <div class="step-num">Bloco 3</div>
+                        <div class="step-title">Padroes Transversais</div>
+                        <div class="step-desc">Elementos recorrentes nos tops, ausentes nos piores, e indicios de saturacao</div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- SEMELHANTE -->
+            <section id="similar">
+                <h2>Semelhante ao Agente 3 (MicroNicho)</h2>
+
+                <table class="compare-table">
+                    <thead><tr><th>Aspecto</th><th>Agente 3 (MicroNicho)</th><th>Agente 5 (Tema)</th></tr></thead>
+                    <tbody>
+                        <tr><td>Inputs</td><td>Titulo + Views + Tempo</td><td>Titulo + Views + Tempo</td></tr>
+                        <tr><td>Fonte dos dados</td><td>Mesma lista de videos</td><td>Mesma lista de videos</td></tr>
+                        <tr><td>Olha para o mesmo titulo</td><td>Sim</td><td>Sim</td></tr>
+                        <tr><td>Ranking por performance</td><td>Sim</td><td>Sim</td></tr>
+                        <tr><td>Observacoes qualitativas</td><td>Sim</td><td>Sim</td></tr>
+                        <tr><td>Score ponderado</td><td>Sim (views + velocity)</td><td>Sim (views + velocity)</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- DIFERENTE -->
+            <section id="diferente">
+                <h2>Diferente do Agente 3 (MicroNicho)</h2>
+
+                <table class="compare-table">
+                    <thead><tr><th>Aspecto</th><th>Agente 3 (MicroNicho)</th><th>Agente 5 (Tema)</th></tr></thead>
+                    <tbody>
+                        <tr><td>O que extrai do titulo</td><td>Categoria / grupo tematico</td><td>Assunto especifico do video</td></tr>
+                        <tr><td>Granularidade</td><td>Media (agrupa varios videos)</td><td>Maxima (1 tema &asymp; 1 video)</td></tr>
+                        <tr><td>Repetibilidade</td><td style="color:var(--accent)">Alta &mdash; mesmo micronicho gera N temas</td><td style="color:var(--warning)">Nenhuma &mdash; tema ja usado nao se repete</td></tr>
+                        <tr><td>Output direto</td><td>&ldquo;Priorize este micronicho&rdquo;</td><td>&ldquo;Hipoteses do porque este tema funcionou&rdquo;</td></tr>
+                        <tr><td>Skill especial</td><td>Agrupar videos em categorias coerentes</td><td>Decompor temas + levantar hipoteses</td></tr>
+                        <tr><td>Acao esperada</td><td>Priorizar/abandonar micronichos</td><td>Alimentar o Agente 6 com indicios</td></tr>
+                        <tr><td>Tipo de output</td><td style="color:var(--accent)">Conclusoes diretas</td><td style="color:var(--highlight)">Hipoteses empiricas</td></tr>
+                    </tbody>
+                </table>
+
+                <div class="insight-box orange">
+                    <strong>A diferenca fundamental:</strong> o Agente 3 produz decisoes acionaveis (&ldquo;invista neste micronicho&rdquo;). O Agente 5 produz materia-prima analitica para o Agente 6 transformar em decisoes &mdash; porque no nivel do tema, a evidencia sozinha nao e suficiente para concluir.
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- EXEMPLO DE RELATORIO -->
+            <section id="exemplo">
+                <h2>Exemplo de Relatorio</h2>
+
+                <div class="report-mock">
+                    <div class="report-header">
+                        <div class="report-header-title">&#127793; Relatorio de Analise Tematica &mdash; Agente 5</div>
+                        <div class="report-header-meta">Reis Perversos 005 [EN] &bull; 25 videos analisados &bull; Dados ficticios para demonstracao</div>
+                    </div>
+                    <div class="report-body">
+
+                        <!-- BLOCO 1 -->
+                        <div class="report-section-title green">Bloco 1 &mdash; Ranking de Temas por Score</div>
+
+                        <table class="report-table">
+                            <thead><tr><th>#</th><th>Tema</th><th>Views</th><th>Velocity</th><th>Score</th><th>Titulo Original</th></tr></thead>
+                            <tbody>
+                                <tr><td>1</td><td>Tratamento brutal dos otomanos com freiras cristas</td><td>152K</td><td>1.267/dia</td><td class="score-cell score-high">92</td><td style="font-size:0.7rem">What Ottomans Did To Christian Nuns Was Worse Than Death</td></tr>
+                                <tr><td>2</td><td>Experimentos medicos nazistas em criancas gemeas</td><td>189K</td><td>875/dia</td><td class="score-cell score-high">88</td><td style="font-size:0.7rem">The Nazi Doctor Who Used Twins As Lab Rats</td></tr>
+                                <tr><td>3</td><td>Vinganca dos escravos haitianos contra colonizadores franceses</td><td>134K</td><td>1.117/dia</td><td class="score-cell score-high">85</td><td style="font-size:0.7rem">What Haitian Slaves Did To French Masters Will Shock You</td></tr>
+                                <tr><td>4</td><td>Rituais de punicao da Inquisicao Espanhola com hereges</td><td>167K</td><td>697/dia</td><td class="score-cell score-high">81</td><td style="font-size:0.7rem">The Spanish Inquisition's Most Disturbing Punishment Methods</td></tr>
+                                <tr><td>5</td><td>Comercio de escravos do Imperio Belga no Congo</td><td>201K</td><td>558/dia</td><td class="score-cell score-mid">79</td><td style="font-size:0.7rem">King Leopold's Congo Was Hell on Earth</td></tr>
+                                <tr><td>6</td><td>Destino dos prisioneiros de guerra japoneses sob os aliados</td><td>78K</td><td>1.300/dia</td><td class="score-cell score-mid">78</td><td style="font-size:0.7rem">What Allies Did To Japanese POWs Nobody Talks About</td></tr>
+                                <tr><td>7</td><td>Tortura de prisioneiros politicos na Russia czarista</td><td>145K</td><td>604/dia</td><td class="score-cell score-mid">76</td><td style="font-size:0.7rem">The Tsar's Secret Prison Was Worse Than Any Gulag</td></tr>
+                                <tr><td>8</td><td>Massacre de cristaos armenios pelo Imperio Otomano</td><td>128K</td><td>711/dia</td><td class="score-cell score-mid">75</td><td style="font-size:0.7rem">What Ottomans Did To Armenian Christians Shocked The World</td></tr>
+                                <tr><td>9</td><td>Escravidao sexual de mulheres coreanas pelo Japao imperial</td><td>112K</td><td>622/dia</td><td class="score-cell score-mid">72</td><td style="font-size:0.7rem">Japan's Darkest Secret About Korean Women</td></tr>
+                                <tr><td>10</td><td>Genocidio dos Herero pelo Imperio Alemao na Namibia</td><td>56K</td><td>933/dia</td><td class="score-cell score-mid">70</td><td style="font-size:0.7rem">Germany's Forgotten Genocide Was Before The Holocaust</td></tr>
+                                <tr><td style="color:var(--text-muted)">11</td><td>Perseguicao de bruxas na Europa medieval</td><td>98K</td><td>544/dia</td><td class="score-cell score-low">65</td><td style="font-size:0.7rem">Medieval Europe's Witch Hunts Were Worse Than You Think</td></tr>
+                                <tr><td style="color:var(--text-muted)">12</td><td>Metodos de execucao do Imperio Romano contra cristaos</td><td>87K</td><td>483/dia</td><td class="score-cell score-low">61</td><td style="font-size:0.7rem">How Romans Executed Early Christians Is Horrifying</td></tr>
+                            </tbody>
+                        </table>
+
+                        <!-- BLOCO 2 -->
+                        <div class="report-section-title blue">Bloco 2 &mdash; Decomposicao + Hipoteses (Top 5)</div>
+
+                        <!-- TEMA 1 -->
+                        <div class="report-theme-block">
+                            <div class="report-theme-title">#1 &mdash; Tratamento brutal dos otomanos com freiras cristas</div>
+                            <div class="report-theme-score">Score: 92 &bull; 152K views &bull; 1.267/dia</div>
+
+                            <div class="report-elements">
+                                <div class="report-el"><span class="report-el-cat">Poder: </span><span class="report-el-val">Imperio Otomano</span></div>
+                                <div class="report-el"><span class="report-el-cat">Vitima: </span><span class="report-el-val">Freiras cristas (genero + fe)</span></div>
+                                <div class="report-el"><span class="report-el-cat">Dinamica: </span><span class="report-el-val">Opressao imperial religiosa</span></div>
+                                <div class="report-el"><span class="report-el-cat">Contexto: </span><span class="report-el-val">Conflito cristao-islamico</span></div>
+                                <div class="report-el"><span class="report-el-cat">Emocao: </span><span class="report-el-val">Brutalidade vs pureza</span></div>
+                            </div>
+
+                            <div class="report-hypo a">
+                                <div class="report-hypo-label">Hipotese A &mdash; Otomanos como opressor recorrente</div>
+                                <div class="report-hypo-text">Padrao: temas onde os otomanos exercem dominio sobre qualquer grupo vulneravel</div>
+                                <div class="report-hypo-evidence">Evidencia parcial: tema #8 (otomanos + armenios cristaos, Score 75) reforca</div>
+                            </div>
+                            <div class="report-hypo b">
+                                <div class="report-hypo-label">Hipotese B &mdash; Vitimas cristas/religiosas como motor</div>
+                                <div class="report-hypo-text">Padrao: temas onde cristaos/religiosos sao vitimados por qualquer imperio</div>
+                                <div class="report-hypo-evidence">Evidencia parcial: tema #4 (Inquisicao + hereges, Score 81) e #12 (Roma + cristaos, Score 61) tangenciam</div>
+                            </div>
+                            <div class="report-hypo c">
+                                <div class="report-hypo-label">Hipotese C &mdash; Assimetria genero + poder institucional</div>
+                                <div class="report-hypo-text">Padrao: temas com vitimas femininas em contexto de opressao institucional</div>
+                                <div class="report-hypo-evidence">Evidencia parcial: tema #9 (Japao + mulheres coreanas, Score 72) usa dinamica semelhante</div>
+                            </div>
+                        </div>
+
+                        <!-- TEMA 2 -->
+                        <div class="report-theme-block">
+                            <div class="report-theme-title">#2 &mdash; Experimentos medicos nazistas em criancas gemeas</div>
+                            <div class="report-theme-score">Score: 88 &bull; 189K views &bull; 875/dia</div>
+
+                            <div class="report-elements">
+                                <div class="report-el"><span class="report-el-cat">Poder: </span><span class="report-el-val">Regime nazista / medicos</span></div>
+                                <div class="report-el"><span class="report-el-cat">Vitima: </span><span class="report-el-val">Criancas gemeas</span></div>
+                                <div class="report-el"><span class="report-el-cat">Dinamica: </span><span class="report-el-val">Ciencia pervertida</span></div>
+                                <div class="report-el"><span class="report-el-cat">Contexto: </span><span class="report-el-val">Holocausto / WW2</span></div>
+                                <div class="report-el"><span class="report-el-cat">Figura: </span><span class="report-el-val">Josef Mengele (implicito)</span></div>
+                            </div>
+
+                            <div class="report-hypo a">
+                                <div class="report-hypo-label">Hipotese A &mdash; Nazistas como opressor universal</div>
+                                <div class="report-hypo-text">Padrao: temas com o regime nazista como agente de horror performam consistentemente</div>
+                            </div>
+                            <div class="report-hypo b">
+                                <div class="report-hypo-label">Hipotese B &mdash; Criancas como vitima catalisadora</div>
+                                <div class="report-hypo-text">Padrao: temas onde criancas sao vitimas diretas geram pico de engajamento emocional</div>
+                            </div>
+                            <div class="report-hypo c">
+                                <div class="report-hypo-label">Hipotese C &mdash; Ciencia/medicina pervertida</div>
+                                <div class="report-hypo-text">Padrao: temas onde instituicoes &ldquo;boas&rdquo; (ciencia, medicina) sao usadas para o mal geram fascinio pela inversao moral</div>
+                            </div>
+                        </div>
+
+                        <!-- TEMA 3 -->
+                        <div class="report-theme-block">
+                            <div class="report-theme-title">#3 &mdash; Vinganca dos escravos haitianos contra colonizadores franceses</div>
+                            <div class="report-theme-score">Score: 85 &bull; 134K views &bull; 1.117/dia</div>
+
+                            <div class="report-elements">
+                                <div class="report-el"><span class="report-el-cat">Poder (invertido): </span><span class="report-el-val">Escravos como agentes</span></div>
+                                <div class="report-el"><span class="report-el-cat">Vitima (invertida): </span><span class="report-el-val">Colonizadores franceses</span></div>
+                                <div class="report-el"><span class="report-el-cat">Dinamica: </span><span class="report-el-val">Vinganca / inversao de poder</span></div>
+                                <div class="report-el"><span class="report-el-cat">Contexto: </span><span class="report-el-val">Colonialismo europeu</span></div>
+                                <div class="report-el"><span class="report-el-cat">Emocao: </span><span class="report-el-val">Justica poetica + catarse</span></div>
+                            </div>
+
+                            <div class="report-hypo a">
+                                <div class="report-hypo-label">Hipotese A &mdash; Inversao de poder como motor</div>
+                                <div class="report-hypo-text">Padrao: temas onde o oprimido se vinga do opressor geram engajamento pela catarse narrativa</div>
+                            </div>
+                            <div class="report-hypo b">
+                                <div class="report-hypo-label">Hipotese B &mdash; Colonialismo europeu como contexto fertil</div>
+                                <div class="report-hypo-text">Padrao: temas situados no colonialismo (qualquer potencia europeia + qualquer povo colonizado) atraem audiencia</div>
+                            </div>
+                        </div>
+
+                        <!-- TEMA 4 -->
+                        <div class="report-theme-block">
+                            <div class="report-theme-title">#4 &mdash; Rituais de punicao da Inquisicao Espanhola com hereges</div>
+                            <div class="report-theme-score">Score: 81 &bull; 167K views &bull; 697/dia</div>
+
+                            <div class="report-elements">
+                                <div class="report-el"><span class="report-el-cat">Poder: </span><span class="report-el-val">Inquisicao Espanhola</span></div>
+                                <div class="report-el"><span class="report-el-cat">Vitima: </span><span class="report-el-val">Hereges / dissidentes</span></div>
+                                <div class="report-el"><span class="report-el-cat">Dinamica: </span><span class="report-el-val">Religiao como opressora</span></div>
+                                <div class="report-el"><span class="report-el-cat">Contexto: </span><span class="report-el-val">Europa medieval</span></div>
+                                <div class="report-el"><span class="report-el-cat">Emocao: </span><span class="report-el-val">Metodos de tortura + injustica</span></div>
+                            </div>
+
+                            <div class="report-hypo a">
+                                <div class="report-hypo-label">Hipotese A &mdash; Metodos de tortura/punicao como motor</div>
+                                <div class="report-hypo-text">Padrao: temas que detalham COMO a punicao acontecia geram mais engajamento que temas sobre O QUE aconteceu</div>
+                            </div>
+                            <div class="report-hypo b">
+                                <div class="report-hypo-label">Hipotese B &mdash; Religiao como opressora (inversao moral)</div>
+                                <div class="report-hypo-text">Padrao: temas onde a instituicao religiosa e o agressor (nao a vitima) geram fascinio pela inversao de expectativa</div>
+                            </div>
+                        </div>
+
+                        <!-- TEMA 5 -->
+                        <div class="report-theme-block">
+                            <div class="report-theme-title">#5 &mdash; Comercio de escravos do Imperio Belga no Congo</div>
+                            <div class="report-theme-score">Score: 79 &bull; 201K views &bull; 558/dia</div>
+
+                            <div class="report-elements">
+                                <div class="report-el"><span class="report-el-cat">Poder: </span><span class="report-el-val">Leopoldo II / Belgica</span></div>
+                                <div class="report-el"><span class="report-el-cat">Vitima: </span><span class="report-el-val">Povo congoles</span></div>
+                                <div class="report-el"><span class="report-el-cat">Dinamica: </span><span class="report-el-val">Exploracao colonial extrema</span></div>
+                                <div class="report-el"><span class="report-el-cat">Contexto: </span><span class="report-el-val">Colonialismo africano sec XIX</span></div>
+                                <div class="report-el"><span class="report-el-cat">Figura: </span><span class="report-el-val">Leopoldo II (vilao nomeavel)</span></div>
+                                <div class="report-el"><span class="report-el-cat">Emocao: </span><span class="report-el-val">Hipocrisia europeia</span></div>
+                            </div>
+
+                            <div class="report-hypo a">
+                                <div class="report-hypo-label">Hipotese A &mdash; Vilao historico real e nomeavel</div>
+                                <div class="report-hypo-text">Padrao: temas com figura individual identificavel como responsavel (Leopoldo, Mengele) performam melhor que opressores anonimos</div>
+                            </div>
+                            <div class="report-hypo b">
+                                <div class="report-hypo-label">Hipotese B &mdash; Colonialismo africano como contexto fertil</div>
+                                <div class="report-hypo-text">Padrao: temas sobre exploracao europeia na Africa geram engajamento pelo choque + desconhecimento</div>
+                            </div>
+                            <div class="report-hypo c">
+                                <div class="report-hypo-label">Hipotese C &mdash; Hipocrisia historica como motor</div>
+                                <div class="report-hypo-text">Padrao: temas onde o opressor era considerado &ldquo;civilizado&rdquo; pela sociedade da epoca geram indignacao</div>
+                            </div>
+                        </div>
+
+                        <!-- BLOCO 3 -->
+                        <div class="report-section-title purple">Bloco 3 &mdash; Padroes Transversais</div>
+
+                        <div class="report-pattern">
+                            <div class="report-pattern-title">Poder assimetrico &mdash; 5/5 temas top</div>
+                            <div class="report-pattern-desc">Todos os temas top envolvem dinamica de poder assimetrico (imperio/instituicao vs grupo vulneravel). Este e o padrao mais consistente do canal.</div>
+                        </div>
+
+                        <div class="report-pattern">
+                            <div class="report-pattern-title">Vitimas em posicao de inocencia extrema &mdash; 4/5 temas</div>
+                            <div class="report-pattern-desc">Freiras, criancas, escravos, acusados injustamente. A combinacao &ldquo;instituicao de poder + vitima inocente&rdquo; pode ser o padrao mais forte, independente do imperio ou periodo.</div>
+                        </div>
+
+                        <div class="report-pattern">
+                            <div class="report-pattern-title">Contexto religioso &mdash; 3/5 temas</div>
+                            <div class="report-pattern-desc">A religiao aparece como vitima (#1, #8, #12) ou como opressora (#4). Ambas as posicoes geram engajamento &mdash; o elemento religioso em si e o catalisador.</div>
+                        </div>
+
+                        <div class="report-pattern">
+                            <div class="report-pattern-title" style="color:var(--highlight)">Elemento interessante &mdash; A inversao (#3)</div>
+                            <div class="report-pattern-desc">O tema de vinganca quebra o padrao vitima-inocente. A alta performance (Score 85) sugere que &ldquo;catarse de inversao de poder&rdquo; pode ser um segundo padrao forte, paralelo ao padrao vitima-inocente.</div>
+                        </div>
+
+                        <div class="report-pattern">
+                            <div class="report-pattern-title" style="color:var(--cyan)">Indicio de velocity</div>
+                            <div class="report-pattern-desc">Temas #1 (1.267/dia), #6 (1.300/dia) e #10 (933/dia) tem as maiores velocidades. Dois envolvem opressao etnica/religiosa. Possivel padrao emergente: opressao etnica/religiosa tem velocity mais alta que opressao politica/economica.</div>
+                        </div>
+
+                        <div class="insight-box warning" style="margin-top:1.5rem">
+                            <strong>Observacao para o Agente 6:</strong> Estas sao hipoteses empiricas baseadas exclusivamente nos dados tematicos. A validacao requer cruzamento com dados de micronicho (Agente 3) e estrutura de titulo (Agente 4) para determinar se o motor de performance e realmente o tema ou se esta correlacionado com micronicho forte e/ou estrutura de titulo com alto CTR.
+                        </div>
+
+                    </div>
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- DECISOES -->
+            <section id="decisoes">
+                <h2>Decisoes Tomadas</h2>
+
+                <table class="decision-table">
+                    <thead><tr><th>#</th><th>Decisao</th><th>Justificativa</th></tr></thead>
+                    <tbody>
+                        <tr><td>1</td><td>Tema = ultima ramificacao da hierarquia</td><td>Nao existe subdivisao util abaixo do tema</td></tr>
+                        <tr><td>2</td><td>Tema &ne; categoria ampla &mdash; e o caso especifico</td><td>&ldquo;Otomanos&rdquo; = micronicho, &ldquo;tratamento dos otomanos com freiras&rdquo; = tema</td></tr>
+                        <tr><td>3</td><td>Mesmos 3 inputs do Agente 3 (sem CTR)</td><td>Analisa o que performa, nao quao atrativo e o titulo</td></tr>
+                        <tr><td>4</td><td>Tema e terminal &mdash; nao-repetivel</td><td>O output nao e &ldquo;repita o que deu certo&rdquo;</td></tr>
+                        <tr><td>5</td><td>Adjacencia tematica como skill diferencial</td><td>Identificar padroes nos elementos dos temas que viralizaram</td></tr>
+                        <tr><td>6</td><td>Agente 5 = hipoteses, Agente 6 = julgamento</td><td>O 5 decompoe e levanta hipoteses; o 6 cruza e valida</td></tr>
+                        <tr><td>7</td><td>Hipoteses multiplas, nao conclusoes</td><td>Mesmo tema viral pode ter N explicacoes diferentes</td></tr>
+                        <tr><td>8</td><td>Soma de indicios > conclusao isolada</td><td>Cada agente contribui sua camada de evidencia</td></tr>
+                        <tr><td>9</td><td>Decomposicao ampla (sem limite fixo)</td><td>Sao hipoteses para o Agente 6 &mdash; melhor decompor demais</td></tr>
+                        <tr><td>10</td><td>Score 50% views + 50% velocity</td><td>Equilibra volume real com velocidade de crescimento</td></tr>
+                        <tr><td>11</td><td>2-3 hipoteses por tema top</td><td>Enxuto &mdash; as mais obvias e fortes</td></tr>
+                        <tr><td>12</td><td>So padrao abstrato (sem titulos concretos)</td><td>Sugestoes concretas ficam pro Agente 6</td></tr>
+                        <tr><td>13</td><td>Top 10-15 no ranking</td><td>Bom equilibrio entre profundidade e praticidade</td></tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- RESUMO -->
+            <section id="resumo">
+                <h2>Resumo Final</h2>
+
+                <div class="highlight-card">
+                    <div class="label">Identidade do Agente 5</div>
+                    <p>O Agente 5 e o <strong>analista de temas</strong> &mdash; a camada mais granular da hierarquia de conteudo. E, por design, um <strong>gerador de hipoteses e indicios</strong>, nao de conclusoes.</p>
+                </div>
+
+                <div class="steps-row">
+                    <div class="step-card s1">
+                        <div class="step-num">1. Identifica</div>
+                        <div class="step-desc">O tema especifico de cada video (nao a categoria, o caso concreto)</div>
+                    </div>
+                    <div class="step-card s1">
+                        <div class="step-num">2. Rankeia</div>
+                        <div class="step-desc">Por Score de Performance Tematica (50% views + 50% velocity)</div>
+                    </div>
+                    <div class="step-card s2">
+                        <div class="step-num">3. Decompoe</div>
+                        <div class="step-desc">Cada tema top em elementos constitutivos (ampla, sem limite fixo)</div>
+                    </div>
+                    <div class="step-card s3">
+                        <div class="step-num">4. Levanta</div>
+                        <div class="step-desc">2-3 hipoteses de adjacencia por tema &mdash; padroes abstratos, nao sugestoes concretas</div>
+                    </div>
+                    <div class="step-card s3">
+                        <div class="step-num">5. Mapeia</div>
+                        <div class="step-desc">Padroes transversais que cruzam multiplos temas do ranking</div>
+                    </div>
+                </div>
+
+                <div class="insight-box green" style="margin-top:2rem">
+                    Sua funcao e alimentar o <strong>Agente 6</strong> com a camada de evidencia tematica, que quando cruzada com micronicho (Agente 3) e estrutura de titulo (Agente 4), permite decisoes de alta assertividade sobre novos temas e videos.
+                </div>
+            </section>
+
+            <div class="footer-bar">
+                <p>Agente 5 &mdash; Analisador de Temas &bull; Ecossistema de Analise Automatica de Canais &bull; Fevereiro 2026</p>
+            </div>
+
+        </main>
+    </div>
+</body>
+</html>

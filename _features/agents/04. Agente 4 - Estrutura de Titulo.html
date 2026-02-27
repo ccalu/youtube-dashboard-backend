@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agente 4 — Analisador de Estruturas de Titulo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a24;
+            --bg-card: #16161f;
+            --text-primary: #e8e8ed;
+            --text-secondary: #a0a0b0;
+            --text-muted: #6b6b7b;
+            --accent: #00d4aa;
+            --accent-dim: rgba(0, 212, 170, 0.15);
+            --warning: #ff6b6b;
+            --warning-dim: rgba(255, 107, 107, 0.15);
+            --highlight: #ffd93d;
+            --highlight-dim: rgba(255, 217, 61, 0.1);
+            --purple: #a78bfa;
+            --purple-dim: rgba(167, 139, 250, 0.15);
+            --orange: #ff9f43;
+            --orange-dim: rgba(255, 159, 67, 0.15);
+            --blue: #54a0ff;
+            --blue-dim: rgba(84, 160, 255, 0.15);
+            --cyan: #22d3ee;
+            --cyan-dim: rgba(34, 211, 238, 0.15);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-accent: rgba(84, 160, 255, 0.3);
+            --agent-color: var(--blue);
+            --agent-dim: var(--blue-dim);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.8;
+            font-size: 16px;
+        }
+        .container { display: flex; min-height: 100vh; }
+
+        .sidebar {
+            width: 280px; background: var(--bg-secondary); border-right: 1px solid var(--border);
+            padding: 2rem 1.5rem; position: fixed; height: 100vh; overflow-y: auto;
+        }
+        .sidebar-header { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+        .sidebar-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--agent-color); font-weight: 600; margin-bottom: 0.5rem; }
+        .sidebar-subtitle { font-size: 1rem; color: var(--text-primary); font-weight: 600; }
+        .nav-section { margin-bottom: 1.5rem; }
+        .nav-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.75rem; font-weight: 600; }
+        .nav-link {
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 0.75rem; color: var(--text-secondary); text-decoration: none;
+            font-size: 0.85rem; border-radius: 6px; transition: all 0.2s ease; margin-bottom: 0.2rem;
+        }
+        .nav-link:hover { background: var(--agent-dim); color: var(--agent-color); }
+        .nav-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+        .main { flex: 1; margin-left: 280px; padding: 3rem 4rem; max-width: 1100px; }
+        h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem; line-height: 1.2; }
+        h1 .accent { color: var(--agent-color); }
+        h2 { font-size: 1.75rem; font-weight: 700; margin-top: 3.5rem; margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--agent-color); display: inline-block; }
+        h3 { font-size: 1.25rem; font-weight: 600; margin-top: 2rem; margin-bottom: 1rem; }
+        h4 { font-size: 1.1rem; font-weight: 600; color: var(--agent-color); margin-top: 1.5rem; margin-bottom: 0.75rem; }
+        p { margin-bottom: 1.5rem; color: var(--text-secondary); }
+        strong { color: var(--text-primary); }
+        .meta { color: var(--text-muted); font-size: 0.875rem; margin-bottom: 2rem; }
+        ul { margin: 1rem 0 1.5rem 1.5rem; }
+        ul li { color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.95rem; }
+
+        .highlight-card {
+            background: var(--bg-card); border: 1px solid var(--border-accent); border-radius: 12px;
+            padding: 2rem; margin: 2.5rem 0; position: relative; overflow: hidden;
+        }
+        .highlight-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--agent-color), transparent); }
+        .highlight-card .label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--agent-color); font-weight: 600; margin-bottom: 1rem; }
+        .highlight-card p { color: var(--text-primary); font-size: 1.1rem; margin-bottom: 0; }
+
+        .divider { height: 1px; background: linear-gradient(90deg, var(--agent-color), transparent); margin: 3rem 0; }
+
+        .insight-box {
+            background: linear-gradient(135deg, var(--agent-dim) 0%, transparent 100%);
+            border-left: 3px solid var(--agent-color); padding: 1.25rem 1.5rem; margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0; font-weight: 500; color: var(--text-primary); font-size: 1rem;
+        }
+        .insight-box.green { background: linear-gradient(135deg, var(--accent-dim) 0%, transparent 100%); border-left-color: var(--accent); }
+        .insight-box.warning { background: linear-gradient(135deg, var(--warning-dim) 0%, transparent 100%); border-left-color: var(--warning); }
+        .insight-box.highlight { background: linear-gradient(135deg, var(--highlight-dim) 0%, transparent 100%); border-left-color: var(--highlight); }
+        .insight-box.purple { background: linear-gradient(135deg, var(--purple-dim) 0%, transparent 100%); border-left-color: var(--purple); }
+        .insight-box.orange { background: linear-gradient(135deg, var(--orange-dim) 0%, transparent 100%); border-left-color: var(--orange); }
+        .insight-box.cyan { background: linear-gradient(135deg, var(--cyan-dim) 0%, transparent 100%); border-left-color: var(--cyan); }
+
+        .decision-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .decision-table th {
+            background: var(--bg-tertiary); color: var(--agent-color); font-weight: 600; font-size: 0.75rem;
+            text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; text-align: left; border-bottom: 2px solid var(--agent-color);
+        }
+        .decision-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+        .decision-table tr:hover td { background: var(--bg-tertiary); }
+        .decision-table td:first-child { color: var(--text-primary); font-weight: 500; }
+
+        .code-block {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 1.5rem; margin: 2rem 0; font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; overflow-x: auto; white-space: pre-wrap;
+        }
+        .code-block .accent { color: var(--accent); }
+        .code-block .blue { color: var(--blue); }
+        .code-block .warning { color: var(--warning); }
+        .code-block .muted { color: var(--text-muted); }
+
+        .metric-row { display: flex; gap: 1rem; margin: 1.5rem 0; flex-wrap: wrap; }
+        .metric-box {
+            background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 10px;
+            padding: 1rem 1.25rem; flex: 1; min-width: 140px; text-align: center;
+        }
+        .metric-value { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
+        .metric-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+        .anatomy-block {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 2rem; margin: 2rem 0;
+        }
+        .anatomy-formula {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.95rem;
+            color: var(--text-primary); margin-bottom: 1.5rem; padding: 1rem;
+            background: var(--bg-tertiary); border-radius: 8px; text-align: center;
+        }
+        .anatomy-formula .var { color: var(--agent-color); font-weight: 600; }
+        .anatomy-formula .fix { color: var(--highlight); }
+        .anatomy-row { display: flex; gap: 2rem; margin-top: 1rem; }
+        .anatomy-col { flex: 1; }
+        .anatomy-col-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; margin-bottom: 0.5rem; }
+        .anatomy-col-title.fix { color: var(--highlight); }
+        .anatomy-col-title.var { color: var(--agent-color); }
+        .anatomy-item { font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.3rem; }
+
+        .struct-example {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 1.5rem; margin: 1rem 0;
+        }
+        .struct-code {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;
+            color: var(--agent-color); font-weight: 600; margin-bottom: 0.75rem;
+        }
+        .struct-title {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;
+            color: var(--text-secondary); padding-left: 1.5rem; margin-bottom: 0.3rem;
+        }
+        .struct-title::before { content: '\2192\00a0'; color: var(--text-muted); }
+
+        .compare-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.85rem; }
+        .compare-table th {
+            background: var(--bg-tertiary); font-weight: 600; font-size: 0.72rem;
+            text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; text-align: left;
+            border-bottom: 2px solid var(--border);
+        }
+        .compare-table th:nth-child(2) { color: var(--purple); border-bottom-color: var(--purple); }
+        .compare-table th:nth-child(3) { color: var(--agent-color); border-bottom-color: var(--agent-color); }
+        .compare-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+        .compare-table td:first-child { color: var(--text-primary); font-weight: 500; }
+        .compare-table tr:hover td { background: var(--bg-tertiary); }
+
+        /* Score formula visual */
+        .score-formula {
+            background: var(--bg-card); border: 2px solid var(--agent-color); border-radius: 16px;
+            padding: 2rem; margin: 2rem 0; text-align: center;
+        }
+        .score-formula-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--agent-color); font-weight: 600; margin-bottom: 1.25rem; }
+        .score-formula-eq {
+            font-family: 'JetBrains Mono', monospace; font-size: 1.3rem; font-weight: 700;
+            color: var(--text-primary); margin-bottom: 1.25rem;
+        }
+        .score-formula-eq .ctr { color: var(--agent-color); }
+        .score-formula-eq .views { color: var(--accent); }
+        .score-formula-eq .op { color: var(--text-muted); font-weight: 400; }
+        .score-parts { display: flex; gap: 2rem; justify-content: center; margin-top: 1rem; }
+        .score-part { text-align: center; }
+        .score-part-pct { font-family: 'JetBrains Mono', monospace; font-size: 1.8rem; font-weight: 700; }
+        .score-part-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem; }
+        .score-part-reason { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem; max-width: 200px; }
+
+        /* Report mock */
+        .report-mock {
+            background: var(--bg-card); border: 2px solid var(--agent-color); border-radius: 16px;
+            padding: 0; margin: 2.5rem 0; overflow: hidden;
+        }
+        .report-header {
+            background: linear-gradient(135deg, var(--agent-dim), var(--bg-tertiary));
+            padding: 1.5rem 2rem; border-bottom: 1px solid var(--border);
+        }
+        .report-header-title { font-size: 1.1rem; font-weight: 700; color: var(--agent-color); margin-bottom: 0.25rem; }
+        .report-header-meta { font-size: 0.8rem; color: var(--text-muted); }
+        .report-body { padding: 2rem; }
+        .report-section-title {
+            font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em;
+            font-weight: 700; padding: 0.4rem 0.75rem; border-radius: 4px;
+            display: inline-block; margin-bottom: 1rem; margin-top: 1.5rem;
+        }
+        .report-section-title:first-child { margin-top: 0; }
+        .report-section-title.blue { background: var(--blue-dim); color: var(--blue); }
+        .report-section-title.green { background: var(--accent-dim); color: var(--accent); }
+        .report-section-title.red { background: var(--warning-dim); color: var(--warning); }
+        .report-section-title.yellow { background: var(--highlight-dim); color: var(--highlight); }
+        .report-text { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.8; margin-bottom: 1rem; }
+        .report-text strong { color: var(--text-primary); }
+
+        .report-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; margin: 1rem 0; }
+        .report-table th {
+            background: var(--bg-tertiary); color: var(--agent-color); font-weight: 600; font-size: 0.65rem;
+            text-transform: uppercase; letter-spacing: 0.05em; padding: 0.6rem 0.6rem; text-align: left;
+            border-bottom: 2px solid var(--agent-color); white-space: nowrap;
+        }
+        .report-table td { padding: 0.6rem 0.6rem; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+        .report-table tr:hover td { background: var(--bg-tertiary); }
+        .report-table tr.top td { color: var(--accent); font-weight: 600; }
+        .report-table tr.bottom td { color: var(--warning); }
+        .report-table td:first-child { font-weight: 600; color: var(--text-primary); }
+        .report-table td.formula { font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: var(--text-primary); }
+        .report-table td.score-cell { font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+        .report-table .score-high { color: var(--accent); }
+        .report-table .score-mid { color: var(--highlight); }
+        .report-table .score-low { color: var(--warning); }
+
+        .report-rec {
+            background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px;
+            padding: 1rem 1.25rem; margin-bottom: 0.75rem;
+        }
+        .report-rec-title { font-weight: 700; color: var(--agent-color); font-size: 0.9rem; margin-bottom: 0.25rem; }
+        .report-rec-formula { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--text-primary); margin-bottom: 0.4rem; }
+        .report-rec-desc { color: var(--text-secondary); font-size: 0.85rem; }
+
+        .sub-label {
+            font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+            margin-bottom: 0.5rem; margin-top: 1.5rem;
+        }
+
+        .footer-bar { margin-top: 4rem; padding: 2rem 0; border-top: 1px solid var(--border); text-align: center; }
+        .footer-bar p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0; }
+
+        @media (max-width: 900px) {
+            .sidebar { display: none; }
+            .main { margin-left: 0; padding: 2rem 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <!-- SIDEBAR -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">Camada 2 &mdash; Analise Especializada</div>
+                <div class="sidebar-subtitle">Agente 4: Estruturas de Titulo</div>
+            </div>
+            <div class="nav-section">
+                <div class="nav-label">Fundamento</div>
+                <a href="#oque" class="nav-link"><span class="nav-dot" style="background:var(--blue)"></span> O que e uma Estrutura</a>
+                <a href="#anatomia" class="nav-link"><span class="nav-dot" style="background:var(--blue)"></span> Anatomia da Estrutura</a>
+                <a href="#exemplos" class="nav-link"><span class="nav-dot" style="background:var(--blue)"></span> Exemplos por Subnicho</a>
+                <a href="#caracteristicas" class="nav-link"><span class="nav-dot" style="background:var(--blue)"></span> 6 Caracteristicas</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-label">Especificacao</div>
+                <a href="#input" class="nav-link"><span class="nav-dot" style="background:var(--accent)"></span> Input (4 dados)</a>
+                <a href="#ctr" class="nav-link"><span class="nav-dot" style="background:var(--accent)"></span> Por que CTR</a>
+                <a href="#score" class="nav-link"><span class="nav-dot" style="background:var(--accent)"></span> Score Ponderado</a>
+                <a href="#output" class="nav-link"><span class="nav-dot" style="background:var(--accent)"></span> Output (3 blocos)</a>
+                <a href="#abstracao" class="nav-link"><span class="nav-dot" style="background:var(--accent)"></span> Desafio da Abstracao</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-label">Comparacao</div>
+                <a href="#paralelismo" class="nav-link"><span class="nav-dot" style="background:var(--purple)"></span> Agente 3 vs Agente 4</a>
+                <a href="#diferente" class="nav-link"><span class="nav-dot" style="background:var(--purple)"></span> Diferencas-Chave</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-label">Exemplo + Decisoes</div>
+                <a href="#exemplo" class="nav-link"><span class="nav-dot" style="background:var(--highlight)"></span> Exemplo de Relatorio</a>
+                <a href="#decisoes" class="nav-link"><span class="nav-dot" style="background:var(--text-muted)"></span> Decisoes Tomadas</a>
+                <a href="#resumo" class="nav-link"><span class="nav-dot" style="background:var(--text-muted)"></span> Resumo Final</a>
+            </div>
+        </nav>
+
+        <!-- MAIN -->
+        <main class="main">
+
+            <!-- HEADER -->
+            <section id="oque">
+                <h1>Agente 4: Analisador de <span class="accent">Estruturas de Titulo</span></h1>
+                <div class="meta">Camada 2 &mdash; Analise Especializada &bull; 27 de Fevereiro de 2026 &bull; Especificacao Completa (v2 &mdash; com CTR)</div>
+
+                <div class="highlight-card">
+                    <div class="label">Definicao</div>
+                    <p>Uma estrutura de titulo e o <strong>esqueleto sintatico de um titulo</strong> &mdash; a formula subjacente que define como a informacao e organizada, independentemente do tema especifico. E a essencia do que o titulo quer transmitir, despida do conteudo particular.</p>
+                </div>
+
+                <div class="insight-box highlight">
+                    <strong>Micronicho</strong> responde "sobre o que e o video?" (o que) &mdash; <strong>Estrutura de Titulo</strong> responde "como o titulo e formulado para atrair o clique?" (como). Dimensoes completamente ortogonais.
+                </div>
+
+                <p>Um mesmo micronicho pode usar varias estruturas de titulo. Uma mesma estrutura pode ser aplicada a varios micronichos. Por isso sao analisadas por <strong>agentes separados</strong>.</p>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- ANATOMIA -->
+            <section id="anatomia">
+                <h2>Anatomia de uma Estrutura</h2>
+
+                <p>Uma estrutura e composta por <strong>elementos fixos</strong> (palavras/conectivos que se repetem) e <strong>variaveis</strong> (slots que mudam conforme o tema):</p>
+
+                <div class="anatomy-block">
+                    <div class="anatomy-formula">
+                        <span class="fix">What</span> <span class="var">[SUJEITO]</span> <span class="fix">Did to</span> <span class="var">[OBJETO]</span> <span class="fix">Was</span> <span class="var">[INTENSIFICADOR]</span>
+                    </div>
+                    <div class="anatomy-row">
+                        <div class="anatomy-col">
+                            <div class="anatomy-col-title fix">Elementos Fixos</div>
+                            <div class="anatomy-item">"What"</div>
+                            <div class="anatomy-item">"Did to"</div>
+                            <div class="anatomy-item">"Was"</div>
+                        </div>
+                        <div class="anatomy-col">
+                            <div class="anatomy-col-title var">Variaveis</div>
+                            <div class="anatomy-item">[SUJEITO]</div>
+                            <div class="anatomy-item">[OBJETO]</div>
+                            <div class="anatomy-item">[INTENSIFICADOR]</div>
+                        </div>
+                    </div>
+                </div>
+
+                <p>O poder de uma estrutura e que funciona como um <strong>molde reutilizavel</strong>. Basta trocar as variaveis para gerar um novo titulo sobre um tema completamente diferente &mdash; mantendo a mesma formula que ja provou funcionar.</p>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- EXEMPLOS -->
+            <section id="exemplos">
+                <h2>Exemplos por Subnicho</h2>
+
+                <h4>Reis Perversos 005</h4>
+
+                <div class="struct-example">
+                    <div class="struct-code">EST-01 | What [SUJEITO] Did to [OBJETO] Was [INTENSIFICADOR]</div>
+                    <div class="struct-title">What Ottomans Did To Christian Nuns Was Worse Than Death</div>
+                    <div class="struct-title">What Caligula Did To the Women of Rome Was Worse Than Death</div>
+                </div>
+                <div class="struct-example">
+                    <div class="struct-code">EST-02 | The [ADJETIVO] [RITUAL/PRATICA] [SUJEITO] Tried to [ESCONDER] From History</div>
+                    <div class="struct-title">The Horrifying Wedding Night Ritual Rome Tried to Erase From History</div>
+                    <div class="struct-title">The Horrifying Wedding Night Ritual the Vatican Tried to Hide</div>
+                </div>
+                <div class="struct-example">
+                    <div class="struct-code">EST-03 | The Horrific Final Days of [FIGURA HISTORICA]</div>
+                    <div class="struct-title">The Horrific Final Days of King Henry VIII</div>
+                    <div class="struct-title">The Horrific Trial and Final Days of George Boleyn</div>
+                </div>
+
+                <h4>Relatos de Guerra &mdash; WWII</h4>
+
+                <div class="struct-example">
+                    <div class="struct-code">EST-A | The [ADJETIVO] Story of [FIGURA/EVENTO] That [CONSEQUENCIA]</div>
+                    <div class="struct-title">The Incredible Story of the Pilot That Saved 200 Lives</div>
+                    <div class="struct-title">The Terrifying Story of Stalingrad That Changed the War</div>
+                </div>
+                <div class="struct-example">
+                    <div class="struct-code">EST-B | How [SUJEITO] [ACAO IMPOSSIVEL] During [CONTEXTO]</div>
+                    <div class="struct-title">How One Soldier Escaped Auschwitz Three Times During WWII</div>
+                    <div class="struct-title">How a 15-Year-Old Boy Destroyed a Panzer Division During D-Day</div>
+                </div>
+                <div class="struct-example">
+                    <div class="struct-code">EST-C | [FIGURA] &mdash; The [SUPERLATIVO] [CATEGORIA] of [CONTEXTO]</div>
+                    <div class="struct-title">Witold Pilecki &mdash; The Bravest Man of World War II</div>
+                    <div class="struct-title">Simo H&auml;yh&auml; &mdash; The Deadliest Sniper of All Time</div>
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- 6 CARACTERISTICAS -->
+            <section id="caracteristicas">
+                <h2>6 Caracteristicas Essenciais</h2>
+
+                <div class="insight-box">
+                    <strong>1. E uma FORMULA, nao um titulo individual.</strong> "What Caligula Did To the Women of Rome Was Worse Than Death" e um titulo. "What [X] Did to [Y] Was [Z]" e a estrutura. O agente abstrai do concreto para o padrao.
+                </div>
+                <div class="insight-box green">
+                    <strong>2. E reutilizavel &mdash; o mesmo molde funciona para varios temas.</strong> Se so funciona para 1 tema, nao e estrutura &mdash; e um titulo. Quanto mais versatil o molde, mais valiosa.
+                </div>
+                <div class="insight-box purple">
+                    <strong>3. Estruturas provocam REACOES EMOCIONAIS diferentes.</strong> "What [X] Did to [Y]" = curiosidade + horror. "The Final Days of [X]" = curiosidade + empatia. "How [X] Escaped [Y]" = curiosidade + admiracao.
+                </div>
+                <div class="insight-box orange">
+                    <strong>4. A mesma estrutura pode ter VARIACOES.</strong> "Was Worse Than Death" e "Will Make You Sick" sao variacoes da mesma familia. O agente agrupa variacoes como UMA estrutura.
+                </div>
+                <div class="insight-box highlight">
+                    <strong>5. Performance varia entre micronichos.</strong> "Final Days of [X]" pode ser otima em "Tiranos" e pessima em "Estrategia". Cruzamento = responsabilidade do Agente 6.
+                </div>
+                <div class="insight-box warning">
+                    <strong>6. Algumas estruturas sao EXCLUSIVAS de certos subnichos.</strong> "Wedding Night Ritual [X] Tried to Hide" so funciona em subnichos historicos. "How [X] Against All Odds" e universal.
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- INPUT -->
+            <section id="input">
+                <h2>Input &mdash; Os 4 Dados</h2>
+
+                <p>Para cada video postado no canal (com maturidade minima de <strong>7 dias</strong>):</p>
+
+                <table class="decision-table">
+                    <tr><th>Dado</th><th>O que e</th><th>Para que serve</th></tr>
+                    <tr><td>Titulo do video</td><td>Titulo completo conforme publicado</td><td>A estrutura esta explicitamente contida no titulo. O agente extrai o padrao sintatico.</td></tr>
+                    <tr><td style="color:var(--blue);font-weight:700">CTR</td><td>% de impressoes que resultaram em clique</td><td><strong>Metrica principal.</strong> Mede diretamente a capacidade do titulo de atrair o clique.</td></tr>
+                    <tr><td>Visualizacoes</td><td>Numero total de views</td><td>Metrica complementar. Contextualiza o CTR com volume real.</td></tr>
+                    <tr><td>Data de postagem</td><td>Data de publicacao</td><td>Contextualiza views e CTR. Maturidade e tendencias.</td></tr>
+                </table>
+
+                <div class="insight-box highlight">
+                    <strong>Unico agente da Camada 2 com 4 dados.</strong> Os Agentes 3 e 5 recebem 3. Isso NAO quebra a filosofia minimalista &mdash; CTR e essencial para a tarefa, nao ruido.
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- POR QUE CTR -->
+            <section id="ctr">
+                <h2>Por que o CTR e Crucial</h2>
+
+                <p>O CTR e a <strong>metrica que conecta diretamente a estrutura do titulo com o comportamento da audiencia</strong>. Quando uma pessoa ve uma impressao (thumbnail + titulo) e decide clicar ou nao, a formulacao do titulo e um dos fatores dominantes.</p>
+
+                <div class="highlight-card">
+                    <div class="label">O ponto-chave</div>
+                    <p>Uma estrutura de titulo pode ter <strong>CTR altissimo mas poucas views</strong> &mdash; porque o video foi escrito com copy ruim, gerando retencao baixa, o que fez o algoritmo parar de distribuir. O titulo fez o trabalho dele (CTR alto). O script falhou (views baixas). Sem CTR, concluiriamos erroneamente que a estrutura e ruim.</p>
+                </div>
+
+                <h4>Cada agente, sua metrica</h4>
+                <table class="decision-table">
+                    <tr><th>Agente</th><th>Metrica crucial</th><th>O que mede</th></tr>
+                    <tr><td>Agente 1 (Copy)</td><td>Retencao + Watch Time</td><td>Qualidade do script &mdash; segurou a audiencia?</td></tr>
+                    <tr><td style="color:var(--blue);font-weight:700">Agente 4 (Titulo)</td><td style="color:var(--blue);font-weight:700">CTR</td><td>Atratividade do titulo &mdash; gerou o clique?</td></tr>
+                    <tr><td>Agente 3 (Micronichos)</td><td>Views brutas</td><td>Interesse no assunto &mdash; proxy de demanda</td></tr>
+                    <tr><td>Agente 5 (Temas)</td><td>Views brutas</td><td>Interesse no tema &mdash; proxy de demanda</td></tr>
+                </table>
+
+                <h4>Por que Agentes 3 e 5 NAO recebem CTR</h4>
+                <ul>
+                    <li><strong>Agente 3 (Micronichos):</strong> O CTR e dominado pela formulacao do titulo, nao pelo assunto. Views brutas sao proxy suficiente de interesse no tema.</li>
+                    <li><strong>Agente 5 (Temas):</strong> Mesma logica &mdash; o tema influencia menos o CTR do que a formula do titulo.</li>
+                </ul>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- SCORE PONDERADO -->
+            <section id="score">
+                <h2>Score Ponderado</h2>
+
+                <p>O ranking nao usa uma metrica unica, mas um <strong>score ponderado</strong> que combina CTR e views:</p>
+
+                <div class="score-formula">
+                    <div class="score-formula-title">Formula do Score</div>
+                    <div class="score-formula-eq">
+                        <span class="ctr">60% CTR</span> <span class="op">+</span> <span class="views">40% Views</span> <span class="op">=</span> Score
+                    </div>
+                    <div class="score-parts">
+                        <div class="score-part">
+                            <div class="score-part-pct" style="color:var(--blue)">60%</div>
+                            <div class="score-part-label">CTR Medio</div>
+                            <div class="score-part-reason">Mede o que o titulo controla diretamente</div>
+                        </div>
+                        <div class="score-part">
+                            <div class="score-part-pct" style="color:var(--accent)">40%</div>
+                            <div class="score-part-label">Views Media</div>
+                            <div class="score-part-reason">Valida com volume real de audiencia</div>
+                        </div>
+                    </div>
+                </div>
+
+                <h4>Por que ponderado</h4>
+                <ul>
+                    <li><strong>So CTR:</strong> Uma estrutura com CTR 15% mas views baixas (tema obscuro, copy ruim) apareceria no topo sem merecimento de volume</li>
+                    <li><strong>So Views:</strong> Uma estrutura com views altas por distribuicao massiva mas CTR mediocre pareceria forte sem merecimento de atratividade</li>
+                    <li><strong>Ponderado 60/40:</strong> Equilibra ambas, dando mais peso ao que o titulo mais controla (CTR)</li>
+                </ul>
+
+                <p>A tabela mostra <strong>CTR medio + views media + score</strong>, ordenada pelo score. Transparencia total &mdash; o usuario ve os 3 numeros.</p>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- OUTPUT -->
+            <section id="output">
+                <h2>Output &mdash; Os 3 Blocos</h2>
+
+                <div class="metric-row">
+                    <div class="metric-box" style="border-color:rgba(84,160,255,0.3)">
+                        <div class="metric-value" style="color:var(--blue);font-size:1.3rem">Bloco 1</div>
+                        <div class="metric-label">Ranking</div>
+                        <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:0.5rem">Tabela por score (CTR + views) &mdash; top 10-15</div>
+                    </div>
+                    <div class="metric-box" style="border-color:rgba(0,212,170,0.3)">
+                        <div class="metric-value" style="color:var(--accent);font-size:1.3rem">Bloco 2</div>
+                        <div class="metric-label">Observacoes</div>
+                        <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:0.5rem">Destaques, alertas, divergencias CTR vs views</div>
+                    </div>
+                    <div class="metric-box" style="border-color:rgba(255,217,61,0.3)">
+                        <div class="metric-value" style="color:var(--highlight);font-size:1.3rem">Bloco 3</div>
+                        <div class="metric-label">Recomendacoes</div>
+                        <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:0.5rem">Formulas com [VARIAVEIS] prontas para uso</div>
+                    </div>
+                </div>
+
+                <h4>Bloco 1: Ranking por Score</h4>
+                <p>Tabela com <strong>codigo + formula + N videos + CTR medio + views media + score + melhor exemplo</strong>. Top 10-15 na tabela, restantes nas observacoes.</p>
+
+                <h4>Bloco 2: Observacoes Analiticas</h4>
+                <ul>
+                    <li><strong>Melhores performances:</strong> formulas consistentes em CTR e volume</li>
+                    <li><strong>Divergencias CTR vs Views:</strong> estruturas com CTR alto + views baixas (titulo bom, algo mais falhou) ou CTR baixo + views altas (distribuicao sem merecimento)</li>
+                    <li><strong>Padroes:</strong> carga emocional vs performance, concentracao, fadiga, emergentes</li>
+                </ul>
+
+                <h4>Bloco 3: Recomendacoes</h4>
+                <p>Formulas concretas com <strong>[VARIAVEIS]</strong>, sem exemplos aplicados. O usuario aplica ao tema que quiser.</p>
+
+                <div class="insight-box">
+                    <strong>Diferencial vs Agente 3:</strong> Recomenda formulas de titulo (universo infinito, actionable imediato) vs categorias de assunto (universo finito).
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- ABSTRACAO -->
+            <section id="abstracao">
+                <h2>Desafio Unico: A Abstracao</h2>
+
+                <p>O Agente 3 infere a categoria tematica (relativamente direto). O Agente 4 <strong>abstrai a formula sintatica</strong> &mdash; identifica partes fixas vs variaveis de forma consistente.</p>
+
+                <div class="code-block"><span class="blue">Titulo:</span> "What Caligula Did To the Women of Rome Was Worse Than Death"
+<span class="blue">Titulo:</span> "What the Aztecs Did to Spanish Prisoners Was Worse Than You Think"
+
+<span class="muted">&rarr; Mesma abertura, mesmo corpo, intensificador diferente.</span>
+<span class="accent">&rarr; DECISAO: UMA estrutura com variacoes. Forca esta na formula-base.</span></div>
+
+                <div class="insight-box warning">
+                    <strong>O equilibrio e a chave.</strong> Abstrai demais = tudo vira a mesma estrutura. Abstrai de menos = cada titulo e unico. Sem padroes.
+                </div>
+
+                <h4>Consistencia Auto-Reforçada</h4>
+                <p>O nivel de abstracao se <strong>estabiliza naturalmente</strong> ao longo das execucoes. Na 1a analise, o agente cria o banco de estruturas. Nas seguintes, usa esse banco como ancora. Risco de inconsistencia <strong>diminui progressivamente</strong>.</p>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- PARALELISMO -->
+            <section id="paralelismo">
+                <h2>Agente 3 vs Agente 4</h2>
+
+                <table class="compare-table">
+                    <tr><th>Aspecto</th><th>Agente 3 (Micronichos)</th><th>Agente 4 (Estruturas)</th></tr>
+                    <tr><td>Dados de input</td><td>3 (titulo, views, data)</td><td>4 (titulo, <strong>CTR</strong>, views, data)</td></tr>
+                    <tr><td>Metrica principal</td><td>Views brutas</td><td><strong>Score ponderado (60% CTR + 40% views)</strong></td></tr>
+                    <tr><td>Le o titulo e extrai...</td><td>Categoria tematica (o que e)</td><td>Formula sintatica (como e formulado)</td></tr>
+                    <tr><td>Classifica em...</td><td>Micronichos</td><td>Estruturas de titulo</td></tr>
+                    <tr><td>Rankeia por...</td><td>Interesse da audiencia no assunto</td><td>Atratividade da formulacao</td></tr>
+                    <tr><td>Recomenda...</td><td>Micronichos nao testados</td><td>Formulas com [VARIAVEIS]</td></tr>
+                </table>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- DIFERENCAS -->
+            <section id="diferente">
+                <h2>Diferencas-Chave</h2>
+
+                <table class="compare-table">
+                    <tr><th>Aspecto</th><th>Agente 3</th><th>Agente 4</th></tr>
+                    <tr><td>Tipo de extracao</td><td>Inferir categoria (intuitivo)</td><td>Abstrair formula (generalizacao)</td></tr>
+                    <tr><td>Complexidade</td><td>Moderada</td><td>Alta &mdash; decidir nivel de abstracao</td></tr>
+                    <tr><td>Universo</td><td>Finito (micronichos limitados)</td><td>Infinito (formas de formular ilimitadas)</td></tr>
+                    <tr><td>Utilidade</td><td>"Faca mais sobre esse assunto"</td><td>"Use essa formula" &mdash; actionable imediato</td></tr>
+                    <tr><td>Metrica extra</td><td>Nenhuma</td><td>CTR (essencial para titulos)</td></tr>
+                </table>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- EXEMPLO DE RELATORIO -->
+            <section id="exemplo">
+                <h2>Exemplo Completo de Relatorio</h2>
+                <p>Simulacao para um canal ficticio de <strong>Reis Perversos 005</strong> (ingles) com 25 videos.</p>
+
+                <div class="report-mock">
+                    <div class="report-header">
+                        <div class="report-header-title">Analise de Estruturas de Titulo &mdash; Reis Perversos 005 [EN]</div>
+                        <div class="report-header-meta">27-02-2026 &bull; 25 videos analisados (7+ dias) &bull; 9 estruturas identificadas &bull; Score = 60% CTR + 40% Views</div>
+                    </div>
+                    <div class="report-body">
+
+                        <!-- BLOCO 1 -->
+                        <div class="report-section-title blue">Bloco 1 &mdash; Ranking de Estruturas de Titulo</div>
+                        <table class="report-table">
+                            <tr><th>#</th><th>Cod</th><th>Estrutura</th><th>Vids</th><th>CTR</th><th>Views</th><th>Score</th><th>Melhor Video</th></tr>
+                            <tr class="top"><td>1</td><td>EST-01</td><td class="formula">What [SUJEITO] Did to [OBJETO] Was [INTENS.]</td><td>6</td><td>14.2%</td><td>142K</td><td class="score-cell score-high">92</td><td style="font-size:0.7rem">"What Ottomans Did To Christian Nuns Was Worse Than Death" (CTR 16.1%, 285K)</td></tr>
+                            <tr><td>2</td><td>EST-02</td><td class="formula">The [ADJ] [RITUAL] [SUJ] Tried to [ESC.] From History</td><td>4</td><td>12.8%</td><td>118K</td><td class="score-cell score-high">85</td><td style="font-size:0.7rem">"The Horrifying Wedding Night Ritual Rome Tried to Erase..." (CTR 14.5%, 195K)</td></tr>
+                            <tr><td>3</td><td>EST-04</td><td class="formula">The [ADJ] Punishment for [ACAO] in [CIV.]</td><td>3</td><td>11.5%</td><td>78K</td><td class="score-cell score-mid">72</td><td style="font-size:0.7rem">"The Sickening Punishment for Adultery in Medieval England" (CTR 13.2%, 112K)</td></tr>
+                            <tr><td>4</td><td>EST-03</td><td class="formula">The Horrific Final Days of [FIGURA]</td><td>3</td><td>9.8%</td><td>95K</td><td class="score-cell score-mid">70</td><td style="font-size:0.7rem">"The Horrific Final Days of King Henry VIII" (CTR 11.2%, 152K)</td></tr>
+                            <tr><td>5</td><td>EST-06</td><td class="formula">Why [SUJ] Was [ADJ] Than You Think</td><td>2</td><td>10.5%</td><td>52K</td><td class="score-cell score-mid">63</td><td style="font-size:0.7rem">"Why Nero Was Far Worse Than You Think" (CTR 11.8%, 65K)</td></tr>
+                            <tr><td>6</td><td>EST-05</td><td class="formula">How [FIG] Became the Most [SUP] [CAT] in History</td><td>2</td><td>8.2%</td><td>68K</td><td class="score-cell score-mid">58</td><td style="font-size:0.7rem">"How Vlad Became the Most Feared Ruler..." (CTR 9.1%, 89K)</td></tr>
+                            <tr><td>7</td><td>EST-09</td><td class="formula">[FIGURA]: The [CAT] History Forgot</td><td>1</td><td>11.0%</td><td>22K</td><td class="score-cell score-mid">55</td><td style="font-size:0.7rem">"Wu Zetian: The Empress History Forgot" (CTR 11.0%, 22K)</td></tr>
+                            <tr><td>8</td><td>EST-07</td><td class="formula">[NUM] [ADJ] Facts About [FIG/EV]</td><td>2</td><td>6.5%</td><td>31K</td><td class="score-cell score-low">38</td><td style="font-size:0.7rem">"7 Disturbing Facts About Caligula's Palace" (CTR 7.2%, 38K)</td></tr>
+                            <tr class="bottom"><td>9</td><td>EST-08</td><td class="formula">The True Story Behind [EV/LENDA]</td><td>2</td><td>5.8%</td><td>27K</td><td class="score-cell score-low">34</td><td style="font-size:0.7rem">"The True Story Behind Elizabeth Bathory's Blood Baths" (CTR 6.5%, 35K)</td></tr>
+                        </table>
+
+                        <!-- BLOCO 2 -->
+                        <div class="report-section-title green">Bloco 2 &mdash; Observacoes Analiticas</div>
+
+                        <p class="sub-label" style="color:var(--accent)">Destaques positivos</p>
+                        <div class="report-text">
+                            <strong>EST-01</strong> lidera com folga &mdash; score 92, CTR 14.2%, views 142K. A formula "What [X] Did to [Y]" combina curiosidade + injustica + intensificador. Com 6 videos, o pior CTR (11.8%) ainda supera a media do canal. <strong>Formula-mestre.</strong>
+                        </div>
+                        <div class="report-text">
+                            <strong>EST-02</strong> (score 85, CTR 12.8%) funciona pelo mecanismo de segredo escondido. Ritual + ocultamento = curiosidade dupla. 4 videos com alta consistencia.
+                        </div>
+                        <div class="report-text">
+                            Caso revelador: <strong>EST-04 ultrapassou EST-03</strong> no ranking ponderado (score 72 vs 70) apesar de ter <em>menos</em> views medias (78K vs 95K). O CTR da EST-04 (11.5%) e significativamente maior que o da EST-03 (9.8%). A formula de "punicao" gera mais cliques por impressao &mdash; <strong>o titulo e mais atraente</strong>, mesmo que o volume total seja menor. Isso sugere que os videos EST-03 foram mais distribuidos (possivelmente copy/retencao melhores), mas EST-04 tem titulos superiores.
+                        </div>
+
+                        <p class="sub-label" style="color:var(--warning)">Sinais de alerta</p>
+                        <div class="report-text">
+                            <strong>EST-07</strong> ("N Facts About [X]") &mdash; CTR 6.5%, quase metade da media. Formato "listicle" nao gera curiosidade neste nicho. Audiencia responde a narrativas dramaticas, nao listas.
+                        </div>
+                        <div class="report-text">
+                            <strong>EST-08</strong> ("True Story Behind [X]") &mdash; pior score (34), CTR 5.8%. Padrao possivelmente <strong>saturado no YouTube</strong>.
+                        </div>
+
+                        <p class="sub-label" style="color:var(--cyan)">Caso especial &mdash; EST-09</p>
+                        <div class="report-text">
+                            1 video, CTR 11.0% (acima da media!), mas views 22K. Exatamente o cenario que o CTR revela: <strong>titulo atraente + algo mais falhou</strong>. Wu Zetian pode ser desconhecida demais para audiencia ocidental &rarr; clique por curiosidade, retencao baixa, algoritmo parou de distribuir. Recomendacao: <strong>testar essa estrutura com figuras mais conhecidas</strong> antes de descartar.
+                        </div>
+
+                        <p class="sub-label" style="color:var(--highlight)">Padroes relevantes</p>
+                        <div class="report-text">
+                            Confirmado por CTR + views: estruturas com <strong>carga emocional negativa forte</strong> (horror, ocultamento, punicao) dominam ambas as metricas. Estruturas neutras/informativas (listicle, true story) ficam nas ultimas posicoes. Concentracao saudavel: nenhuma estrutura acima de 25%.
+                        </div>
+
+                        <!-- BLOCO 3 -->
+                        <div class="report-section-title yellow">Bloco 3 &mdash; Recomendacoes de Novas Estruturas</div>
+                        <div class="report-text" style="margin-bottom:1rem">
+                            Padrao: <strong>carga emocional negativa + curiosidade direcionada + revelacao</strong>. Formulas sugeridas:
+                        </div>
+
+                        <div class="report-rec">
+                            <div class="report-rec-title">1.</div>
+                            <div class="report-rec-formula">The [ADJETIVO] Reason [FIGURA] [ACAO EXTREMA]</div>
+                            <div class="report-rec-desc">Curiosidade ("reason") + acao extrema. Similar a EST-01, focada em motivacao.</div>
+                        </div>
+                        <div class="report-rec">
+                            <div class="report-rec-title">2.</div>
+                            <div class="report-rec-formula">[FIGURA]'s [ADJETIVO] Secret That [CONSEQUENCIA]</div>
+                            <div class="report-rec-desc">Segredo pessoal (como EST-02) mas focado na figura individual.</div>
+                        </div>
+                        <div class="report-rec">
+                            <div class="report-rec-title">3.</div>
+                            <div class="report-rec-formula">The Last [TEMPO] of [EVENTO/FIGURA] &mdash; What Really Happened</div>
+                            <div class="report-rec-desc">Variacao da EST-03 com especificidade temporal + promessa de revelacao.</div>
+                        </div>
+                        <div class="report-rec">
+                            <div class="report-rec-title">4.</div>
+                            <div class="report-rec-formula">No One Was Supposed to Survive [EVENTO] &mdash; The Story of [FIGURA]</div>
+                            <div class="report-rec-desc">Impossibilidade + narrativa pessoal. Gancho de sobrevivencia.</div>
+                        </div>
+
+                    </div>
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- DECISOES -->
+            <section id="decisoes">
+                <h2>Decisoes Tomadas</h2>
+
+                <table class="decision-table">
+                    <tr><th>Aspecto</th><th>Decisao</th><th>Motivo</th></tr>
+                    <tr><td>Input</td><td>4 dados: titulo + CTR + views + data</td><td>CTR essencial para avaliar atratividade do titulo</td></tr>
+                    <tr><td>Metrica</td><td>Score ponderado: 60% CTR + 40% views</td><td>Equilibra atratividade (CTR) com volume real (views)</td></tr>
+                    <tr><td>Classificacao</td><td>1 estrutura por titulo</td><td>Ranking limpo, sem ambiguidade</td></tr>
+                    <tr><td>Abstracao</td><td>Variacoes agrupadas como UMA estrutura</td><td>Forca esta na formula-base</td></tr>
+                    <tr><td>Nomenclatura</td><td>Codigo + formula (EST-01: What [X]...)</td><td>Referencia facil + clareza</td></tr>
+                    <tr><td>Exemplo na tabela</td><td>1 exemplo (melhor video com CTR + views)</td><td>Compreensao imediata</td></tr>
+                    <tr><td>Recomendacoes</td><td>So formula abstrata com [VARIAVEIS]</td><td>Foco na estrutura, liberdade de aplicacao</td></tr>
+                    <tr><td>Limite ranking</td><td>Top 10-15 + mencoes</td><td>Legibilidade</td></tr>
+                    <tr><td>Volume minimo</td><td>Sem minimo</td><td>1 video com estrutura unica = oportunidade</td></tr>
+                    <tr><td>Lista</td><td>Auto-construida, acumulativa</td><td>Zero trabalho manual, memoria historica</td></tr>
+                    <tr><td>Consistencia</td><td>Auto-reforçada pela memoria</td><td>Banco de estruturas como ancora</td></tr>
+                    <tr><td>Comunicacao</td><td>Independente na v1</td><td>Cruzamento = Agente 6</td></tr>
+                </table>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- RESUMO -->
+            <section id="resumo">
+                <h2>Resumo Final</h2>
+
+                <table class="decision-table">
+                    <tr><th>Aspecto</th><th>Especificacao</th></tr>
+                    <tr><td>O que e</td><td>Especialista em identificar e rankear estruturas de titulo por performance</td></tr>
+                    <tr><td>Input</td><td>Titulo + CTR + views + data (4 dados &mdash; unico da Camada 2 com 4)</td></tr>
+                    <tr><td>Metrica</td><td>Score ponderado: 60% CTR + 40% views (normalizado 0-100)</td></tr>
+                    <tr><td>Classificacao</td><td>1 estrutura por titulo (variacoes agrupadas)</td></tr>
+                    <tr><td>Volume minimo</td><td>Sem minimo &mdash; toda estrutura entra no ranking</td></tr>
+                    <tr><td>Lista</td><td>Auto-construida na 1a execucao, acumula nas seguintes</td></tr>
+                    <tr><td>Output</td><td>Tabela (ranking top 10-15 por score) + texto (observacoes + recomendacoes)</td></tr>
+                    <tr><td>Blocos</td><td>1) Ranking com CTR+views+score 2) Observacoes 3) Formulas com [VARIAVEIS]</td></tr>
+                    <tr><td>Comunicacao</td><td>Independente na v1. Output vai pro Agente 6</td></tr>
+                    <tr><td>Maturidade</td><td>7 dias</td></tr>
+                    <tr><td>Desafio unico</td><td>Nivel de abstracao + interpretacao divergencia CTR vs views</td></tr>
+                </table>
+            </section>
+
+            <div class="footer-bar">
+                <p>Agente 4 &mdash; Analisador de Estruturas de Titulo &bull; Camada 2 &bull; v2.0 (com CTR) &bull; Fevereiro 2026</p>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

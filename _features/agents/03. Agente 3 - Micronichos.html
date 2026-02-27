@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agente 3 — Analisador de Micronichos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a24;
+            --bg-card: #16161f;
+            --text-primary: #e8e8ed;
+            --text-secondary: #a0a0b0;
+            --text-muted: #6b6b7b;
+            --accent: #00d4aa;
+            --accent-dim: rgba(0, 212, 170, 0.15);
+            --warning: #ff6b6b;
+            --warning-dim: rgba(255, 107, 107, 0.15);
+            --highlight: #ffd93d;
+            --highlight-dim: rgba(255, 217, 61, 0.1);
+            --purple: #a78bfa;
+            --purple-dim: rgba(167, 139, 250, 0.15);
+            --orange: #ff9f43;
+            --orange-dim: rgba(255, 159, 67, 0.15);
+            --blue: #54a0ff;
+            --blue-dim: rgba(84, 160, 255, 0.15);
+            --cyan: #22d3ee;
+            --cyan-dim: rgba(34, 211, 238, 0.15);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-accent: rgba(0, 212, 170, 0.3);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.8;
+            font-size: 16px;
+        }
+        .container { display: flex; min-height: 100vh; }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            padding: 2rem 1.5rem;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .sidebar-header { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+        .sidebar-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--purple); font-weight: 600; margin-bottom: 0.5rem; }
+        .sidebar-subtitle { font-size: 1rem; color: var(--text-primary); font-weight: 600; }
+        .nav-section { margin-bottom: 1.5rem; }
+        .nav-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.75rem; font-weight: 600; }
+        .nav-link {
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 0.75rem; color: var(--text-secondary); text-decoration: none;
+            font-size: 0.85rem; border-radius: 6px; transition: all 0.2s ease; margin-bottom: 0.2rem;
+        }
+        .nav-link:hover { background: var(--purple-dim); color: var(--purple); }
+        .nav-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+        /* Main */
+        .main { flex: 1; margin-left: 280px; padding: 3rem 4rem; max-width: 1100px; }
+        h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem; line-height: 1.2; }
+        h1 .accent { color: var(--purple); }
+        h2 { font-size: 1.75rem; font-weight: 700; margin-top: 3.5rem; margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--purple); display: inline-block; }
+        h3 { font-size: 1.25rem; font-weight: 600; margin-top: 2rem; margin-bottom: 1rem; }
+        h4 { font-size: 1.1rem; font-weight: 600; color: var(--purple); margin-top: 1.5rem; margin-bottom: 0.75rem; }
+        p { margin-bottom: 1.5rem; color: var(--text-secondary); }
+        strong { color: var(--text-primary); }
+        .meta { color: var(--text-muted); font-size: 0.875rem; margin-bottom: 2rem; }
+        ul { margin: 1rem 0 1.5rem 1.5rem; }
+        ul li { color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.95rem; }
+        ul li strong { color: var(--text-primary); }
+
+        .highlight-card {
+            background: var(--bg-card); border: 1px solid var(--border-accent); border-radius: 12px;
+            padding: 2rem; margin: 2.5rem 0; position: relative; overflow: hidden;
+        }
+        .highlight-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--purple), transparent); }
+        .highlight-card .label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--purple); font-weight: 600; margin-bottom: 1rem; }
+        .highlight-card p { color: var(--text-primary); font-size: 1.1rem; margin-bottom: 0; }
+
+        .divider { height: 1px; background: linear-gradient(90deg, var(--purple), transparent); margin: 3rem 0; }
+
+        .insight-box {
+            background: linear-gradient(135deg, var(--purple-dim) 0%, transparent 100%);
+            border-left: 3px solid var(--purple); padding: 1.25rem 1.5rem; margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0; font-weight: 500; color: var(--text-primary); font-size: 1rem;
+        }
+        .insight-box.green { background: linear-gradient(135deg, var(--accent-dim) 0%, transparent 100%); border-left-color: var(--accent); }
+        .insight-box.warning { background: linear-gradient(135deg, var(--warning-dim) 0%, transparent 100%); border-left-color: var(--warning); }
+        .insight-box.highlight { background: linear-gradient(135deg, var(--highlight-dim) 0%, transparent 100%); border-left-color: var(--highlight); }
+        .insight-box.blue { background: linear-gradient(135deg, var(--blue-dim) 0%, transparent 100%); border-left-color: var(--blue); }
+        .insight-box.orange { background: linear-gradient(135deg, var(--orange-dim) 0%, transparent 100%); border-left-color: var(--orange); }
+
+        .decision-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .decision-table th {
+            background: var(--bg-tertiary); color: var(--purple); font-weight: 600; font-size: 0.75rem;
+            text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; text-align: left; border-bottom: 2px solid var(--purple);
+        }
+        .decision-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+        .decision-table tr:hover td { background: var(--bg-tertiary); }
+        .decision-table td:first-child { color: var(--text-primary); font-weight: 500; }
+
+        .code-block {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 1.5rem; margin: 2rem 0; font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem; color: var(--text-secondary); line-height: 1.6; overflow-x: auto; white-space: pre-wrap;
+        }
+        .code-block .accent { color: var(--accent); }
+        .code-block .purple { color: var(--purple); }
+        .code-block .warning { color: var(--warning); }
+        .code-block .highlight { color: var(--highlight); }
+        .code-block .blue { color: var(--blue); }
+        .code-block .orange { color: var(--orange); }
+        .code-block .muted { color: var(--text-muted); }
+
+        .metric-row { display: flex; gap: 1rem; margin: 1.5rem 0; flex-wrap: wrap; }
+        .metric-box {
+            background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 10px;
+            padding: 1rem 1.25rem; flex: 1; min-width: 140px; text-align: center;
+        }
+        .metric-value { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
+        .metric-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+        .tree-block {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 2rem; margin: 2rem 0; font-family: 'JetBrains Mono', monospace;
+            font-size: 0.82rem; line-height: 1.8;
+        }
+        .tree-block .lvl0 { color: var(--text-muted); }
+        .tree-block .lvl1 { color: var(--accent); padding-left: 1.5rem; }
+        .tree-block .lvl2 { color: var(--purple); padding-left: 3rem; }
+        .tree-block .lvl3 { color: var(--text-secondary); padding-left: 4.5rem; }
+        .tree-block .connector { color: var(--text-muted); }
+
+        /* Report mock */
+        .report-mock {
+            background: var(--bg-card); border: 2px solid var(--purple); border-radius: 16px;
+            padding: 0; margin: 2.5rem 0; overflow: hidden;
+        }
+        .report-header {
+            background: linear-gradient(135deg, var(--purple-dim), var(--bg-tertiary));
+            padding: 1.5rem 2rem; border-bottom: 1px solid var(--border);
+        }
+        .report-header-title { font-size: 1.1rem; font-weight: 700; color: var(--purple); margin-bottom: 0.25rem; }
+        .report-header-meta { font-size: 0.8rem; color: var(--text-muted); }
+        .report-body { padding: 2rem; }
+        .report-section-title {
+            font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em;
+            font-weight: 700; padding: 0.4rem 0.75rem; border-radius: 4px;
+            display: inline-block; margin-bottom: 1rem; margin-top: 1.5rem;
+        }
+        .report-section-title:first-child { margin-top: 0; }
+        .report-section-title.purple { background: var(--purple-dim); color: var(--purple); }
+        .report-section-title.green { background: var(--accent-dim); color: var(--accent); }
+        .report-section-title.red { background: var(--warning-dim); color: var(--warning); }
+        .report-section-title.yellow { background: var(--highlight-dim); color: var(--highlight); }
+        .report-section-title.blue { background: var(--blue-dim); color: var(--blue); }
+        .report-text { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.8; margin-bottom: 1rem; }
+        .report-text strong { color: var(--text-primary); }
+
+        .report-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin: 1rem 0; }
+        .report-table th {
+            background: var(--bg-tertiary); color: var(--purple); font-weight: 600; font-size: 0.7rem;
+            text-transform: uppercase; letter-spacing: 0.05em; padding: 0.6rem 0.75rem; text-align: left;
+            border-bottom: 2px solid var(--purple);
+        }
+        .report-table td { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+        .report-table tr:hover td { background: var(--bg-tertiary); }
+        .report-table tr:first-child td { color: var(--accent); font-weight: 600; }
+        .report-table tr:last-child td { color: var(--warning); }
+        .report-table td:first-child { font-weight: 600; color: var(--text-primary); }
+
+        .report-rec {
+            background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px;
+            padding: 1rem 1.25rem; margin-bottom: 0.75rem;
+        }
+        .report-rec-title { font-weight: 700; color: var(--purple); font-size: 0.9rem; margin-bottom: 0.25rem; }
+        .report-rec-desc { color: var(--text-secondary); font-size: 0.85rem; }
+
+        .badge {
+            font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;
+            padding: 0.35rem 0.75rem; border-radius: 20px; display: inline-block;
+        }
+        .badge.purple { background: var(--purple-dim); color: var(--purple); }
+        .badge.green { background: var(--accent-dim); color: var(--accent); }
+        .badge.yellow { background: var(--highlight-dim); color: var(--highlight); }
+
+        .footer-bar { margin-top: 4rem; padding: 2rem 0; border-top: 1px solid var(--border); text-align: center; }
+        .footer-bar p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0; }
+
+        @media (max-width: 900px) {
+            .sidebar { display: none; }
+            .main { margin-left: 0; padding: 2rem 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <!-- SIDEBAR -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">Camada 2 &mdash; Analise Especializada</div>
+                <div class="sidebar-subtitle">Agente 3: Micronichos</div>
+            </div>
+            <div class="nav-section">
+                <div class="nav-label">Fundamento</div>
+                <a href="#oque" class="nav-link"><span class="nav-dot" style="background:var(--purple)"></span> O que e um Micronicho</a>
+                <a href="#hierarquia" class="nav-link"><span class="nav-dot" style="background:var(--purple)"></span> Hierarquia Completa</a>
+                <a href="#caracteristicas" class="nav-link"><span class="nav-dot" style="background:var(--purple)"></span> 6 Caracteristicas</a>
+                <a href="#importancia" class="nav-link"><span class="nav-dot" style="background:var(--purple)"></span> Importancia Estrategica</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-label">Especificacao</div>
+                <a href="#input" class="nav-link"><span class="nav-dot" style="background:var(--accent)"></span> Input (3 dados)</a>
+                <a href="#filosofia" class="nav-link"><span class="nav-dot" style="background:var(--accent)"></span> Filosofia Minimalista</a>
+                <a href="#metrica" class="nav-link"><span class="nav-dot" style="background:var(--accent)"></span> Metrica de Performance</a>
+                <a href="#output" class="nav-link"><span class="nav-dot" style="background:var(--accent)"></span> Output (3 blocos)</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-label">Exemplo + Decisoes</div>
+                <a href="#exemplo" class="nav-link"><span class="nav-dot" style="background:var(--highlight)"></span> Exemplo de Relatorio</a>
+                <a href="#decisoes" class="nav-link"><span class="nav-dot" style="background:var(--text-muted)"></span> Decisoes Tomadas</a>
+                <a href="#resumo" class="nav-link"><span class="nav-dot" style="background:var(--text-muted)"></span> Resumo Final</a>
+            </div>
+        </nav>
+
+        <!-- MAIN -->
+        <main class="main">
+
+            <!-- HEADER -->
+            <section id="oque">
+                <h1>Agente 3: Analisador de <span class="accent">Micronichos</span></h1>
+                <div class="meta">Camada 2 &mdash; Analise Especializada &bull; 26 de Fevereiro de 2026 &bull; Especificacao Completa</div>
+
+                <div class="highlight-card">
+                    <div class="label">Definicao</div>
+                    <p>Um micronicho e uma <strong>subcategoria tematica contida dentro do subnicho foco de um canal</strong>. E o nivel intermediario entre o subnicho (amplo) e o tema individual (especifico de 1 video).</p>
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- HIERARQUIA -->
+            <section id="hierarquia">
+                <h2>Hierarquia Completa</h2>
+
+                <div class="metric-row">
+                    <div class="metric-box">
+                        <div class="metric-value" style="color:var(--text-muted)">1</div>
+                        <div class="metric-label">Nicho</div>
+                        <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem">Historia</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-value" style="color:var(--accent)">2</div>
+                        <div class="metric-label">Subnicho</div>
+                        <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem">Foco do canal</div>
+                    </div>
+                    <div class="metric-box" style="border-color:var(--purple)">
+                        <div class="metric-value" style="color:var(--purple)">3</div>
+                        <div class="metric-label">Micronicho</div>
+                        <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem">Subcategoria tematica</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-value" style="color:var(--orange)">4</div>
+                        <div class="metric-label">Tema</div>
+                        <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem">Assunto de 1 video</div>
+                    </div>
+                </div>
+
+                <h4>Exemplo: Relatos de Guerra &mdash; WWII</h4>
+                <div class="tree-block">
+                    <div class="lvl0">Historia <span class="muted">(NICHO)</span></div>
+                    <div class="lvl1"><span class="connector">&boxur;&HorizontalLine; </span>Relatos de Guerra &mdash; Segunda Guerra Mundial <span class="muted">(SUBNICHO)</span></div>
+                    <div class="lvl2"><span class="connector">&boxvr;&HorizontalLine; </span>Tratamento de Prisioneiros <span class="muted">(MICRONICHO)</span></div>
+                    <div class="lvl3"><span class="connector">&boxvr;</span> Auschwitz: A Rotina Diaria dos Prisioneiros</div>
+                    <div class="lvl3"><span class="connector">&boxvr;</span> Os Experimentos de Mengele</div>
+                    <div class="lvl3"><span class="connector">&boxur;</span> A Marcha da Morte de 1945</div>
+                    <div class="lvl2"><span class="connector">&boxvr;&HorizontalLine; </span>Espionagem e Inteligencia Militar <span class="muted">(MICRONICHO)</span></div>
+                    <div class="lvl3"><span class="connector">&boxvr;</span> Enigma: Como os Aliados Quebraram o Codigo Nazista</div>
+                    <div class="lvl3"><span class="connector">&boxur;</span> Operacao Mincemeat: O Cadaver que Enganou Hitler</div>
+                    <div class="lvl2"><span class="connector">&boxvr;&HorizontalLine; </span>Herois Nao Declarados <span class="muted">(MICRONICHO)</span></div>
+                    <div class="lvl3"><span class="connector">&boxvr;</span> Witold Pilecki: O Homem que se Infiltrou em Auschwitz</div>
+                    <div class="lvl3"><span class="connector">&boxur;</span> Desmond Doss: O Soldado que Nunca Pegou uma Arma</div>
+                    <div class="lvl2"><span class="connector">&boxur;&HorizontalLine; </span><span class="muted">... + dezenas de outros micronichos</span></div>
+                </div>
+
+                <h4>Exemplos por Subnicho</h4>
+                <table class="decision-table">
+                    <tr><th>Subnicho do Canal</th><th>Micronichos Possiveis</th></tr>
+                    <tr><td>Reis Perversos</td><td>Tiranos medievais, imperadores romanos, ditadores sec. XX, rainhas crueis, lideres religiosos, senhores da guerra asiaticos, faraos</td></tr>
+                    <tr><td>Licoes de Vida</td><td>Arrependimentos carreira, relacionamentos, saude, amizade/solidao, morte/mortalidade, erros de criacao de filhos</td></tr>
+                    <tr><td>Historias Sombrias</td><td>Serial killers, seitas, experimentos humanos, torturas historicas, misterios nao resolvidos, desaparecimentos, manicomios</td></tr>
+                    <tr><td>Relatos de Guerra</td><td>Prisioneiros, espionagem, herois nao declarados, batalhas, armamentos, vida civil, estrategia de comando</td></tr>
+                </table>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- 6 CARACTERISTICAS -->
+            <section id="caracteristicas">
+                <h2>6 Caracteristicas Essenciais</h2>
+
+                <div class="insight-box">
+                    <strong>1. E uma CATEGORIA, nao um assunto individual.</strong> O micronicho agrupa multiplos temas possiveis sob um mesmo "guarda-chuva" tematico. "Espionagem Militar" nao e um video &mdash; e um universo de videos possiveis.
+                </div>
+                <div class="insight-box green">
+                    <strong>2. E CONTIDO dentro do subnicho do canal.</strong> Todo micronicho precisa fazer sentido dentro do subnicho. "Receitas de bolo" nao e micronicho de Relatos de Guerra. Mas "Alimentacao nas Trincheiras" sim.
+                </div>
+                <div class="insight-box blue">
+                    <strong>3. Um subnicho tem MUITOS micronichos possiveis.</strong> A riqueza de micronichos determina a capacidade do canal de variar conteudo (protecao contra inauthentic content) sem sair do foco.
+                </div>
+                <div class="insight-box orange">
+                    <strong>4. Um tema pode pertencer a mais de um micronicho.</strong> "Os Experimentos de Mengele" pode ser "Tratamento de Prisioneiros" ou "Crimes de Guerra". Normal &mdash; o importante e manter consistencia.
+                </div>
+                <div class="insight-box highlight">
+                    <strong>5. Micronichos tem "tamanhos" diferentes.</strong> Alguns sao vastos (dezenas de temas), outros limitados (5-10). Pequeno = esgota rapido. Amplo = pode subdividir.
+                </div>
+                <div class="insight-box warning">
+                    <strong>6. A audiencia tem preferencias DIFERENTES por micronicho.</strong> Dentro do mesmo canal, performance varia dramaticamente. Detectar isso e o trabalho central do Agente 3.
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- IMPORTANCIA -->
+            <section id="importancia">
+                <h2>Importancia Estrategica</h2>
+
+                <p>Os micronichos sao a <strong>unidade fundamental de diversificacao de conteudo</strong>. Importam por 3 razoes:</p>
+
+                <div class="metric-row">
+                    <div class="metric-box" style="border-color:rgba(167,139,250,0.3)">
+                        <div class="metric-value" style="color:var(--purple);font-size:1.2rem">Performance</div>
+                        <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:0.5rem;text-align:left">Micronichos diferentes tem performances drasticamente diferentes. Saber qual funciona muda completamente a estrategia de producao.</div>
+                    </div>
+                    <div class="metric-box" style="border-color:rgba(255,107,107,0.3)">
+                        <div class="metric-value" style="color:var(--warning);font-size:1.2rem">Protecao</div>
+                        <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:0.5rem;text-align:left">80% dos videos no mesmo micronicho = risco de inauthentic content. Variar micronichos e uma das formas mais efetivas de se proteger.</div>
+                    </div>
+                    <div class="metric-box" style="border-color:rgba(255,217,61,0.3)">
+                        <div class="metric-value" style="color:var(--highlight);font-size:1.2rem">Oportunidade</div>
+                        <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:0.5rem;text-align:left">Micronichos pouco explorados com alta performance = ouro. O canal pode estar sentado numa mina sem saber.</div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- INPUT -->
+            <section id="input">
+                <h2>Input &mdash; Os 3 Dados</h2>
+
+                <p>Para cada video postado no canal (com maturidade minima de <strong>7 dias</strong>):</p>
+
+                <table class="decision-table">
+                    <tr><th>Dado</th><th>O que e</th><th>Para que serve</th></tr>
+                    <tr><td>Titulo do video</td><td>Titulo completo conforme publicado</td><td>O micronicho esta implicitamente contido no titulo. O agente extrai/infere o micronicho a partir dele.</td></tr>
+                    <tr><td>Visualizacoes</td><td>Numero total de views</td><td>Metrica de performance. Indica o quanto a audiencia se interessou.</td></tr>
+                    <tr><td>Data de postagem</td><td>Data de publicacao</td><td>Contextualiza as views. 50K em 7 dias ≠ 50K em 90 dias.</td></tr>
+                </table>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- FILOSOFIA -->
+            <section id="filosofia">
+                <h2>Filosofia: Especialista Minimalista</h2>
+
+                <div class="highlight-card">
+                    <div class="label">Principio de design</div>
+                    <p>O Agente 3 recebe <strong>o minimo necessario para fazer seu trabalho com excelencia</strong>. Nada mais. Decisao deliberada, nao limitacao.</p>
+                </div>
+
+                <div class="insight-box">
+                    <strong>Agente especialista = contexto cirurgico.</strong> Existe para fazer UMA coisa: analisar micronichos. Dar informacao irrelevante nao ajuda &mdash; atrapalha. Cria ruido e risco de alucinacao.
+                </div>
+                <div class="insight-box green">
+                    <strong>Bolha de contexto = zero ruido.</strong> Nunca se confunde, nunca mistura dimensoes, nunca tenta fazer o trabalho de outro agente.
+                </div>
+                <div class="insight-box blue">
+                    <strong>Paralelismo real = independencia total.</strong> Agentes 3/4/5 rodam simultaneamente. Cruzar informacoes e problema do Agente 6 &mdash; nao destes.
+                </div>
+
+                <h4>Por que NAO recebe outras metricas</h4>
+                <table class="decision-table">
+                    <tr><th>Metrica excluida</th><th>Motivo</th><th>Quem cuida</th></tr>
+                    <tr><td>Retencao %</td><td>Mede qualidade do script/copy, nao do micronicho. Dois videos no mesmo micronicho podem ter 55% e 25% por conta da copy.</td><td>Agente 1</td></tr>
+                    <tr><td>CTR</td><td>Mede atratividade do titulo + thumbnail. Dominado pela formula do titulo, nao pela categoria tematica.</td><td>Agente 4</td></tr>
+                    <tr><td>Watch Time</td><td>Metrica composta (views x retencao x duracao). Mistura causas &mdash; agente nao consegue separar.</td><td>Nenhum (derivada)</td></tr>
+                </table>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- METRICA -->
+            <section id="metrica">
+                <h2>Metrica de Performance</h2>
+
+                <div class="insight-box highlight">
+                    <strong>Decisao:</strong> Views brutas + idade como contexto interpretativo. Sem formula. Sem normalizacao. O agente interpreta como um analista humano.
+                </div>
+
+                <p>O ranking usa <strong>views totais</strong> como numero principal. A <strong>data de postagem</strong> aparece como informacao complementar que o agente interpreta nas observacoes em texto:</p>
+
+                <div class="code-block"><span class="purple">"O micronicho 'Espionagem Militar' lidera o ranking com 85K views medias.
+Destaque para o video mais recente (postado ha 12 dias) que ja alcancou
+45K views — <span class="accent">ritmo acima da media do micronicho</span>, indicando que o
+interesse da audiencia esta crescendo."</span>
+
+<span class="warning">"O micronicho 'Estrategia de Alto Comando' tem 22K views medias, mas
+o video mais antigo (60 dias, 35K) performa melhor que os recentes
+(15 dias, 8K) — possivel sinal de saturacao."</span></div>
+
+                <h4>Por que essa abordagem</h4>
+                <ul>
+                    <li><strong>Simples</strong> &mdash; sem formulas que podem distorcer</li>
+                    <li><strong>Humana</strong> &mdash; o agente interpreta como analista, olhando contexto</li>
+                    <li><strong>Flexivel</strong> &mdash; nao fica preso a formula que pode falhar em cenarios especificos</li>
+                    <li><strong>Sem dependencia tecnica</strong> &mdash; nao precisa de dados da API que podem nao estar disponiveis</li>
+                </ul>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- OUTPUT -->
+            <section id="output">
+                <h2>Output &mdash; Os 3 Blocos</h2>
+
+                <div class="metric-row">
+                    <div class="metric-box" style="border-color:rgba(167,139,250,0.3)">
+                        <div class="metric-value" style="color:var(--purple);font-size:1.3rem">Bloco 1</div>
+                        <div class="metric-label">Ranking</div>
+                        <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:0.5rem">Tabela hierarquizada: melhor → pior micronicho</div>
+                    </div>
+                    <div class="metric-box" style="border-color:rgba(0,212,170,0.3)">
+                        <div class="metric-value" style="color:var(--accent);font-size:1.3rem">Bloco 2</div>
+                        <div class="metric-label">Observacoes</div>
+                        <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:0.5rem">Texto analitico: destaques, alertas, padroes</div>
+                    </div>
+                    <div class="metric-box" style="border-color:rgba(255,217,61,0.3)">
+                        <div class="metric-value" style="color:var(--highlight);font-size:1.3rem">Bloco 3</div>
+                        <div class="metric-label">Recomendacoes</div>
+                        <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:0.5rem">Novos micronichos nao testados com potencial</div>
+                    </div>
+                </div>
+
+                <h4>Bloco 1: Ranking Hierarquizado</h4>
+                <p>Tabela ordenada do melhor para o pior, com N de videos, views media, melhor e pior video com idade. <strong>Sem volume minimo</strong> &mdash; todo micronicho entra, mesmo com 1 video (1 viral = oportunidade a investigar).</p>
+
+                <h4>Bloco 2: Observacoes Analiticas</h4>
+                <ul>
+                    <li><strong>Melhores performances:</strong> micronichos para dobrar a aposta</li>
+                    <li><strong>Piores performances:</strong> sinais de parar ou repensar</li>
+                    <li><strong>Padroes:</strong> concentracao excessiva, emergentes, em declinio</li>
+                </ul>
+
+                <h4>Bloco 3: Recomendacoes de Novos Micronichos</h4>
+                <p>Inferencia do agente &mdash; micronichos que <strong>nao existem nos dados</strong> mas fazem sentido no subnicho e tem potencial com base nos padroes observados. A capacidade mais "inteligente" do agente.</p>
+
+                <div class="insight-box">
+                    <strong>Lista auto-construida com memoria:</strong> Na primeira execucao, o agente identifica todos os micronichos e cria a lista automaticamente. Nas seguintes, a lista acumula &mdash; zero trabalho manual.
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- EXEMPLO DE RELATORIO -->
+            <section id="exemplo">
+                <h2>Exemplo Completo de Relatorio</h2>
+                <p>Simulacao para um canal ficticio de <strong>Relatos de Guerra &mdash; WWII</strong> com 22 videos.</p>
+
+                <div class="report-mock">
+                    <div class="report-header">
+                        <div class="report-header-title">Analise de Micronichos &mdash; Relatos de Guerra WWII [PT-BR]</div>
+                        <div class="report-header-meta">26-02-2026 &bull; 22 videos analisados (7+ dias) &bull; 7 micronichos identificados</div>
+                    </div>
+                    <div class="report-body">
+
+                        <!-- BLOCO 1 -->
+                        <div class="report-section-title purple">Bloco 1 &mdash; Ranking de Micronichos</div>
+                        <table class="report-table">
+                            <tr><th>#</th><th>Micronicho</th><th>Videos</th><th>Views Media</th><th>Views Total</th><th>Melhor Video</th><th>Pior Video</th></tr>
+                            <tr><td>1</td><td>Herois Nao Declarados</td><td>4</td><td>87.500</td><td>350.000</td><td>180K (12d)</td><td>32K (45d)</td></tr>
+                            <tr style="color:var(--text-secondary)"><td>2</td><td>Espionagem e Inteligencia</td><td>3</td><td>72.333</td><td>217.000</td><td>95K (30d)</td><td>52K (22d)</td></tr>
+                            <tr style="color:var(--text-secondary)"><td>3</td><td>Tratamento de Prisioneiros</td><td>5</td><td>58.200</td><td>291.000</td><td>120K (60d)</td><td>18K (8d)</td></tr>
+                            <tr style="color:var(--text-secondary)"><td>4</td><td>Batalhas Decisivas</td><td>4</td><td>41.750</td><td>167.000</td><td>65K (35d)</td><td>22K (20d)</td></tr>
+                            <tr style="color:var(--text-secondary)"><td>5</td><td>Armamentos e Tecnologia</td><td>3</td><td>28.000</td><td>84.000</td><td>38K (40d)</td><td>15K (25d)</td></tr>
+                            <tr style="color:var(--text-secondary)"><td>6</td><td>Vida Civil Durante a Guerra</td><td>2</td><td>24.500</td><td>49.000</td><td>31K (18d)</td><td>18K (28d)</td></tr>
+                            <tr><td>7</td><td>Estrategia de Alto Comando</td><td>1</td><td>12.000</td><td>12.000</td><td>12K (52d)</td><td>&mdash;</td></tr>
+                        </table>
+
+                        <!-- BLOCO 2 -->
+                        <div class="report-section-title green">Bloco 2 &mdash; Observacoes Analiticas</div>
+
+                        <p style="font-size:0.8rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem">Destaques positivos</p>
+                        <div class="report-text">
+                            O micronicho <strong>"Herois Nao Declarados"</strong> e disparado o mais forte do canal. Com 4 videos e media de 87.5K views, supera o segundo colocado em mais de 20%. Particularmente notavel: o video mais recente (180K em apenas 12 dias) &mdash; indicando interesse em <strong>ascensao</strong>. A audiencia responde fortemente a narrativas de figuras desconhecidas que fizeram a diferenca.
+                        </div>
+                        <div class="report-text">
+                            <strong>"Espionagem e Inteligencia"</strong> e o segundo mais forte, com alta consistencia &mdash; o pior video (52K) ainda esta acima da media geral. Performance solida sem grandes oscilacoes = demanda estavel.
+                        </div>
+
+                        <p style="font-size:0.8rem;font-weight:600;color:var(--warning);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;margin-top:1.5rem">Sinais de alerta</p>
+                        <div class="report-text">
+                            <strong>"Estrategia de Alto Comando"</strong> tem 1 video com 12K views em 52 dias &mdash; pior performance isolada do canal. A audiencia parece preferir <strong>narrativas humanas</strong> (herois, prisioneiros, espioes) a analises estrategicas abstratas.
+                        </div>
+                        <div class="report-text">
+                            <strong>"Armamentos e Tecnologia"</strong> ocupa o 5o lugar. Nenhum dos 3 videos ultrapassou 40K. Comparado com o 1o lugar (media 87.5K), entrega menos da metade. Retorno desproporcional.
+                        </div>
+
+                        <p style="font-size:0.8rem;font-weight:600;color:var(--highlight);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;margin-top:1.5rem">Concentracao e diversidade</p>
+                        <div class="report-text">
+                            "Tratamento de Prisioneiros" concentra 5 de 22 videos (23%). Combinado com "Batalhas Decisivas" (4 videos) = 41% do conteudo. Enquanto isso, "Herois Nao Declarados" (o mais forte) tem apenas 4 videos &mdash; <strong>oportunidade de redistribuir producao</strong> em direcao aos micronichos de melhor performance.
+                        </div>
+
+                        <!-- BLOCO 3 -->
+                        <div class="report-section-title yellow">Bloco 3 &mdash; Recomendacoes de Novos Micronichos</div>
+                        <div class="report-text" style="margin-bottom:1rem">
+                            Padrao observado: audiencia responde melhor a <strong>narrativas humanas pessoais</strong> do que a conteudo analitico/tecnico. Micronichos sugeridos com base nesse padrao:
+                        </div>
+
+                        <div class="report-rec">
+                            <div class="report-rec-title">1. Fugas e Evasoes</div>
+                            <div class="report-rec-desc">Prisioneiros que escaparam de campos, soldados que fugiram por tras das linhas. Combina elemento humano pessoal + suspense narrativo.</div>
+                        </div>
+                        <div class="report-rec">
+                            <div class="report-rec-title">2. Traidores e Desertores</div>
+                            <div class="report-rec-desc">Figuras que mudaram de lado, colaboracionistas, desertores por questoes morais. Narrativa humana com conflito moral &mdash; angulo oposto de "Herois".</div>
+                        </div>
+                        <div class="report-rec">
+                            <div class="report-rec-title">3. Mulheres na Guerra</div>
+                            <div class="report-rec-desc">Enfermeiras, pilotas sovieticas (Bruxas da Noite), resistencia francesa feminina. Combina narrativa pessoal + figuras desconhecidas &mdash; os dois ingredientes top.</div>
+                        </div>
+                        <div class="report-rec">
+                            <div class="report-rec-title">4. Ultimos Dias e Rendicoes</div>
+                            <div class="report-rec-desc">Momentos finais de batalhas, ultimas horas de regimes, rendicoes dramaticas. Alta carga emocional com desfecho definido.</div>
+                        </div>
+
+                    </div>
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- DECISOES -->
+            <section id="decisoes">
+                <h2>Decisoes Tomadas</h2>
+
+                <table class="decision-table">
+                    <tr><th>Aspecto</th><th>Decisao</th><th>Motivo</th></tr>
+                    <tr><td>Metrica</td><td>Views brutas + idade como contexto</td><td>Simples, humano, flexivel, sem dependencia tecnica</td></tr>
+                    <tr><td>Classificacao</td><td>1 unico micronicho por video</td><td>Ranking limpo, sem dupla contagem</td></tr>
+                    <tr><td>Volume minimo</td><td>Sem minimo</td><td>1 video viral = oportunidade a investigar</td></tr>
+                    <tr><td>Lista de micronichos</td><td>Auto-construida, acumulativa</td><td>Zero trabalho manual, memoria historica</td></tr>
+                    <tr><td>Formato output</td><td>Tabela + texto</td><td>Escanear rapido + insights qualitativos</td></tr>
+                    <tr><td>Metricas excluidas</td><td>Retencao, CTR, watch time</td><td>Pertencem a outros agentes (1, 4)</td></tr>
+                    <tr><td>Comunicacao inter-agentes</td><td>NAO na v1</td><td>Cruzamento e problema do Agente 6</td></tr>
+                </table>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- RESUMO -->
+            <section id="resumo">
+                <h2>Resumo Final</h2>
+
+                <table class="decision-table">
+                    <tr><th>Aspecto</th><th>Especificacao</th></tr>
+                    <tr><td>O que e</td><td>Especialista em identificar e rankear micronichos por performance</td></tr>
+                    <tr><td>Input</td><td>Titulo + views + data de postagem (3 dados, nada mais)</td></tr>
+                    <tr><td>Metrica</td><td>Views brutas + idade como contexto interpretativo</td></tr>
+                    <tr><td>Classificacao</td><td>1 micronicho por video (sem dupla contagem)</td></tr>
+                    <tr><td>Volume minimo</td><td>Sem minimo &mdash; todo micronicho entra no ranking</td></tr>
+                    <tr><td>Lista de micronichos</td><td>Auto-construida na 1a execucao, acumula nas seguintes</td></tr>
+                    <tr><td>Output formato</td><td>Tabela (ranking) + texto (observacoes + recomendacoes)</td></tr>
+                    <tr><td>Output blocos</td><td>1) Ranking hierarquizado 2) Observacoes analiticas 3) Novos micronichos</td></tr>
+                    <tr><td>Comunicacao</td><td>Independente na v1. Output vai pro Agente 6</td></tr>
+                    <tr><td>Maturidade minima</td><td>7 dias (video precisa ter 7+ dias para entrar)</td></tr>
+                </table>
+            </section>
+
+            <div class="footer-bar">
+                <p>Agente 3 &mdash; Analisador de Micronichos &bull; Camada 2 &bull; v1.0 &bull; Fevereiro 2026</p>
+            </div>
+        </main>
+    </div>
+</body>
+</html>
