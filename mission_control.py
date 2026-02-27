@@ -84,18 +84,22 @@ AGENTES_V2_TEMPLATE = [
         'camada': 2, 'cor': '#8b5cf6',
         'skin': '#ffcc99', 'shirt': '#8b5cf6', 'hair': '#8b4513',
         'descricao': 'Micronichos - Identifica subcategorias tematicas que viralizam',
-        'implementado': False,
-        'api_run': None, 'api_latest': None, 'api_historico': None,
-        'analysis_table': None,
+        'implementado': True,
+        'api_run': '/api/analise-micronichos/{channel_id}',
+        'api_latest': '/api/analise-micronichos/{channel_id}/latest',
+        'api_historico': '/api/analise-micronichos/{channel_id}/historico',
+        'analysis_table': 'micronicho_analysis_runs',
     },
     {
         'id': 4, 'tipo': 'titulo_estrutura', 'nome': 'Estrutura de Titulo',
         'camada': 2, 'cor': '#3b82f6',
         'skin': '#d4a574', 'shirt': '#3b82f6', 'hair': '#2c1810',
         'descricao': 'Estrutura de Titulo - Analisa padroes de titulo e CTR',
-        'implementado': False,
-        'api_run': None, 'api_latest': None, 'api_historico': None,
-        'analysis_table': None,
+        'implementado': True,
+        'api_run': '/api/analise-titulo/{channel_id}',
+        'api_latest': '/api/analise-titulo/{channel_id}/latest',
+        'api_historico': '/api/analise-titulo/{channel_id}/historico',
+        'analysis_table': 'title_structure_analysis_runs',
     },
     {
         'id': 5, 'tipo': 'temas', 'nome': 'Temas',
@@ -418,10 +422,13 @@ async def get_mission_control_data(db):
                 'avg_ctr': ctr_map.get(nome_lower),
                 'avg_retention': retention_map.get(yt_channel_id),
                 'yt_channel_id': yt_channel_id,
-                'agentes': [{'id': a['id'], 'nome': a['nome'], 'status': a['status'],
-                              'cor': a['cor'], 'skin': a['skin'], 'shirt': a['shirt'],
+                'agentes': [{'id': a['id'], 'tipo': a['tipo'], 'nome': a['nome'],
+                              'status': a['status'], 'cor': a['cor'],
+                              'skin': a['skin'], 'shirt': a['shirt'],
                               'hair': a['hair'], 'implementado': a['implementado'],
-                              'camada': a['camada']}
+                              'camada': a['camada'], 'descricao': a.get('descricao', ''),
+                              'api_run': a.get('api_run'),
+                              'api_latest': a.get('api_latest')}
                              for a in agentes],
                 'tem_atividade': active > 0,
             })
@@ -592,6 +599,15 @@ canvas{display:block;cursor:pointer;width:100%}
 #btn-refresh-mv.loading{opacity:0.6;cursor:wait}
 #btn-refresh-mv.success{border-color:#22c55e;color:#4ade80;background:#0d2a1a}
 #btn-refresh-mv.error{border-color:#ef4444;color:#f87171;background:#2a0d0d}
+.sb-agent-status{margin:12px 0;padding:10px;background:#0a0a1a;border-radius:6px;border:1px solid #1a1a3a}
+.sb-agent-status .sb-status-row{display:flex;justify-content:space-between;align-items:center;margin:4px 0;font-size:11px}
+.sb-agent-status .sb-status-label{color:#666}
+.sb-agent-status .sb-status-val{color:#ccc;font-weight:600}
+.sb-agent-status .sb-status-val.st-green{color:#4ade80}
+.sb-agent-status .sb-status-val.st-yellow{color:#fbbf24}
+.sb-agent-status .sb-status-val.st-red{color:#f87171}
+.sb-agent-status .sb-status-val.st-blue{color:#60a5fa}
+.sb-agent-status .sb-loading{color:#555;font-size:10px;text-align:center;padding:4px}
 .sb-report{margin-top:16px;max-height:400px;overflow-y:auto}
 .rpt-header{font-weight:600;color:#00d4aa;padding:4px 0;margin-top:8px;font-size:12px}
 .rpt-alert{color:#f87171;font-size:11px;padding:2px 0}
@@ -4349,12 +4365,19 @@ function openSidebar(room, ch) {
     html += '</div>';
   }
 
+  // Agent status (fetched async) or placeholder
+  if (ag.implementado !== false && ag.canal_id) {
+    html += '<div id="sb-agent-status" class="sb-agent-status"><div class="sb-loading">Carregando status...</div></div>';
+  } else if (ag.implementado === false) {
+    html += '<div class="sb-agent-status"><div class="sb-loading" style="color:#fbbf24">EM BREVE - Agente ainda nao implementado</div></div>';
+  }
+
   // Action buttons
   html += '<div class="sb-actions">';
 
-  if (ag.canal_id) {
-    html += '<button class="sb-btn sb-btn-primary" onclick="runAgentAnalysis(\'' + ag.canal_id + '\')">Rodar Analise</button>';
-    html += '<button class="sb-btn" onclick="loadAgentReport(\'' + ag.canal_id + '\', \'' + (ag.tipo || 'copy_performance') + '\')">Ver Relatorio</button>';
+  if (ag.canal_id && ag.implementado !== false) {
+    html += '<button class="sb-btn sb-btn-primary" onclick="runAgentAnalysis(\'' + ag.canal_id + '\', \'' + (ag.tipo || 'estrutura_copy') + '\')">Rodar Analise</button>';
+    html += '<button class="sb-btn" onclick="loadAgentReport(\'' + ag.canal_id + '\', \'' + (ag.tipo || 'estrutura_copy') + '\')">Ver Relatorio</button>';
   }
 
   if (ag.planilha_url) {
@@ -4382,6 +4405,11 @@ function openSidebar(room, ch) {
     sctx.clearRect(0, 0, 48, 72);
     sctx.drawImage(bigCached, 0, 0);
   }, 50);
+
+  // Fetch agent status async
+  if (ag.implementado !== false && ag.canal_id) {
+    fetchAgentStatus(ag.canal_id, ag.tipo || 'estrutura_copy');
+  }
 }
 
 function closeSidebar() {
@@ -4390,16 +4418,135 @@ function closeSidebar() {
   if (sb) sb.style.display = 'none';
 }
 
+// Agent status cache: { "channelId_agentType": { data, ts } }
+var _agentStatusCache = {};
+var _AGENT_STATUS_TTL = 300000; // 5 min
+
+function fetchAgentStatus(channelId, agentType) {
+  var cacheKey = channelId + '_' + agentType;
+  var cached = _agentStatusCache[cacheKey];
+  if (cached && (Date.now() - cached.ts) < _AGENT_STATUS_TTL) {
+    renderAgentStatus(cached.data, agentType);
+    return;
+  }
+
+  var latestUrlMap = {
+    'estrutura_copy': '/api/analise-copy/',
+    'autenticidade': '/api/analise-autenticidade/',
+    'micronichos': '/api/analise-micronichos/',
+    'titulo_estrutura': '/api/analise-titulo/'
+  };
+  var baseUrl = latestUrlMap[agentType] || '/api/analise-copy/';
+
+  fetch(baseUrl + channelId + '/latest')
+    .then(function(r) {
+      if (r.status === 404) return null;
+      return r.json();
+    })
+    .then(function(data) {
+      if (!data) {
+        renderAgentStatus(null, agentType);
+        return;
+      }
+      _agentStatusCache[cacheKey] = { data: data, ts: Date.now() };
+      renderAgentStatus(data, agentType);
+    })
+    .catch(function() {
+      renderAgentStatus(null, agentType);
+    });
+}
+
+function renderAgentStatus(data, agentType) {
+  var div = document.getElementById('sb-agent-status');
+  if (!div) return;
+
+  if (!data) {
+    div.innerHTML = '<div class="sb-loading">Nenhuma analise encontrada</div>';
+    return;
+  }
+
+  var html = '';
+
+  // Last run date
+  var runDate = data.run_date || data.created_at || data.analysis_date;
+  if (runDate) {
+    var ago = timeAgo(runDate);
+    html += '<div class="sb-status-row"><span class="sb-status-label">Ultimo run</span><span class="sb-status-val">' + ago + '</span></div>';
+  }
+
+  // Agent-specific metrics
+  if (agentType === 'autenticidade') {
+    var score = data.authenticity_score;
+    if (score !== undefined && score !== null) {
+      var scoreClass = score >= 70 ? 'st-green' : score >= 40 ? 'st-yellow' : 'st-red';
+      html += '<div class="sb-status-row"><span class="sb-status-label">Score</span><span class="sb-status-val ' + scoreClass + '">' + Math.round(score) + '/100</span></div>';
+    }
+    var structScore = data.structure_score;
+    if (structScore !== undefined && structScore !== null) {
+      html += '<div class="sb-status-row"><span class="sb-status-label">Estrutura</span><span class="sb-status-val">' + Math.round(structScore) + '/100</span></div>';
+    }
+  } else if (agentType === 'estrutura_copy') {
+    var totalVideos = data.total_videos_analyzed;
+    if (totalVideos) {
+      html += '<div class="sb-status-row"><span class="sb-status-label">Videos analisados</span><span class="sb-status-val">' + totalVideos + '</span></div>';
+    }
+  } else if (agentType === 'micronichos') {
+    var microCount = data.micronicho_count;
+    if (microCount) {
+      html += '<div class="sb-status-row"><span class="sb-status-label">Micronichos</span><span class="sb-status-val st-blue">' + microCount + '</span></div>';
+    }
+    if (data.ranking_json && data.ranking_json.length > 0) {
+      var top = data.ranking_json[0];
+      html += '<div class="sb-status-row"><span class="sb-status-label">Top micronicho</span><span class="sb-status-val st-green">' + escapeHtml(top.micronicho || top.name || '') + '</span></div>';
+    }
+  } else if (agentType === 'titulo_estrutura') {
+    var structCount = data.structure_count;
+    if (structCount) {
+      html += '<div class="sb-status-row"><span class="sb-status-label">Estruturas</span><span class="sb-status-val st-blue">' + structCount + '</span></div>';
+    }
+    if (data.structures_list && data.structures_list.length > 0) {
+      var topStruct = data.structures_list[0];
+      html += '<div class="sb-status-row"><span class="sb-status-label">Top estrutura</span><span class="sb-status-val st-green">' + escapeHtml(topStruct.structure || topStruct.name || '') + '</span></div>';
+    }
+  }
+
+  div.innerHTML = html || '<div class="sb-loading">Dados disponiveis</div>';
+}
+
+function timeAgo(dateStr) {
+  try {
+    var d = new Date(dateStr);
+    var now = new Date();
+    var diff = Math.floor((now - d) / 1000);
+    if (diff < 60) return 'agora';
+    if (diff < 3600) return Math.floor(diff / 60) + ' min atras';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h atras';
+    var days = Math.floor(diff / 86400);
+    if (days === 1) return 'ontem';
+    if (days < 30) return days + ' dias atras';
+    return Math.floor(days / 30) + ' meses atras';
+  } catch(e) { return dateStr; }
+}
+
 function escapeHtml(str) {
   if (!str) return '';
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function runAgentAnalysis(channelId) {
+function runAgentAnalysis(channelId, agentType) {
   var btn = event.target;
   btn.disabled = true;
   btn.textContent = 'Rodando...';
-  fetch('/api/analise-completa/' + channelId, { method: 'POST' })
+
+  var runUrlMap = {
+    'estrutura_copy': '/api/analise-completa/',
+    'autenticidade': '/api/analise-completa/',
+    'micronichos': '/api/analise-micronichos/',
+    'titulo_estrutura': '/api/analise-titulo/'
+  };
+  var url = (runUrlMap[agentType] || '/api/analise-completa/') + channelId;
+
+  fetch(url, { method: 'POST' })
     .then(function(r) { return r.json(); })
     .then(function(data) {
       btn.textContent = 'Concluido!';
@@ -4411,6 +4558,8 @@ function runAgentAnalysis(channelId) {
       }, 3000);
       if (data.report) {
         showReport(data.report);
+      } else if (data.report_text) {
+        showReport(data.report_text);
       }
     })
     .catch(function(err) {
@@ -4429,7 +4578,15 @@ function loadAgentReport(channelId, agentType) {
   if (!reportDiv) return;
   reportDiv.innerHTML = '<div style="color:#888;padding:8px">Carregando...</div>';
 
-  fetch('/api/analise-copy/' + channelId + '/latest')
+  var latestUrlMap = {
+    'estrutura_copy': '/api/analise-copy/',
+    'autenticidade': '/api/analise-autenticidade/',
+    'micronichos': '/api/analise-micronichos/',
+    'titulo_estrutura': '/api/analise-titulo/'
+  };
+  var baseUrl = latestUrlMap[agentType] || '/api/analise-copy/';
+
+  fetch(baseUrl + channelId + '/latest')
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.report_text) {
