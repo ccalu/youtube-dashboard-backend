@@ -7076,17 +7076,24 @@ from title_structure_agent import (
     get_analysis_history as title_get_history
 )
 
+from theme_agent import (
+    run_analysis as theme_run_analysis,
+    get_latest_analysis as theme_get_latest,
+    get_analysis_history as theme_get_history
+)
+
 
 @app.post("/api/analise-completa/{channel_id}")
 async def trigger_unified_analysis(channel_id: str):
     """
-    Roda os 4 agentes (performance + autenticidade + micronichos + titulo) e retorna relatorio unificado.
+    Roda os 5 agentes (performance + autenticidade + micronichos + titulo + temas) e retorna relatorio unificado.
     """
     try:
         copy_result = None
         auth_result = None
         micro_result = None
         title_result = None
+        theme_result = None
         errors = []
 
         # 1. Agente de Performance (copy analysis)
@@ -7117,8 +7124,15 @@ async def trigger_unified_analysis(channel_id: str):
             logger.error(f"Erro agente titulo {channel_id}: {e}")
             errors.append(f"Titulo: {str(e)}")
 
-        # 5. Combinar relatorios
-        unified_report = _build_unified_report(copy_result, auth_result, micro_result, title_result)
+        # 5. Agente de Temas
+        try:
+            theme_result = theme_run_analysis(channel_id)
+        except Exception as e:
+            logger.error(f"Erro agente temas {channel_id}: {e}")
+            errors.append(f"Temas: {str(e)}")
+
+        # 6. Combinar relatorios
+        unified_report = _build_unified_report(copy_result, auth_result, micro_result, title_result, theme_result)
 
         channel_name = ""
         if copy_result and copy_result.get("success"):
@@ -7129,6 +7143,8 @@ async def trigger_unified_analysis(channel_id: str):
             channel_name = micro_result.get("channel_name", "")
         elif title_result and title_result.get("success"):
             channel_name = title_result.get("channel_name", "")
+        elif theme_result and theme_result.get("success"):
+            channel_name = theme_result.get("channel_name", "")
 
         return {
             "success": True,
@@ -7162,6 +7178,13 @@ async def trigger_unified_analysis(channel_id: str):
                 "total_videos": title_result.get("total_videos") if title_result else None,
                 "has_ctr_data": title_result.get("has_ctr_data") if title_result else None,
                 "ranking": title_result.get("ranking") if title_result else None
+            },
+            "temas": {
+                "success": theme_result.get("success", False) if theme_result else False,
+                "error": theme_result.get("error") if theme_result and not theme_result.get("success") else None,
+                "theme_count": theme_result.get("theme_count") if theme_result else None,
+                "total_videos": theme_result.get("total_videos") if theme_result else None,
+                "ranking": theme_result.get("ranking") if theme_result else None
             },
             "errors": errors if errors else None
         }
@@ -7265,8 +7288,8 @@ async def run_unified_analysis_all():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def _build_unified_report(copy_result: dict, auth_result: dict, micro_result: dict = None, title_result: dict = None) -> str:
-    """Combina os relatorios dos 4 agentes em 1 texto unificado."""
+def _build_unified_report(copy_result: dict, auth_result: dict, micro_result: dict = None, title_result: dict = None, theme_result: dict = None) -> str:
+    """Combina os relatorios dos 5 agentes em 1 texto unificado."""
     from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
@@ -7279,6 +7302,8 @@ def _build_unified_report(copy_result: dict, auth_result: dict, micro_result: di
         channel_name = micro_result.get("channel_name", "")
     elif title_result and title_result.get("success"):
         channel_name = title_result.get("channel_name", "")
+    elif theme_result and theme_result.get("success"):
+        channel_name = theme_result.get("channel_name", "")
 
     parts = []
     parts.append("=" * 60)
@@ -7392,6 +7417,33 @@ def _build_unified_report(copy_result: dict, auth_result: dict, micro_result: di
         parts.append(f"  Erro: {title_result.get('error', 'desconhecido')}")
     else:
         parts.append("  Agente de titulo nao executado.")
+    parts.append("")
+
+    # Secao 5: Temas
+    parts.append("=" * 60)
+    parts.append("  ANALISE DE TEMAS")
+    parts.append("=" * 60)
+    parts.append("")
+
+    if theme_result and theme_result.get("success") and theme_result.get("report"):
+        theme_lines = theme_result["report"].split("\n")
+        content_lines = []
+        skip_header = True
+        for line in theme_lines:
+            if skip_header:
+                if line.strip().startswith("=") or line.strip().startswith("ANALISE DE TEMAS"):
+                    continue
+                if line.strip() == "":
+                    continue
+                skip_header = False
+            content_lines.append(line)
+        while content_lines and content_lines[-1].strip().startswith("=" * 10):
+            content_lines.pop()
+        parts.extend(content_lines)
+    elif theme_result and not theme_result.get("success"):
+        parts.append(f"  Erro: {theme_result.get('error', 'desconhecido')}")
+    else:
+        parts.append("  Agente de temas nao executado.")
     parts.append("")
 
     parts.append("=" * 60)
@@ -7619,6 +7671,77 @@ async def get_title_analysis_history(channel_id: str, limit: int = 20, offset: i
         return title_get_history(channel_id, limit=limit, offset=offset)
     except Exception as e:
         logger.error(f"Erro historico titulo {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Endpoints individuais de temas (Agente 5) ---
+
+@app.post("/api/analise-temas/{channel_id}")
+async def trigger_theme_analysis(channel_id: str):
+    """Roda Agente 5 (Temas) para um canal."""
+    try:
+        result = theme_run_analysis(channel_id)
+        return result
+    except Exception as e:
+        logger.error(f"Erro agente temas {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/analise-temas/run-all")
+async def run_theme_analysis_all():
+    """Roda Agente 5 (Temas) para todos os canais ativos."""
+    try:
+        from theme_agent import get_channels_for_themes
+        channels = get_channels_for_themes()
+        if not channels:
+            return {"success": False, "error": "Nenhum canal encontrado"}
+
+        results = []
+        success_count = 0
+        error_count = 0
+        for ch in channels:
+            cid = ch.get("channel_id")
+            try:
+                r = theme_run_analysis(cid)
+                results.append({"channel_id": cid, "channel_name": ch.get("channel_name"), "success": r.get("success", False)})
+                if r.get("success"):
+                    success_count += 1
+                else:
+                    error_count += 1
+            except Exception as e:
+                results.append({"channel_id": cid, "channel_name": ch.get("channel_name"), "success": False, "error": str(e)})
+                error_count += 1
+
+        return {"success": True, "total": len(channels), "success_count": success_count, "error_count": error_count, "results": results}
+    except Exception as e:
+        logger.error(f"Erro run-all temas: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/analise-temas/{channel_id}/latest")
+async def get_latest_theme_analysis(channel_id: str):
+    """Retorna a analise de temas mais recente."""
+    try:
+        result = theme_get_latest(channel_id)
+        if not result:
+            raise HTTPException(status_code=404, detail=f"Nenhuma analise de temas para {channel_id}")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro buscar temas {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/analise-temas/{channel_id}/historico")
+async def get_theme_analysis_history(channel_id: str, limit: int = 20, offset: int = 0):
+    """Retorna historico de analises de temas."""
+    try:
+        limit = min(limit, 100)
+        offset = max(offset, 0)
+        return theme_get_history(channel_id, limit=limit, offset=offset)
+    except Exception as e:
+        logger.error(f"Erro historico temas {channel_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
