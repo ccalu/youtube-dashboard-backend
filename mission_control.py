@@ -587,6 +587,11 @@ canvas{display:block;cursor:pointer;width:100%}
 .sb-btn:hover{border-color:#555;background:#1a1a2e}
 .sb-btn-primary{background:#1a3a1a;border-color:#22c55e44;color:#4ade80}
 .sb-btn-primary:hover{background:#224422}
+#btn-refresh-mv{background:#0d1a2a;border:1px solid #1a3a5a;color:#60a5fa;padding:4px 12px;border-radius:4px;font-size:11px;font-family:monospace;cursor:pointer;transition:all 0.2s;letter-spacing:1px}
+#btn-refresh-mv:hover{background:#1a2a4a;border-color:#3b82f6}
+#btn-refresh-mv.loading{opacity:0.6;cursor:wait}
+#btn-refresh-mv.success{border-color:#22c55e;color:#4ade80;background:#0d2a1a}
+#btn-refresh-mv.error{border-color:#ef4444;color:#f87171;background:#2a0d0d}
 .sb-report{margin-top:16px;max-height:400px;overflow-y:auto}
 .rpt-header{font-weight:600;color:#00d4aa;padding:4px 0;margin-top:8px;font-size:12px}
 .rpt-alert{color:#f87171;font-size:11px;padding:2px 0}
@@ -607,7 +612,8 @@ canvas{display:block;cursor:pointer;width:100%}
   <div id="stats">
     Salas <span id="s0">-</span> |
     Agentes <span id="s1">-</span> |
-    Ativos <span id="s2">-</span>
+    Ativos <span id="s2">-</span> |
+    <button id="btn-refresh-mv" onclick="refreshMV()">ATUALIZAR</button>
   </div>
 </div>
 <div id="tabs"></div>
@@ -643,6 +649,36 @@ const PHONE_TIME_MIN = 5.0;
 const PHONE_TIME_MAX = 8.0;
 const CHAT_TIME_MIN = 5.0;
 const CHAT_TIME_MAX = 8.0;
+
+// -- Refresh MV button ---------------------------------------
+function refreshMV() {
+  var btn = document.getElementById('btn-refresh-mv');
+  if (btn.classList.contains('loading')) return;
+  btn.classList.add('loading');
+  btn.textContent = 'ATUALIZANDO...';
+  fetch('/api/mission-control/refresh', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      btn.classList.remove('loading');
+      btn.classList.add('success');
+      btn.textContent = 'ATUALIZADO!';
+      setTimeout(function() {
+        btn.classList.remove('success');
+        btn.textContent = 'ATUALIZAR';
+        // Reload MC data
+        if (typeof loadMCData === 'function') loadMCData(true);
+      }, 2000);
+    })
+    .catch(function(e) {
+      btn.classList.remove('loading');
+      btn.classList.add('error');
+      btn.textContent = 'ERRO';
+      setTimeout(function() {
+        btn.classList.remove('error');
+        btn.textContent = 'ATUALIZAR';
+      }, 3000);
+    });
+}
 
 // -- Direction enum ------------------------------------------
 const Direction = { DOWN: 0, LEFT: 1, RIGHT: 2, UP: 3 };

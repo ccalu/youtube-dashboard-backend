@@ -7626,7 +7626,7 @@ async def get_title_analysis_history(channel_id: str, limit: int = 20, offset: i
 # MISSION CONTROL - Escritório Virtual
 # =========================================================================
 try:
-    from mission_control import MISSION_CONTROL_HTML, get_mission_control_data, get_sala_detail
+    from mission_control import MISSION_CONTROL_HTML, get_mission_control_data, get_sala_detail, _mc_cache, _mc_sala_cache
 
     @app.get("/mission-control", response_class=HTMLResponse)
     async def mission_control_page():
@@ -7642,6 +7642,28 @@ try:
     async def mission_control_sala(canal_id: int):
         """Retorna detalhes de uma sala específica"""
         return await get_sala_detail(db, canal_id)
+
+    @app.post("/api/mission-control/refresh")
+    async def mission_control_refresh():
+        """Forca refresh da MV + limpa cache do Mission Control."""
+        # 1. Refresh MV
+        try:
+            await db.refresh_all_dashboard_mvs()
+            mv_refreshed = True
+        except Exception as e:
+            logger.warning(f"MC refresh - MV falhou: {e}")
+            mv_refreshed = False
+
+        # 2. Limpar cache do MC
+        _mc_cache['data'] = None
+        _mc_cache['timestamp'] = 0
+        _mc_sala_cache.clear()
+
+        return {
+            "success": True,
+            "mv_refreshed": mv_refreshed,
+            "mc_cache_cleared": True,
+        }
 
     logger.info("Mission Control inicializado com sucesso!")
 except Exception as e:
