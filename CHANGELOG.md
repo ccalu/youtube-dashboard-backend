@@ -5,6 +5,181 @@
 
 ---
 
+## [27/02/2026 - v21] - Agente 5: Analisador de Temas (Camada 2)
+
+### 🎯 Feature: Agente 5 — Temas Especificos que Viralizam
+
+**Data:** 27/02/2026
+**Status:** ✅ Em producao no Railway
+**Desenvolvedor:** Cellibs & Claude
+
+### O que foi implementado
+1. **`theme_agent.py` criado (~700 linhas):**
+   - Ultimo nivel da hierarquia: Nicho > Subnicho > Micronicho > **TEMA**
+   - Tema = assunto concreto e terminal (1 video = 1 tema)
+   - Score ponderado: 50% Velocity (views/dia) + 50% Views absolutas (normalizado min-max 0-100)
+   - LLM Call 1 (GPT-4o-mini, temp 0.3): extrai tema especifico de cada titulo (JSON)
+   - LLM Call 2 (GPT-4o-mini, temp 0.4): decomposicao em elementos constitutivos + hipoteses de adjacencia
+   - Output: [RANKING] + [DECOMPOSICAO] + [PADROES] — 3 blocos parseados
+   - Skill exclusiva: decomposicao + hipoteses de adjacencia tematica (unico entre agentes)
+   - Reutiliza `_fetch_channel_videos` do micronicho_agent (zero duplicacao)
+   - Memoria cumulativa: report_text + themes_list anteriores para consistencia
+
+2. **Migration `020_theme_tables.sql`:**
+   - Tabela `theme_analysis_runs` (JSONB: ranking_json, themes_list, patterns_json)
+   - 2 indices: channel_id + channel_id/run_date DESC
+
+3. **4 endpoints em `main.py`:**
+   - `POST /api/analise-temas/{channel_id}` — Roda Ag.5 para 1 canal
+   - `POST /api/analise-temas/run-all` — Roda para todos os canais
+   - `GET /api/analise-temas/{channel_id}/latest` — Ultima analise
+   - `GET /api/analise-temas/{channel_id}/historico` — Historico paginado
+
+4. **Unified Report atualizado:**
+   - `_build_unified_report()` agora aceita 5 agentes
+   - `/api/analise-completa/{channel_id}` roda 5 agentes sequencialmente
+
+5. **Ativado no Mission Control:**
+   - Template: `implementado: True` + APIs preenchidas
+   - Sidebar: mostra count de temas, top tema e score
+   - Botoes "Rodar Analise" e "Ver Relatorio" funcionais
+
+### Arquivos alterados/criados
+- `theme_agent.py` — **CRIADO** (~700 linhas)
+- `_database/migrations/020_theme_tables.sql` — **CRIADO**
+- `main.py` — import + 4 endpoints + unified report (5 agentes)
+- `mission_control.py` — template + 3 URL maps + renderAgentStatus
+
+### Commits importantes
+- `86ccf5e` - feat: Agente 5 — Analisador de Temas (Camada 2)
+- `4139c04` - feat: ativar Agente 5 (Temas) no Mission Control
+
+---
+
+## [27/02/2026 - v20] - Agente 4: Estrutura de Titulo (Camada 2)
+
+### 📐 Feature: Agente 4 — Padroes de Titulo que Geram CTR
+
+**Data:** 27/02/2026
+**Status:** ✅ Em producao no Railway
+**Desenvolvedor:** Cellibs & Claude
+
+### O que foi implementado
+1. **`title_structure_agent.py` criado (~550 linhas):**
+   - Identifica formulas de titulo com [VARIAVEIS] (ex: "What [SUBJECT] Did To [VICTIM] Was [ADJECTIVE]")
+   - Score ponderado: 60% CTR + 40% Views absolutas (normalizado min-max 0-100)
+   - UNICO agente que EXIGE CTR — videos sem CTR sao excluidos
+   - LLM Call 1 (GPT-4o-mini, temp 0.3): classifica titulos em estruturas sintaticas (JSON)
+   - LLM Call 2 (GPT-4o-mini, temp 0.4): narrativa analitica + deteccao de divergencia CTR vs Views
+   - Dados: JOIN de videos_historico + yt_video_metrics (requer CTR do Reporting API)
+   - Memoria cumulativa para consistencia entre analises
+
+2. **Migration `019_title_structure_tables.sql`:**
+   - Tabela `title_structure_analysis_runs`
+
+3. **4 endpoints em `main.py`:**
+   - `POST /api/analise-titulo/{channel_id}`
+   - `POST /api/analise-titulo/run-all`
+   - `GET /api/analise-titulo/{channel_id}/latest`
+   - `GET /api/analise-titulo/{channel_id}/historico`
+
+### Arquivos alterados/criados
+- `title_structure_agent.py` — **CRIADO** (~550 linhas)
+- `_database/migrations/019_title_structure_tables.sql` — **CRIADO**
+- `main.py` — import + 4 endpoints
+- `mission_control.py` — template ativado + URL maps
+
+### Commits importantes
+- `ebf67d9` - feat: ativar Agentes 3-4 no Mission Control + sidebar com status real
+
+---
+
+## [27/02/2026 - v19] - Agente 3: Micronichos (Camada 2)
+
+### 🧩 Feature: Agente 3 — Subcategorias Tematicas que Viralizam
+
+**Data:** 27/02/2026
+**Status:** ✅ Em producao no Railway
+**Desenvolvedor:** Cellibs & Claude
+
+### O que foi implementado
+1. **`micronicho_agent.py` criado (~530 linhas):**
+   - Classifica videos em subcategorias tematicas (micronichos)
+   - Hierarquia: Nicho > Subnicho > **MICRONICHO** > Tema
+   - Metrica: views brutas (NAO retencao/CTR)
+   - LLM Call 1 (GPT-4o-mini, temp 0.3): classifica videos em micronichos (JSON)
+   - LLM Call 2 (GPT-4o-mini, temp 0.4): narrativa analitica ([OBSERVACOES] + [RECOMENDACOES] + [TENDENCIAS])
+   - Dados: `videos_historico` (Supabase) — NAO precisa de planilha nem OAuth
+   - Mapeamento: `_get_monitorado_id()` converte UC... → integer ID
+   - Filtro: 7+ dias de maturidade, minimo 5 videos
+   - Memoria cumulativa: report_text + micronichos_list anteriores
+
+2. **Migration `018_micronicho_tables.sql`:**
+   - Tabela `micronicho_analysis_runs` (JSONB: ranking_json, micronichos_list, patterns_json)
+
+3. **4 endpoints em `main.py`:**
+   - `POST /api/analise-micronichos/{channel_id}`
+   - `POST /api/analise-micronichos/run-all`
+   - `GET /api/analise-micronichos/{channel_id}/latest`
+   - `GET /api/analise-micronichos/{channel_id}/historico`
+
+### Arquivos alterados/criados
+- `micronicho_agent.py` — **CRIADO** (~530 linhas)
+- `_database/migrations/018_micronicho_tables.sql` — **CRIADO**
+- `main.py` — import + 4 endpoints + unified report (3 agentes)
+
+---
+
+## [27/02/2026 - v18] - Mission Control v2 + Office Life Engine
+
+### 🏢 Feature: Mission Control com Agentes Reais
+
+**Data:** 25-27/02/2026
+**Status:** ✅ Em producao no Railway
+**Desenvolvedor:** Cellibs & Claude
+
+### O que foi implementado
+1. **Mission Control v2 (reescrita completa):**
+   - Escritorio virtual 2D com 7 temas visuais por subnicho
+   - Sprites LiMEZu (48x72px, 4 direcoes, walk frames)
+   - HiDPI canvas (devicePixelRatio)
+   - Legend panel com cores e descricoes dos agentes
+   - Layouts unicos por subnicho com cadeiras exclusivas
+   - GZip compression no HTML
+
+2. **Office Life Engine:**
+   - Agentes com comportamentos reais (andar, sentar, trabalhar)
+   - Interpolacao suave entre estados (smoothstep 2s)
+   - Particulas e indicadores visuais por status
+   - Sistema de chat e tarefas mock (seed-based, muda a cada ~2min)
+
+3. **Sidebar de agentes (status real):**
+   - Click no personagem abre sidebar com dados da API
+   - Mostra ultimo run, metricas especificas por agente
+   - Botoes "Rodar Analise" e "Ver Relatorio"
+   - Cache de status (30s TTL)
+
+4. **Botao ATUALIZAR:**
+   - Endpoint dedicado `POST /api/mission-control/refresh`
+   - Refresh da Materialized View + limpa cache do MC
+   - Independente do cache do dashboard principal
+
+### Arquivos alterados
+- `mission_control.py` — reescrita completa (~4600 linhas)
+- `main.py` — endpoint de refresh + imports
+
+### Commits importantes
+- `d4208b7` - feat: Mission Control v2 - layouts unicos por subnicho
+- `b2bcf81` - feat: Office Life Engine - agentes com comportamentos reais + GZip
+- `ba9c7e7` - feat: Botao ATUALIZAR no Mission Control (refresh MV dedicado)
+- `ebf67d9` - feat: ativar Agentes 3-4 no Mission Control + sidebar com status real
+- `4139c04` - feat: ativar Agente 5 (Temas) no Mission Control
+
+### Bug fix
+- `0773d00` - fix: adicionar micronicho_agent.py e title_structure_agent.py ao repo (faltavam no git, crash Railway)
+
+---
+
 ## [24/02/2026 - v17] - Dashboard Visual de Análise de Copy
 
 ### 📊 Feature: Dashboard de Análise de Copy em Produção
