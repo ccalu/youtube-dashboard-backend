@@ -5305,6 +5305,8 @@ function formatReportHtml(text, runDate) {
 
   flushTable();
   flushVs();
+  // Bold: **text** -> <strong>
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong style="color:#f0f0f0">$1</strong>');
   return html;
 }
 
