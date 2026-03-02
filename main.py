@@ -6773,13 +6773,13 @@ DASH_UPLOAD_HTML = '''
                     for (var j = 0; j < readyChannels.length; j++) {
                         var ch = readyChannels[j];
                         var sigla = getSiglaIdioma(ch.lingua);
-                        html += '<div class="batch-channel-row" onclick="this.querySelector(\'input\').click();">';
-                        html += '<input type="checkbox" class="batch-checkbox" data-channel-id="' + ch.channel_id + '" onchange="batchUpdateCount()" onclick="event.stopPropagation();">';
+                        html += '<label class="batch-channel-row" style="margin:0;">';
+                        html += '<input type="checkbox" class="batch-checkbox" data-channel-id="' + ch.channel_id + '" onchange="batchUpdateCount()">';
                         html += '<span style="flex:1;font-weight:500;color:var(--text-primary);">' + escapeHtml(ch.channel_name) + '</span>';
                         if (sigla) html += '<span class="lang-tag">' + sigla + '</span>';
                         if (ch.is_monetized) html += '<span class="monetized-dot"></span>';
                         if (ch.video_titulo) html += '<span class="batch-video-hint">' + escapeHtml(ch.video_titulo) + '</span>';
-                        html += '</div>';
+                        html += '</label>';
                     }
                 }
                 if (!hasAny) { body.innerHTML = '<div class="empty-state" style="padding:40px;">Nenhum canal tem video pronto para upload neste momento.</div>'; footer.style.display = 'none'; return; }
