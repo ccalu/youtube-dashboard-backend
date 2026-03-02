@@ -1045,7 +1045,9 @@ class SupabaseClient:
             results = {}
 
             # Chamar função SQL que faz refresh de TODAS as MVs
-            response = self.supabase.rpc("refresh_all_dashboard_mvs").execute()
+            # MUST use service_role client - anon key doesn't have permission for REFRESH MATERIALIZED VIEW
+            sr_client = getattr(self, 'supabase_service', None) or self.supabase
+            response = sr_client.rpc("refresh_all_dashboard_mvs").execute()
 
             if response.data:
                 for mv in response.data:
@@ -1642,6 +1644,7 @@ class SupabaseClient:
                 update_data['custom_url'] = analytics_data['custom_url']
 
             if analytics_data.get('video_count'):
+                update_data['video_count'] = int(analytics_data['video_count'])
                 # Podemos calcular frequência semanal se tivermos published_at
                 if analytics_data.get('published_at'):
                     # Calcular semanas desde criação

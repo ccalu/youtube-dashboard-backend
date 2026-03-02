@@ -124,7 +124,7 @@ AGENTES_V2_TEMPLATE = [
     {
         'id': 7, 'tipo': 'concorrentes', 'nome': 'Concorrentes',
         'camada': 4, 'cor': '#06b6d4',
-        'skin': '#ffcc99', 'shirt': '#06b6d4', 'hair': '#1a1a1a',
+        'skin': '#c68642', 'shirt': '#06b6d4', 'hair': '#4a3728',
         'descricao': 'Concorrentes - Intel competitiva via audiencia do YouTube',
         'implementado': False,
         'api_run': None, 'api_latest': None, 'api_historico': None,
@@ -242,8 +242,71 @@ async def get_agent_real_status(supabase_client, channel_id):
     except Exception:
         status['autenticidade'] = {'status': 'idle', 'last_run': None}
 
-    # Agents 3-7: Not yet implemented
-    for ag in AGENTES_V2_TEMPLATE[2:]:
+    # Agent 3: Micronichos
+    try:
+        micro_resp = supabase_client.table('micronicho_analysis_runs') \
+            .select('id,run_date,total_videos_analyzed,micronicho_count') \
+            .eq('channel_id', channel_id) \
+            .order('run_date', desc=True) \
+            .limit(1) \
+            .execute()
+        if micro_resp.data:
+            run = micro_resp.data[0]
+            status['micronichos'] = {
+                'status': 'done',
+                'last_run': run.get('run_date'),
+                'videos_analyzed': run.get('total_videos_analyzed', 0),
+                'micronicho_count': run.get('micronicho_count', 0),
+            }
+        else:
+            status['micronichos'] = {'status': 'idle', 'last_run': None}
+    except Exception:
+        status['micronichos'] = {'status': 'idle', 'last_run': None}
+
+    # Agent 4: Estrutura de Titulo
+    try:
+        title_resp = supabase_client.table('title_structure_analysis_runs') \
+            .select('id,run_date,total_videos_analyzed,structure_count') \
+            .eq('channel_id', channel_id) \
+            .order('run_date', desc=True) \
+            .limit(1) \
+            .execute()
+        if title_resp.data:
+            run = title_resp.data[0]
+            status['titulo_estrutura'] = {
+                'status': 'done',
+                'last_run': run.get('run_date'),
+                'videos_analyzed': run.get('total_videos_analyzed', 0),
+                'structure_count': run.get('structure_count', 0),
+            }
+        else:
+            status['titulo_estrutura'] = {'status': 'idle', 'last_run': None}
+    except Exception:
+        status['titulo_estrutura'] = {'status': 'idle', 'last_run': None}
+
+    # Agent 5: Temas
+    try:
+        theme_resp = supabase_client.table('theme_analysis_runs') \
+            .select('id,run_date,total_videos_analyzed,theme_count') \
+            .eq('channel_id', channel_id) \
+            .order('run_date', desc=True) \
+            .limit(1) \
+            .execute()
+        if theme_resp.data:
+            run = theme_resp.data[0]
+            status['temas'] = {
+                'status': 'done',
+                'last_run': run.get('run_date'),
+                'videos_analyzed': run.get('total_videos_analyzed', 0),
+                'theme_count': run.get('theme_count', 0),
+            }
+        else:
+            status['temas'] = {'status': 'idle', 'last_run': None}
+    except Exception:
+        status['temas'] = {'status': 'idle', 'last_run': None}
+
+    # Agents 6-7: Not yet implemented
+    for ag in AGENTES_V2_TEMPLATE[5:]:
         status[ag['tipo']] = {'status': 'waiting', 'last_run': None}
 
     return status
@@ -292,6 +355,66 @@ async def get_agent_overview_batch(supabase_client):
                     'score': row.get('authenticity_score'),
                     'level': row.get('authenticity_level'),
                     'has_alerts': row.get('has_alerts', False),
+                }
+    except Exception:
+        pass
+
+    # Latest micronicho analysis per channel
+    try:
+        micro_resp = supabase_client.table('micronicho_analysis_runs') \
+            .select('channel_id,run_date,total_videos_analyzed') \
+            .order('run_date', desc=True) \
+            .execute()
+        seen = set()
+        for row in (micro_resp.data or []):
+            cid = row.get('channel_id')
+            if cid and cid not in seen:
+                seen.add(cid)
+                if cid not in overview:
+                    overview[cid] = {}
+                overview[cid]['micronichos'] = {
+                    'status': 'done',
+                    'last_run': row.get('run_date'),
+                }
+    except Exception:
+        pass
+
+    # Latest title structure analysis per channel
+    try:
+        title_resp = supabase_client.table('title_structure_analysis_runs') \
+            .select('channel_id,run_date,total_videos_analyzed') \
+            .order('run_date', desc=True) \
+            .execute()
+        seen = set()
+        for row in (title_resp.data or []):
+            cid = row.get('channel_id')
+            if cid and cid not in seen:
+                seen.add(cid)
+                if cid not in overview:
+                    overview[cid] = {}
+                overview[cid]['titulo_estrutura'] = {
+                    'status': 'done',
+                    'last_run': row.get('run_date'),
+                }
+    except Exception:
+        pass
+
+    # Latest theme analysis per channel
+    try:
+        theme_resp = supabase_client.table('theme_analysis_runs') \
+            .select('channel_id,run_date,total_videos_analyzed') \
+            .order('run_date', desc=True) \
+            .execute()
+        seen = set()
+        for row in (theme_resp.data or []):
+            cid = row.get('channel_id')
+            if cid and cid not in seen:
+                seen.add(cid)
+                if cid not in overview:
+                    overview[cid] = {}
+                overview[cid]['temas'] = {
+                    'status': 'done',
+                    'last_run': row.get('run_date'),
                 }
     except Exception:
         pass
@@ -406,6 +529,12 @@ async def get_mission_control_data(db):
                     ag_statuses['estrutura_copy'] = ov['copy']
                 if 'auth' in ov:
                     ag_statuses['autenticidade'] = ov['auth']
+                if 'micronichos' in ov:
+                    ag_statuses['micronichos'] = ov['micronichos']
+                if 'titulo_estrutura' in ov:
+                    ag_statuses['titulo_estrutura'] = ov['titulo_estrutura']
+                if 'temas' in ov:
+                    ag_statuses['temas'] = ov['temas']
 
             agentes = build_agent_list(cid, ag_statuses)
             active = sum(1 for a in agentes if a['status'] in ('done', 'working'))
@@ -534,6 +663,48 @@ async def get_agent_report(supabase_client, channel_id, agent_type):
     elif agent_type == 'autenticidade':
         try:
             resp = supabase_client.table('authenticity_analysis_runs') \
+                .select('*') \
+                .eq('channel_id', channel_id) \
+                .order('run_date', desc=True) \
+                .limit(1) \
+                .execute()
+            if resp.data:
+                return {'implemented': True, 'data': resp.data[0]}
+            return {'implemented': True, 'data': None, 'message': 'Nenhum relatorio encontrado'}
+        except Exception as e:
+            return {'implemented': True, 'error': str(e)}
+
+    elif agent_type == 'micronichos':
+        try:
+            resp = supabase_client.table('micronicho_analysis_runs') \
+                .select('*') \
+                .eq('channel_id', channel_id) \
+                .order('run_date', desc=True) \
+                .limit(1) \
+                .execute()
+            if resp.data:
+                return {'implemented': True, 'data': resp.data[0]}
+            return {'implemented': True, 'data': None, 'message': 'Nenhum relatorio encontrado'}
+        except Exception as e:
+            return {'implemented': True, 'error': str(e)}
+
+    elif agent_type == 'titulo_estrutura':
+        try:
+            resp = supabase_client.table('title_structure_analysis_runs') \
+                .select('*') \
+                .eq('channel_id', channel_id) \
+                .order('run_date', desc=True) \
+                .limit(1) \
+                .execute()
+            if resp.data:
+                return {'implemented': True, 'data': resp.data[0]}
+            return {'implemented': True, 'data': None, 'message': 'Nenhum relatorio encontrado'}
+        except Exception as e:
+            return {'implemented': True, 'error': str(e)}
+
+    elif agent_type == 'temas':
+        try:
+            resp = supabase_client.table('theme_analysis_runs') \
                 .select('*') \
                 .eq('channel_id', channel_id) \
                 .order('run_date', desc=True) \
@@ -1813,7 +1984,7 @@ var AGENT_PALETTES = [
   {skin:'#d4a574', shirt:'#3b82f6', pants:'#443355', hair:'#2c1810', shoes:'#222222'},
   {skin:'#FFCC99', shirt:'#f97316', pants:'#444433', hair:'#c0392b', shoes:'#333333'},
   {skin:'#e8b88a', shirt:'#eab308', pants:'#443322', hair:'#34495e', shoes:'#333333'},
-  {skin:'#FFCC99', shirt:'#06b6d4', pants:'#334466', hair:'#1a1a1a', shoes:'#222222'},
+  {skin:'#c68642', shirt:'#06b6d4', pants:'#2a2a3d', hair:'#4a3728', shoes:'#444444'},
 ];
 
 // -- Character Sprite Generator ------------------------------
@@ -2225,6 +2396,8 @@ var CHAR_PNG_4 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHAAAABgCAYAAADF
 
 var CHAR_PNG_5 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHAAAABgCAYAAADFNvbQAAAACXBIWXMAAAsTAAALEwEAmpwYAAALDWlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS42LWMxNDUgNzkuMTYzNDk5LCAyMDE4LzA4LzEzLTE2OjQwOjIyICAgICAgICAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyIgeG1sbnM6cGhvdG9zaG9wPSJodHRwOi8vbnMuYWRvYmUuY29tL3Bob3Rvc2hvcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENDIDIwMTkgKFdpbmRvd3MpIiB4bXA6Q3JlYXRlRGF0ZT0iMjAyNi0wMi0xNlQxMTozNDo0MVoiIHhtcDpNb2RpZnlEYXRlPSIyMDI2LTAyLTE2VDE0OjU5OjM5WiIgeG1wOk1ldGFkYXRhRGF0ZT0iMjAyNi0wMi0xNlQxNDo1OTozOVoiIGRjOmZvcm1hdD0iaW1hZ2UvcG5nIiBwaG90b3Nob3A6Q29sb3JNb2RlPSIzIiBwaG90b3Nob3A6SUNDUHJvZmlsZT0ic1JHQiBJRUM2MTk2Ni0yLjEiIHhtcE1NOkluc3RhbmNlSUQ9InhtcC5paWQ6ZDI1NDFlNGYtNmMyYi00MzQ5LTg2ZTAtN2Y1ZDFlZjI1Yzk3IiB4bXBNTTpEb2N1bWVudElEPSJhZG9iZTpkb2NpZDpwaG90b3Nob3A6NmQ2NzBiZjYtOTVlNy0zOTRkLTg3ZmMtNWEyOGYyMWE0Mjc1IiB4bXBNTTpPcmlnaW5hbERvY3VtZW50SUQ9InhtcC5kaWQ6N2EzMGIwYWEtZmE1NS1hYzRlLWFkODItNjEwNTRiMzllMWUzIj4gPHBob3Rvc2hvcDpEb2N1bWVudEFuY2VzdG9ycz4gPHJkZjpCYWc+IDxyZGY6bGk+YWRvYmU6ZG9jaWQ6cGhvdG9zaG9wOjI5YWFmNzNjLTViOGMtOWE0MC1hYjk2LWNhZWQ3YjU4MmZmYTwvcmRmOmxpPiA8cmRmOmxpPmFkb2JlOmRvY2lkOnBob3Rvc2hvcDo1ZTRlNTM3Ni0yMjg0LWM3NDEtOTNmMC05ODQ0ZDZiY2U2OGI8L3JkZjpsaT4gPHJkZjpsaT54bXAuZGlkOjIwYjUxYTRhLWIwYjktNDc0Mi1iZTQ2LTQyN2Y4NGFkYmQ0MjwvcmRmOmxpPiA8cmRmOmxpPnhtcC5kaWQ6N2EzMGIwYWEtZmE1NS1hYzRlLWFkODItNjEwNTRiMzllMWUzPC9yZGY6bGk+IDxyZGY6bGk+eG1wLmRpZDpkNTI3ZjFmNS05YTUwLTAxNDctOTE3MC03ZWM4Zjc3YjljMmY8L3JkZjpsaT4gPC9yZGY6QmFnPiA8L3Bob3Rvc2hvcDpEb2N1bWVudEFuY2VzdG9ycz4gPHhtcE1NOkhpc3Rvcnk+IDxyZGY6U2VxPiA8cmRmOmxpIHN0RXZ0OmFjdGlvbj0iY3JlYXRlZCIgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDo3YTMwYjBhYS1mYTU1LWFjNGUtYWQ4Mi02MTA1NGIzOWUxZTMiIHN0RXZ0OndoZW49IjIwMjYtMDItMTZUMTE6MzQ6NDFaIiBzdEV2dDpzb2Z0d2FyZUFnZW50PSJBZG9iZSBQaG90b3Nob3AgQ0MgMjAxOSAoV2luZG93cykiLz4gPHJkZjpsaSBzdEV2dDphY3Rpb249InNhdmVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOmVkOWJmNTQ3LTYwZGItNTg0Ny05MTVhLTVmYzU3NmJhMDgyMSIgc3RFdnQ6d2hlbj0iMjAyNi0wMi0xNlQxMzo1NzoyN1oiIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkFkb2JlIFBob3Rvc2hvcCBDQyAyMDE5IChXaW5kb3dzKSIgc3RFdnQ6Y2hhbmdlZD0iLyIvPiA8cmRmOmxpIHN0RXZ0OmFjdGlvbj0ic2F2ZWQiIHN0RXZ0Omluc3RhbmNlSUQ9InhtcC5paWQ6Zjk4NTUzNDItOWVhYi0yODRlLWI5ZWQtNjAxMWUwMjY5OTRkIiBzdEV2dDp3aGVuPSIyMDI2LTAyLTE2VDE0OjU5OjM5WiIgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWRvYmUgUGhvdG9zaG9wIENDIDIwMTkgKFdpbmRvd3MpIiBzdEV2dDpjaGFuZ2VkPSIvIi8+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJjb252ZXJ0ZWQiIHN0RXZ0OnBhcmFtZXRlcnM9ImZyb20gYXBwbGljYXRpb24vdm5kLmFkb2JlLnBob3Rvc2hvcCB0byBpbWFnZS9wbmciLz4gPHJkZjpsaSBzdEV2dDphY3Rpb249ImRlcml2ZWQiIHN0RXZ0OnBhcmFtZXRlcnM9ImNvbnZlcnRlZCBmcm9tIGFwcGxpY2F0aW9uL3ZuZC5hZG9iZS5waG90b3Nob3AgdG8gaW1hZ2UvcG5nIi8+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJzYXZlZCIgc3RFdnQ6aW5zdGFuY2VJRD0ieG1wLmlpZDpkMjU0MWU0Zi02YzJiLTQzNDktODZlMC03ZjVkMWVmMjVjOTciIHN0RXZ0OndoZW49IjIwMjYtMDItMTZUMTQ6NTk6MzlaIiBzdEV2dDpzb2Z0d2FyZUFnZW50PSJBZG9iZSBQaG90b3Nob3AgQ0MgMjAxOSAoV2luZG93cykiIHN0RXZ0OmNoYW5nZWQ9Ii8iLz4gPC9yZGY6U2VxPiA8L3htcE1NOkhpc3Rvcnk+IDx4bXBNTTpEZXJpdmVkRnJvbSBzdFJlZjppbnN0YW5jZUlEPSJ4bXAuaWlkOmY5ODU1MzQyLTllYWItMjg0ZS1iOWVkLTYwMTFlMDI2OTk0ZCIgc3RSZWY6ZG9j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";
 
+var CHAR_PNG_6 = "data:image/png;base64,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";
+
 var WALLS_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAACACAIAAAA04/g9AAAACXBIWXMAAAsTAAALEwEAmpwYAAAFoGlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iQWRvYmUgWE1QIENvcmUgNS42LWMxNDUgNzkuMTYzNDk5LCAyMDE4LzA4LzEzLTE2OjQwOjIyICAgICAgICAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczp4bXA9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC8iIHhtbG5zOmRjPSJodHRwOi8vcHVybC5vcmcvZGMvZWxlbWVudHMvMS4xLyIgeG1sbnM6cGhvdG9zaG9wPSJodHRwOi8vbnMuYWRvYmUuY29tL3Bob3Rvc2hvcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIgeG1wOkNyZWF0b3JUb29sPSJBZG9iZSBQaG90b3Nob3AgQ0MgMjAxOSAoV2luZG93cykiIHhtcDpDcmVhdGVEYXRlPSIyMDI2LTAyLTE0VDE4OjI0WiIgeG1wOk1vZGlmeURhdGU9IjIwMjYtMDItMTRUMjM6MzU6NTVaIiB4bXA6TWV0YWRhdGFEYXRlPSIyMDI2LTAyLTE0VDIzOjM1OjU1WiIgZGM6Zm9ybWF0PSJpbWFnZS9wbmciIHBob3Rvc2hvcDpDb2xvck1vZGU9IjMiIHBob3Rvc2hvcDpJQ0NQcm9maWxlPSJzUkdCIElFQzYxOTY2LTIuMSIgeG1wTU06SW5zdGFuY2VJRD0ieG1wLmlpZDpiNDI1ZjlhZS0wNjlkLTUwNDYtYmQyOC1hZGEyZmZmNzZkZDUiIHhtcE1NOkRvY3VtZW50SUQ9InhtcC5kaWQ6YjQyNWY5YWUtMDY5ZC01MDQ2LWJkMjgtYWRhMmZmZjc2ZGQ1IiB4bXBNTTpPcmlnaW5hbERvY3VtZW50SUQ9InhtcC5kaWQ6YjQyNWY5YWUtMDY5ZC01MDQ2LWJkMjgtYWRhMmZmZjc2ZGQ1Ij4gPHBob3Rvc2hvcDpEb2N1bWVudEFuY2VzdG9ycz4gPHJkZjpCYWc+IDxyZGY6bGk+YWRvYmU6ZG9jaWQ6cGhvdG9zaG9wOjllYzhmMjIyLTk3OTYtNmY0Ni05MzgxLWIyOWRiNDY5OTkyZjwvcmRmOmxpPiA8L3JkZjpCYWc+IDwvcGhvdG9zaG9wOkRvY3VtZW50QW5jZXN0b3JzPiA8eG1wTU06SGlzdG9yeT4gPHJkZjpTZXE+IDxyZGY6bGkgc3RFdnQ6YWN0aW9uPSJjcmVhdGVkIiBzdEV2dDppbnN0YW5jZUlEPSJ4bXAuaWlkOmI0MjVmOWFlLTA2OWQtNTA0Ni1iZDI4LWFkYTJmZmY3NmRkNSIgc3RFdnQ6d2hlbj0iMjAyNi0wMi0xNFQxODoyNFoiIHN0RXZ0OnNvZnR3YXJlQWdlbnQ9IkFkb2JlIFBob3Rvc2hvcCBDQyAyMDE5IChXaW5kb3dzKSIvPiA8L3JkZjpTZXE+IDwveG1wTU06SGlzdG9yeT4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz5Cg3wsAAAA0ElEQVR42u3bMQ6AIAwAQJ5jnPy+H3DwUzrwAUtssPFIx4K9CW1j29YlGuexP4yBw6Pnt4GC8vL7llA+AAAAwHzA9Xj1gvLy+5ZQPgAAAAAAAAAAAAAAAAAAAMA8QOlo5gNaiwAAAACfAZS/BwAAAAAAAAAAAAAAAAAAAABKAWrPB1LbZtH8gQAAAACYDEgdo0fzBxYAAAAAAAAAAAAAAAAAAADAJID/B8wH9EYBAABKA0zqAQAAAAAyHxD9wgIAAAAAAAAAAAB49fU4VP3vADfcDP/jUvcigAAAAABJRU5ErkJggg==";
 
 // -- PNG Sprite Loader (port of assetLoader.ts) -------------------
@@ -2279,7 +2452,7 @@ function extractSpritesFromImage(img, frameW, frameH, framesPerRow, numRows) {
 }
 
 function loadPNGSprites(callback) {
-  var CHAR_PNGS = [CHAR_PNG_0, CHAR_PNG_1, CHAR_PNG_2, CHAR_PNG_3, CHAR_PNG_4, CHAR_PNG_5];
+  var CHAR_PNGS = [CHAR_PNG_0, CHAR_PNG_1, CHAR_PNG_2, CHAR_PNG_3, CHAR_PNG_4, CHAR_PNG_5, CHAR_PNG_6];
   var totalToLoad = CHAR_PNGS.length + 1;
   var loaded = 0;
   var charData = [];
@@ -2857,8 +3030,9 @@ var WORKSTATIONS = [
   // Row 2: 3 desks (bottom area, more spread)
   { deskCol: 1, deskRow: 6, chairCol: 2, chairRow: 8, facingDir: Direction.UP, pcCol: 1, pcRow: 6 },
   { deskCol: 5, deskRow: 6, chairCol: 6, chairRow: 8, facingDir: Direction.UP, pcCol: 5, pcRow: 6 },
-  // Extra: side desk
+  // Extra: side desks
   { deskCol: 9, deskRow: 5, chairCol: 10, chairRow: 7, facingDir: Direction.UP, pcCol: 9, pcRow: 5 },
+  { deskCol: 9, deskRow: 2, chairCol: 10, chairRow: 4, facingDir: Direction.UP, pcCol: 9, pcRow: 2 },
 ];
 
 // Decorative furniture (adjusted for 14x11 room)
@@ -2886,10 +3060,11 @@ var THEME_LAYOUTS = {
         {deskCol:1,deskRow:5,chairCol:3,chairRow:6,facingDir:Direction.LEFT,pcCol:1,pcRow:5},
         {deskCol:1,deskRow:7,chairCol:3,chairRow:8,facingDir:Direction.LEFT,pcCol:1,pcRow:7},
         {deskCol:11,deskRow:5,chairCol:10,chairRow:6,facingDir:Direction.RIGHT,pcCol:11,pcRow:5},
-        {deskCol:11,deskRow:7,chairCol:10,chairRow:8,facingDir:Direction.RIGHT,pcCol:11,pcRow:7}
+        {deskCol:11,deskRow:7,chairCol:10,chairRow:8,facingDir:Direction.RIGHT,pcCol:11,pcRow:7},
+        {deskCol:9,deskRow:1,chairCol:9,chairRow:3,facingDir:Direction.DOWN,pcCol:9,pcRow:1}
       ],
       decorations: [
-        {type:'bookshelf',col:9,row:1},{type:'trophy',col:12,row:1},
+        {type:'trophy',col:12,row:1},
         {type:'whiteboard',col:5,row:5},
         {type:'globe',col:12,row:8},{type:'safe',col:8,row:1},
         {type:'plant',col:8,row:8}
@@ -2906,11 +3081,11 @@ var THEME_LAYOUTS = {
         {deskCol:11,deskRow:1,chairCol:12,chairRow:3,facingDir:Direction.DOWN,pcCol:11,pcRow:1},
         {deskCol:3,deskRow:7,chairCol:4,chairRow:6,facingDir:Direction.UP,pcCol:3,pcRow:7},
         {deskCol:7,deskRow:7,chairCol:8,chairRow:6,facingDir:Direction.UP,pcCol:7,pcRow:7},
-        {deskCol:11,deskRow:7,chairCol:12,chairRow:6,facingDir:Direction.UP,pcCol:11,pcRow:7}
+        {deskCol:11,deskRow:7,chairCol:12,chairRow:6,facingDir:Direction.UP,pcCol:11,pcRow:7},
+        {deskCol:1,deskRow:5,chairCol:2,chairRow:4,facingDir:Direction.UP,pcCol:1,pcRow:5}
       ],
       decorations: [
         {type:'bookshelf',col:1,row:1},{type:'bookshelf',col:1,row:3},
-        {type:'bookshelf',col:1,row:5},
         {type:'candelabra',col:6,row:4},{type:'candelabra',col:10,row:4},
         {type:'skull',col:1,row:8}
       ]
@@ -2926,12 +3101,13 @@ var THEME_LAYOUTS = {
         {deskCol:7,deskRow:1,chairCol:8,chairRow:3,facingDir:Direction.UP,pcCol:7,pcRow:1},
         {deskCol:1,deskRow:6,chairCol:2,chairRow:8,facingDir:Direction.UP,pcCol:1,pcRow:6},
         {deskCol:4,deskRow:6,chairCol:5,chairRow:8,facingDir:Direction.UP,pcCol:4,pcRow:6},
-        {deskCol:7,deskRow:6,chairCol:8,chairRow:8,facingDir:Direction.UP,pcCol:7,pcRow:6}
+        {deskCol:7,deskRow:6,chairCol:8,chairRow:8,facingDir:Direction.UP,pcCol:7,pcRow:6},
+        {deskCol:10,deskRow:4,chairCol:11,chairRow:6,facingDir:Direction.UP,pcCol:10,pcRow:4}
       ],
       decorations: [
-        {type:'whiteboard',col:10,row:1},{type:'whiteboard',col:10,row:4},
-        {type:'radio',col:12,row:1},{type:'sandbag',col:12,row:5},
-        {type:'flag',col:10,row:7},{type:'cooler',col:12,row:8}
+        {type:'whiteboard',col:10,row:1},
+        {type:'radio',col:12,row:1},{type:'sandbag',col:12,row:7},
+        {type:'flag',col:12,row:4},{type:'cooler',col:12,row:8}
       ]
     }
   ]}
