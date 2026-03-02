@@ -1585,6 +1585,27 @@ async def test_openai_configuration():
         else:
             diagnostico["error"] = f"Erro na API: {str(e)}"
 
+    # 4b. Teste alternativo via requests direto (sem SDK openai)
+    try:
+        import requests as req
+        raw_key = os.getenv("OPENAI_API_KEY", "").strip().replace('\n', '').replace('\r', '').replace('\t', '')
+        raw_resp = req.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {raw_key}", "Content-Type": "application/json"},
+            json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Responda: OK"}], "max_tokens": 5},
+            timeout=15
+        )
+        diagnostico["checks"]["raw_requests_status"] = raw_resp.status_code
+        if raw_resp.status_code == 200:
+            diagnostico["checks"]["raw_requests_test"] = True
+            diagnostico["checks"]["raw_response"] = raw_resp.json()["choices"][0]["message"]["content"].strip()
+        else:
+            diagnostico["checks"]["raw_requests_test"] = False
+            diagnostico["checks"]["raw_error"] = raw_resp.text[:300]
+    except Exception as e:
+        diagnostico["checks"]["raw_requests_test"] = False
+        diagnostico["checks"]["raw_error"] = f"{type(e).__name__}: {str(e)[:200]}"
+
     # 5. Resumo final
     all_checks_passed = all(
         v for k, v in diagnostico["checks"].items()
@@ -7196,7 +7217,7 @@ async def trigger_unified_analysis(channel_id: str):
 @app.post("/api/analise-completa/run-all")
 async def run_unified_analysis_all():
     """
-    Roda analise completa (performance + autenticidade + micronichos + titulo) para TODOS os canais.
+    Roda analise completa (performance + autenticidade + micronichos + titulo + temas) para TODOS os canais.
     Processa 1 por vez em fila. Pula erros e continua.
     """
     try:
@@ -7219,7 +7240,8 @@ async def run_unified_analysis_all():
                 "performance": {"success": False},
                 "authenticity": {"success": False},
                 "micronichos": {"success": False},
-                "titulo": {"success": False}
+                "titulo": {"success": False},
+                "temas": {"success": False}
             }
 
             # Agente 1: Performance
@@ -7267,9 +7289,21 @@ async def run_unified_analysis_all():
             except Exception as e:
                 ch_result["titulo"] = {"success": False, "error": str(e)}
 
+            # Agente 5: Temas
+            try:
+                theme_res = theme_run_analysis(ch_id)
+                ch_result["temas"] = {
+                    "success": theme_res.get("success", False),
+                    "theme_count": theme_res.get("theme_count"),
+                    "error": theme_res.get("error") if not theme_res.get("success") else None
+                }
+            except Exception as e:
+                ch_result["temas"] = {"success": False, "error": str(e)}
+
             # Contar sucesso se pelo menos 1 agente rodou
             if (ch_result["performance"]["success"] or ch_result["authenticity"]["success"]
-                    or ch_result["micronichos"]["success"] or ch_result["titulo"]["success"]):
+                    or ch_result["micronichos"]["success"] or ch_result["titulo"]["success"]
+                    or ch_result["temas"]["success"]):
                 success_count += 1
             else:
                 error_count += 1
