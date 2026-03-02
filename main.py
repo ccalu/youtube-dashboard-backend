@@ -1585,27 +1585,6 @@ async def test_openai_configuration():
         else:
             diagnostico["error"] = f"Erro na API: {str(e)}"
 
-    # 4b. Teste alternativo via requests direto (sem SDK openai)
-    try:
-        import requests as req
-        raw_key = os.getenv("OPENAI_API_KEY", "").strip().replace('\n', '').replace('\r', '').replace('\t', '')
-        raw_resp = req.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {raw_key}", "Content-Type": "application/json"},
-            json={"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Responda: OK"}], "max_tokens": 5},
-            timeout=15
-        )
-        diagnostico["checks"]["raw_requests_status"] = raw_resp.status_code
-        if raw_resp.status_code == 200:
-            diagnostico["checks"]["raw_requests_test"] = True
-            diagnostico["checks"]["raw_response"] = raw_resp.json()["choices"][0]["message"]["content"].strip()
-        else:
-            diagnostico["checks"]["raw_requests_test"] = False
-            diagnostico["checks"]["raw_error"] = raw_resp.text[:300]
-    except Exception as e:
-        diagnostico["checks"]["raw_requests_test"] = False
-        diagnostico["checks"]["raw_error"] = f"{type(e).__name__}: {str(e)[:200]}"
-
     # 5. Resumo final
     all_checks_passed = all(
         v for k, v in diagnostico["checks"].items()
