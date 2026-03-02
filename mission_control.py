@@ -245,18 +245,22 @@ async def get_agent_real_status(supabase_client, channel_id):
     # Agent 3: Micronichos
     try:
         micro_resp = supabase_client.table('micronicho_analysis_runs') \
-            .select('id,run_date,total_videos_analyzed,micronicho_count') \
+            .select('id,run_date,total_videos_analyzed,micronicho_count,ranking_json') \
             .eq('channel_id', channel_id) \
             .order('run_date', desc=True) \
             .limit(1) \
             .execute()
         if micro_resp.data:
             run = micro_resp.data[0]
+            ranking = run.get('ranking_json') or []
+            top_micro = ranking[0] if ranking else None
             status['micronichos'] = {
                 'status': 'done',
                 'last_run': run.get('run_date'),
                 'videos_analyzed': run.get('total_videos_analyzed', 0),
                 'micronicho_count': run.get('micronicho_count', 0),
+                'top_micronicho': top_micro.get('micronicho', '') if top_micro else None,
+                'top_micronicho_videos': top_micro.get('video_count', 0) if top_micro else 0,
             }
         else:
             status['micronichos'] = {'status': 'idle', 'last_run': None}
@@ -287,18 +291,22 @@ async def get_agent_real_status(supabase_client, channel_id):
     # Agent 5: Temas
     try:
         theme_resp = supabase_client.table('theme_analysis_runs') \
-            .select('id,run_date,total_videos_analyzed,theme_count') \
+            .select('id,run_date,total_videos_analyzed,theme_count,ranking_json') \
             .eq('channel_id', channel_id) \
             .order('run_date', desc=True) \
             .limit(1) \
             .execute()
         if theme_resp.data:
             run = theme_resp.data[0]
+            ranking = run.get('ranking_json') or []
+            top_theme = ranking[0] if ranking else None
             status['temas'] = {
                 'status': 'done',
                 'last_run': run.get('run_date'),
                 'videos_analyzed': run.get('total_videos_analyzed', 0),
                 'theme_count': run.get('theme_count', 0),
+                'top_theme': top_theme.get('theme', '') if top_theme else None,
+                'top_theme_score': top_theme.get('score', 0) if top_theme else 0,
             }
         else:
             status['temas'] = {'status': 'idle', 'last_run': None}
@@ -362,7 +370,7 @@ async def get_agent_overview_batch(supabase_client):
     # Latest micronicho analysis per channel
     try:
         micro_resp = supabase_client.table('micronicho_analysis_runs') \
-            .select('channel_id,run_date,total_videos_analyzed') \
+            .select('channel_id,run_date,total_videos_analyzed,ranking_json') \
             .order('run_date', desc=True) \
             .execute()
         seen = set()
@@ -372,9 +380,13 @@ async def get_agent_overview_batch(supabase_client):
                 seen.add(cid)
                 if cid not in overview:
                     overview[cid] = {}
+                ranking = row.get('ranking_json') or []
+                top_micro = ranking[0] if ranking else None
                 overview[cid]['micronichos'] = {
                     'status': 'done',
                     'last_run': row.get('run_date'),
+                    'top_micronicho': top_micro.get('micronicho', '') if top_micro else None,
+                    'top_micronicho_videos': top_micro.get('video_count', 0) if top_micro else 0,
                 }
     except Exception:
         pass
@@ -402,7 +414,7 @@ async def get_agent_overview_batch(supabase_client):
     # Latest theme analysis per channel
     try:
         theme_resp = supabase_client.table('theme_analysis_runs') \
-            .select('channel_id,run_date,total_videos_analyzed') \
+            .select('channel_id,run_date,total_videos_analyzed,ranking_json') \
             .order('run_date', desc=True) \
             .execute()
         seen = set()
@@ -412,9 +424,13 @@ async def get_agent_overview_batch(supabase_client):
                 seen.add(cid)
                 if cid not in overview:
                     overview[cid] = {}
+                ranking = row.get('ranking_json') or []
+                top_theme = ranking[0] if ranking else None
                 overview[cid]['temas'] = {
                     'status': 'done',
                     'last_run': row.get('run_date'),
+                    'top_theme': top_theme.get('theme', '') if top_theme else None,
+                    'top_theme_score': top_theme.get('score', 0) if top_theme else 0,
                 }
     except Exception:
         pass
@@ -567,6 +583,7 @@ async def get_mission_control_data(db):
                 'inscritos': c.get('inscritos', 0),
                 'inscritos_diff': c.get('inscritos_diff', 0),
                 'views_7d': c.get('views_7d', 0),
+                'views_15d': c.get('views_15d', 0),
                 'views_30d': c.get('views_30d', 0),
                 'videos_30d': c.get('videos_30d', 0),
                 'avg_ctr': ctr_map.get(nome_lower),
@@ -585,7 +602,8 @@ async def get_mission_control_data(db):
                               'hair': a['hair'], 'implementado': a['implementado'],
                               'camada': a['camada'], 'descricao': a.get('descricao', ''),
                               'api_run': a.get('api_run'),
-                              'api_latest': a.get('api_latest')}
+                              'api_latest': a.get('api_latest'),
+                              'extra_data': a.get('extra_data', {})}
                              for a in agentes],
                 'tem_atividade': active > 0,
             })
@@ -4292,6 +4310,7 @@ function refreshRoomStats(data) {
       room.canal.inscritos = fresh.inscritos || 0;
       room.canal.inscritos_diff = fresh.inscritos_diff || 0;
       room.canal.views_7d = fresh.views_7d || 0;
+      room.canal.views_15d = fresh.views_15d || 0;
       room.canal.videos_30d = fresh.videos_30d || 0;
       room.canal.views_30d = fresh.views_30d || 0;
       room.canal.avg_ctr = fresh.avg_ctr || null;
@@ -4498,13 +4517,24 @@ function renderAllRooms(ctx, canvasW, canvasH) {
     else if (diff < 0) { diffText = ' (' + diff + ')'; diffColor = '#ef4444'; }
 
     var viewsText = v7d + '/' + v30d;
+    // Growth arrow for views
+    var viewsDiff = '';
+    var viewsDiffColor = null;
+    var rawV7d = room.canal.views_7d || 0;
+    var rawV15d = room.canal.views_15d || 0;
+    var prevWeekViews = rawV15d - rawV7d;
+    if (prevWeekViews > 0 && rawV7d > 0) {
+      var gPct = ((rawV7d / prevWeekViews) - 1) * 100;
+      if (gPct > 0) { viewsDiff = '\u2191'; viewsDiffColor = '#4ade80'; }
+      else if (gPct < -5) { viewsDiff = '\u2193'; viewsDiffColor = '#ef4444'; }
+    }
     var vidText = '' + vid30;
     var retText = (retPct != null && retPct > 0) ? retPct.toFixed(0) + '%' : '--';
     var ctrText = (ctrPct != null && ctrPct > 0) ? (ctrPct * 100).toFixed(1) + '%' : '--';
 
     var blocks = [
       { emoji: '\uD83D\uDC65', text: subs, color: '#ccc', diffText: diffText, diffColor: diffColor },
-      { emoji: '\uD83D\uDC41', text: viewsText, color: '#60a5fa' },
+      { emoji: '\uD83D\uDC41', text: viewsText, color: '#60a5fa', diffText: viewsDiff, diffColor: viewsDiffColor },
       { emoji: '\uD83C\uDFAC', text: vidText, color: '#aaa' },
       { emoji: '\u23F1', text: retText, color: '#fbbf24' },
       { emoji: '\uD83C\uDFAF', text: ctrText, color: '#fb923c' }
@@ -4643,8 +4673,8 @@ function openSidebar(room, ch) {
   html += '<div class="sb-close" onclick="closeSidebar()">&times;</div>';
   html += '<div class="sb-header" style="border-color:' + (tema.accent || '#888') + '">';
 
-  // Draw agent sprite (smaller: 48x72)
-  html += '<canvas id="sb-sprite" width="48" height="72" style="image-rendering:pixelated;margin:0 auto;display:block;"></canvas>';
+  // Draw agent sprite (compact: 24x36)
+  html += '<canvas id="sb-sprite" width="24" height="36" style="image-rendering:pixelated;margin:0 auto;display:block;"></canvas>';
 
   // Agent name: "Agente X - Nome"
   var agIndex = ag.id || ((ch.palette || 0) + 1);
@@ -4674,6 +4704,59 @@ function openSidebar(room, ch) {
     html += '</div>';
   }
 
+  // Autenticidade score
+  var authAgent = null;
+  var canalAgentes = room.canal.agentes || [];
+  for (var ai = 0; ai < canalAgentes.length; ai++) {
+    if (canalAgentes[ai].tipo === 'autenticidade' && canalAgentes[ai].extra_data) {
+      authAgent = canalAgentes[ai].extra_data;
+      break;
+    }
+  }
+  if (authAgent && authAgent.score != null) {
+    var authScore = authAgent.score;
+    var authLevel = authAgent.level || '';
+    var authColor = authScore >= 80 ? '#4ade80' : (authScore >= 60 ? '#fbbf24' : '#ef4444');
+    var authDate = authAgent.last_run ? authAgent.last_run.substring(0, 10) : '';
+    html += '<div class="sb-section">';
+    html += '<div class="sb-label">Autenticidade</div>';
+    html += '<div class="sb-value" style="color:' + authColor + '">' + authScore + '/100 - ' + escapeHtml(authLevel);
+    if (authDate) html += ' <span style="color:#666;font-size:10px">(' + authDate + ')</span>';
+    html += '</div></div>';
+  }
+
+  // Top Micronicho
+  var microAgent = null;
+  for (var mi = 0; mi < canalAgentes.length; mi++) {
+    if (canalAgentes[mi].tipo === 'micronichos' && canalAgentes[mi].extra_data) {
+      microAgent = canalAgentes[mi].extra_data;
+      break;
+    }
+  }
+  if (microAgent && microAgent.top_micronicho) {
+    html += '<div class="sb-section">';
+    html += '<div class="sb-label">Top Micronicho</div>';
+    html += '<div class="sb-value">' + escapeHtml(microAgent.top_micronicho);
+    if (microAgent.top_micronicho_videos) html += ' <span style="color:#666;font-size:10px">(' + microAgent.top_micronicho_videos + ' videos)</span>';
+    html += '</div></div>';
+  }
+
+  // Top Tema
+  var themeAgent = null;
+  for (var ti = 0; ti < canalAgentes.length; ti++) {
+    if (canalAgentes[ti].tipo === 'temas' && canalAgentes[ti].extra_data) {
+      themeAgent = canalAgentes[ti].extra_data;
+      break;
+    }
+  }
+  if (themeAgent && themeAgent.top_theme) {
+    html += '<div class="sb-section">';
+    html += '<div class="sb-label">Top Tema</div>';
+    html += '<div class="sb-value">' + escapeHtml(themeAgent.top_theme);
+    if (themeAgent.top_theme_score) html += ' <span style="color:#666;font-size:10px">(Score: ' + themeAgent.top_theme_score + ')</span>';
+    html += '</div></div>';
+  }
+
   // Subnicho
   html += '<div class="sb-section">';
   html += '<div class="sb-label">Subnicho</div>';
@@ -4688,6 +4771,25 @@ function openSidebar(room, ch) {
     if (room.canal.frequencia_semanal) postParts.push(room.canal.frequencia_semanal.toFixed(1) + 'x/sem');
     if (room.canal.melhor_hora != null) postParts.push('Padrao: ' + room.canal.melhor_hora + 'h');
     html += '<div class="sb-value">' + postParts.join(' | ') + '</div>';
+    html += '</div>';
+  }
+
+  // Views 7d + Growth indicator
+  var v7d = room.canal.views_7d || 0;
+  var v15d = room.canal.views_15d || 0;
+  if (v7d > 0) {
+    html += '<div class="sb-section">';
+    html += '<div class="sb-label">Views 7d</div>';
+    var v7dText = formatNumber(v7d);
+    var prevWeek = v15d - v7d;
+    if (prevWeek > 0) {
+      var growthPct = ((v7d / prevWeek) - 1) * 100;
+      var growthColor = growthPct >= 0 ? '#4ade80' : '#ef4444';
+      var growthSign = growthPct >= 0 ? '+' : '';
+      html += '<div class="sb-value">' + v7dText + ' <span style="color:' + growthColor + ';font-weight:bold">' + growthSign + growthPct.toFixed(1) + '%</span></div>';
+    } else {
+      html += '<div class="sb-value">' + v7dText + '</div>';
+    }
     html += '</div>';
   }
 
@@ -4729,7 +4831,7 @@ function openSidebar(room, ch) {
 
   sb.innerHTML = html;
 
-  // Render front-facing sprite in sidebar
+  // Render front-facing sprite in sidebar (compact 1.5x)
   setTimeout(function() {
     var spriteCanvas = document.getElementById('sb-sprite');
     if (!spriteCanvas) return;
@@ -4738,10 +4840,9 @@ function openSidebar(room, ch) {
     // Always show front-facing (DOWN) standing pose
     var sprites = spritesByPalette[ch.palette] || spritesByPalette[0];
     var spriteData = sprites.walk[Direction.DOWN][0];
-    var bigZoom = 3;
-    var bigCached = getCachedSprite(spriteData, bigZoom);
-    sctx.clearRect(0, 0, 48, 72);
-    sctx.drawImage(bigCached, 0, 0);
+    sctx.clearRect(0, 0, 24, 36);
+    var smallCached = getCachedSprite(spriteData, 1.5);
+    sctx.drawImage(smallCached, 0, 0);
   }, 50);
 
   // Fetch agent status async
