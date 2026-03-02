@@ -4673,8 +4673,8 @@ function openSidebar(room, ch) {
   html += '<div class="sb-close" onclick="closeSidebar()">&times;</div>';
   html += '<div class="sb-header" style="border-color:' + (tema.accent || '#888') + '">';
 
-  // Draw agent sprite (mini: 16x24)
-  html += '<canvas id="sb-sprite" width="16" height="24" style="image-rendering:pixelated;margin:0 auto;display:block;"></canvas>';
+  // Draw agent sprite (mini: 16x24, override width:100% from global canvas CSS)
+  html += '<canvas id="sb-sprite" width="16" height="24" style="image-rendering:pixelated;margin:0 auto;display:block;width:16px;height:24px;"></canvas>';
 
   // Agent name: "Agente X - Nome"
   var agIndex = ag.id || ((ch.palette || 0) + 1);
