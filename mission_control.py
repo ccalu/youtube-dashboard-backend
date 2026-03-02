@@ -832,6 +832,27 @@ canvas{display:block;cursor:pointer;width:100%}
 .legend-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:1024px){#legend{display:none}#sb{width:300px!important}}
 @media(max-width:768px){#legend{display:none}#header h1{font-size:14px}#stats{font-size:10px}.tab{padding:4px 10px;font-size:10px}#sb{width:100%!important}}
+/* Report Modal */
+#report-modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:50;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px)}
+#report-modal-content{position:absolute;top:5%;left:10%;right:10%;bottom:5%;background:#0d0d24;border:1px solid #1a1a3a;border-radius:12px;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.8)}
+.rm-header{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid #1a1a3a}
+.rm-title{color:#e0e0e0;font-size:16px;font-weight:600;font-family:monospace}
+.rm-subtitle{color:#888;font-size:12px;margin-top:2px}
+.rm-close{color:#888;font-size:24px;cursor:pointer;background:none;border:none;padding:4px 8px}
+.rm-close:hover{color:#fff}
+.rm-tabs{display:flex;gap:0;border-bottom:1px solid #1a1a3a;padding:0 24px}
+.rm-tab{padding:10px 20px;font-size:12px;font-family:monospace;color:#888;cursor:pointer;border:none;background:none;border-bottom:2px solid transparent}
+.rm-tab:hover{color:#ccc}
+.rm-tab.active{color:#60a5fa;border-bottom-color:#60a5fa}
+.rm-body{flex:1;overflow-y:auto;padding:24px;font-size:13px;line-height:1.7}
+.rm-body .rpt-header{font-weight:700;color:#00d4aa;padding:8px 0 4px;margin-top:16px;font-size:14px}
+.rm-body .rpt-alert{color:#f87171;font-size:13px;padding:4px 0}
+.rm-body .rpt-line{font-size:13px;color:#bbb;padding:2px 0;line-height:1.7}
+.rm-history-item{padding:12px 16px;border:1px solid #1a1a3a;border-radius:8px;margin-bottom:8px;cursor:pointer;transition:all 0.2s}
+.rm-history-item:hover{border-color:#3b82f6;background:#0a0a2a}
+.rm-history-item.active{border-color:#60a5fa;background:#0d1a3a}
+.rm-history-date{color:#60a5fa;font-size:13px;font-weight:600}
+.rm-history-meta{color:#888;font-size:11px;margin-top:4px}
 </style>
 </head>
 <body>
@@ -4640,7 +4661,8 @@ function openSidebar(room, ch) {
 
   if (ag.canal_id && ag.implementado !== false) {
     html += '<button class="sb-btn sb-btn-primary" onclick="runAgentAnalysis(\'' + ag.canal_id + '\', \'' + (ag.tipo || 'estrutura_copy') + '\')">Rodar Analise</button>';
-    html += '<button class="sb-btn" onclick="loadAgentReport(\'' + ag.canal_id + '\', \'' + (ag.tipo || 'estrutura_copy') + '\')">Ver Relatorio</button>';
+    var _canalName = (room.canal.nome || room.canal.canal_nome || '').replace(/'/g, "\\'");
+    html += '<button class="sb-btn" onclick="openReportModal(\'' + ag.canal_id + '\', \'' + (ag.tipo || 'estrutura_copy') + '\', \'' + _canalName + '\')">Ver Relatorio</button>';
   }
 
   if (ag.planilha_url) {
@@ -4890,10 +4912,8 @@ function runAgentAnalysis(channelId, agentType) {
         btn.textContent = 'Rodar Analise';
         btn.style.background = '';
       }, 3000);
-      if (data.report) {
-        showReport(data.report);
-      } else if (data.report_text) {
-        showReport(data.report_text);
+      if (data.report || data.report_text) {
+        openReportModal(channelId, agentType, '');
       }
     })
     .catch(function(err) {
@@ -4951,6 +4971,177 @@ function showReport(text) {
     }
   }
   reportDiv.innerHTML = html;
+}
+
+// ============================================================
+// REPORT MODAL - Full-screen report viewer with history
+// ============================================================
+var _currentReportAgent = null;
+
+var _agentNames = {
+  'estrutura_copy': 'Estrutura de Copy',
+  'autenticidade': 'Autenticidade',
+  'micronichos': 'Micronichos',
+  'titulo_estrutura': 'Estrutura de Titulo',
+  'temas': 'Temas'
+};
+
+var _latestUrlMap = {
+  'estrutura_copy': '/api/analise-copy/',
+  'autenticidade': '/api/analise-autenticidade/',
+  'micronichos': '/api/analise-micronichos/',
+  'titulo_estrutura': '/api/analise-titulo/',
+  'temas': '/api/analise-temas/'
+};
+
+function openReportModal(channelId, agentType, channelName) {
+  _currentReportAgent = {channelId: channelId, agentType: agentType, channelName: channelName};
+  var modal = document.getElementById('report-modal');
+  modal.style.display = 'block';
+  document.getElementById('rm-title').textContent = _agentNames[agentType] || agentType;
+  document.getElementById('rm-subtitle').textContent = channelName || '';
+  switchReportTab('report');
+}
+
+function closeReportModal() {
+  document.getElementById('report-modal').style.display = 'none';
+  _currentReportAgent = null;
+}
+
+function switchReportTab(tab) {
+  document.getElementById('rm-tab-report').classList.toggle('active', tab === 'report');
+  document.getElementById('rm-tab-history').classList.toggle('active', tab === 'history');
+  if (tab === 'report') {
+    loadReportInModal();
+  } else {
+    loadHistoryInModal();
+  }
+}
+
+function loadReportInModal() {
+  var body = document.getElementById('rm-body');
+  if (!_currentReportAgent) return;
+  body.innerHTML = '<div style="color:#888;padding:24px">Carregando...</div>';
+  var base = _latestUrlMap[_currentReportAgent.agentType] || '/api/analise-copy/';
+
+  fetch(base + _currentReportAgent.channelId + '/latest')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.report_text) {
+        renderReportInModal(data.report_text, data.run_date);
+      } else {
+        body.innerHTML = '<div style="color:#666;padding:24px">Nenhum relatorio encontrado</div>';
+      }
+    })
+    .catch(function() {
+      body.innerHTML = '<div style="color:#f87171;padding:24px">Erro ao carregar</div>';
+    });
+}
+
+function renderReportInModal(text, runDate) {
+  var body = document.getElementById('rm-body');
+  var lines = String(text).split('\n');
+  var html = '';
+  if (runDate) {
+    html += '<div style="color:#888;font-size:11px;margin-bottom:16px">Gerado em: ' + new Date(runDate).toLocaleString('pt-BR') + '</div>';
+  }
+  for (var i = 0; i < lines.length; i++) {
+    var line = escapeHtml(lines[i]);
+    if (line.indexOf('[') === 0 && line.indexOf(']') > 0) {
+      html += '<div class="rpt-header">' + line + '</div>';
+    } else if (line.indexOf('ALERTA') >= 0 || line.indexOf('RISCO') >= 0) {
+      html += '<div class="rpt-alert">' + line + '</div>';
+    } else if (line.trim() === '') {
+      html += '<div style="height:8px"></div>';
+    } else {
+      html += '<div class="rpt-line">' + line + '</div>';
+    }
+  }
+  body.innerHTML = html;
+}
+
+function loadHistoryInModal() {
+  var body = document.getElementById('rm-body');
+  if (!_currentReportAgent) return;
+  body.innerHTML = '<div style="color:#888;padding:24px">Carregando historico...</div>';
+  var base = _latestUrlMap[_currentReportAgent.agentType] || '/api/analise-copy/';
+
+  fetch(base + _currentReportAgent.channelId + '/historico?limit=20')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var items = data.items || [];
+      if (!items.length) {
+        body.innerHTML = '<div style="color:#666;padding:24px">Nenhum historico encontrado</div>';
+        return;
+      }
+      var html = '';
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        var date = item.run_date || item.created_at || '';
+        var dateStr = date ? new Date(date).toLocaleString('pt-BR') : '?';
+        var meta = '';
+        if (item.total_videos_analyzed) meta = item.total_videos_analyzed + ' videos analisados';
+        if (item.authenticity_score != null) meta = 'Score: ' + Math.round(item.authenticity_score) + '/100';
+        if (item.micronicho_count) meta = item.micronicho_count + ' micronichos';
+        if (item.structure_count) meta = item.structure_count + ' estruturas';
+        if (item.theme_count) meta = item.theme_count + ' temas';
+
+        html += '<div class="rm-history-item" data-id="' + item.id + '" onclick="loadHistoryItem(' + item.id + ', this)">';
+        html += '<div class="rm-history-date">' + dateStr + '</div>';
+        if (meta) html += '<div class="rm-history-meta">' + escapeHtml(meta) + '</div>';
+        html += '</div>';
+      }
+      body.innerHTML = html;
+    })
+    .catch(function() {
+      body.innerHTML = '<div style="color:#f87171;padding:24px">Erro ao carregar historico</div>';
+    });
+}
+
+function loadHistoryItem(itemId, el) {
+  // Highlight selected
+  var items = document.querySelectorAll('.rm-history-item');
+  for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
+  if (el) el.classList.add('active');
+
+  var base = _latestUrlMap[_currentReportAgent.agentType] || '/api/analise-copy/';
+
+  // Show loading below history list
+  var existing = document.getElementById('rm-report-view');
+  if (!existing) {
+    var body = document.getElementById('rm-body');
+    body.insertAdjacentHTML('beforeend', '<div id="rm-report-view" style="margin-top:16px;padding-top:16px;border-top:1px solid #1a1a3a"><div style="color:#888">Carregando relatorio...</div></div>');
+  } else {
+    existing.innerHTML = '<div style="color:#888">Carregando relatorio...</div>';
+  }
+
+  fetch(base + _currentReportAgent.channelId + '/run/' + itemId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var view = document.getElementById('rm-report-view');
+      if (!view) return;
+      if (data.report_text) {
+        var lines = String(data.report_text).split('\n');
+        var html = '';
+        if (data.run_date) {
+          html += '<div style="color:#888;font-size:11px;margin-bottom:16px">Gerado em: ' + new Date(data.run_date).toLocaleString('pt-BR') + '</div>';
+        }
+        for (var j = 0; j < lines.length; j++) {
+          var line = escapeHtml(lines[j]);
+          if (line.indexOf('[') === 0 && line.indexOf(']') > 0) html += '<div class="rpt-header">' + line + '</div>';
+          else if (line.indexOf('ALERTA') >= 0 || line.indexOf('RISCO') >= 0) html += '<div class="rpt-alert">' + line + '</div>';
+          else if (line.trim() === '') html += '<div style="height:8px"></div>';
+          else html += '<div class="rpt-line">' + line + '</div>';
+        }
+        view.innerHTML = html;
+      } else {
+        view.innerHTML = '<div style="color:#666">Relatorio nao disponivel</div>';
+      }
+    })
+    .catch(function() {
+      var view = document.getElementById('rm-report-view');
+      if (view) view.innerHTML = '<div style="color:#f87171">Erro ao carregar</div>';
+    });
 }
 
 // ============================================================
@@ -5207,5 +5398,21 @@ if (document.readyState === 'loading') {
 }
 
 </script>
+<div id="report-modal" onclick="if(event.target===this)closeReportModal()">
+  <div id="report-modal-content">
+    <div class="rm-header">
+      <div>
+        <div class="rm-title" id="rm-title">Relatorio</div>
+        <div class="rm-subtitle" id="rm-subtitle"></div>
+      </div>
+      <button class="rm-close" onclick="closeReportModal()">&times;</button>
+    </div>
+    <div class="rm-tabs">
+      <button class="rm-tab active" id="rm-tab-report" onclick="switchReportTab('report')">Relatorio</button>
+      <button class="rm-tab" id="rm-tab-history" onclick="switchReportTab('history')">Historico</button>
+    </div>
+    <div class="rm-body" id="rm-body"></div>
+  </div>
+</div>
 </body>
 </html>"""

@@ -7000,6 +7000,21 @@ async def get_copy_analysis_history(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/analise-copy/{channel_id}/run/{run_id}")
+async def get_copy_analysis_run(channel_id: str, run_id: int):
+    """Retorna relatorio de um run especifico por ID."""
+    try:
+        resp = db.supabase.table('copy_analysis_runs').select('id,channel_id,run_date,report_text,total_videos_analyzed,channel_avg_retention').eq('id', run_id).eq('channel_id', channel_id).limit(1).execute()
+        if resp.data:
+            return resp.data[0]
+        raise HTTPException(status_code=404, detail="Run nao encontrado")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro run copy {channel_id}/{run_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/analise-copy/{channel_id}/videos")
 async def get_copy_analysis_videos(
     channel_id: str,
@@ -7521,6 +7536,21 @@ async def get_auth_analysis_history(channel_id: str, limit: int = 20, offset: in
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/analise-autenticidade/{channel_id}/run/{run_id}")
+async def get_auth_analysis_run(channel_id: str, run_id: int):
+    """Retorna relatorio de um run especifico por ID."""
+    try:
+        resp = db.supabase.table('authenticity_analysis_runs').select('id,channel_id,run_date,report_text,authenticity_score,total_videos_analyzed').eq('id', run_id).eq('channel_id', channel_id).limit(1).execute()
+        if resp.data:
+            return resp.data[0]
+        raise HTTPException(status_code=404, detail="Run nao encontrado")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro run autenticidade {channel_id}/{run_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/analise-autenticidade/overview")
 async def get_auth_overview():
     """Retorna overview de scores de autenticidade de todos os canais."""
@@ -7622,6 +7652,21 @@ async def get_micronicho_analysis_history(channel_id: str, limit: int = 20, offs
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/analise-micronichos/{channel_id}/run/{run_id}")
+async def get_micronicho_analysis_run(channel_id: str, run_id: int):
+    """Retorna relatorio de um run especifico por ID."""
+    try:
+        resp = db.supabase.table('micronicho_analysis_runs').select('id,channel_id,run_date,report_text,micronicho_count,total_videos_analyzed').eq('id', run_id).eq('channel_id', channel_id).limit(1).execute()
+        if resp.data:
+            return resp.data[0]
+        raise HTTPException(status_code=404, detail="Run nao encontrado")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro run micronichos {channel_id}/{run_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # --- Endpoints individuais de estruturas de titulo (Agente 4) ---
 
 @app.post("/api/analise-titulo/{channel_id}")
@@ -7715,6 +7760,21 @@ async def get_title_analysis_history(channel_id: str, limit: int = 20, offset: i
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/analise-titulo/{channel_id}/run/{run_id}")
+async def get_title_analysis_run(channel_id: str, run_id: int):
+    """Retorna relatorio de um run especifico por ID."""
+    try:
+        resp = db.supabase.table('title_structure_analysis_runs').select('id,channel_id,run_date,report_text,structure_count,total_videos_analyzed').eq('id', run_id).eq('channel_id', channel_id).limit(1).execute()
+        if resp.data:
+            return resp.data[0]
+        raise HTTPException(status_code=404, detail="Run nao encontrado")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro run titulo {channel_id}/{run_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # --- Endpoints individuais de temas (Agente 5) ---
 
 @app.post("/api/analise-temas/{channel_id}")
@@ -7783,6 +7843,21 @@ async def get_theme_analysis_history(channel_id: str, limit: int = 20, offset: i
         return theme_get_history(channel_id, limit=limit, offset=offset)
     except Exception as e:
         logger.error(f"Erro historico temas {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/analise-temas/{channel_id}/run/{run_id}")
+async def get_theme_analysis_run(channel_id: str, run_id: int):
+    """Retorna relatorio de um run especifico por ID."""
+    try:
+        resp = db.supabase.table('theme_analysis_runs').select('id,channel_id,run_date,report_text,theme_count,total_videos_analyzed').eq('id', run_id).eq('channel_id', channel_id).limit(1).execute()
+        if resp.data:
+            return resp.data[0]
+        raise HTTPException(status_code=404, detail="Run nao encontrado")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro run temas {channel_id}/{run_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
