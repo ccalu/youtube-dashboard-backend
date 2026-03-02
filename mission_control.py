@@ -5427,6 +5427,13 @@ function loadHistoryInModal() {
 }
 
 function loadHistoryItem(itemId, el) {
+  // Toggle: if already active, close it
+  if (el && el.classList.contains('active')) {
+    el.classList.remove('active');
+    var rv = document.getElementById('rm-report-view');
+    if (rv) rv.remove();
+    return;
+  }
   // Highlight selected
   var items = document.querySelectorAll('.rm-history-item');
   for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
