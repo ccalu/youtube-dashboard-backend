@@ -6274,6 +6274,26 @@ DASH_UPLOAD_HTML = '''
         .page-info { font-size: 12px; color: var(--text-tertiary); }
         .empty-state { text-align: center; padding: 40px 20px; color: var(--text-tertiary); font-size: 14px; }
         .loading { text-align: center; padding: 60px 20px; color: var(--text-tertiary); font-size: 14px; }
+
+        /* Batch Upload */
+        .btn-batch { padding: 8px 18px; background: var(--info-muted); color: var(--info); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
+        .btn-batch:hover { background: rgba(59, 130, 246, 0.25); border-color: var(--info); }
+        .batch-loading { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 40px; color: var(--text-tertiary); }
+        .batch-spinner { width: 32px; height: 32px; border: 3px solid var(--border-secondary); border-top-color: var(--info); border-radius: 50%; animation: upload-spin 0.8s linear infinite; }
+        .batch-summary { padding: 12px 16px; background: var(--info-muted); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: var(--radius-sm); margin-bottom: 8px; font-size: 13px; color: var(--info); text-align: center; }
+        .batch-section-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: var(--bg-tertiary); border-bottom: 1px solid var(--border-primary); font-size: 13px; font-weight: 600; color: var(--text-primary); }
+        .batch-channel-row { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border-primary); transition: background 0.1s; cursor: pointer; }
+        .batch-channel-row:hover { background: rgba(255, 255, 255, 0.02); }
+        .batch-channel-row:last-child { border-bottom: none; }
+        .batch-checkbox { width: 16px; height: 16px; accent-color: var(--info); cursor: pointer; flex-shrink: 0; }
+        .batch-video-hint { font-size: 12px; color: var(--text-tertiary); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .batch-footer { padding: 16px 24px; border-top: 1px solid var(--border-primary); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--bg-elevated); }
+        .batch-count { font-size: 13px; color: var(--text-secondary); }
+        .btn-select-all { padding: 6px 14px; background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border-primary); border-radius: var(--radius-sm); font-size: 12px; cursor: pointer; transition: all 0.15s ease; }
+        .btn-select-all:hover { background: var(--bg-elevated); border-color: var(--border-secondary); color: var(--text-primary); }
+        .btn-start-batch { padding: 10px 24px; background: var(--success); color: #000; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
+        .btn-start-batch:hover { background: #16a34a; }
+        .btn-start-batch:disabled { background: var(--border-secondary); color: var(--text-tertiary); cursor: not-allowed; }
     </style>
 </head>
 <body>
@@ -6282,7 +6302,10 @@ DASH_UPLOAD_HTML = '''
             <div class="header-title">Upload Dashboard</div>
             <div class="header-subtitle">Sistema de upload automatizado</div>
         </div>
-        <div class="live-indicator"><span class="live-dot"></span><span>Ao vivo</span></div>
+        <div style="display:flex;align-items:center;gap:16px;">
+            <button class="btn-batch" onclick="abrirBatchUpload()">Upload em Lote</button>
+            <div class="live-indicator"><span class="live-dot"></span><span>Ao vivo</span></div>
+        </div>
     </header>
     <div class="stats-grid">
         <div class="stat-card stat-card--total" id="card-total" onclick="toggleFiltro(null)">
@@ -6331,6 +6354,24 @@ DASH_UPLOAD_HTML = '''
                 <button class="btn-close" onclick="fecharModalCompleto()">&times;</button>
             </div>
             <div class="modal-body" id="modalBodyCompleto"><p style="color: var(--text-tertiary); text-align: center;">Carregando...</p></div>
+        </div>
+    </div>
+    <div id="batchUploadModal" class="modal-overlay">
+        <div class="modal-panel" style="max-width:680px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Upload em Lote</h2>
+                <button class="btn-close" onclick="fecharBatchModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="batchModalBody">
+                <div class="batch-loading"><div class="batch-spinner"></div><span>Verificando videos disponiveis...</span></div>
+            </div>
+            <div class="batch-footer" id="batchModalFooter" style="display:none;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <button class="btn-select-all" onclick="batchToggleAll()">Selecionar Todos</button>
+                    <span class="batch-count" id="batchCount">0 selecionados</span>
+                </div>
+                <button class="btn-start-batch" id="btnStartBatch" onclick="iniciarBatchUpload()" disabled>Iniciar Uploads</button>
+            </div>
         </div>
     </div>
     <script>
@@ -6690,6 +6731,110 @@ DASH_UPLOAD_HTML = '''
             btn = e.target.closest('.btn-icon--upload');
             if (btn) { forcarUpload(btn.getAttribute('data-channel-id'), btn.getAttribute('data-channel-name')); return; }
         });
+
+        /* ========== BATCH UPLOAD ========== */
+        var _batchSelected = new Set();
+
+        function _getSubnichoAccent(sub) {
+            if (sub === 'Monetizados') return '#22c55e';
+            if (sub === 'Historias Sombrias') return '#8b5cf6';
+            if (sub === 'Relatos de Guerra') return '#4a8c50';
+            if (sub === 'Guerras e Civilizacoes' || sub === 'Guerras e Civiliza\u00e7\u00f5es') return '#f97316';
+            if (sub === 'Terror') return '#ef4444';
+            if (sub === 'Desmonetizados') return '#71717a';
+            return '#3f3f46';
+        }
+
+        async function abrirBatchUpload() {
+            var modal = document.getElementById('batchUploadModal');
+            var body = document.getElementById('batchModalBody');
+            var footer = document.getElementById('batchModalFooter');
+            modal.classList.add('show');
+            footer.style.display = 'none';
+            body.innerHTML = '<div class="batch-loading"><div class="batch-spinner"></div><span>Verificando videos disponiveis...</span></div>';
+            _batchSelected = new Set();
+            try {
+                var response = await fetch('/api/dash-upload/batch-check', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' });
+                var data = await response.json();
+                if (!response.ok) { body.innerHTML = '<p style="color:var(--error);text-align:center;padding:40px;">Erro: ' + escapeHtml(data.detail || 'Falha na verificacao') + '</p>'; return; }
+                var hasAny = false;
+                var html = '<div class="batch-summary">' + data.total_with_video + ' de ' + data.total_checked + ' canais com video pronto</div>';
+                var subnichos = data.subnichos || {};
+                for (var sub in subnichos) {
+                    var channels = subnichos[sub];
+                    var readyChannels = [];
+                    for (var i = 0; i < channels.length; i++) { if (channels[i].has_video) readyChannels.push(channels[i]); }
+                    if (readyChannels.length === 0) continue;
+                    hasAny = true;
+                    var accent = _getSubnichoAccent(sub);
+                    html += '<div class="batch-section-header" style="border-left:3px solid ' + accent + ';">';
+                    html += '<span>' + escapeHtml(sub) + ' (' + readyChannels.length + ')</span>';
+                    html += '</div>';
+                    for (var j = 0; j < readyChannels.length; j++) {
+                        var ch = readyChannels[j];
+                        var sigla = getSiglaIdioma(ch.lingua);
+                        html += '<div class="batch-channel-row" onclick="this.querySelector(\'input\').click();">';
+                        html += '<input type="checkbox" class="batch-checkbox" data-channel-id="' + ch.channel_id + '" onchange="batchUpdateCount()" onclick="event.stopPropagation();">';
+                        html += '<span style="flex:1;font-weight:500;color:var(--text-primary);">' + escapeHtml(ch.channel_name) + '</span>';
+                        if (sigla) html += '<span class="lang-tag">' + sigla + '</span>';
+                        if (ch.is_monetized) html += '<span class="monetized-dot"></span>';
+                        if (ch.video_titulo) html += '<span class="batch-video-hint">' + escapeHtml(ch.video_titulo) + '</span>';
+                        html += '</div>';
+                    }
+                }
+                if (!hasAny) { body.innerHTML = '<div class="empty-state" style="padding:40px;">Nenhum canal tem video pronto para upload neste momento.</div>'; footer.style.display = 'none'; return; }
+                body.innerHTML = html;
+                footer.style.display = 'flex';
+                batchUpdateCount();
+            } catch (error) {
+                body.innerHTML = '<p style="color:var(--error);text-align:center;padding:40px;">Erro de conexao: ' + error.message + '</p>';
+            }
+        }
+
+        function fecharBatchModal() { document.getElementById('batchUploadModal').classList.remove('show'); }
+
+        function batchUpdateCount() {
+            var checkboxes = document.querySelectorAll('.batch-checkbox:checked');
+            _batchSelected = new Set();
+            checkboxes.forEach(function(cb) { _batchSelected.add(cb.getAttribute('data-channel-id')); });
+            var n = _batchSelected.size;
+            document.getElementById('batchCount').textContent = n + ' selecionado' + (n !== 1 ? 's' : '');
+            document.getElementById('btnStartBatch').disabled = (n === 0);
+            document.getElementById('btnStartBatch').textContent = n > 0 ? 'Iniciar ' + n + ' Upload' + (n !== 1 ? 's' : '') : 'Iniciar Uploads';
+        }
+
+        function batchToggleAll() {
+            var checkboxes = document.querySelectorAll('.batch-checkbox');
+            var allChecked = true;
+            checkboxes.forEach(function(cb) { if (!cb.checked) allChecked = false; });
+            checkboxes.forEach(function(cb) { cb.checked = !allChecked; });
+            batchUpdateCount();
+        }
+
+        async function iniciarBatchUpload() {
+            if (_batchSelected.size === 0) return;
+            var n = _batchSelected.size;
+            if (!confirm('Iniciar upload para ' + n + ' canal(is)?\\n\\nOs uploads serao processados com max 3 simultaneos.')) return;
+            var btn = document.getElementById('btnStartBatch');
+            btn.disabled = true;
+            btn.textContent = 'Iniciando...';
+            try {
+                var response = await fetch('/api/dash-upload/batch-upload', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({channel_ids: Array.from(_batchSelected)}) });
+                var result = await response.json();
+                if (response.ok && result.status === 'processing') {
+                    fecharBatchModal();
+                    atualizar();
+                } else {
+                    alert('Erro: ' + (result.message || result.detail || 'Falha ao iniciar batch'));
+                    btn.disabled = false;
+                    btn.textContent = 'Iniciar ' + n + ' Upload' + (n !== 1 ? 's' : '');
+                }
+            } catch (error) {
+                alert('Erro de conexao: ' + error.message);
+                btn.disabled = false;
+                btn.textContent = 'Iniciar ' + n + ' Upload' + (n !== 1 ? 's' : '');
+            }
+        }
     </script>
 </body>
 </html>
@@ -6936,6 +7081,161 @@ async def dash_upload_historico_completo():
         return {'historico_por_data': historico_lista[:30], 'total_dias': dias_mostrados, 'total_registros': total_registros}
 
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================================================
+# UPLOAD EM LOTE (BATCH UPLOAD)
+# ============================================================================
+
+@app.post("/api/dash-upload/batch-check")
+async def batch_check_videos():
+    """Verifica quais canais tem video pronto para upload na planilha."""
+    try:
+        from daily_uploader import DailyUploader
+        from collections import defaultdict
+
+        canais = supabase.table('yt_channels')\
+            .select('channel_id, channel_name, spreadsheet_id, lingua, is_monetized, subnicho')\
+            .eq('is_active', True)\
+            .eq('upload_automatico', True)\
+            .order('channel_name')\
+            .execute()
+
+        if not canais.data:
+            return {'total_checked': 0, 'total_with_video': 0, 'subnichos': {}}
+
+        # Filtrar canais com spreadsheet_id
+        canais_validos = [c for c in canais.data if c.get('spreadsheet_id')]
+
+        # Verificar cada canal com semaforo para rate limiting do Google Sheets
+        check_sem = asyncio.Semaphore(5)
+
+        async def check_one(canal):
+            async with check_sem:
+                try:
+                    uploader = DailyUploader()
+                    video = await uploader._find_ready_video(
+                        canal['spreadsheet_id'], canal['channel_name']
+                    )
+                    return {
+                        'channel_id': canal['channel_id'],
+                        'channel_name': canal['channel_name'],
+                        'subnicho': canal.get('subnicho', 'Sem Categoria'),
+                        'lingua': canal.get('lingua', ''),
+                        'is_monetized': canal.get('is_monetized', False),
+                        'has_video': video is not None,
+                        'video_titulo': video.get('titulo') if video else None
+                    }
+                except Exception as e:
+                    logger.warning(f"[BATCH-CHECK] Erro ao verificar {canal['channel_name']}: {e}")
+                    return {
+                        'channel_id': canal['channel_id'],
+                        'channel_name': canal['channel_name'],
+                        'subnicho': canal.get('subnicho', 'Sem Categoria'),
+                        'lingua': canal.get('lingua', ''),
+                        'is_monetized': canal.get('is_monetized', False),
+                        'has_video': False,
+                        'video_titulo': None
+                    }
+
+        results = await asyncio.gather(*[check_one(c) for c in canais_validos])
+
+        # Aplicar logica de Monetizados forcados (mesma do dash_upload_status)
+        monetizados_forcados = ['UCzfZRuRHSp6erCwzuhjywFw', 'UCWYzVowgJ6LlxCcYlMGcLtA']
+        for r in results:
+            if r['channel_id'] in monetizados_forcados:
+                r['is_monetized'] = True
+
+        # Agrupar por subnicho (monetizados vao para grupo proprio)
+        subnichos_dict = defaultdict(list)
+        for r in results:
+            sub = 'Monetizados' if r['is_monetized'] else r.get('subnicho', 'Sem Categoria')
+            subnichos_dict[sub].append(r)
+
+        # Ordenar: canais com video primeiro, depois alfabetico
+        for sub in subnichos_dict:
+            subnichos_dict[sub].sort(key=lambda x: (not x['has_video'], x['channel_name']))
+
+        total_with_video = sum(1 for r in results if r['has_video'])
+        logger.info(f"[BATCH-CHECK] {total_with_video}/{len(results)} canais com video pronto")
+
+        return {
+            'total_checked': len(results),
+            'total_with_video': total_with_video,
+            'subnichos': dict(subnichos_dict)
+        }
+
+    except Exception as e:
+        logger.error(f"[BATCH-CHECK] Erro: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/dash-upload/batch-upload")
+async def batch_upload(request: Request, background_tasks: BackgroundTasks):
+    """Enfileira upload para multiplos canais de uma vez."""
+    try:
+        body = await request.json()
+        channel_ids = body.get('channel_ids', [])
+
+        if not channel_ids:
+            raise HTTPException(status_code=400, detail="Nenhum canal selecionado")
+
+        # Validar canais no DB
+        canais = supabase.table('yt_channels')\
+            .select('channel_id, channel_name, spreadsheet_id, lingua, is_monetized, subnicho')\
+            .eq('is_active', True)\
+            .eq('upload_automatico', True)\
+            .in_('channel_id', channel_ids)\
+            .execute()
+
+        valid_channels = [c for c in canais.data if c.get('spreadsheet_id')]
+
+        if not valid_channels:
+            raise HTTPException(status_code=400, detail="Nenhum canal valido encontrado")
+
+        # Limpar cache das planilhas dos canais selecionados
+        for canal in valid_channels:
+            if canal['spreadsheet_id'] in SPREADSHEET_CACHE:
+                del SPREADSHEET_CACHE[canal['spreadsheet_id']]
+
+        # Limpar cache do dashboard para UI atualizar
+        _dash_cache['data'] = None
+        _dash_cache['timestamp'] = 0
+
+        logger.info(f"[BATCH-UPLOAD] Iniciando lote com {len(valid_channels)} canais")
+
+        # Processar todos em background (sequencial, semaforo global limita concorrencia)
+        async def process_batch():
+            from daily_uploader import DailyUploader
+            from datetime import date
+
+            for canal in valid_channels:
+                try:
+                    uploader = DailyUploader()
+                    hoje = date.today()
+                    resultado = await uploader._process_canal_upload(canal, hoje, retry_attempt=1)
+                    status = resultado.get('status', 'erro')
+                    logger.info(f"[BATCH-UPLOAD] {canal['channel_name']}: {status}")
+                except Exception as e:
+                    logger.error(f"[BATCH-UPLOAD] Erro {canal['channel_name']}: {e}")
+
+                await asyncio.sleep(2)
+
+            logger.info(f"[BATCH-UPLOAD] Lote finalizado ({len(valid_channels)} canais)")
+
+        background_tasks.add_task(process_batch)
+
+        return {
+            'status': 'processing',
+            'message': f'Upload em lote iniciado para {len(valid_channels)} canais',
+            'total_queued': len(valid_channels),
+            'channels': [{'channel_id': c['channel_id'], 'channel_name': c['channel_name']} for c in valid_channels]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[BATCH-UPLOAD] Erro: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # ============================================================================
