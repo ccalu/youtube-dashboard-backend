@@ -846,9 +846,18 @@ canvas{display:block;cursor:pointer;width:100%}
 .rm-tab{padding:10px 20px;font-size:12px;font-family:monospace;color:#888;cursor:pointer;border:none;background:none;border-bottom:2px solid transparent}
 .rm-tab:hover{color:#ccc}
 .rm-tab.active{color:#60a5fa;border-bottom-color:#60a5fa}
-.rm-body{flex:1;overflow-y:auto;padding:24px;font-size:13px;line-height:1.7}
+.rm-body{flex:1;overflow-y:auto;padding:24px;font-size:13px;line-height:1.7;font-family:'Courier New',monospace}
+.rm-body .rpt-title{font-weight:700;color:#e0e0e0;font-size:15px;padding:12px 0 8px;text-align:center;letter-spacing:1px}
+.rm-body .rpt-separator{color:#333;font-size:13px;padding:0;line-height:1;user-select:none}
+.rm-body .rpt-section{font-weight:700;color:#60a5fa;padding:12px 0 6px;margin-top:12px;font-size:14px;border-bottom:1px solid #1a2a4a}
 .rm-body .rpt-header{font-weight:700;color:#00d4aa;padding:8px 0 4px;margin-top:16px;font-size:14px}
-.rm-body .rpt-alert{color:#f87171;font-size:13px;padding:4px 0}
+.rm-body .rpt-alert{color:#f87171;font-size:13px;padding:4px 0;font-weight:600}
+.rm-body .rpt-anomaly{color:#fbbf24;font-size:13px;padding:4px 0 4px 8px;border-left:2px solid #fbbf2444}
+.rm-body .rpt-metric{color:#e0e0e0;font-size:13px;padding:3px 0}
+.rm-body .rpt-bullet{color:#bbb;font-size:13px;padding:2px 0 2px 16px;line-height:1.6}
+.rm-body .rpt-table{color:#ccc;font-size:12px;padding:1px 0;line-height:1.5;white-space:pre;overflow-x:auto}
+.rm-body .rpt-positive{color:#4ade80}
+.rm-body .rpt-negative{color:#f87171}
 .rm-body .rpt-line{font-size:13px;color:#bbb;padding:2px 0;line-height:1.7}
 .rm-history-item{padding:12px 16px;border:1px solid #1a1a3a;border-radius:8px;margin-bottom:8px;cursor:pointer;transition:all 0.2s}
 .rm-history-item:hover{border-color:#3b82f6;background:#0a0a2a}
@@ -5069,26 +5078,115 @@ function loadReportInModal() {
     });
 }
 
-function renderReportInModal(text, runDate) {
-  var body = document.getElementById('rm-body');
+function formatReportHtml(text, runDate) {
   var lines = String(text).split('\n');
   var html = '';
   if (runDate) {
     html += '<div style="color:#888;font-size:11px;margin-bottom:16px">Gerado em: ' + new Date(runDate).toLocaleString('pt-BR') + '</div>';
   }
   for (var i = 0; i < lines.length; i++) {
-    var line = escapeHtml(lines[i]);
-    if (line.indexOf('[') === 0 && line.indexOf(']') > 0) {
-      html += '<div class="rpt-header">' + line + '</div>';
-    } else if (line.indexOf('ALERTA') >= 0 || line.indexOf('RISCO') >= 0) {
-      html += '<div class="rpt-alert">' + line + '</div>';
-    } else if (line.trim() === '') {
+    var raw = lines[i];
+    var line = escapeHtml(raw);
+    var trimmed = line.trim();
+
+    // Empty line = spacer
+    if (trimmed === '') {
       html += '<div style="height:8px"></div>';
-    } else {
-      html += '<div class="rpt-line">' + line + '</div>';
+      continue;
     }
+
+    // ===== separators (title boundary)
+    if (/^={4,}/.test(trimmed)) {
+      html += '<div class="rpt-separator">' + trimmed + '</div>';
+      continue;
+    }
+
+    // --- SECTION TITLE --- (with dashes around)
+    var sectionMatch = trimmed.match(/^-{2,}\s+(.+?)\s+-{2,}$/);
+    if (sectionMatch) {
+      html += '<div class="rpt-section">' + sectionMatch[1] + '</div>';
+      continue;
+    }
+
+    // --- separator lines (just dashes)
+    if (/^[-─]{3,}$/.test(trimmed)) {
+      html += '<div class="rpt-separator" style="color:#1a2a4a">' + trimmed + '</div>';
+      continue;
+    }
+
+    // [HEADER] style
+    if (trimmed.indexOf('[') === 0 && trimmed.indexOf(']') > 0) {
+      html += '<div class="rpt-header">' + line + '</div>';
+      continue;
+    }
+
+    // RELATORIO / SCORE / ANALISE title lines (all caps with |)
+    if (/^(RELATORIO|SCORE|ANALISE|RANKING)/.test(trimmed) && trimmed.indexOf('|') > 0) {
+      html += '<div class="rpt-title">' + line + '</div>';
+      continue;
+    }
+
+    // SCORE GERAL line
+    if (/^SCORE GERAL:/.test(trimmed)) {
+      html += '<div class="rpt-metric" style="font-size:15px;font-weight:700;color:#60a5fa;text-align:center;padding:8px 0">' + line + '</div>';
+      continue;
+    }
+
+    // ALERTA / RISCO lines
+    if (trimmed.indexOf('ALERTA') >= 0 || trimmed.indexOf('RISCO') >= 0) {
+      html += '<div class="rpt-alert">' + line + '</div>';
+      continue;
+    }
+
+    // ! anomaly lines
+    if (trimmed.indexOf('!') === 0) {
+      html += '<div class="rpt-anomaly">' + line + '</div>';
+      continue;
+    }
+
+    // Table header rows (with # or Estr. or multiple columns separated by lots of spaces)
+    if (/^\s*(#\s|Estr\.|Fator|Tema|Micronicho|Estrutura)/.test(trimmed) && (raw.indexOf('  ') > 0)) {
+      html += '<div class="rpt-table" style="color:#60a5fa;font-weight:600">' + line + '</div>';
+      continue;
+    }
+
+    // Table data rows (start with number + lots of spaces, or indented with alignment)
+    if (/^\s*\d+\s{2,}/.test(raw) || /^\s{2,}\S.*\s{3,}\S/.test(raw)) {
+      // Highlight positive/negative values inline
+      var styledLine = line.replace(/(\+\d+[\d.,]*%?)/g, '<span class="rpt-positive">$1</span>');
+      styledLine = styledLine.replace(/(-\d+[\d.,]*%?)/g, '<span class="rpt-negative">$1</span>');
+      html += '<div class="rpt-table">' + styledLine + '</div>';
+      continue;
+    }
+
+    // Bullet points (- or *)
+    if (/^\s*[-*]\s/.test(raw)) {
+      html += '<div class="rpt-bullet">' + line + '</div>';
+      continue;
+    }
+
+    // Metric lines (Key: Value)
+    if (/^[A-Z][a-zA-Z\s]+:/.test(trimmed) && trimmed.length < 120) {
+      var styledMetric = line.replace(/:\s*(.+)$/, ': <span style="color:#e0e0e0;font-weight:600">$1</span>');
+      html += '<div class="rpt-metric">' + styledMetric + '</div>';
+      continue;
+    }
+
+    // Lines with arrow comparisons (→ or ->)
+    if (raw.indexOf('\u2192') >= 0 || trimmed.indexOf('-&gt;') >= 0) {
+      html += '<div class="rpt-metric">' + line + '</div>';
+      continue;
+    }
+
+    // Default: regular text
+    html += '<div class="rpt-line">' + line + '</div>';
   }
-  body.innerHTML = html;
+  return html;
+}
+
+function renderReportInModal(text, runDate) {
+  var body = document.getElementById('rm-body');
+  body.innerHTML = formatReportHtml(text, runDate);
 }
 
 function loadHistoryInModal() {
@@ -5152,19 +5250,7 @@ function loadHistoryItem(itemId, el) {
       var view = document.getElementById('rm-report-view');
       if (!view) return;
       if (data.report_text) {
-        var lines = String(data.report_text).split('\n');
-        var html = '';
-        if (data.run_date) {
-          html += '<div style="color:#888;font-size:11px;margin-bottom:16px">Gerado em: ' + new Date(data.run_date).toLocaleString('pt-BR') + '</div>';
-        }
-        for (var j = 0; j < lines.length; j++) {
-          var line = escapeHtml(lines[j]);
-          if (line.indexOf('[') === 0 && line.indexOf(']') > 0) html += '<div class="rpt-header">' + line + '</div>';
-          else if (line.indexOf('ALERTA') >= 0 || line.indexOf('RISCO') >= 0) html += '<div class="rpt-alert">' + line + '</div>';
-          else if (line.trim() === '') html += '<div style="height:8px"></div>';
-          else html += '<div class="rpt-line">' + line + '</div>';
-        }
-        view.innerHTML = html;
+        view.innerHTML = formatReportHtml(data.report_text, data.run_date);
       } else {
         view.innerHTML = '<div style="color:#666">Relatorio nao disponivel</div>';
       }
