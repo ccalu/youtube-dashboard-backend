@@ -5267,6 +5267,8 @@ function formatReportHtml(text, runDate) {
     // Skip === separator lines and title line (already in title box)
     if (/^={4,}/.test(rawTrimmed)) { flushPre(); continue; }
     if (/^(RELATORIO|SCORE DE AUTENTICIDADE|ANALISE DE MICRONICHOS|ANALISE DE ESTRUTURAS|ANALISE DE TEMAS)\s/.test(rawTrimmed) && rawTrimmed.indexOf('|') > 0) { continue; }
+    // Skip --- separator lines (only dashes/spaces/─)
+    if (/^[\s\-─]{3,}$/.test(rawTrimmed) && rawTrimmed.replace(/[\s\-─]/g, '') === '') { continue; }
 
     // Empty line
     if (trimmed === '') {
