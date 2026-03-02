@@ -7091,8 +7091,9 @@ async def dash_upload_historico_completo():
 async def batch_check_videos():
     """Verifica quais canais tem video pronto para upload na planilha."""
     try:
-        from daily_uploader import DailyUploader
+        from daily_uploader import DailyUploader, SPREADSHEET_CACHE, CACHE_DURATION
         from collections import defaultdict
+        import time as _t
 
         canais = supabase.table('yt_channels')\
             .select('channel_id, channel_name, spreadsheet_id, lingua, is_monetized, subnicho')\
@@ -7104,20 +7105,20 @@ async def batch_check_videos():
         if not canais.data:
             return {'total_checked': 0, 'total_with_video': 0, 'subnichos': {}}
 
-        # Filtrar canais com spreadsheet_id
         canais_validos = [c for c in canais.data if c.get('spreadsheet_id')]
 
-        # Verificar cada canal com semaforo para rate limiting do Google Sheets
-        check_sem = asyncio.Semaphore(5)
+        # Fase 1: Verificar canais COM cache (instantaneo, sem I/O)
+        results = []
+        canais_sem_cache = []
+        uploader = DailyUploader()
 
-        async def check_one(canal):
-            async with check_sem:
-                try:
-                    uploader = DailyUploader()
-                    video = await uploader._find_ready_video(
-                        canal['spreadsheet_id'], canal['channel_name']
-                    )
-                    return {
+        for canal in canais_validos:
+            sid = canal['spreadsheet_id']
+            if sid in SPREADSHEET_CACHE:
+                cache_time, cached_data = SPREADSHEET_CACHE[sid]
+                if _t.time() - cache_time < CACHE_DURATION:
+                    video = uploader._process_cached_data(cached_data)
+                    results.append({
                         'channel_id': canal['channel_id'],
                         'channel_name': canal['channel_name'],
                         'subnicho': canal.get('subnicho', 'Sem Categoria'),
@@ -7125,20 +7126,53 @@ async def batch_check_videos():
                         'is_monetized': canal.get('is_monetized', False),
                         'has_video': video is not None,
                         'video_titulo': video.get('titulo') if video else None
-                    }
-                except Exception as e:
-                    logger.warning(f"[BATCH-CHECK] Erro ao verificar {canal['channel_name']}: {e}")
-                    return {
-                        'channel_id': canal['channel_id'],
-                        'channel_name': canal['channel_name'],
-                        'subnicho': canal.get('subnicho', 'Sem Categoria'),
-                        'lingua': canal.get('lingua', ''),
-                        'is_monetized': canal.get('is_monetized', False),
-                        'has_video': False,
-                        'video_titulo': None
-                    }
+                    })
+                    continue
+            canais_sem_cache.append(canal)
 
-        results = await asyncio.gather(*[check_one(c) for c in canais_validos])
+        logger.info(f"[BATCH-CHECK] {len(results)} canais via cache, {len(canais_sem_cache)} precisam de fetch")
+
+        # Fase 2: Canais sem cache — fetch via Google Sheets com paralelismo em threads
+        if canais_sem_cache and uploader.sheets_client:
+            sheets_sem = asyncio.Semaphore(5)
+            loop = asyncio.get_event_loop()
+
+            def _fetch_spreadsheet_sync(spreadsheet_id):
+                """Busca planilha sincronamente (roda em thread)."""
+                sheet = uploader.sheets_client.open_by_key(spreadsheet_id)
+                worksheet = sheet.get_worksheet(0)
+                return worksheet.get_all_values()
+
+            async def check_uncached(canal):
+                async with sheets_sem:
+                    try:
+                        sid = canal['spreadsheet_id']
+                        all_values = await loop.run_in_executor(None, _fetch_spreadsheet_sync, sid)
+                        SPREADSHEET_CACHE[sid] = (_t.time(), all_values)
+                        video = uploader._process_cached_data(all_values)
+                        return {
+                            'channel_id': canal['channel_id'],
+                            'channel_name': canal['channel_name'],
+                            'subnicho': canal.get('subnicho', 'Sem Categoria'),
+                            'lingua': canal.get('lingua', ''),
+                            'is_monetized': canal.get('is_monetized', False),
+                            'has_video': video is not None,
+                            'video_titulo': video.get('titulo') if video else None
+                        }
+                    except Exception as e:
+                        logger.warning(f"[BATCH-CHECK] Erro fetch {canal['channel_name']}: {e}")
+                        return {
+                            'channel_id': canal['channel_id'],
+                            'channel_name': canal['channel_name'],
+                            'subnicho': canal.get('subnicho', 'Sem Categoria'),
+                            'lingua': canal.get('lingua', ''),
+                            'is_monetized': canal.get('is_monetized', False),
+                            'has_video': False,
+                            'video_titulo': None
+                        }
+
+            uncached_results = await asyncio.gather(*[check_uncached(c) for c in canais_sem_cache])
+            results.extend(uncached_results)
 
         # Aplicar logica de Monetizados forcados (mesma do dash_upload_status)
         monetizados_forcados = ['UCzfZRuRHSp6erCwzuhjywFw', 'UCWYzVowgJ6LlxCcYlMGcLtA']
