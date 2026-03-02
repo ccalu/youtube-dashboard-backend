@@ -3396,6 +3396,34 @@ async def run_collection_job():
                         canais_sucesso += 1
                         await db.marcar_coleta_sucesso(canal['id'])  # 🆕 Tracking de sucesso
                         logger.info(f"✅ [{index}/{total_canais}] Success: {canal['nome_canal']}")
+
+                        # Atualizar analytics fields (video_count, frequencia, melhor hora)
+                        try:
+                            analytics_update = {
+                                'published_at': canal_data.get('published_at'),
+                                'video_count': canal_data.get('video_count'),
+                            }
+                            await db.update_canal_analytics_fields(canal['id'], analytics_update)
+
+                            # Calcular melhor_hora a partir dos horarios de publicacao dos videos
+                            if videos_data and len(videos_data) >= 3:
+                                from collections import Counter
+                                horas = []
+                                for v in videos_data:
+                                    pub = v.get('data_publicacao', '')
+                                    if pub:
+                                        try:
+                                            dt = datetime.fromisoformat(pub.replace('Z', '+00:00'))
+                                            horas.append(dt.hour)
+                                        except (ValueError, TypeError):
+                                            pass
+                                if horas:
+                                    hora_mais_comum = Counter(horas).most_common(1)[0][0]
+                                    await db.supabase.table('canais_monitorados').update({
+                                        'melhor_hora': hora_mais_comum
+                                    }).eq('id', canal['id']).execute()
+                        except Exception as e_analytics:
+                            logger.warning(f"⚠️ Analytics fields update failed for {canal['nome_canal']}: {e_analytics}")
                     else:
                         canais_erro += 1
                         await db.marcar_coleta_falha(canal['id'], "Dados não salvos (all zeros)")
