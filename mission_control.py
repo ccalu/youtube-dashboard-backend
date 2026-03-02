@@ -4525,8 +4525,8 @@ function renderAllRooms(ctx, canvasW, canvasH) {
     var prevWeekViews = rawV15d - rawV7d;
     if (prevWeekViews > 0 && rawV7d > 0) {
       var gPct = ((rawV7d / prevWeekViews) - 1) * 100;
-      if (gPct > 0) { viewsDiff = '\u2191'; viewsDiffColor = '#4ade80'; }
-      else if (gPct < -5) { viewsDiff = '\u2193'; viewsDiffColor = '#ef4444'; }
+      if (gPct > 0) { viewsDiff = ' \u2191'; viewsDiffColor = '#4ade80'; }
+      else if (gPct < -5) { viewsDiff = ' \u2193'; viewsDiffColor = '#ef4444'; }
     }
     var vidText = '' + vid30;
     var retText = (retPct != null && retPct > 0) ? retPct.toFixed(0) + '%' : '--';
