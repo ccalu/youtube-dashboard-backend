@@ -4700,7 +4700,8 @@ function fetchUploadStatus(ytChannelId) {
     h += '<div class="sb-value" style="color:' + (statusColors[st]||'#888') + '">';
     h += (statusLabels[st]||st);
     if (found.video_titulo) h += ' - ' + escapeHtml(found.video_titulo);
-    if (found.hora_upload) h += ' (' + found.hora_upload + ')';
+    var uploadDate = new Date().toLocaleDateString('pt-BR');
+    h += ' (' + uploadDate + ')';
     h += '</div></div>';
     div.innerHTML = h;
   }
