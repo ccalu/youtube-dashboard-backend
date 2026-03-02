@@ -5388,7 +5388,16 @@ function loadHistoryInModal() {
   fetch(base + _currentReportAgent.channelId + '/historico?limit=20')
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      var items = data.items || [];
+      var allItems = data.items || [];
+      // Deduplicate: keep only the latest run per day
+      var seenDays = {};
+      var items = [];
+      for (var di = 0; di < allItems.length; di++) {
+        var dayKey = (allItems[di].run_date || '').substring(0, 10);
+        if (dayKey && seenDays[dayKey]) continue;
+        if (dayKey) seenDays[dayKey] = true;
+        items.push(allItems[di]);
+      }
       if (!items.length) {
         body.innerHTML = '<div style="color:#666;padding:24px">Nenhum historico encontrado</div>';
         return;
