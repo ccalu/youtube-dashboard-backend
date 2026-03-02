@@ -4546,7 +4546,7 @@ function openSidebar(room, ch) {
   html += '<div class="sb-label">Canal</div>';
   html += '<div class="sb-value">' + escapeHtml(room.canal.nome || room.canal.canal_nome || '');
   if (room.canal.url_canal) {
-    html += ' <a href="' + escapeHtml(room.canal.url_canal) + '" target="_blank" style="color:#ef4444;text-decoration:none;font-size:11px;margin-left:6px;padding:1px 5px;border:1px solid #ef4444;border-radius:3px" title="Abrir canal no YouTube">YT</a>';
+    html += ' <a href="' + escapeHtml(room.canal.url_canal) + '" target="_blank" style="color:#ef4444;text-decoration:none;font-size:13px;margin-left:6px" title="Abrir canal no YouTube">\u25B6</a>';
   }
   html += '</div>';
   html += '</div>';
