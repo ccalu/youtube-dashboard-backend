@@ -835,35 +835,51 @@ canvas{display:block;cursor:pointer;width:100%}
 @media(max-width:1024px){#legend{display:none}#sb{width:300px!important}}
 @media(max-width:768px){#legend{display:none}#header h1{font-size:14px}#stats{font-size:10px}.tab{padding:4px 10px;font-size:10px}#sb{width:100%!important}}
 /* Report Modal */
-#report-modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:50;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px)}
-#report-modal-content{position:absolute;top:5%;left:10%;right:10%;bottom:5%;background:#0d0d24;border:1px solid #1a1a3a;border-radius:12px;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.8)}
-.rm-header{display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid #1a1a3a}
-.rm-title{color:#e0e0e0;font-size:16px;font-weight:600;font-family:monospace}
-.rm-subtitle{color:#888;font-size:12px;margin-top:2px}
-.rm-close{color:#888;font-size:24px;cursor:pointer;background:none;border:none;padding:4px 8px}
-.rm-close:hover{color:#fff}
-.rm-tabs{display:flex;gap:0;border-bottom:1px solid #1a1a3a;padding:0 24px}
-.rm-tab{padding:10px 20px;font-size:12px;font-family:monospace;color:#888;cursor:pointer;border:none;background:none;border-bottom:2px solid transparent}
-.rm-tab:hover{color:#ccc}
+#report-modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:50;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px)}
+#report-modal-content{position:absolute;top:3%;left:8%;right:8%;bottom:3%;background:#0b0b1e;border:1px solid #1e1e3a;border-radius:14px;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,0.9)}
+.rm-header{display:flex;justify-content:space-between;align-items:center;padding:18px 28px;border-bottom:1px solid #1e1e3a;background:#0d0d22;border-radius:14px 14px 0 0}
+.rm-title{color:#f0f0f0;font-size:17px;font-weight:700;font-family:'Segoe UI',system-ui,sans-serif;letter-spacing:0.3px}
+.rm-subtitle{color:#7a8ba8;font-size:12px;margin-top:3px;font-family:'Segoe UI',system-ui,sans-serif}
+.rm-close{color:#666;font-size:26px;cursor:pointer;background:none;border:none;padding:4px 10px;border-radius:6px;transition:all 0.2s}
+.rm-close:hover{color:#fff;background:#ffffff10}
+.rm-tabs{display:flex;gap:0;border-bottom:1px solid #1e1e3a;padding:0 28px;background:#0c0c20}
+.rm-tab{padding:11px 22px;font-size:12px;font-family:'Segoe UI',system-ui,sans-serif;font-weight:500;color:#7a8ba8;cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;transition:all 0.2s;letter-spacing:0.3px}
+.rm-tab:hover{color:#c0c8d8}
 .rm-tab.active{color:#60a5fa;border-bottom-color:#60a5fa}
-.rm-body{flex:1;overflow-y:auto;padding:24px;font-size:13px;line-height:1.7;font-family:'Courier New',monospace}
-.rm-body .rpt-title{font-weight:700;color:#e0e0e0;font-size:15px;padding:12px 0 8px;text-align:center;letter-spacing:1px}
-.rm-body .rpt-separator{color:#333;font-size:13px;padding:0;line-height:1;user-select:none}
-.rm-body .rpt-section{font-weight:700;color:#60a5fa;padding:12px 0 6px;margin-top:12px;font-size:14px;border-bottom:1px solid #1a2a4a}
-.rm-body .rpt-header{font-weight:700;color:#00d4aa;padding:8px 0 4px;margin-top:16px;font-size:14px}
-.rm-body .rpt-alert{color:#f87171;font-size:13px;padding:4px 0;font-weight:600}
-.rm-body .rpt-anomaly{color:#fbbf24;font-size:13px;padding:4px 0 4px 8px;border-left:2px solid #fbbf2444}
-.rm-body .rpt-metric{color:#e0e0e0;font-size:13px;padding:3px 0}
-.rm-body .rpt-bullet{color:#bbb;font-size:13px;padding:2px 0 2px 16px;line-height:1.6}
-.rm-body .rpt-table{color:#ccc;font-size:12px;padding:1px 0;line-height:1.5;white-space:pre;overflow-x:auto}
-.rm-body .rpt-positive{color:#4ade80}
-.rm-body .rpt-negative{color:#f87171}
-.rm-body .rpt-line{font-size:13px;color:#bbb;padding:2px 0;line-height:1.7}
-.rm-history-item{padding:12px 16px;border:1px solid #1a1a3a;border-radius:8px;margin-bottom:8px;cursor:pointer;transition:all 0.2s}
-.rm-history-item:hover{border-color:#3b82f6;background:#0a0a2a}
+.rm-body{flex:1;overflow-y:auto;padding:28px 32px;font-size:13.5px;line-height:1.8;font-family:'Segoe UI',system-ui,sans-serif;color:#c0c8d8}
+/* Report elements */
+.rpt-title-box{text-align:center;padding:16px 20px;margin-bottom:20px;background:#10102a;border:1px solid #1e1e3a;border-radius:10px}
+.rpt-title-box .rpt-main-title{font-weight:700;color:#f0f0f0;font-size:16px;letter-spacing:0.5px}
+.rpt-title-box .rpt-title-meta{color:#7a8ba8;font-size:12px;margin-top:4px}
+.rpt-score-box{text-align:center;padding:14px 20px;margin:12px 0 20px;background:linear-gradient(135deg,#0d1a3a,#0d2a1a);border:1px solid #1e3a5a;border-radius:10px}
+.rpt-score-box .score-value{font-size:28px;font-weight:700;color:#60a5fa;letter-spacing:1px}
+.rpt-score-box .score-label{font-size:12px;color:#7a8ba8;margin-top:2px}
+.rpt-section-title{font-weight:700;color:#60a5fa;font-size:14px;padding:14px 0 8px;margin-top:20px;border-bottom:1px solid #1a2a4a;letter-spacing:0.3px}
+.rpt-header{font-weight:700;color:#00d4aa;padding:10px 0 4px;margin-top:18px;font-size:14px}
+.rpt-alert{color:#f87171;font-size:13px;padding:6px 12px;font-weight:600;background:#2a0d0d;border-left:3px solid #f87171;border-radius:0 6px 6px 0;margin:4px 0}
+.rpt-anomaly{color:#fbbf24;font-size:13px;padding:6px 12px;border-left:3px solid #fbbf24;background:#2a2a0d;border-radius:0 6px 6px 0;margin:4px 0}
+.rpt-metric{color:#e0e8f0;font-size:13.5px;padding:4px 0;line-height:1.7}
+.rpt-metric .metric-val{color:#f0f0f0;font-weight:600}
+.rpt-bullet{color:#c0c8d8;font-size:13.5px;padding:3px 0 3px 20px;line-height:1.7;position:relative}
+.rpt-table-wrap{background:#08081a;border:1px solid #1a1a30;border-radius:8px;padding:12px 16px;margin:8px 0 12px;overflow-x:auto}
+.rpt-table-row{font-family:'Cascadia Code','Fira Code','JetBrains Mono','Courier New',monospace;font-size:12.5px;white-space:pre;line-height:1.6;padding:1px 0}
+.rpt-table-header{color:#60a5fa;font-weight:600}
+.rpt-table-sep{color:#2a2a4a}
+.rpt-table-data{color:#d0d8e8}
+.rpt-positive{color:#4ade80;font-weight:600}
+.rpt-negative{color:#f87171;font-weight:600}
+.rpt-bar{color:#3b82f6;letter-spacing:-1px}
+.rpt-bar-empty{color:#1a1a3a;letter-spacing:-1px}
+.rpt-line{font-size:13.5px;color:#c0c8d8;padding:3px 0;line-height:1.8}
+.rpt-spacer{height:10px}
+.rpt-vs-block{background:#0a0a20;border:1px solid #1a1a3a;border-radius:8px;padding:12px 16px;margin:8px 0}
+.rpt-vs-block .rpt-metric{font-size:13px}
+/* History */
+.rm-history-item{padding:14px 18px;border:1px solid #1a1a3a;border-radius:10px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;background:#0a0a1e}
+.rm-history-item:hover{border-color:#3b82f6;background:#0d0d2a}
 .rm-history-item.active{border-color:#60a5fa;background:#0d1a3a}
 .rm-history-date{color:#60a5fa;font-size:13px;font-weight:600}
-.rm-history-meta{color:#888;font-size:11px;margin-top:4px}
+.rm-history-meta{color:#7a8ba8;font-size:11px;margin-top:4px}
 </style>
 </head>
 <body>
@@ -5081,106 +5097,213 @@ function loadReportInModal() {
 function formatReportHtml(text, runDate) {
   var lines = String(text).split('\n');
   var html = '';
-  if (runDate) {
-    html += '<div style="color:#888;font-size:11px;margin-bottom:16px">Gerado em: ' + new Date(runDate).toLocaleString('pt-BR') + '</div>';
+  var inTable = false;
+  var inVsBlock = false;
+  var tableRows = [];
+
+  function flushTable() {
+    if (tableRows.length > 0) {
+      html += '<div class="rpt-table-wrap">';
+      for (var t = 0; t < tableRows.length; t++) html += tableRows[t];
+      html += '</div>';
+      tableRows = [];
+    }
+    inTable = false;
   }
+
+  function flushVs() {
+    if (inVsBlock) { html += '</div>'; inVsBlock = false; }
+  }
+
+  function highlightValues(str) {
+    str = str.replace(/(\+\d+[\d.,]*%?)/g, '<span class="rpt-positive">$1</span>');
+    str = str.replace(/((?:^|\s)-\d+[\d.,]*%?)/g, function(m) {
+      return '<span class="rpt-negative">' + m + '</span>';
+    });
+    // Highlight bar charts: # = filled, . = empty
+    str = str.replace(/(#{2,})/g, '<span class="rpt-bar">$1</span>');
+    str = str.replace(/(\.{3,})/g, '<span class="rpt-bar-empty">$1</span>');
+    return str;
+  }
+
+  function isTableLine(raw) {
+    // Table separator (─ or -)
+    if (/^\s*[-─]{3,}\s*[-─\s]*$/.test(raw)) return 'sep';
+    // Table header (has column-like structure with 2+ multi-space gaps)
+    var gaps = (raw.match(/\S\s{2,}\S/g) || []).length;
+    if (gaps >= 2) {
+      // Check if it's a header row (starts with # or has common header words)
+      if (/^\s*(#|Estr|Fator|Tema|Micro|Estrutura|Codigo|Formula|Vids|Score|Views|Ret|Watch|Videos|CTR|Velocity|Titulo)/.test(raw.trim())) return 'header';
+      // Data row (starts with number or has aligned columns)
+      if (/^\s*\d+\s{2,}/.test(raw)) return 'data';
+      // Indented aligned data
+      if (/^\s{2,}\S/.test(raw) && gaps >= 2) return 'data';
+    }
+    return false;
+  }
+
+  // Extract title from first ===...=== block
+  var titleText = '';
+  var titleDate = '';
+  for (var p = 0; p < Math.min(lines.length, 5); p++) {
+    var pt = lines[p].trim();
+    if (/^(RELATORIO|SCORE|ANALISE)\s/.test(pt) && pt.indexOf('|') > 0) {
+      var parts = pt.split('|');
+      titleText = parts[0].trim();
+      titleDate = parts.slice(1).join('|').trim();
+      break;
+    }
+  }
+
+  // Title box
+  if (titleText) {
+    html += '<div class="rpt-title-box">';
+    html += '<div class="rpt-main-title">' + escapeHtml(titleText) + '</div>';
+    if (titleDate) html += '<div class="rpt-title-meta">' + escapeHtml(titleDate) + '</div>';
+    if (runDate) html += '<div class="rpt-title-meta">Gerado em: ' + new Date(runDate).toLocaleString('pt-BR') + '</div>';
+    html += '</div>';
+  } else if (runDate) {
+    html += '<div style="color:#7a8ba8;font-size:12px;margin-bottom:16px">Gerado em: ' + new Date(runDate).toLocaleString('pt-BR') + '</div>';
+  }
+
   for (var i = 0; i < lines.length; i++) {
     var raw = lines[i];
     var line = escapeHtml(raw);
     var trimmed = line.trim();
+    var rawTrimmed = raw.trim();
 
-    // Empty line = spacer
+    // Skip lines already used in title box
+    if (/^={4,}/.test(rawTrimmed)) { flushTable(); flushVs(); continue; }
+    if (/^(RELATORIO|SCORE DE AUTENTICIDADE|ANALISE DE MICRONICHOS|ANALISE DE ESTRUTURAS|ANALISE DE TEMAS)\s/.test(rawTrimmed) && rawTrimmed.indexOf('|') > 0) { continue; }
+
+    // Empty line
     if (trimmed === '') {
-      html += '<div style="height:8px"></div>';
+      flushTable(); flushVs();
+      html += '<div class="rpt-spacer"></div>';
       continue;
     }
 
-    // ===== separators (title boundary)
-    if (/^={4,}/.test(trimmed)) {
-      html += '<div class="rpt-separator">' + trimmed + '</div>';
-      continue;
-    }
-
-    // --- SECTION TITLE --- (with dashes around)
-    var sectionMatch = trimmed.match(/^-{2,}\s+(.+?)\s+-{2,}$/);
+    // --- SECTION TITLE --- (dashes around text)
+    var sectionMatch = rawTrimmed.match(/^-{2,}\s+(.+?)\s+-{2,}$/);
     if (sectionMatch) {
-      html += '<div class="rpt-section">' + sectionMatch[1] + '</div>';
-      continue;
-    }
-
-    // --- separator lines (just dashes)
-    if (/^[-─]{3,}$/.test(trimmed)) {
-      html += '<div class="rpt-separator" style="color:#1a2a4a">' + trimmed + '</div>';
+      flushTable(); flushVs();
+      var secText = escapeHtml(sectionMatch[1]);
+      // VS ANTERIOR gets special treatment
+      if (/VS\s*ANTERIOR/.test(secText)) {
+        html += '<div class="rpt-section-title">' + secText + '</div>';
+        html += '<div class="rpt-vs-block">';
+        inVsBlock = true;
+      } else {
+        html += '<div class="rpt-section-title">' + secText + '</div>';
+      }
       continue;
     }
 
     // [HEADER] style
     if (trimmed.indexOf('[') === 0 && trimmed.indexOf(']') > 0) {
+      flushTable(); flushVs();
       html += '<div class="rpt-header">' + line + '</div>';
       continue;
     }
 
-    // RELATORIO / SCORE / ANALISE title lines (all caps with |)
-    if (/^(RELATORIO|SCORE|ANALISE|RANKING)/.test(trimmed) && trimmed.indexOf('|') > 0) {
-      html += '<div class="rpt-title">' + line + '</div>';
+    // SCORE GERAL line — big score display
+    var scoreMatch = rawTrimmed.match(/^SCORE GERAL:\s*(\d+)\/100\s*-\s*(.+)$/);
+    if (scoreMatch) {
+      flushTable(); flushVs();
+      html += '<div class="rpt-score-box">';
+      html += '<div class="score-value">' + scoreMatch[1] + '/100</div>';
+      html += '<div class="score-label">' + escapeHtml(scoreMatch[2]) + '</div>';
+      html += '</div>';
       continue;
     }
 
-    // SCORE GERAL line
-    if (/^SCORE GERAL:/.test(trimmed)) {
-      html += '<div class="rpt-metric" style="font-size:15px;font-weight:700;color:#60a5fa;text-align:center;padding:8px 0">' + line + '</div>';
+    // RANKING DE ... (subtitle after title)
+    if (/^RANKING DE\s/.test(rawTrimmed)) {
+      flushTable(); flushVs();
+      html += '<div class="rpt-section-title">' + line + '</div>';
       continue;
     }
 
-    // ALERTA / RISCO lines
-    if (trimmed.indexOf('ALERTA') >= 0 || trimmed.indexOf('RISCO') >= 0) {
+    // ALERTA / RISCO
+    if (rawTrimmed.indexOf('ALERTA') >= 0 || rawTrimmed.indexOf('RISCO') >= 0) {
+      flushTable(); flushVs();
       html += '<div class="rpt-alert">' + line + '</div>';
       continue;
     }
 
     // ! anomaly lines
-    if (trimmed.indexOf('!') === 0) {
+    if (rawTrimmed.indexOf('!') === 0 || /^\s+!\s/.test(raw)) {
+      flushTable(); flushVs();
       html += '<div class="rpt-anomaly">' + line + '</div>';
       continue;
     }
 
-    // Table header rows (with # or Estr. or multiple columns separated by lots of spaces)
-    if (/^\s*(#\s|Estr\.|Fator|Tema|Micronicho|Estrutura)/.test(trimmed) && (raw.indexOf('  ') > 0)) {
-      html += '<div class="rpt-table" style="color:#60a5fa;font-weight:600">' + line + '</div>';
+    // Table detection
+    var tableType = isTableLine(raw);
+    if (tableType) {
+      flushVs();
+      if (!inTable) inTable = true;
+      if (tableType === 'sep') {
+        tableRows.push('<div class="rpt-table-row rpt-table-sep">' + line + '</div>');
+      } else if (tableType === 'header') {
+        tableRows.push('<div class="rpt-table-row rpt-table-header">' + line + '</div>');
+      } else {
+        tableRows.push('<div class="rpt-table-row rpt-table-data">' + highlightValues(line) + '</div>');
+      }
       continue;
+    } else if (inTable) {
+      flushTable();
     }
 
-    // Table data rows (start with number + lots of spaces, or indented with alignment)
-    if (/^\s*\d+\s{2,}/.test(raw) || /^\s{2,}\S.*\s{3,}\S/.test(raw)) {
-      // Highlight positive/negative values inline
-      var styledLine = line.replace(/(\+\d+[\d.,]*%?)/g, '<span class="rpt-positive">$1</span>');
-      styledLine = styledLine.replace(/(-\d+[\d.,]*%?)/g, '<span class="rpt-negative">$1</span>');
-      html += '<div class="rpt-table">' + styledLine + '</div>';
-      continue;
-    }
-
-    // Bullet points (- or *)
+    // Bullet points (- or * prefix)
     if (/^\s*[-*]\s/.test(raw)) {
-      html += '<div class="rpt-bullet">' + line + '</div>';
+      html += '<div class="rpt-bullet">' + highlightValues(line) + '</div>';
       continue;
     }
 
-    // Metric lines (Key: Value)
-    if (/^[A-Z][a-zA-Z\s]+:/.test(trimmed) && trimmed.length < 120) {
-      var styledMetric = line.replace(/:\s*(.+)$/, ': <span style="color:#e0e0e0;font-weight:600">$1</span>');
-      html += '<div class="rpt-metric">' + styledMetric + '</div>';
+    // Indented content (2+ spaces, like distribution bars or sub-items)
+    if (/^\s{2,}\S/.test(raw)) {
+      // Distribution bar lines (e.g. "  A:  12 videos (26%) ####....")
+      if (raw.indexOf('#') > 0 && raw.indexOf('.') > 0) {
+        html += '<div class="rpt-metric" style="padding-left:16px;font-family:\'Cascadia Code\',\'Fira Code\',monospace;font-size:12.5px">' + highlightValues(line) + '</div>';
+        continue;
+      }
+      // Arrow comparisons
+      if (raw.indexOf('\u2192') >= 0 || rawTrimmed.indexOf('->') >= 0) {
+        html += '<div class="rpt-metric" style="padding-left:16px">' + highlightValues(line) + '</div>';
+        continue;
+      }
+      // Sub-bullets with quotes
+      if (/^\s+- "/.test(raw) || /^\s+vs "/.test(raw)) {
+        html += '<div class="rpt-bullet" style="padding-left:32px;color:#a0a8b8;font-style:italic">' + line + '</div>';
+        continue;
+      }
+      // Other indented lines
+      html += '<div class="rpt-metric" style="padding-left:16px">' + highlightValues(line) + '</div>';
       continue;
     }
 
-    // Lines with arrow comparisons (→ or ->)
-    if (raw.indexOf('\u2192') >= 0 || trimmed.indexOf('-&gt;') >= 0) {
-      html += '<div class="rpt-metric">' + line + '</div>';
+    // Metric lines (Key: Value) - capitalize first letter, has colon
+    if (/^[A-Z][a-zA-ZÀ-ú\s]+:\s/.test(rawTrimmed) && rawTrimmed.length < 150) {
+      var colonIdx = line.indexOf(':');
+      var metricKey = line.substring(0, colonIdx);
+      var metricVal = line.substring(colonIdx + 1);
+      html += '<div class="rpt-metric">' + metricKey + ': <span class="metric-val">' + highlightValues(metricVal.trim()) + '</span></div>';
+      continue;
+    }
+
+    // TOTAL: line in factor tables
+    if (/TOTAL:/.test(rawTrimmed)) {
+      html += '<div class="rpt-metric" style="font-weight:700;color:#60a5fa;border-top:1px solid #1a2a4a;padding-top:6px;margin-top:4px">' + line + '</div>';
       continue;
     }
 
     // Default: regular text
-    html += '<div class="rpt-line">' + line + '</div>';
+    html += '<div class="rpt-line">' + highlightValues(line) + '</div>';
   }
+
+  flushTable();
+  flushVs();
   return html;
 }
 
