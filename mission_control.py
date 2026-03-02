@@ -4673,8 +4673,8 @@ function openSidebar(room, ch) {
   html += '<div class="sb-close" onclick="closeSidebar()">&times;</div>';
   html += '<div class="sb-header" style="border-color:' + (tema.accent || '#888') + '">';
 
-  // Draw agent sprite (compact: 24x36)
-  html += '<canvas id="sb-sprite" width="24" height="36" style="image-rendering:pixelated;margin:0 auto;display:block;"></canvas>';
+  // Draw agent sprite (mini: 16x24)
+  html += '<canvas id="sb-sprite" width="16" height="24" style="image-rendering:pixelated;margin:0 auto;display:block;"></canvas>';
 
   // Agent name: "Agente X - Nome"
   var agIndex = ag.id || ((ch.palette || 0) + 1);
@@ -4682,7 +4682,9 @@ function openSidebar(room, ch) {
   html += '<div class="sb-name">Agente ' + agIndex + ' - ' + escapeHtml(agName) + '</div>';
   html += '</div>';
 
-  // Canal info + link YouTube
+  // === SIDEBAR ORDER: Canal > Subnicho > Autenticidade > Views 7d > Comentarios > Upload > Analises ===
+
+  // 1. Canal info + link YouTube
   html += '<div class="sb-section">';
   html += '<div class="sb-label">Canal</div>';
   html += '<div class="sb-value">' + escapeHtml(room.canal.nome || room.canal.canal_nome || '');
@@ -4704,7 +4706,13 @@ function openSidebar(room, ch) {
     html += '</div>';
   }
 
-  // Autenticidade score
+  // 2. Subnicho
+  html += '<div class="sb-section">';
+  html += '<div class="sb-label">Subnicho</div>';
+  html += '<div class="sb-value" style="color:' + (tema.accent || '#888') + '">' + escapeHtml(tema.label || room.themeKey) + '</div>';
+  html += '</div>';
+
+  // 3. Autenticidade score
   var authAgent = null;
   var canalAgentes = room.canal.agentes || [];
   for (var ai = 0; ai < canalAgentes.length; ai++) {
@@ -4725,56 +4733,7 @@ function openSidebar(room, ch) {
     html += '</div></div>';
   }
 
-  // Top Micronicho
-  var microAgent = null;
-  for (var mi = 0; mi < canalAgentes.length; mi++) {
-    if (canalAgentes[mi].tipo === 'micronichos' && canalAgentes[mi].extra_data) {
-      microAgent = canalAgentes[mi].extra_data;
-      break;
-    }
-  }
-  if (microAgent && microAgent.top_micronicho) {
-    html += '<div class="sb-section">';
-    html += '<div class="sb-label">Top Micronicho</div>';
-    html += '<div class="sb-value">' + escapeHtml(microAgent.top_micronicho);
-    if (microAgent.top_micronicho_videos) html += ' <span style="color:#666;font-size:10px">(' + microAgent.top_micronicho_videos + ' videos)</span>';
-    html += '</div></div>';
-  }
-
-  // Top Tema
-  var themeAgent = null;
-  for (var ti = 0; ti < canalAgentes.length; ti++) {
-    if (canalAgentes[ti].tipo === 'temas' && canalAgentes[ti].extra_data) {
-      themeAgent = canalAgentes[ti].extra_data;
-      break;
-    }
-  }
-  if (themeAgent && themeAgent.top_theme) {
-    html += '<div class="sb-section">';
-    html += '<div class="sb-label">Top Tema</div>';
-    html += '<div class="sb-value">' + escapeHtml(themeAgent.top_theme);
-    if (themeAgent.top_theme_score) html += ' <span style="color:#666;font-size:10px">(Score: ' + themeAgent.top_theme_score + ')</span>';
-    html += '</div></div>';
-  }
-
-  // Subnicho
-  html += '<div class="sb-section">';
-  html += '<div class="sb-label">Subnicho</div>';
-  html += '<div class="sb-value" style="color:' + (tema.accent || '#888') + '">' + escapeHtml(tema.label || room.themeKey) + '</div>';
-  html += '</div>';
-
-  // Postagem (frequencia + melhor horario)
-  if (room.canal.frequencia_semanal || room.canal.melhor_hora != null) {
-    html += '<div class="sb-section">';
-    html += '<div class="sb-label">Postagem</div>';
-    var postParts = [];
-    if (room.canal.frequencia_semanal) postParts.push(room.canal.frequencia_semanal.toFixed(1) + 'x/sem');
-    if (room.canal.melhor_hora != null) postParts.push('Padrao: ' + room.canal.melhor_hora + 'h');
-    html += '<div class="sb-value">' + postParts.join(' | ') + '</div>';
-    html += '</div>';
-  }
-
-  // Views 7d + Growth indicator
+  // 4. Views 7d + Growth indicator
   var v7d = room.canal.views_7d || 0;
   var v15d = room.canal.views_15d || 0;
   if (v7d > 0) {
@@ -4793,7 +4752,7 @@ function openSidebar(room, ch) {
     html += '</div>';
   }
 
-  // Comentarios
+  // 5. Comentarios
   if (room.canal.total_comentarios && room.canal.total_comentarios > 0) {
     html += '<div class="sb-section">';
     html += '<div class="sb-label">Comentarios</div>';
@@ -4801,10 +4760,53 @@ function openSidebar(room, ch) {
     html += '</div>';
   }
 
-  // Upload status (async)
+  // 6. Upload status (async)
   html += '<div id="sb-upload-status"></div>';
 
-  // Agent status (fetched async) or placeholder
+  // 7. Top Micronicho
+  var microAgent = null;
+  for (var mi = 0; mi < canalAgentes.length; mi++) {
+    if (canalAgentes[mi].tipo === 'micronichos' && canalAgentes[mi].extra_data) {
+      microAgent = canalAgentes[mi].extra_data;
+      break;
+    }
+  }
+  if (microAgent && microAgent.top_micronicho) {
+    html += '<div class="sb-section">';
+    html += '<div class="sb-label">Top Micronicho</div>';
+    html += '<div class="sb-value">' + escapeHtml(microAgent.top_micronicho);
+    if (microAgent.top_micronicho_videos) html += ' <span style="color:#666;font-size:10px">(' + microAgent.top_micronicho_videos + ' videos)</span>';
+    html += '</div></div>';
+  }
+
+  // 8. Top Tema
+  var themeAgent = null;
+  for (var ti = 0; ti < canalAgentes.length; ti++) {
+    if (canalAgentes[ti].tipo === 'temas' && canalAgentes[ti].extra_data) {
+      themeAgent = canalAgentes[ti].extra_data;
+      break;
+    }
+  }
+  if (themeAgent && themeAgent.top_theme) {
+    html += '<div class="sb-section">';
+    html += '<div class="sb-label">Top Tema</div>';
+    html += '<div class="sb-value">' + escapeHtml(themeAgent.top_theme);
+    if (themeAgent.top_theme_score) html += ' <span style="color:#666;font-size:10px">(Score: ' + themeAgent.top_theme_score + ')</span>';
+    html += '</div></div>';
+  }
+
+  // 9. Postagem (frequencia + melhor horario)
+  if (room.canal.frequencia_semanal || room.canal.melhor_hora != null) {
+    html += '<div class="sb-section">';
+    html += '<div class="sb-label">Postagem</div>';
+    var postParts = [];
+    if (room.canal.frequencia_semanal) postParts.push(room.canal.frequencia_semanal.toFixed(1) + 'x/sem');
+    if (room.canal.melhor_hora != null) postParts.push('Padrao: ' + room.canal.melhor_hora + 'h');
+    html += '<div class="sb-value">' + postParts.join(' | ') + '</div>';
+    html += '</div>';
+  }
+
+  // 10. Agent status (fetched async) or placeholder
   if (ag.implementado !== false && ag.canal_id) {
     html += '<div id="sb-agent-status" class="sb-agent-status"><div class="sb-loading">Carregando status...</div></div>';
   } else if (ag.implementado === false) {
@@ -4840,8 +4842,8 @@ function openSidebar(room, ch) {
     // Always show front-facing (DOWN) standing pose
     var sprites = spritesByPalette[ch.palette] || spritesByPalette[0];
     var spriteData = sprites.walk[Direction.DOWN][0];
-    sctx.clearRect(0, 0, 24, 36);
-    var smallCached = getCachedSprite(spriteData, 1.5);
+    sctx.clearRect(0, 0, 16, 24);
+    var smallCached = getCachedSprite(spriteData, 1);
     sctx.drawImage(smallCached, 0, 0);
   }, 50);
 
