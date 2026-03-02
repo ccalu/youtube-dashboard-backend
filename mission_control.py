@@ -553,6 +553,9 @@ async def get_mission_control_data(db):
                 'avg_ctr': ctr_map.get(nome_lower),
                 'avg_retention': retention_map.get(yt_channel_id),
                 'yt_channel_id': yt_channel_id,
+                'url_canal': c.get('url_canal') or c.get('custom_url') or '',
+                'coleta_falhas': c.get('coleta_falhas_consecutivas', 0),
+                'coleta_erro': c.get('coleta_ultimo_erro', ''),
                 'agentes': [{'id': a['id'], 'tipo': a['tipo'], 'nome': a['nome'],
                               'status': a['status'], 'cor': a['cor'],
                               'skin': a['skin'], 'shirt': a['shirt'],
@@ -635,6 +638,9 @@ async def get_sala_detail(db, canal_id):
             'total_videos': canal.get('total_videos', 0),
             'ultima_coleta': canal.get('ultima_coleta'),
             'subnicho': canal.get('subnicho', ''),
+            'url_canal': canal.get('url_canal') or canal.get('custom_url') or '',
+            'coleta_falhas': canal.get('coleta_falhas_consecutivas', 0),
+            'coleta_erro': canal.get('coleta_ultimo_erro', ''),
         },
         'yt_channel_id': yt_channel_id,
         'copy_spreadsheet_id': copy_spreadsheet_id,
@@ -4183,6 +4189,9 @@ function refreshRoomStats(data) {
       room.canal.views_30d = fresh.views_30d || 0;
       room.canal.avg_ctr = fresh.avg_ctr || null;
       room.canal.avg_retention = fresh.avg_retention || null;
+      room.canal.url_canal = fresh.url_canal || '';
+      room.canal.coleta_falhas = fresh.coleta_falhas || 0;
+      room.canal.coleta_erro = fresh.coleta_erro || '';
     }
   }
 }
@@ -4324,7 +4333,16 @@ function renderAllRooms(ctx, canvasW, canvasH) {
     }
     ctx.fillStyle = '#e0e0e0';
     ctx.textAlign = 'left';
-    ctx.fillText(canalName, Math.round(roomX + 6), Math.round(npY + barH / 2 + nameFont * 0.35 + 1));
+    var nameTextX = Math.round(roomX + 6);
+    var nameTextY = Math.round(npY + barH / 2 + nameFont * 0.35 + 1);
+    ctx.fillText(canalName, nameTextX, nameTextY);
+
+    // Alert indicator if collection failing
+    if (room.canal.coleta_falhas && room.canal.coleta_falhas > 0) {
+      var nameW = ctx.measureText(canalName).width;
+      ctx.font = Math.round(nameFont * 0.9) + 'px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+      ctx.fillText('\u26A0\uFE0F', Math.round(nameTextX + nameW + 4), nameTextY);
+    }
 
     // Language badge
     var lang = room.canal.lingua || '??';
@@ -4523,11 +4541,27 @@ function openSidebar(room, ch) {
   html += '<div class="sb-name">Agente ' + agIndex + ' - ' + escapeHtml(agName) + '</div>';
   html += '</div>';
 
-  // Canal info
+  // Canal info + link YouTube
   html += '<div class="sb-section">';
   html += '<div class="sb-label">Canal</div>';
-  html += '<div class="sb-value">' + escapeHtml(room.canal.nome || room.canal.canal_nome || '') + '</div>';
+  html += '<div class="sb-value">' + escapeHtml(room.canal.nome || room.canal.canal_nome || '');
+  if (room.canal.url_canal) {
+    html += ' <a href="' + escapeHtml(room.canal.url_canal) + '" target="_blank" style="color:#ef4444;text-decoration:none;font-size:11px;margin-left:6px;padding:1px 5px;border:1px solid #ef4444;border-radius:3px" title="Abrir canal no YouTube">YT</a>';
+  }
   html += '</div>';
+  html += '</div>';
+
+  // Alerta de coleta
+  if (room.canal.coleta_falhas && room.canal.coleta_falhas > 0) {
+    html += '<div class="sb-section" style="background:rgba(251,191,36,0.1);padding:6px 8px;border-radius:4px;border:1px solid rgba(251,191,36,0.3);margin-top:4px">';
+    html += '<div style="color:#fbbf24;font-size:11px;font-weight:bold">';
+    html += '\u26A0\uFE0F ' + room.canal.coleta_falhas + ' falha(s) consecutiva(s)';
+    html += '</div>';
+    if (room.canal.coleta_erro) {
+      html += '<div style="color:#999;font-size:10px;margin-top:3px">' + escapeHtml(room.canal.coleta_erro) + '</div>';
+    }
+    html += '</div>';
+  }
 
   // Subnicho
   html += '<div class="sb-section">';
