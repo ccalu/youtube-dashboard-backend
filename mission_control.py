@@ -806,11 +806,13 @@ canvas{display:block;cursor:pointer;width:100%}
 .sb-btn:hover{border-color:#555;background:#1a1a2e}
 .sb-btn-primary{background:#1a3a1a;border-color:#22c55e44;color:#4ade80}
 .sb-btn-primary:hover{background:#224422}
-#btn-refresh-mv{background:#0d1a2a;border:1px solid #1a3a5a;color:#60a5fa;padding:4px 12px;border-radius:4px;font-size:11px;font-family:monospace;cursor:pointer;transition:all 0.2s;letter-spacing:1px}
-#btn-refresh-mv:hover{background:#1a2a4a;border-color:#3b82f6}
-#btn-refresh-mv.loading{opacity:0.6;cursor:wait}
-#btn-refresh-mv.success{border-color:#22c55e;color:#4ade80;background:#0d2a1a}
-#btn-refresh-mv.error{border-color:#ef4444;color:#f87171;background:#2a0d0d}
+#btn-refresh-mv,#btn-run-all{background:#0d1a2a;border:1px solid #1a3a5a;color:#60a5fa;padding:4px 12px;border-radius:4px;font-size:11px;font-family:monospace;cursor:pointer;transition:all 0.2s;letter-spacing:1px}
+#btn-refresh-mv:hover,#btn-run-all:hover{background:#1a2a4a;border-color:#3b82f6}
+#btn-refresh-mv.loading,#btn-run-all.loading{opacity:0.6;cursor:wait}
+#btn-refresh-mv.success,#btn-run-all.success{border-color:#22c55e;color:#4ade80;background:#0d2a1a}
+#btn-refresh-mv.error,#btn-run-all.error{border-color:#ef4444;color:#f87171;background:#2a0d0d}
+#btn-run-all{border-color:#22c55e44;color:#4ade80;background:#0d1a0d}
+#btn-run-all:hover{background:#1a2a1a;border-color:#22c55e}
 .sb-agent-status{margin:12px 0;padding:10px;background:#0a0a1a;border-radius:6px;border:1px solid #1a1a3a}
 .sb-agent-status .sb-status-row{display:flex;justify-content:space-between;align-items:center;margin:4px 0;font-size:11px}
 .sb-agent-status .sb-status-label{color:#666}
@@ -862,6 +864,7 @@ canvas{display:block;cursor:pointer;width:100%}
     Salas <span id="s0">-</span> |
     Agentes <span id="s1">-</span> |
     Ativos <span id="s2">-</span> |
+    <button id="btn-run-all" onclick="runAllAgents()">RUN ALL</button>
     <button id="btn-refresh-mv" onclick="refreshMV()">ATUALIZAR</button>
   </div>
 </div>
@@ -925,6 +928,34 @@ function refreshMV() {
       setTimeout(function() {
         btn.classList.remove('error');
         btn.textContent = 'ATUALIZAR';
+      }, 3000);
+    });
+}
+
+// -- Run All Agents button -----------------------------------
+function runAllAgents() {
+  var btn = document.getElementById('btn-run-all');
+  if (btn.classList.contains('loading')) return;
+  btn.classList.add('loading');
+  btn.textContent = 'RODANDO...';
+  fetch('/api/analise-completa/run-all', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      btn.classList.remove('loading');
+      btn.classList.add('success');
+      btn.textContent = 'CONCLUIDO (' + (d.success_count || 0) + '/' + (d.total_channels || 0) + ')';
+      setTimeout(function() {
+        btn.classList.remove('success');
+        btn.textContent = 'RUN ALL';
+      }, 5000);
+    })
+    .catch(function(e) {
+      btn.classList.remove('loading');
+      btn.classList.add('error');
+      btn.textContent = 'ERRO';
+      setTimeout(function() {
+        btn.classList.remove('error');
+        btn.textContent = 'RUN ALL';
       }, 3000);
     });
 }
@@ -4913,7 +4944,7 @@ function runAgentAnalysis(channelId, agentType) {
         btn.style.background = '';
       }, 3000);
       if (data.report || data.report_text) {
-        openReportModal(channelId, agentType, '');
+        showReport(data.report_text || data.report);
       }
     })
     .catch(function(err) {
