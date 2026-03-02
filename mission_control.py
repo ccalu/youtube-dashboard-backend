@@ -862,11 +862,7 @@ canvas{display:block;cursor:pointer;width:100%}
 .rpt-metric{color:#e0e8f0;font-size:13.5px;padding:4px 0;line-height:1.7}
 .rpt-metric .metric-val{color:#f0f0f0;font-weight:600}
 .rpt-bullet{color:#c0c8d8;font-size:13.5px;padding:3px 0 3px 20px;line-height:1.7;position:relative}
-.rpt-table-wrap{background:#08081a;border:1px solid #1a1a30;border-radius:8px;padding:12px 16px;margin:8px 0 12px;overflow-x:auto}
-.rpt-table-row{font-family:'Cascadia Code','Fira Code','JetBrains Mono','Courier New',monospace;font-size:12.5px;white-space:pre;line-height:1.6;padding:1px 0}
-.rpt-table-header{color:#60a5fa;font-weight:600}
-.rpt-table-sep{color:#2a2a4a}
-.rpt-table-data{color:#d0d8e8}
+.rpt-pre-block{background:#08081a;border:1px solid #1a1a30;border-radius:8px;padding:14px 18px;margin:8px 0 12px;overflow-x:auto;font-family:'Cascadia Code','Fira Code','JetBrains Mono','Courier New',monospace;font-size:12.5px;line-height:1.7;white-space:pre;color:#d0d8e8}
 .rpt-positive{color:#4ade80;font-weight:600}
 .rpt-negative{color:#f87171;font-weight:600}
 .rpt-bar{color:#3b82f6;letter-spacing:-1px}
@@ -5098,52 +5094,44 @@ function loadReportInModal() {
 function formatReportHtml(text, runDate) {
   var lines = String(text).split('\n');
   var html = '';
-  var inTable = false;
-  var inVsBlock = false;
-  var tableRows = [];
+  var preBlock = []; // accumulate monospace/pre lines
 
-  function flushTable() {
-    if (tableRows.length > 0) {
-      html += '<div class="rpt-table-wrap">';
-      for (var t = 0; t < tableRows.length; t++) html += tableRows[t];
+  function flushPre() {
+    if (preBlock.length > 0) {
+      html += '<div class="rpt-pre-block">';
+      html += preBlock.join('\n');
       html += '</div>';
-      tableRows = [];
+      preBlock = [];
     }
-    inTable = false;
   }
 
-  function flushVs() {
-    if (inVsBlock) { html += '</div>'; inVsBlock = false; }
-  }
-
-  function highlightValues(str) {
+  function hl(str) {
+    // Highlight +values green, -values red, bars
     str = str.replace(/(\+\d+[\d.,]*%?)/g, '<span class="rpt-positive">$1</span>');
-    str = str.replace(/((?:^|\s)-\d+[\d.,]*%?)/g, function(m) {
+    str = str.replace(/((?:^|[\s(])-\d+[\d.,]*%?)/g, function(m) {
       return '<span class="rpt-negative">' + m + '</span>';
     });
-    // Highlight bar charts: # = filled, . = empty
     str = str.replace(/(#{2,})/g, '<span class="rpt-bar">$1</span>');
-    str = str.replace(/(\.{3,})/g, '<span class="rpt-bar-empty">$1</span>');
+    str = str.replace(/(\.{4,})/g, '<span class="rpt-bar-empty">$1</span>');
     return str;
   }
 
-  function isTableLine(raw) {
-    // Table separator (─ or -)
-    if (/^\s*[-─]{3,}\s*[-─\s]*$/.test(raw)) return 'sep';
-    // Table header (has column-like structure with 2+ multi-space gaps)
-    var gaps = (raw.match(/\S\s{2,}\S/g) || []).length;
-    if (gaps >= 2) {
-      // Check if it's a header row (starts with # or has common header words)
-      if (/^\s*(#|Estr|Fator|Tema|Micro|Estrutura|Codigo|Formula|Vids|Score|Views|Ret|Watch|Videos|CTR|Velocity|Titulo)/.test(raw.trim())) return 'header';
-      // Data row (starts with number or has aligned columns)
-      if (/^\s*\d+\s{2,}/.test(raw)) return 'data';
-      // Indented aligned data
-      if (/^\s{2,}\S/.test(raw) && gaps >= 2) return 'data';
-    }
+  // Check if a line is "structured" (table-like, aligned data, bars, factor rows)
+  function isStructured(raw) {
+    // Separator lines (─ or - repeated)
+    if (/^\s*[-─]{3,}[\s─-]*$/.test(raw)) return true;
+    // Has 2+ gaps of 2+ spaces between non-space content (columnar)
+    if ((raw.match(/\S\s{2,}/g) || []).length >= 2) return true;
+    // Distribution bars (# and . patterns)
+    if (/#{2,}/.test(raw) && /\.{3,}/.test(raw)) return true;
+    // Starts with spaces + letter/number + colon + spaces + number (indented key: value with alignment)
+    if (/^\s{2,}\S+.*\s{2,}\d/.test(raw)) return true;
+    // TOTAL: line
+    if (/^\s+TOTAL:/.test(raw)) return true;
     return false;
   }
 
-  // Extract title from first ===...=== block
+  // Extract title from first lines
   var titleText = '';
   var titleDate = '';
   for (var p = 0; p < Math.min(lines.length, 5); p++) {
@@ -5173,13 +5161,13 @@ function formatReportHtml(text, runDate) {
     var trimmed = line.trim();
     var rawTrimmed = raw.trim();
 
-    // Skip lines already used in title box
-    if (/^={4,}/.test(rawTrimmed)) { flushTable(); flushVs(); continue; }
+    // Skip === separator lines and title line (already in title box)
+    if (/^={4,}/.test(rawTrimmed)) { flushPre(); continue; }
     if (/^(RELATORIO|SCORE DE AUTENTICIDADE|ANALISE DE MICRONICHOS|ANALISE DE ESTRUTURAS|ANALISE DE TEMAS)\s/.test(rawTrimmed) && rawTrimmed.indexOf('|') > 0) { continue; }
 
     // Empty line
     if (trimmed === '') {
-      flushTable(); flushVs();
+      flushPre();
       html += '<div class="rpt-spacer"></div>';
       continue;
     }
@@ -5187,30 +5175,15 @@ function formatReportHtml(text, runDate) {
     // --- SECTION TITLE --- (dashes around text)
     var sectionMatch = rawTrimmed.match(/^-{2,}\s+(.+?)\s+-{2,}$/);
     if (sectionMatch) {
-      flushTable(); flushVs();
-      var secText = escapeHtml(sectionMatch[1]);
-      // VS ANTERIOR gets special treatment
-      if (/VS\s*ANTERIOR/.test(secText)) {
-        html += '<div class="rpt-section-title">' + secText + '</div>';
-        html += '<div class="rpt-vs-block">';
-        inVsBlock = true;
-      } else {
-        html += '<div class="rpt-section-title">' + secText + '</div>';
-      }
+      flushPre();
+      html += '<div class="rpt-section-title">' + escapeHtml(sectionMatch[1]) + '</div>';
       continue;
     }
 
-    // [HEADER] style
-    if (trimmed.indexOf('[') === 0 && trimmed.indexOf(']') > 0) {
-      flushTable(); flushVs();
-      html += '<div class="rpt-header">' + line + '</div>';
-      continue;
-    }
-
-    // SCORE GERAL line — big score display
-    var scoreMatch = rawTrimmed.match(/^SCORE GERAL:\s*(\d+)\/100\s*-\s*(.+)$/);
+    // SCORE GERAL: XX.X/100 - LEVEL
+    var scoreMatch = rawTrimmed.match(/^SCORE GERAL:\s*([\d.]+)\/100\s*-\s*(.+)$/);
     if (scoreMatch) {
-      flushTable(); flushVs();
+      flushPre();
       html += '<div class="rpt-score-box">';
       html += '<div class="score-value">' + scoreMatch[1] + '/100</div>';
       html += '<div class="score-label">' + escapeHtml(scoreMatch[2]) + '</div>';
@@ -5218,93 +5191,79 @@ function formatReportHtml(text, runDate) {
       continue;
     }
 
-    // RANKING DE ... (subtitle after title)
+    // RANKING DE ... (subtitle)
     if (/^RANKING DE\s/.test(rawTrimmed)) {
-      flushTable(); flushVs();
-      html += '<div class="rpt-section-title">' + line + '</div>';
+      flushPre();
+      html += '<div class="rpt-section-title" style="font-size:13px;color:#7a8ba8;border-bottom:none;padding-bottom:4px">' + line + '</div>';
+      continue;
+    }
+
+    // [HEADER] style
+    if (trimmed.indexOf('[') === 0 && trimmed.indexOf(']') > 0) {
+      flushPre();
+      html += '<div class="rpt-header">' + line + '</div>';
       continue;
     }
 
     // ALERTA / RISCO
     if (rawTrimmed.indexOf('ALERTA') >= 0 || rawTrimmed.indexOf('RISCO') >= 0) {
-      flushTable(); flushVs();
+      flushPre();
       html += '<div class="rpt-alert">' + line + '</div>';
       continue;
     }
 
     // ! anomaly lines
-    if (rawTrimmed.indexOf('!') === 0 || /^\s+!\s/.test(raw)) {
-      flushTable(); flushVs();
+    if (/^\s*!\s/.test(raw)) {
+      flushPre();
       html += '<div class="rpt-anomaly">' + line + '</div>';
       continue;
     }
 
-    // Table detection
-    var tableType = isTableLine(raw);
-    if (tableType) {
-      flushVs();
-      if (!inTable) inTable = true;
-      if (tableType === 'sep') {
-        tableRows.push('<div class="rpt-table-row rpt-table-sep">' + line + '</div>');
-      } else if (tableType === 'header') {
-        tableRows.push('<div class="rpt-table-row rpt-table-header">' + line + '</div>');
-      } else {
-        tableRows.push('<div class="rpt-table-row rpt-table-data">' + highlightValues(line) + '</div>');
-      }
+    // Structured/tabular lines -> monospace pre block (preserves all spacing)
+    if (isStructured(raw)) {
+      preBlock.push(hl(line));
       continue;
-    } else if (inTable) {
-      flushTable();
     }
 
-    // Bullet points (- or * prefix)
+    // If we were in a pre block but this line isn't structured, flush
+    flushPre();
+
+    // Numbered list items (1. or 1) )
+    if (/^\d+[\.\)]\s/.test(rawTrimmed)) {
+      html += '<div class="rpt-line" style="padding-left:8px">' + hl(line) + '</div>';
+      continue;
+    }
+
+    // Bullet points
     if (/^\s*[-*]\s/.test(raw)) {
-      html += '<div class="rpt-bullet">' + highlightValues(line) + '</div>';
+      var indent = raw.match(/^(\s*)/)[1].length;
+      var pad = Math.max(8, indent * 8);
+      html += '<div class="rpt-bullet" style="padding-left:' + pad + 'px">' + hl(line) + '</div>';
       continue;
     }
 
-    // Indented content (2+ spaces, like distribution bars or sub-items)
-    if (/^\s{2,}\S/.test(raw)) {
-      // Distribution bar lines (e.g. "  A:  12 videos (26%) ####....")
-      if (raw.indexOf('#') > 0 && raw.indexOf('.') > 0) {
-        html += '<div class="rpt-metric" style="padding-left:16px;font-family:\'Cascadia Code\',\'Fira Code\',monospace;font-size:12.5px">' + highlightValues(line) + '</div>';
-        continue;
-      }
-      // Arrow comparisons
-      if (raw.indexOf('\u2192') >= 0 || rawTrimmed.indexOf('->') >= 0) {
-        html += '<div class="rpt-metric" style="padding-left:16px">' + highlightValues(line) + '</div>';
-        continue;
-      }
-      // Sub-bullets with quotes
-      if (/^\s+- "/.test(raw) || /^\s+vs "/.test(raw)) {
-        html += '<div class="rpt-bullet" style="padding-left:32px;color:#a0a8b8;font-style:italic">' + line + '</div>';
-        continue;
-      }
-      // Other indented lines
-      html += '<div class="rpt-metric" style="padding-left:16px">' + highlightValues(line) + '</div>';
-      continue;
-    }
-
-    // Metric lines (Key: Value) - capitalize first letter, has colon
+    // Metric lines (Key: Value) at start of line
     if (/^[A-Z][a-zA-ZÀ-ú\s]+:\s/.test(rawTrimmed) && rawTrimmed.length < 150) {
       var colonIdx = line.indexOf(':');
-      var metricKey = line.substring(0, colonIdx);
-      var metricVal = line.substring(colonIdx + 1);
-      html += '<div class="rpt-metric">' + metricKey + ': <span class="metric-val">' + highlightValues(metricVal.trim()) + '</span></div>';
+      var mKey = line.substring(0, colonIdx);
+      var mVal = line.substring(colonIdx + 1);
+      html += '<div class="rpt-metric">' + mKey + ': <span class="metric-val">' + hl(mVal.trim()) + '</span></div>';
       continue;
     }
 
-    // TOTAL: line in factor tables
-    if (/TOTAL:/.test(rawTrimmed)) {
-      html += '<div class="rpt-metric" style="font-weight:700;color:#60a5fa;border-top:1px solid #1a2a4a;padding-top:6px;margin-top:4px">' + line + '</div>';
+    // Indented text (observations, diagnostics, recommendations from LLM)
+    if (/^\s{2,}/.test(raw)) {
+      var spaces = raw.match(/^(\s*)/)[1].length;
+      var padPx = Math.max(8, spaces * 8);
+      html += '<div class="rpt-line" style="padding-left:' + padPx + 'px">' + hl(line) + '</div>';
       continue;
     }
 
-    // Default: regular text
-    html += '<div class="rpt-line">' + highlightValues(line) + '</div>';
+    // Default
+    html += '<div class="rpt-line">' + hl(line) + '</div>';
   }
 
-  flushTable();
-  flushVs();
+  flushPre();
   // Bold: **text** -> <strong>
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong style="color:#f0f0f0">$1</strong>');
   return html;
