@@ -6403,10 +6403,11 @@ DASH_UPLOAD_HTML = '''
             if (el) el.classList.toggle('open');
             if (seta) seta.classList.toggle('open');
         }
-        var _uploadingChannelId = null;
-        var _successChannelId = null;
-        var _errorChannelId = null;
-        var _statusBeforeUpload = null;
+        var _uploadingSet = new Set();
+        var _successSet = new Set();
+        var _errorSet = new Set();
+        var _statusBeforeUpload = {};
+        var _batchPolling = null;
 
         function _getChannelStatus(data, channelId) {
             if (data && data.subnichos) {
@@ -6422,81 +6423,61 @@ DASH_UPLOAD_HTML = '''
             var msg = 'Forcar upload do canal ' + channelName + '?\\n\\nO proximo video "done" da planilha sera enviado.';
             if (!confirm(msg)) return;
             var botao = event.target.closest('.btn-icon');
-            _uploadingChannelId = channelId;
+            _uploadingSet.add(channelId);
             try {
-                // Captura status ANTES do upload para comparar depois
                 var preXhr = new XMLHttpRequest();
                 preXhr.open('GET', '/api/dash-upload/status', false);
                 preXhr.send();
                 if (preXhr.status === 200) {
-                    _statusBeforeUpload = _getChannelStatus(JSON.parse(preXhr.responseText), channelId);
+                    _statusBeforeUpload[channelId] = _getChannelStatus(JSON.parse(preXhr.responseText), channelId);
                 }
                 botao.innerHTML = '\\u23F3';
                 botao.classList.add('btn-icon--uploading');
+                atualizar();
                 var response = await fetch('/api/yt-upload/force/' + channelId, { method: 'POST' });
                 var result = await response.json();
                 if (response.ok && result.status !== 'sem_video' && result.status !== 'no_video') {
-                    var tentativas = 0;
-                    var maxTentativas = 4;
-                    var pollInterval = setInterval(function() {
-                        tentativas++;
-                        if (tentativas > maxTentativas) {
-                            clearInterval(pollInterval);
-                            _uploadingChannelId = null;
-                            _statusBeforeUpload = null;
-                            atualizar();
-                            return;
-                        }
-                        var xhr = new XMLHttpRequest();
-                        xhr.open('GET', '/api/dash-upload/status', true);
-                        xhr.onreadystatechange = function() {
-                            if (xhr.readyState === 4 && xhr.status === 200) {
-                                try {
-                                    var data = JSON.parse(xhr.responseText);
-                                    var st = _getChannelStatus(data, channelId);
-                                    if (st && st !== _statusBeforeUpload) {
-                                        clearInterval(pollInterval);
-                                        _uploadingChannelId = null;
-                                        _statusBeforeUpload = null;
-                                        if (st === 'sucesso') {
-                                            _successChannelId = channelId;
-                                            atualizar();
-                                            setTimeout(function() {
-                                                _successChannelId = null;
-                                                atualizar();
-                                            }, 15000);
-                                        } else if (st === 'erro') {
-                                            _errorChannelId = channelId;
-                                            atualizar();
-                                            setTimeout(function() {
-                                                _errorChannelId = null;
-                                                atualizar();
-                                            }, 5000);
-                                        } else {
-                                            atualizar();
-                                        }
-                                    }
-                                } catch(e) {}
-                            }
-                        };
-                        xhr.send();
-                    }, 3000);
+                    _startSinglePoll(channelId);
                 } else if (result.status === 'sem_video' || result.status === 'no_video') {
                     alert('Sem videos disponiveis na planilha de ' + channelName);
-                    _uploadingChannelId = null;
-                    _statusBeforeUpload = null;
+                    _uploadingSet.delete(channelId);
                     atualizar();
                 } else {
                     alert('Erro: ' + (result.detail || result.message || 'Falha ao iniciar upload'));
-                    _uploadingChannelId = null;
-                    _statusBeforeUpload = null;
+                    _uploadingSet.delete(channelId);
                     atualizar();
                 }
             } catch (error) {
                 alert('Erro de conexao: ' + error.message);
-                _uploadingChannelId = null;
-                _statusBeforeUpload = null;
+                _uploadingSet.delete(channelId);
             }
+        }
+        function _startSinglePoll(channelId) {
+            var tentativas = 0;
+            var maxTentativas = 4;
+            var pollInterval = setInterval(function() {
+                tentativas++;
+                if (tentativas > maxTentativas) { clearInterval(pollInterval); _uploadingSet.delete(channelId); delete _statusBeforeUpload[channelId]; atualizar(); return; }
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', '/api/dash-upload/status', true);
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4 && xhr.status === 200) {
+                        try {
+                            var data = JSON.parse(xhr.responseText);
+                            var st = _getChannelStatus(data, channelId);
+                            if (st && st !== _statusBeforeUpload[channelId]) {
+                                clearInterval(pollInterval);
+                                _uploadingSet.delete(channelId);
+                                delete _statusBeforeUpload[channelId];
+                                if (st === 'sucesso') { _successSet.add(channelId); atualizar(); setTimeout(function() { _successSet.delete(channelId); atualizar(); }, 15000); }
+                                else if (st === 'erro') { _errorSet.add(channelId); atualizar(); setTimeout(function() { _errorSet.delete(channelId); atualizar(); }, 5000); }
+                                else { atualizar(); }
+                            }
+                        } catch(e) {}
+                    }
+                };
+                xhr.send();
+            }, 3000);
         }
         var _historicoData = [];
         var _historicoPagina = 0;
@@ -6693,11 +6674,11 @@ DASH_UPLOAD_HTML = '''
                                     html += '<td><span class="cell-time">' + formatTime(canal.hora_upload) + '</span></td>';
                                     html += '<td><div class="cell-actions">';
                                     var safeName = escapeHtml(canal.channel_name).replace(/"/g, '&quot;');
-                                    if (_uploadingChannelId === canal.channel_id) {
+                                    if (_uploadingSet.has(canal.channel_id)) {
                                         html += '<button class="btn-icon btn-icon--upload btn-icon--uploading" data-channel-id="' + canal.channel_id + '" data-channel-name="' + safeName + '" title="Uploading...">&#x23F3;</button>';
-                                    } else if (_successChannelId === canal.channel_id) {
+                                    } else if (_successSet.has(canal.channel_id)) {
                                         html += '<button class="btn-icon btn-icon--upload btn-icon--upload-success" data-channel-id="' + canal.channel_id + '" data-channel-name="' + safeName + '" title="Upload concluido!">&#x2705;</button>';
-                                    } else if (_errorChannelId === canal.channel_id) {
+                                    } else if (_errorSet.has(canal.channel_id)) {
                                         html += '<button class="btn-icon btn-icon--upload btn-icon--upload-error" data-channel-id="' + canal.channel_id + '" data-channel-name="' + safeName + '" title="Erro no upload">&#x274C;</button>';
                                     } else {
                                         html += '<button class="btn-icon btn-icon--upload" data-channel-id="' + canal.channel_id + '" data-channel-name="' + safeName + '" title="Forcar upload">&#x1F4E4;</button>';
@@ -6819,11 +6800,23 @@ DASH_UPLOAD_HTML = '''
             btn.disabled = true;
             btn.textContent = 'Iniciando...';
             try {
-                var response = await fetch('/api/dash-upload/batch-upload', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({channel_ids: Array.from(_batchSelected)}) });
+                // Captura status ANTES para cada canal selecionado
+                var preXhr = new XMLHttpRequest();
+                preXhr.open('GET', '/api/dash-upload/status', false);
+                preXhr.send();
+                var preData = null;
+                if (preXhr.status === 200) preData = JSON.parse(preXhr.responseText);
+                var selectedIds = Array.from(_batchSelected);
+                if (preData) { selectedIds.forEach(function(cid) { _statusBeforeUpload[cid] = _getChannelStatus(preData, cid); }); }
+                var response = await fetch('/api/dash-upload/batch-upload', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({channel_ids: selectedIds}) });
                 var result = await response.json();
                 if (response.ok && result.status === 'processing') {
+                    // Marcar todos como uploading
+                    selectedIds.forEach(function(cid) { _uploadingSet.add(cid); });
                     fecharBatchModal();
                     atualizar();
+                    // Polling em lote: verifica cada canal a cada 5s
+                    _startBatchPoll(selectedIds);
                 } else {
                     alert('Erro: ' + (result.message || result.detail || 'Falha ao iniciar batch'));
                     btn.disabled = false;
@@ -6834,6 +6827,38 @@ DASH_UPLOAD_HTML = '''
                 btn.disabled = false;
                 btn.textContent = 'Iniciar ' + n + ' Upload' + (n !== 1 ? 's' : '');
             }
+        }
+        function _startBatchPoll(channelIds) {
+            if (_batchPolling) clearInterval(_batchPolling);
+            var remaining = new Set(channelIds);
+            var maxPolls = 120;
+            var polls = 0;
+            _batchPolling = setInterval(function() {
+                polls++;
+                if (remaining.size === 0 || polls > maxPolls) { clearInterval(_batchPolling); _batchPolling = null; return; }
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', '/api/dash-upload/status', true);
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState === 4 && xhr.status === 200) {
+                        try {
+                            var data = JSON.parse(xhr.responseText);
+                            remaining.forEach(function(cid) {
+                                var st = _getChannelStatus(data, cid);
+                                var prev = _statusBeforeUpload[cid];
+                                if (st && st !== prev && st !== 'pendente') {
+                                    _uploadingSet.delete(cid);
+                                    delete _statusBeforeUpload[cid];
+                                    remaining.delete(cid);
+                                    if (st === 'sucesso') { _successSet.add(cid); setTimeout(function() { _successSet.delete(cid); atualizar(); }, 15000); }
+                                    else if (st === 'erro') { _errorSet.add(cid); setTimeout(function() { _errorSet.delete(cid); atualizar(); }, 5000); }
+                                }
+                            });
+                            atualizar();
+                        } catch(e) {}
+                    }
+                };
+                xhr.send();
+            }, 5000);
         }
     </script>
 </body>
