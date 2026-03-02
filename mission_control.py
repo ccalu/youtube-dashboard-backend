@@ -4673,8 +4673,8 @@ function openSidebar(room, ch) {
   html += '<div class="sb-close" onclick="closeSidebar()">&times;</div>';
   html += '<div class="sb-header" style="border-color:' + (tema.accent || '#888') + '">';
 
-  // Draw agent sprite (mini: 16x24, override width:100% from global canvas CSS)
-  html += '<canvas id="sb-sprite" width="16" height="24" style="image-rendering:pixelated;margin:0 auto;display:block;width:16px;height:24px;"></canvas>';
+  // Draw agent sprite (32x48, zoom 2x)
+  html += '<canvas id="sb-sprite" width="64" height="96" style="image-rendering:pixelated;margin:0 auto;display:block;width:64px;height:96px;"></canvas>';
 
   // Agent name: "Agente X - Nome"
   var agIndex = ag.id || ((ch.palette || 0) + 1);
@@ -4842,8 +4842,8 @@ function openSidebar(room, ch) {
     // Always show front-facing (DOWN) standing pose
     var sprites = spritesByPalette[ch.palette] || spritesByPalette[0];
     var spriteData = sprites.walk[Direction.DOWN][0];
-    sctx.clearRect(0, 0, 16, 24);
-    var smallCached = getCachedSprite(spriteData, 1);
+    sctx.clearRect(0, 0, 64, 96);
+    var smallCached = getCachedSprite(spriteData, 4);
     sctx.drawImage(smallCached, 0, 0);
   }, 50);
 
