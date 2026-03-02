@@ -770,6 +770,7 @@ MISSION_CONTROL_HTML = r"""<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Mission Control</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#x1F3AE;</text></svg>">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#08081a;color:#e0e0e0;font-family:'Segoe UI',system-ui,sans-serif;margin:0;min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden}
