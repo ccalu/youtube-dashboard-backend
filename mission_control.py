@@ -485,6 +485,25 @@ async def get_mission_control_data(db):
     # Batch get agent overview
     agent_overview = await get_agent_overview_batch(db.supabase)
 
+    # Count real comments per canal from video_comments table
+    comments_count_map = {}  # canal_id -> count
+    try:
+        all_comment_ids = []
+        _offset = 0
+        _batch = 1000
+        while True:
+            _cr = db.supabase.table('video_comments').select('canal_id').range(_offset, _offset + _batch - 1).execute()
+            if not _cr.data:
+                break
+            all_comment_ids.extend(r['canal_id'] for r in _cr.data)
+            if len(_cr.data) < _batch:
+                break
+            _offset += _batch
+        from collections import Counter
+        comments_count_map = dict(Counter(all_comment_ids))
+    except Exception:
+        pass
+
     grupos = {}
     for canal in canais:
         # Only include channels with OAuth configured
@@ -559,7 +578,7 @@ async def get_mission_control_data(db):
                 'frequencia_semanal': c.get('frequencia_semanal'),
                 'melhor_hora': c.get('melhor_hora'),
                 'melhor_dia_semana': c.get('melhor_dia_semana'),
-                'total_comentarios': c.get('total_comentarios_coletados', 0),
+                'total_comentarios': comments_count_map.get(cid, 0),
                 'agentes': [{'id': a['id'], 'tipo': a['tipo'], 'nome': a['nome'],
                               'status': a['status'], 'cor': a['cor'],
                               'skin': a['skin'], 'shirt': a['shirt'],
@@ -648,12 +667,18 @@ async def get_sala_detail(db, canal_id):
             'frequencia_semanal': canal.get('frequencia_semanal'),
             'melhor_hora': canal.get('melhor_hora'),
             'melhor_dia_semana': canal.get('melhor_dia_semana'),
-            'total_comentarios': canal.get('total_comentarios_coletados', 0),
+            'total_comentarios': 0,
         },
         'yt_channel_id': yt_channel_id,
         'copy_spreadsheet_id': copy_spreadsheet_id,
         'agentes': agentes,
     }
+    # Count real comments for this channel
+    try:
+        cr = db.supabase.table('video_comments').select('id', count='exact').eq('canal_id', canal_id).execute()
+        result['canal']['total_comentarios'] = cr.count or 0
+    except Exception:
+        pass
     _mc_sala_cache[ck] = {'data': result, 'timestamp': now}
     return result
 
