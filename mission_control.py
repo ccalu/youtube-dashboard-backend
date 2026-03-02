@@ -4603,14 +4603,6 @@ function openSidebar(room, ch) {
   // Upload status (async)
   html += '<div id="sb-upload-status"></div>';
 
-  // Description
-  if (ag.descricao) {
-    html += '<div class="sb-section">';
-    html += '<div class="sb-label">Descricao</div>';
-    html += '<div class="sb-desc">' + escapeHtml(ag.descricao) + '</div>';
-    html += '</div>';
-  }
-
   // Agent status (fetched async) or placeholder
   if (ag.implementado !== false && ag.canal_id) {
     html += '<div id="sb-agent-status" class="sb-agent-status"><div class="sb-loading">Carregando status...</div></div>';
@@ -4695,11 +4687,11 @@ function fetchUploadStatus(ytChannelId) {
     var statusLabels = {sucesso:'Sucesso', erro:'Erro', sem_video:'Sem video', pendente:'Pendente'};
     var st = found.status || 'pendente';
 
-    var h = '<div class="sb-section">';
-    h += '<div class="sb-label">Upload Hoje</div>';
-    h += '<div class="sb-value" style="color:' + (statusColors[st]||'#888') + '">';
     var uploadDate = new Date().toLocaleDateString('pt-BR');
-    h += (statusLabels[st]||st) + ' - ' + uploadDate;
+    var h = '<div class="sb-section">';
+    h += '<div class="sb-label">Upload Hoje (' + uploadDate + ')</div>';
+    h += '<div class="sb-value" style="color:' + (statusColors[st]||'#888') + '">';
+    h += (statusLabels[st]||st);
     if (found.video_titulo) h += ' - ' + escapeHtml(found.video_titulo);
     h += '</div></div>';
     div.innerHTML = h;
