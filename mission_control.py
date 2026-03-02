@@ -4690,10 +4690,11 @@ function fetchUploadStatus(ytChannelId) {
     var uploadDate = new Date().toLocaleDateString('pt-BR');
     var h = '<div class="sb-section">';
     h += '<div class="sb-label">Upload Hoje (' + uploadDate + ')</div>';
-    h += '<div class="sb-value" style="color:' + (statusColors[st]||'#888') + '">';
-    h += (statusLabels[st]||st);
-    if (found.video_titulo) h += ' - ' + escapeHtml(found.video_titulo);
-    h += '</div></div>';
+    h += '<div class="sb-value" style="color:' + (statusColors[st]||'#888') + '">' + (statusLabels[st]||st) + '</div>';
+    if (found.video_titulo) {
+      h += '<div class="sb-value" style="color:#ccc;font-size:11px;margin-top:2px">Titulo: ' + escapeHtml(found.video_titulo) + '</div>';
+    }
+    h += '</div>';
     div.innerHTML = h;
   }
 

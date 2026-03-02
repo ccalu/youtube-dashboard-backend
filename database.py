@@ -1176,7 +1176,16 @@ class SupabaseClient:
                         'inscritos_7d_atras': canal.get('inscritos_7d_atras', 0),
                         'views_7d_atras': canal.get('views_7d_atras', 0),
                         'inscritos_30d_atras': canal.get('inscritos_30d_atras', 0),
-                        'views_30d_atras': canal.get('views_30d_atras', 0)
+                        'views_30d_atras': canal.get('views_30d_atras', 0),
+
+                        # Mission Control fields
+                        'total_comentarios_coletados': canal.get('total_comentarios_coletados', 0),
+                        'frequencia_semanal': canal.get('frequencia_semanal'),
+                        'melhor_hora': canal.get('melhor_hora'),
+                        'melhor_dia_semana': canal.get('melhor_dia_semana'),
+                        'coleta_falhas_consecutivas': canal.get('coleta_falhas_consecutivas', 0),
+                        'coleta_ultimo_erro': canal.get('coleta_ultimo_erro'),
+                        'custom_url': canal.get('custom_url'),
                     }
                     result.append(formatted)
 
