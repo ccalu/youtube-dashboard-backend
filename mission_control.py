@@ -556,6 +556,10 @@ async def get_mission_control_data(db):
                 'url_canal': c.get('url_canal') or c.get('custom_url') or '',
                 'coleta_falhas': c.get('coleta_falhas_consecutivas', 0),
                 'coleta_erro': c.get('coleta_ultimo_erro', ''),
+                'frequencia_semanal': c.get('frequencia_semanal'),
+                'melhor_hora': c.get('melhor_hora'),
+                'melhor_dia_semana': c.get('melhor_dia_semana'),
+                'total_comentarios': c.get('total_comentarios_coletados', 0),
                 'agentes': [{'id': a['id'], 'tipo': a['tipo'], 'nome': a['nome'],
                               'status': a['status'], 'cor': a['cor'],
                               'skin': a['skin'], 'shirt': a['shirt'],
@@ -641,6 +645,10 @@ async def get_sala_detail(db, canal_id):
             'url_canal': canal.get('url_canal') or canal.get('custom_url') or '',
             'coleta_falhas': canal.get('coleta_falhas_consecutivas', 0),
             'coleta_erro': canal.get('coleta_ultimo_erro', ''),
+            'frequencia_semanal': canal.get('frequencia_semanal'),
+            'melhor_hora': canal.get('melhor_hora'),
+            'melhor_dia_semana': canal.get('melhor_dia_semana'),
+            'total_comentarios': canal.get('total_comentarios_coletados', 0),
         },
         'yt_channel_id': yt_channel_id,
         'copy_spreadsheet_id': copy_spreadsheet_id,
@@ -4192,6 +4200,10 @@ function refreshRoomStats(data) {
       room.canal.url_canal = fresh.url_canal || '';
       room.canal.coleta_falhas = fresh.coleta_falhas || 0;
       room.canal.coleta_erro = fresh.coleta_erro || '';
+      room.canal.frequencia_semanal = fresh.frequencia_semanal || null;
+      room.canal.melhor_hora = fresh.melhor_hora != null ? fresh.melhor_hora : null;
+      room.canal.melhor_dia_semana = fresh.melhor_dia_semana || null;
+      room.canal.total_comentarios = fresh.total_comentarios || 0;
     }
   }
 }
@@ -4569,6 +4581,28 @@ function openSidebar(room, ch) {
   html += '<div class="sb-value" style="color:' + (tema.accent || '#888') + '">' + escapeHtml(tema.label || room.themeKey) + '</div>';
   html += '</div>';
 
+  // Postagem (frequencia + melhor horario)
+  if (room.canal.frequencia_semanal || room.canal.melhor_hora != null) {
+    html += '<div class="sb-section">';
+    html += '<div class="sb-label">Postagem</div>';
+    var postParts = [];
+    if (room.canal.frequencia_semanal) postParts.push(room.canal.frequencia_semanal.toFixed(1) + 'x/sem');
+    if (room.canal.melhor_hora != null) postParts.push('Padrao: ' + room.canal.melhor_hora + 'h');
+    html += '<div class="sb-value">' + postParts.join(' | ') + '</div>';
+    html += '</div>';
+  }
+
+  // Comentarios
+  if (room.canal.total_comentarios && room.canal.total_comentarios > 0) {
+    html += '<div class="sb-section">';
+    html += '<div class="sb-label">Comentarios</div>';
+    html += '<div class="sb-value">' + room.canal.total_comentarios + ' coletados</div>';
+    html += '</div>';
+  }
+
+  // Upload status (async)
+  html += '<div id="sb-upload-status"></div>';
+
   // Description
   if (ag.descricao) {
     html += '<div class="sb-section">';
@@ -4622,12 +4656,68 @@ function openSidebar(room, ch) {
   if (ag.implementado !== false && ag.canal_id) {
     fetchAgentStatus(ag.canal_id, ag.tipo || 'estrutura_copy');
   }
+  // Fetch upload status async
+  if (room.canal.yt_channel_id) {
+    fetchUploadStatus(room.canal.yt_channel_id);
+  }
 }
 
 function closeSidebar() {
   selectedAgent = null;
   var sb = document.getElementById('sb');
   if (sb) sb.style.display = 'none';
+}
+
+// Upload status cache
+var _uploadStatusCache = { data: null, ts: 0 };
+var _UPLOAD_CACHE_TTL = 60000; // 1 min
+
+function fetchUploadStatus(ytChannelId) {
+  if (!ytChannelId) return;
+  var div = document.getElementById('sb-upload-status');
+  if (!div) return;
+
+  function renderUpload(uploadData) {
+    var found = null;
+    var subs = uploadData.subnichos || {};
+    for (var key in subs) {
+      for (var i = 0; i < subs[key].length; i++) {
+        if (subs[key][i].channel_id === ytChannelId) {
+          found = subs[key][i];
+          break;
+        }
+      }
+      if (found) break;
+    }
+    if (!found) return;
+
+    var statusColors = {sucesso:'#4ade80', erro:'#f87171', sem_video:'#fbbf24', pendente:'#888'};
+    var statusLabels = {sucesso:'Sucesso', erro:'Erro', sem_video:'Sem video', pendente:'Pendente'};
+    var st = found.status || 'pendente';
+
+    var h = '<div class="sb-section">';
+    h += '<div class="sb-label">Upload Hoje</div>';
+    h += '<div class="sb-value" style="color:' + (statusColors[st]||'#888') + '">';
+    h += (statusLabels[st]||st);
+    if (found.video_titulo) h += ' - ' + escapeHtml(found.video_titulo);
+    if (found.hora_upload) h += ' (' + found.hora_upload + ')';
+    h += '</div></div>';
+    div.innerHTML = h;
+  }
+
+  // Use cache if fresh
+  if (_uploadStatusCache.data && (Date.now() - _uploadStatusCache.ts) < _UPLOAD_CACHE_TTL) {
+    renderUpload(_uploadStatusCache.data);
+    return;
+  }
+
+  fetch('/api/dash-upload/status')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      _uploadStatusCache = { data: data, ts: Date.now() };
+      renderUpload(data);
+    })
+    .catch(function() {});
 }
 
 // Agent status cache: { "channelId_agentType": { data, ts } }
