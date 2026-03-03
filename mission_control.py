@@ -502,6 +502,16 @@ async def get_mission_control_data(db):
     agent_overview = await get_agent_overview_batch(db.supabase)
 
     # Count real comments per canal from video_comments table
+    # Get video_count directly from canais_monitorados (MV may be stale)
+    video_count_map = {}  # canal_id -> video_count
+    try:
+        vc_resp = db.supabase.table('canais_monitorados').select('id,video_count').eq('tipo', 'nosso').execute()
+        for row in (vc_resp.data or []):
+            if row.get('video_count'):
+                video_count_map[row['id']] = row['video_count']
+    except Exception:
+        pass
+
     comments_count_map = {}  # canal_id -> count
     try:
         all_comment_ids = []
@@ -585,7 +595,7 @@ async def get_mission_control_data(db):
                 'views_7d': c.get('views_7d', 0),
                 'views_15d': c.get('views_15d', 0),
                 'views_30d': c.get('views_30d', 0),
-                'videos_30d': c.get('videos_30d', 0),
+                'video_count': video_count_map.get(cid, c.get('videos_30d', 0)),
                 'avg_ctr': ctr_map.get(nome_lower),
                 'avg_retention': retention_map.get(yt_channel_id),
                 'yt_channel_id': yt_channel_id,
@@ -4311,7 +4321,7 @@ function refreshRoomStats(data) {
       room.canal.inscritos_diff = fresh.inscritos_diff || 0;
       room.canal.views_7d = fresh.views_7d || 0;
       room.canal.views_15d = fresh.views_15d || 0;
-      room.canal.videos_30d = fresh.videos_30d || 0;
+      room.canal.video_count = fresh.video_count || 0;
       room.canal.views_30d = fresh.views_30d || 0;
       room.canal.avg_ctr = fresh.avg_ctr || null;
       room.canal.avg_retention = fresh.avg_retention || null;
@@ -4506,7 +4516,7 @@ function renderAllRooms(ctx, canvasW, canvasH) {
     var diff = room.canal.inscritos_diff || 0;
     var v7d = formatNumber(room.canal.views_7d || 0);
     var v30d = formatNumber(room.canal.views_30d || 0);
-    var vid30 = room.canal.videos_30d || 0;
+    var vid30 = room.canal.video_count || 0;
     var retPct = room.canal.avg_retention;
     var ctrPct = room.canal.avg_ctr;
 
