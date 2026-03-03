@@ -34,22 +34,66 @@ BANDEIRAS_MAP = {
 }
 
 SETORES_CONFIG = {
-    'Monetizados': {'cor': '#22c55e', 'icone': '$', 'tema': 'executive',
-                    'floor': '#2d4a2d', 'wall': '#1a3a1a', 'accent': '#4ade80'},
-    'Historias Sombrias': {'cor': '#8b5cf6', 'icone': 'H', 'tema': 'gothic',
-                           'floor': '#2d2a4a', 'wall': '#1a1a3a', 'accent': '#a78bfa'},
-    'Relatos de Guerra': {'cor': '#4a8c50', 'icone': 'G', 'tema': 'warroom',
-                          'floor': '#2d3a2d', 'wall': '#1a2a1a', 'accent': '#6ee77a'},
-    'Terror': {'cor': '#ef4444', 'icone': 'T', 'tema': 'darklab',
-               'floor': '#4a2d2d', 'wall': '#3a1a1a', 'accent': '#f87171'},
-    'Guerras e Civilizacoes': {'cor': '#f97316', 'icone': 'C', 'tema': 'command',
-                               'floor': '#4a3a2d', 'wall': '#3a2a1a', 'accent': '#fb923c'},
-    'Guerras e Civilizações': {'cor': '#f97316', 'icone': 'C', 'tema': 'command',
-                                'floor': '#4a3a2d', 'wall': '#3a2a1a', 'accent': '#fb923c'},
-    'Desmonetizados': {'cor': '#ef4444', 'icone': 'D', 'tema': 'demonetized',
-                       'floor': '#3a1818', 'wall': '#2a1010', 'accent': '#f87171'},
-    'Licoes de Vida': {'cor': '#eab308', 'icone': 'L', 'tema': 'wisdom',
-                       'floor': '#3a3418', 'wall': '#2a2410', 'accent': '#fbbf24'},
+    'Monetizados': {'cor': '#22C55E', 'icone': '$', 'tema': 'executive',
+                    'floor': '#2d4a2d', 'wall': '#1a3a1a', 'accent': '#4ADE80'},
+    'Reis Perversos': {'cor': '#581C87', 'icone': 'R', 'tema': 'palace',
+                       'floor': '#2a1a3a', 'wall': '#1a1028', 'accent': '#7C3AED'},
+    'Historias Sombrias': {'cor': '#7C3AED', 'icone': 'H', 'tema': 'gothic',
+                           'floor': '#2d2a4a', 'wall': '#1a1a3a', 'accent': '#A78BFA'},
+    u'Hist\u00f3rias Sombrias': {'cor': '#7C3AED', 'icone': 'H', 'tema': 'gothic',
+                           'floor': '#2d2a4a', 'wall': '#1a1a3a', 'accent': '#A78BFA'},
+    'Culturas Macabras': {'cor': '#831843', 'icone': 'M', 'tema': 'macabre',
+                          'floor': '#3a1828', 'wall': '#2a1018', 'accent': '#BE185D'},
+    'Relatos de Guerra': {'cor': '#65A30D', 'icone': 'G', 'tema': 'warroom',
+                          'floor': '#2d3a2d', 'wall': '#1a2a1a', 'accent': '#84CC16'},
+    'Frentes de Guerra': {'cor': '#166534', 'icone': 'F', 'tema': 'frontline',
+                          'floor': '#1a2a1a', 'wall': '#101a10', 'accent': '#22C55E'},
+    'Guerras e Civilizacoes': {'cor': '#EA580C', 'icone': 'C', 'tema': 'command',
+                               'floor': '#4a3a2d', 'wall': '#3a2a1a', 'accent': '#FB923C'},
+    u'Guerras e Civiliza\u00e7\u00f5es': {'cor': '#EA580C', 'icone': 'C', 'tema': 'command',
+                                'floor': '#4a3a2d', 'wall': '#3a2a1a', 'accent': '#FB923C'},
+    u'Li\u00e7\u00f5es de Vida': {'cor': '#0E7C93', 'icone': 'L', 'tema': 'wisdom',
+                       'floor': '#1a2a30', 'wall': '#101a20', 'accent': '#14B8A6'},
+    'Licoes de Vida': {'cor': '#0E7C93', 'icone': 'L', 'tema': 'wisdom',
+                       'floor': '#1a2a30', 'wall': '#101a20', 'accent': '#14B8A6'},
+    'Registros Malditos': {'cor': '#CA8A04', 'icone': 'X', 'tema': 'cursed',
+                           'floor': '#3a3418', 'wall': '#2a2410', 'accent': '#EAB308'},
+    'Desmonetizados': {'cor': '#B91C1C', 'icone': 'D', 'tema': 'demonetized',
+                       'floor': '#3a1818', 'wall': '#2a1010', 'accent': '#EF4444'},
+    'Terror': {'cor': '#7C2D12', 'icone': 'T', 'tema': 'darklab',
+               'floor': '#3a1a0a', 'wall': '#2a1005', 'accent': '#9A3412'},
+    'Antiguidade': {'cor': '#D97706', 'icone': 'A', 'tema': 'ancient',
+                    'floor': '#3a3018', 'wall': '#2a2010', 'accent': '#F59E0B'},
+    'Historias Motivacionais': {'cor': '#65A30D', 'icone': 'I', 'tema': 'inspire',
+                                'floor': '#2a3a1a', 'wall': '#1a2a10', 'accent': '#84CC16'},
+    u'Hist\u00f3rias Motivacionais': {'cor': '#65A30D', 'icone': 'I', 'tema': 'inspire',
+                                      'floor': '#2a3a1a', 'wall': '#1a2a10', 'accent': '#84CC16'},
+    'Misterios': {'cor': '#4F46E5', 'icone': '?', 'tema': 'mystery',
+                   'floor': '#1a1a3a', 'wall': '#101028', 'accent': '#818CF8'},
+    u'Mist\u00e9rios': {'cor': '#4F46E5', 'icone': '?', 'tema': 'mystery',
+                         'floor': '#1a1a3a', 'wall': '#101028', 'accent': '#818CF8'},
+    'Pessoas Desaparecidas': {'cor': '#0284C7', 'icone': 'P', 'tema': 'missing',
+                              'floor': '#182a3a', 'wall': '#101a2a', 'accent': '#38BDF8'},
+    'Psicologia & Mindset': {'cor': '#3B82F6', 'icone': 'B', 'tema': 'mindset',
+                             'floor': '#1a2a4a', 'wall': '#101a3a', 'accent': '#60A5FA'},
+    'Conspiracao': {'cor': '#0891B2', 'icone': 'S', 'tema': 'conspiracy',
+                     'floor': '#1a2a30', 'wall': '#101a28', 'accent': '#22D3EE'},
+    u'Conspira\u00e7\u00e3o': {'cor': '#0891B2', 'icone': 'S', 'tema': 'conspiracy',
+                                'floor': '#1a2a30', 'wall': '#101a28', 'accent': '#22D3EE'},
+    'Empreendedorismo': {'cor': '#F59E0B', 'icone': 'E', 'tema': 'business',
+                         'floor': '#3a3418', 'wall': '#2a2410', 'accent': '#FBBF24'},
+    'Mentalidade Masculina e Financas': {'cor': '#1E3A8A', 'icone': 'W', 'tema': 'alpha',
+                                         'floor': '#1a2040', 'wall': '#101830', 'accent': '#3B82F6'},
+    u'Mentalidade Masculina e Finan\u00e7as': {'cor': '#1E3A8A', 'icone': 'W', 'tema': 'alpha',
+                                                'floor': '#1a2040', 'wall': '#101830', 'accent': '#3B82F6'},
+    'Noticias e Atualidade': {'cor': '#F43F5E', 'icone': 'N', 'tema': 'news',
+                              'floor': '#3a1a28', 'wall': '#2a1018', 'accent': '#FB7185'},
+    u'Not\u00edcias e Atualidade': {'cor': '#F43F5E', 'icone': 'N', 'tema': 'news',
+                                     'floor': '#3a1a28', 'wall': '#2a1018', 'accent': '#FB7185'},
+    'Historias Aleatorias': {'cor': '#E879A0', 'icone': 'O', 'tema': 'random',
+                              'floor': '#3a1a28', 'wall': '#2a1018', 'accent': '#F9A8D4'},
+    u'Hist\u00f3rias Aleat\u00f3rias': {'cor': '#E879A0', 'icone': 'O', 'tema': 'random',
+                                         'floor': '#3a1a28', 'wall': '#2a1018', 'accent': '#F9A8D4'},
 }
 
 # ===========================================================
@@ -3142,19 +3186,117 @@ var SECTOR_THEMES = {
     accent: '#a1a1aa',
     label: 'Startup'
   },
+  palace: {
+    floorColor: { h: 270, s: 25, b: 10, c: 0 },
+    wallColor:  { h: 270, s: 15, b: -38, c: 0 },
+    accent: '#7C3AED',
+    label: 'Reis Perversos'
+  },
+  macabre: {
+    floorColor: { h: 330, s: 25, b: 10, c: 0 },
+    wallColor:  { h: 330, s: 15, b: -38, c: 0 },
+    accent: '#BE185D',
+    label: 'Culturas Macabras'
+  },
+  frontline: {
+    floorColor: { h: 140, s: 25, b: 5, c: 0 },
+    wallColor:  { h: 140, s: 15, b: -38, c: 0 },
+    accent: '#22C55E',
+    label: 'Frentes de Guerra'
+  },
+  cursed: {
+    floorColor: { h: 50, s: 30, b: 10, c: 0 },
+    wallColor:  { h: 50, s: 20, b: -38, c: 0 },
+    accent: '#EAB308',
+    label: 'Registros Malditos'
+  },
+  ancient: {
+    floorColor: { h: 40, s: 30, b: 10, c: 0 },
+    wallColor:  { h: 40, s: 20, b: -38, c: 0 },
+    accent: '#F59E0B',
+    label: 'Antiguidade'
+  },
+  inspire: {
+    floorColor: { h: 90, s: 25, b: 10, c: 0 },
+    wallColor:  { h: 90, s: 15, b: -38, c: 0 },
+    accent: '#84CC16',
+    label: 'Historias Motivacionais'
+  },
+  mystery: {
+    floorColor: { h: 240, s: 25, b: 10, c: 0 },
+    wallColor:  { h: 240, s: 15, b: -38, c: 0 },
+    accent: '#818CF8',
+    label: 'Misterios'
+  },
+  missing: {
+    floorColor: { h: 200, s: 25, b: 10, c: 0 },
+    wallColor:  { h: 200, s: 15, b: -38, c: 0 },
+    accent: '#38BDF8',
+    label: 'Pessoas Desaparecidas'
+  },
+  mindset: {
+    floorColor: { h: 220, s: 25, b: 10, c: 0 },
+    wallColor:  { h: 220, s: 15, b: -38, c: 0 },
+    accent: '#60A5FA',
+    label: 'Psicologia & Mindset'
+  },
+  conspiracy: {
+    floorColor: { h: 190, s: 25, b: 10, c: 0 },
+    wallColor:  { h: 190, s: 15, b: -38, c: 0 },
+    accent: '#22D3EE',
+    label: 'Conspiracao'
+  },
+  business: {
+    floorColor: { h: 45, s: 30, b: 10, c: 0 },
+    wallColor:  { h: 45, s: 20, b: -38, c: 0 },
+    accent: '#FBBF24',
+    label: 'Empreendedorismo'
+  },
+  alpha: {
+    floorColor: { h: 225, s: 30, b: 10, c: 0 },
+    wallColor:  { h: 225, s: 20, b: -38, c: 0 },
+    accent: '#3B82F6',
+    label: 'Mentalidade Masculina'
+  },
+  news: {
+    floorColor: { h: 350, s: 25, b: 10, c: 0 },
+    wallColor:  { h: 350, s: 15, b: -38, c: 0 },
+    accent: '#FB7185',
+    label: 'Noticias e Atualidade'
+  },
+  random: {
+    floorColor: { h: 340, s: 20, b: 10, c: 0 },
+    wallColor:  { h: 340, s: 15, b: -38, c: 0 },
+    accent: '#F9A8D4',
+    label: 'Historias Aleatorias'
+  },
 };
 
 // Map backend tema -> theme key
 function getThemeKey(tema) {
   if (!tema) return 'startup';
   var t = tema.toLowerCase();
-  if (t.indexOf('executive') >= 0 || t.indexOf('monetiz') >= 0) return 'executive';
-  if (t.indexOf('war') >= 0 || t.indexOf('guerra') >= 0) return 'warroom';
-  if (t.indexOf('gothic') >= 0 || t.indexOf('sombr') >= 0) return 'gothic';
-  if (t.indexOf('dark') >= 0 || t.indexOf('terror') >= 0) return 'darklab';
-  if (t.indexOf('demon') >= 0 || t.indexOf('desmon') >= 0) return 'demonetized';
-  if (t.indexOf('command') >= 0 || t.indexOf('comando') >= 0) return 'command';
-  if (t.indexOf('wisdom') >= 0 || t.indexOf('sabed') >= 0) return 'wisdom';
+  if (t === 'executive' || t === 'monetiz') return 'executive';
+  if (t === 'palace') return 'palace';
+  if (t === 'gothic') return 'gothic';
+  if (t === 'macabre') return 'macabre';
+  if (t === 'warroom') return 'warroom';
+  if (t === 'frontline') return 'frontline';
+  if (t === 'command') return 'command';
+  if (t === 'cursed') return 'cursed';
+  if (t === 'darklab') return 'darklab';
+  if (t === 'ancient') return 'ancient';
+  if (t === 'inspire') return 'inspire';
+  if (t === 'mystery') return 'mystery';
+  if (t === 'missing') return 'missing';
+  if (t === 'mindset') return 'mindset';
+  if (t === 'conspiracy') return 'conspiracy';
+  if (t === 'business') return 'business';
+  if (t === 'alpha') return 'alpha';
+  if (t === 'news') return 'news';
+  if (t === 'random') return 'random';
+  if (t === 'demonetized') return 'demonetized';
+  if (t === 'wisdom') return 'wisdom';
   return 'startup';
 }
 
