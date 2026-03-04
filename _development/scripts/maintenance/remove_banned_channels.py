@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Script para remover canais banidos do YouTube do banco de dados.
+Script para remover canais do YouTube do banco de dados.
 
-Canais a remover:
-1. Mindset elevation (banido)
-2. Alan Watts Way (banido)
+Remove dados de todas as tabelas:
+- canais_monitorados (core)
+- videos_historico, dados_canais_historico, notificacoes, video_comments, favoritos
+- yt_channels, yt_video_metrics, yt_reporting_jobs (OAuth/CTR)
+- canal_kanban_notes (Kanban)
+- micronicho_analysis_runs, title_structure_analysis_runs, theme_analysis_runs (Agentes)
 
 Autor: cellibs-escritorio
-Data: 19/01/2026
+Data: 03/03/2026
 """
 
 import asyncio
@@ -24,6 +27,9 @@ if sys.platform == 'win32':
     import codecs
     sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
     sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
+
+# Adicionar root ao path
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..'))
 
 # Importar database client
 from database import SupabaseClient
@@ -138,6 +144,60 @@ class BannedChannelRemover:
             print(f"[ERRO] Ao criar backup: {e}")
             return ""
 
+    async def _cleanup_extra_tables(self, canal_name: str):
+        """
+        Limpar tabelas extras (yt_channels, agentes, kanban, CTR).
+        Usa channel_name para encontrar o channel_id (UC...) em yt_channels.
+        """
+        try:
+            # Buscar channel_id (UC...) em yt_channels pelo nome
+            yt_resp = self.db.supabase.table('yt_channels')\
+                .select('channel_id')\
+                .eq('channel_name', canal_name)\
+                .execute()
+
+            channel_id = None
+            if yt_resp.data and len(yt_resp.data) > 0:
+                channel_id = yt_resp.data[0]['channel_id']
+                print(f"      yt_channels channel_id: {channel_id}")
+
+            # Tabelas que usam channel_id (UC...)
+            if channel_id:
+                extra_tables_channel = [
+                    'yt_video_metrics',
+                    'yt_reporting_jobs',
+                    'micronicho_analysis_runs',
+                    'title_structure_analysis_runs',
+                    'theme_analysis_runs',
+                ]
+                for table in extra_tables_channel:
+                    try:
+                        self.db.supabase.table(table).delete()\
+                            .eq('channel_id', channel_id).execute()
+                        print(f"      [OK] {table} limpo")
+                    except Exception:
+                        pass  # Tabela pode nao existir ou estar vazia
+
+                # Deletar yt_channels por channel_id
+                try:
+                    self.db.supabase.table('yt_channels').delete()\
+                        .eq('channel_id', channel_id).execute()
+                    print(f"      [OK] yt_channels limpo")
+                except Exception:
+                    pass
+
+        except Exception as e:
+            print(f"      [AVISO] Erro limpando tabelas extras: {e}")
+
+    async def _cleanup_kanban(self, canal_id: int):
+        """Limpar canal_kanban_notes por canal_id (int)."""
+        try:
+            self.db.supabase.table('canal_kanban_notes').delete()\
+                .eq('canal_id', canal_id).execute()
+            print(f"      [OK] canal_kanban_notes limpo")
+        except Exception:
+            pass
+
     async def delete_channel(self, canal_id: int, canal_name: str) -> bool:
         """
         Deletar canal permanentemente usando função existente.
@@ -152,7 +212,13 @@ class BannedChannelRemover:
         try:
             print(f"\n[DELETANDO] Canal '{canal_name}' (ID: {canal_id})...")
 
-            # Usar função existente do database.py
+            # 1. Limpar tabelas extras (yt_channels, agentes, CTR)
+            await self._cleanup_extra_tables(canal_name)
+
+            # 2. Limpar kanban
+            await self._cleanup_kanban(canal_id)
+
+            # 3. Usar função existente do database.py (core tables)
             await self.db.delete_canal_permanently(canal_id)
 
             print(f"[OK] Canal '{canal_name}' deletado com sucesso!")
@@ -304,10 +370,30 @@ class BannedChannelRemover:
 
 async def main():
     """Função principal."""
-    # Canais banidos do YouTube
+    # Canais a remover - 03/03/2026
     BANNED_CHANNELS = [
-        "Mindset elevation",
-        "Alan Watts Way"
+        "Stories of Tortures",
+        "Echoes of Torture",
+        "Crônicas Brutais",
+        "Legacy and Legend",
+        "The Medieval Scroll",
+        "Palais du Sommeil",
+        "Misteri del Passato",
+        "The Inheritance Story",
+        "Rift Stories",
+        "revealed crime cases",
+        "ColdCase",
+        "CEN Stories",
+        "WW2X",
+        "WW2 Tactical Tales",
+        "ANZAC at WAR",
+        "WW2 Declassified",
+        "Frontline America – WWII",
+        "Missioni Segrete WWII",
+        "WW2 Legacy",
+        "WW2 Paths",
+        "Echoes of Patton",
+        "A194X",
     ]
 
     remover = BannedChannelRemover()

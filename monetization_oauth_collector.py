@@ -230,7 +230,7 @@ def collect_video_metrics(channel_id, access_token, start_date, end_date):
                 "ids": f"channel=={channel_id}",
                 "startDate": start_date,
                 "endDate": end_date,
-                "metrics": "views,averageViewDuration,averageViewPercentage,cardClickRate",
+                "metrics": "views,averageViewDuration,averageViewPercentage,cardClickRate,likes,dislikes,subscribersGained",
                 "dimensions": "video",
                 "sort": "-views",
                 "maxResults": str(page_size),
@@ -508,8 +508,7 @@ def save_country_metrics(channel_id, rows, date):
 def save_video_metrics(channel_id, rows):
     """
     Salva métricas de analytics por vídeo no Supabase.
-    Formato row: [video_id, views, avgViewDuration, avgViewPercentage, cardClickRate]
-    Likes/comments/subscribers ja coletados pelo collector.py em videos_historico.
+    Formato row: [video_id, views, avgViewDuration, avgViewPercentage, cardClickRate, likes, dislikes, subscribersGained]
     """
     saved = 0
     for row in rows:
@@ -520,6 +519,9 @@ def save_video_metrics(channel_id, rows):
             "avg_view_duration": float(row[2]) if len(row) > 2 else None,
             "avg_retention_pct": float(row[3]) if len(row) > 3 else None,
             "card_click_rate": float(row[4]) if len(row) > 4 else None,
+            "likes": int(row[5]) if len(row) > 5 and row[5] is not None else 0,
+            "dislikes": int(row[6]) if len(row) > 6 and row[6] is not None else 0,
+            "subscribers_gained": int(row[7]) if len(row) > 7 and row[7] is not None else 0,
             "updated_at": datetime.now().isoformat()
         }
 

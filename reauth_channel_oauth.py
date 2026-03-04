@@ -27,7 +27,6 @@ SCOPES = [
     "https://www.googleapis.com/auth/youtube.upload",
     "https://www.googleapis.com/auth/youtube",
     "https://www.googleapis.com/auth/youtube.force-ssl",
-    "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/yt-analytics.readonly"
 ]
 
@@ -144,17 +143,39 @@ def main():
     print("  AUTORIZACAO OAUTH")
     print("-" * 70)
 
+    # Login hint (evita "We couldn't verify it's you")
+    print("\nInformar o email da conta Google ajuda a evitar erro de verificacao.")
+    login_hint = input("  Email da conta Google do canal (ou Enter para pular): ").strip()
+
+    # Brand Account
+    print("\nBrand Account = conta do canal (ex: 'Reis Perversos')")
+    print("Conta pessoal = email Gmail direto")
+    is_brand = input("  Este canal usa Brand Account? (s/n): ").strip().lower()
+    is_brand_account = (is_brand == 's')
+
     redirect_uri = "http://localhost:8080"
+    prompt_value = 'select_account consent' if is_brand_account else 'consent'
+
     params = {
         'client_id': client_id,
         'redirect_uri': redirect_uri,
         'scope': ' '.join(SCOPES),
         'response_type': 'code',
         'access_type': 'offline',
-        'prompt': 'consent'
+        'prompt': prompt_value,
+        'include_granted_scopes': 'true'
     }
+    if login_hint:
+        params['login_hint'] = login_hint
+
     query_string = '&'.join([f"{k}={requests.utils.quote(str(v))}" for k, v in params.items()])
     auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{query_string}"
+
+    if is_brand_account:
+        print("\nBRAND ACCOUNT - ATENCAO:")
+        print("  1. Vai aparecer uma lista de contas")
+        print("  2. ESCOLHA A BRAND ACCOUNT (nome do canal), NAO o Gmail!")
+        print("  3. Depois autorize normalmente")
 
     print("\nAbra esta URL no NAVEGADOR DO PROXY (conta Google do canal):\n")
     print(auth_url)
@@ -246,6 +267,33 @@ def main():
     else:
         print("[ERRO] Tokens nao encontrados apos salvar!")
         return
+
+    # 10. Atualizar spreadsheet_id (opcional)
+    canal_data = supabase.table('yt_channels').select('spreadsheet_id').eq('channel_id', channel_id).execute()
+    sheet_atual = canal_data.data[0].get('spreadsheet_id') if canal_data.data else None
+
+    if sheet_atual:
+        print(f"\nSpreadsheet atual: {sheet_atual[:30]}...")
+        trocar_sheet = input("Deseja trocar a spreadsheet_id? (s/n): ").strip().lower()
+    else:
+        print("\nNenhuma spreadsheet configurada.")
+        trocar_sheet = input("Deseja adicionar uma spreadsheet_id? (s/n): ").strip().lower()
+
+    if trocar_sheet == 's':
+        import re
+        nova_sheet = input("  Nova spreadsheet (URL ou ID): ").strip()
+        if nova_sheet.startswith('http'):
+            match = re.search(r'/spreadsheets/d/([a-zA-Z0-9_-]+)', nova_sheet)
+            if match:
+                nova_sheet = match.group(1)
+            else:
+                print("[ERRO] Nao consegui extrair ID da URL!")
+                nova_sheet = None
+        if nova_sheet:
+            supabase.table('yt_channels').update({
+                'spreadsheet_id': nova_sheet
+            }).eq('channel_id', channel_id).execute()
+            print(f"[OK] spreadsheet_id atualizado: {nova_sheet[:30]}...")
 
     # Sucesso
     print("\n" + "=" * 70)

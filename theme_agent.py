@@ -1,13 +1,12 @@
 """
-Agente 5 — Analisador de Temas
-Camada 2 (Analise Especializada) — roda em paralelo com Agentes 3 e 4.
+Agente 3 — Temas + Motores Psicologicos
+Camada 2 (Analise Especializada)
 
-Identifica o TEMA ESPECIFICO de cada video (ultima ramificacao da hierarquia).
-Score ponderado: 50% Velocity (views/dia) + 50% Views (normalizado 0-100).
-Skill exclusiva: decomposicao em elementos constitutivos + hipoteses de adjacencia.
-Output alimenta o Agente 6 (Recomendador) com materia-prima analitica.
-
-Hierarquia: Nicho > Subnicho > Micronicho (Ag.3) > TEMA (Ag.5)
+Identifica o TEMA concreto de cada video e os MOTORES PSICOLOGICOS invisiveis
+que explicam por que a audiencia clica.
+Score: 50% CTR + 50% Views (normalizado 0-100).
+2 LLM Calls: LLM TEMAS (JSON) + LLM MOTORES (texto narrativo).
+Deteccao incremental: analyzed_video_data snapshot evita reprocessamento.
 """
 
 import os
@@ -17,13 +16,12 @@ import requests
 from datetime import datetime, timezone
 from typing import List, Dict, Optional
 
-# Imports do ecossistema (reutilizar, nao duplicar)
 from copy_analysis_agent import (
     _get_channel_info,
     SUPABASE_URL,
     SUPABASE_KEY,
-    SUPABASE_HEADERS,
 )
+
 logger = logging.getLogger("theme_agent")
 
 # =============================================================================
@@ -31,11 +29,19 @@ logger = logging.getLogger("theme_agent")
 # =============================================================================
 
 MIN_VIDEOS = 5
+MIN_VIEWS = 500
 MATURITY_DAYS = 7
+CTR_WEIGHT = 0.5
+VIEWS_WEIGHT = 0.5
+TOP_N = 15
+
+# Thresholds para deteccao de mudanca
+VIEWS_CHANGE_PCT = 0.20   # +20%
+CTR_CHANGE_PP = 0.02      # +2pp
 
 
 # =============================================================================
-# FUNCOES COMPARTILHADAS (anteriormente em micronicho_agent.py)
+# FUNCOES DE DADOS (Python)
 # =============================================================================
 
 def _get_monitorado_id(channel_id: str) -> Optional[int]:
@@ -68,10 +74,9 @@ def _get_monitorado_id(channel_id: str) -> Optional[int]:
 
 
 def _fetch_channel_videos(channel_id: str) -> List[Dict]:
-    """Busca videos do canal em videos_historico. Deduplicar por video_id, filtrar 7+ dias."""
+    """Busca videos do canal em videos_historico. Filtros: 7+ dias, 500+ views."""
     monitorado_id = _get_monitorado_id(channel_id)
     if monitorado_id is None:
-        logger.error(f"Nao foi possivel mapear {channel_id} para canais_monitorados")
         return []
 
     all_rows = []
@@ -116,6 +121,9 @@ def _fetch_channel_videos(channel_id: str) -> List[Dict]:
         pub_date_str = v.get("data_publicacao", "")
         if not title or not pub_date_str:
             continue
+        # Filtro: minimo 500 views
+        if views < MIN_VIEWS:
+            continue
         try:
             if "T" in pub_date_str:
                 pub_date = datetime.fromisoformat(pub_date_str.replace("Z", "+00:00"))
@@ -136,8 +144,60 @@ def _fetch_channel_videos(channel_id: str) -> List[Dict]:
             "video_id": v.get("video_id")
         })
 
-    logger.info(f"Videos encontrados: {len(all_rows)} total, {len(seen)} unicos, {len(videos)} com 7+ dias")
+    logger.info(f"Videos encontrados: {len(all_rows)} total, {len(seen)} unicos, {len(videos)} com 7+ dias e 500+ views")
     return videos
+
+
+def _fetch_video_ctr(channel_id: str, video_ids: List[str]) -> Dict[str, Dict]:
+    """Busca CTR e impressions de cada video em yt_video_metrics."""
+    if not video_ids:
+        return {}
+
+    ctr_data = {}
+    # Buscar em batches de 50
+    batch_size = 50
+    for i in range(0, len(video_ids), batch_size):
+        batch = video_ids[i:i + batch_size]
+        # Supabase IN filter
+        ids_filter = ",".join(batch)
+        resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/yt_video_metrics",
+            params={
+                "channel_id": f"eq.{channel_id}",
+                "video_id": f"in.({ids_filter})",
+                "select": "video_id,ctr,impressions",
+                "ctr": "not.is.null"
+            },
+            headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+        )
+        if resp.status_code == 200:
+            for row in resp.json():
+                vid = row.get("video_id")
+                if vid:
+                    ctr_data[vid] = {
+                        "ctr": row.get("ctr", 0) or 0,
+                        "impressions": row.get("impressions", 0) or 0
+                    }
+
+    logger.info(f"CTR data: {len(ctr_data)}/{len(video_ids)} videos com CTR")
+    return ctr_data
+
+
+def _fetch_channel_avg_ctr(channel_id: str) -> Optional[float]:
+    """Busca CTR medio do canal em yt_channels."""
+    resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/yt_channels",
+        params={
+            "channel_id": f"eq.{channel_id}",
+            "select": "avg_ctr"
+        },
+        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+    )
+    if resp.status_code == 200 and resp.json():
+        avg_ctr = resp.json()[0].get("avg_ctr")
+        if avg_ctr is not None:
+            return float(avg_ctr)
+    return None
 
 
 def get_channels_for_themes() -> List[Dict]:
@@ -169,303 +229,70 @@ def get_channels_for_themes() -> List[Dict]:
             break
 
     return all_channels
-VELOCITY_WEIGHT = 0.5
-VIEWS_WEIGHT = 0.5
-TOP_N = 15          # top 15 no ranking
-DECOMP_TOP_N = 5    # decomposicao dos top 5
 
 
 # =============================================================================
-# ETAPA 1: EXTRACAO DE TEMAS (LLM Call 1)
+# RANKING (Score: 50% CTR + 50% Views)
 # =============================================================================
 
-def extract_themes(
-    videos: List[Dict],
-    subnicho: str,
-    lingua: str,
-    previous_themes: Optional[List[str]] = None
-) -> Dict:
+def build_ranking(videos: List[Dict], ctr_data: Dict[str, Dict], avg_ctr: Optional[float]) -> List[Dict]:
     """
-    LLM Call 1: extrai o tema especifico de cada video.
-
-    Returns:
-        {
-            "classifications": [{"title": str, "theme": str, "video_id": str}, ...],
-            "all_themes": [str, ...]
-        }
+    Constroi ranking por Score = 50% CTR + 50% Views (normalizado 0-100 min-max).
+    Videos sem CTR: usam score baseado so em views (metade CTR = 50).
     """
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        logger.warning("OPENAI_API_KEY nao configurada — fallback")
-        return _fallback_extraction(videos)
-
-    try:
-        from openai import OpenAI
-        client = OpenAI(api_key=api_key)
-    except ImportError:
-        logger.error("openai nao instalado")
-        return _fallback_extraction(videos)
-
-    model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
-
-    # ── System Prompt ──────────────────────────────────────────────
-    system_prompt = """Voce e um extrator especializado de temas especificos de videos YouTube.
-Seu trabalho e identificar o ASSUNTO CONCRETO de cada video a partir do titulo.
-
-=== O QUE E UM TEMA ===
-
-O tema e o ASSUNTO ESPECIFICO e CONCRETO de um video individual.
-E a ultima ramificacao na hierarquia de categorizacao de conteudo — nao existe
-subdivisao possivel abaixo do tema.
-
-Um tema bem identificado responde a pergunta: "Sobre o que EXATAMENTE este video fala?"
-
-Hierarquia completa:
-  Nicho > Subnicho (canal) > Micronicho (subcategoria) > TEMA (assunto especifico)
-
-TEMA = o caso, evento, pessoa ou situacao especifica sendo retratada no video.
-MICRONICHO = a CATEGORIA que agrupa multiplos temas sob um guarda-chuva tematico.
-
-=== TEMA ≠ MICRONICHO — DISTINCAO CRITICA ===
-
-Esta distincao e a mais importante do seu trabalho. Errar aqui invalida toda a analise.
-
-ERRADO (amplo demais = micronicho, NAO tema):
-  "Imperio Otomano" → micronicho (contem centenas de temas possiveis)
-  "Nazistas" → micronicho
-  "Campos de concentracao" → micronicho (ainda amplo)
-  "Serial Killers" → micronicho
-  "Espionagem Militar" → micronicho
-
-CORRETO (especifico = tema):
-  "O tratamento brutal dos otomanos com freiras cristas" → TEMA
-  "A fuga de Siegfried Lederer de Auschwitz" → TEMA
-  "Experimentos medicos de Mengele em criancas gemeas" → TEMA
-  "Os crimes de Jeffrey Dahmer em Milwaukee" → TEMA
-  "A infiltracao de Oleg Penkovsky na inteligencia sovietica" → TEMA
-
-REGRA DE ESPECIFICIDADE:
-  Se voce consegue imaginar 10+ videos DIFERENTES dentro do assunto,
-  e amplo demais (micronicho). Se o assunto descreve UM caso/evento/situacao
-  concreta que gera 1 video, e um TEMA.
-
-=== COMO EXTRAIR O TEMA ===
-
-Passo 1: Leia o titulo completo do video
-Passo 2: Identifique O QUE o video retrata (nao COMO retrata)
-         - "O que" = o assunto concreto (tema)
-         - "Como" = a estrutura narrativa (agente 1) ou o titulo (agente 4)
-Passo 3: Formule como frase descritiva curta (5-15 palavras)
-         - Deve ser uma descricao FACTUAL do assunto
-         - Na lingua do canal (nao traduza)
-Passo 4: Verifique especificidade
-         - Se cabe 10+ videos dentro → muito amplo, refine
-         - Se descreve 1 caso concreto → correto
-
-Exemplos de extracao:
-
-  Titulo: "What Ottomans Did To Christian Nuns Was Worse Than Death"
-  ERRADO: "Imperio Otomano" (micronicho)
-  CORRETO: "Tratamento brutal dos otomanos com freiras cristas"
-
-  Titulo: "The Nazi Doctor Who Used Twins As Lab Rats"
-  ERRADO: "Nazistas" (micronicho)
-  CORRETO: "Experimentos medicos nazistas em criancas gemeas"
-
-  Titulo: "What Haitian Slaves Did To French Masters Will Shock You"
-  ERRADO: "Escravidao" (micronicho)
-  CORRETO: "Vinganca dos escravos haitianos contra colonizadores franceses"
-
-  Titulo: "The Spanish Inquisition's Most Disturbing Punishment Methods"
-  ERRADO: "Inquisicao" (micronicho)
-  CORRETO: "Rituais de punicao da Inquisicao Espanhola com hereges"
-
-=== 7 REGRAS DE EXTRACAO ===
-
-1. Cada video tem EXATAMENTE 1 tema (classificacao exclusiva)
-2. O tema e uma FRASE DESCRITIVA (5-15 palavras), nao uma palavra-chave
-3. Escreva o tema na LINGUA dos titulos do canal (nao traduza)
-4. CONSISTENCIA: se um tema ja apareceu na lista anterior, use a MESMA formulacao exata
-   (nao reformule "Fuga de Lederer de Auschwitz" como "Escapada de Lederer do campo nazista")
-5. Responda APENAS com JSON valido, sem texto adicional
-6. NAO agrupe — cada video e um tema UNICO. Diferente do micronicho que agrupa multiplos
-   videos, aqui cada titulo gera 1 tema distinto
-7. Se dois videos tem titulos MUITO parecidos sobre o MESMO assunto concreto,
-   podem receber o mesmo tema (ex: "Part 1" e "Part 2" do mesmo assunto)"""
-
-    # ── User Prompt ────────────────────────────────────────────────
-    prev_block = ""
-    if previous_themes:
-        prev_list = "\n".join([f"- {t}" for t in previous_themes[:50]])
-        prev_block = f"""Temas ja identificados em analises anteriores (mantenha consistencia de formulacao):
-{prev_list}
-
-"""
-
-    titles_list = "\n".join([f"{i+1}. {v['title']}" for i, v in enumerate(videos)])
-
-    user_prompt = f"""{prev_block}Subnicho do canal: {subnicho}
-Lingua dos titulos: {lingua}
-
-Extraia o TEMA ESPECIFICO de cada video.
-Lembre: tema = assunto concreto (5-15 palavras), NAO categoria ampla.
-
-Titulos:
-{titles_list}
-
-JSON de saida:
-{{
-  "videos": [
-    {{"title": "...", "theme": "descricao do tema especifico"}},
-    ...
-  ],
-  "all_themes": ["tema1", "tema2", ...]
-}}"""
-
-    # ── Chamada LLM com retry ──────────────────────────────────────
-    for attempt in range(2):
-        try:
-            response = client.chat.completions.create(
-                model=model,
-                temperature=0.3,
-                response_format={"type": "json_object"},
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ]
-            )
-
-            text = response.choices[0].message.content
-            result = json.loads(text)
-
-            llm_videos = result.get("videos", [])
-            all_themes = result.get("all_themes", [])
-
-            # Mapear de volta aos videos originais
-            title_to_theme = {}
-            for item in llm_videos:
-                t = item.get("title", "").strip()
-                th = item.get("theme", "Nao Identificado")
-                title_to_theme[t] = th
-
-            classifications = []
-            for v in videos:
-                theme = title_to_theme.get(v["title"], "Nao Identificado")
-                classifications.append({
-                    "title": v["title"],
-                    "theme": theme,
-                    "video_id": v.get("video_id", ""),
-                    "views": v.get("views", 0),
-                    "age_days": v.get("age_days", 1),
-                })
-
-            # Garantir all_themes inclui tudo
-            theme_set = set(all_themes)
-            for c in classifications:
-                if c["theme"] not in theme_set:
-                    all_themes.append(c["theme"])
-                    theme_set.add(c["theme"])
-
-            logger.info(f"LLM Call 1 OK: {len(classifications)} videos → {len(all_themes)} temas")
-            return {"classifications": classifications, "all_themes": all_themes}
-
-        except json.JSONDecodeError as e:
-            logger.warning(f"JSON invalido na tentativa {attempt+1}: {e}")
-            if attempt == 0:
-                continue
-        except Exception as e:
-            logger.error(f"Erro LLM Call 1 tentativa {attempt+1}: {e}")
-            if attempt == 0:
-                continue
-
-    logger.error("LLM Call 1 falhou apos 2 tentativas — usando fallback")
-    return _fallback_extraction(videos)
-
-
-def _fallback_extraction(videos: List[Dict]) -> Dict:
-    """Fallback quando LLM falha — usa titulo como tema."""
-    classifications = []
-    all_themes = []
-    for v in videos:
-        title = v.get("title", "Sem Titulo")
-        # Usar titulo truncado como tema
-        theme = title[:80] if len(title) > 80 else title
-        classifications.append({
-            "title": title,
-            "theme": theme,
-            "video_id": v.get("video_id", ""),
-            "views": v.get("views", 0),
-            "age_days": v.get("age_days", 1),
-        })
-        if theme not in all_themes:
-            all_themes.append(theme)
-
-    return {"classifications": classifications, "all_themes": all_themes}
-
-
-# =============================================================================
-# ETAPA 2: RANKING (Score ponderado 50/50)
-# =============================================================================
-
-def build_ranking(videos: List[Dict], classifications: List[Dict]) -> List[Dict]:
-    """
-    Constroi ranking de temas por Score = 50% velocity + 50% views (normalizado 0-100).
-
-    Como temas sao terminais (1 video = 1 tema normalmente), agrupamos por tema
-    e pegamos a media (para cobrir o caso raro de 2 videos com mesmo tema).
-    """
-    # Agrupar por tema
-    theme_data = {}
-    for c in classifications:
-        theme = c["theme"]
-        if theme not in theme_data:
-            theme_data[theme] = []
-        theme_data[theme].append(c)
-
-    # Calcular metricas por tema
     entries = []
-    for theme, vids in theme_data.items():
-        total_views = sum(v.get("views", 0) for v in vids)
-        avg_views = total_views / len(vids)
-        # Velocity = views/dia (media ponderada se multiplos videos)
-        total_age = sum(max(v.get("age_days", 1), 1) for v in vids)
-        velocity = total_views / max(total_age / len(vids), 1)  # avg velocity
+    for v in videos:
+        vid = v.get("video_id", "")
+        ctr_info = ctr_data.get(vid, {})
+        ctr_val = ctr_info.get("ctr", None)
+        # CTR em yt_video_metrics e 0-1 (decimal), converter para percentual
+        ctr_pct = round(ctr_val * 100, 2) if ctr_val is not None else None
+        avg_ctr_pct = round(avg_ctr * 100, 2) if avg_ctr is not None else None
 
-        best = max(vids, key=lambda x: x.get("views", 0))
+        ctr_diff = None
+        if ctr_pct is not None and avg_ctr_pct is not None:
+            ctr_diff = round(ctr_pct - avg_ctr_pct, 1)
 
         entries.append({
-            "theme": theme,
-            "video_count": len(vids),
-            "views": int(avg_views),
-            "velocity": round(velocity, 1),
-            "age_days": best.get("age_days", 0),
-            "title": best.get("title", ""),
-            "video_id": best.get("video_id", ""),
-            "score": 0.0,  # calculado abaixo
+            "title": v["title"],
+            "views": v["views"],
+            "video_id": vid,
+            "age_days": v.get("age_days", 0),
+            "publish_date": v.get("publish_date", ""),
+            "ctr": ctr_pct,             # None se nao disponivel
+            "ctr_diff": ctr_diff,       # None se nao disponivel
+            "score": 0.0,
         })
 
     if not entries:
         return []
 
     # Normalizar min-max (0-100)
-    velocities = [e["velocity"] for e in entries]
     views_list = [e["views"] for e in entries]
-
-    min_vel, max_vel = min(velocities), max(velocities)
     min_views, max_views = min(views_list), max(views_list)
 
-    for e in entries:
-        if max_vel > min_vel:
-            vel_norm = (e["velocity"] - min_vel) / (max_vel - min_vel) * 100
-        else:
-            vel_norm = 50.0
+    ctrs_available = [e["ctr"] for e in entries if e["ctr"] is not None]
+    if ctrs_available:
+        min_ctr, max_ctr = min(ctrs_available), max(ctrs_available)
+    else:
+        min_ctr, max_ctr = 0, 0
 
+    for e in entries:
+        # Views normalizado
         if max_views > min_views:
             views_norm = (e["views"] - min_views) / (max_views - min_views) * 100
         else:
             views_norm = 50.0
 
-        e["score"] = round(VELOCITY_WEIGHT * vel_norm + VIEWS_WEIGHT * views_norm, 1)
+        # CTR normalizado
+        if e["ctr"] is not None and max_ctr > min_ctr:
+            ctr_norm = (e["ctr"] - min_ctr) / (max_ctr - min_ctr) * 100
+        elif e["ctr"] is not None:
+            ctr_norm = 50.0
+        else:
+            ctr_norm = 50.0  # sem CTR = neutro
+
+        e["score"] = round(CTR_WEIGHT * ctr_norm + VIEWS_WEIGHT * views_norm, 1)
 
     # Ordenar por score DESC
     entries.sort(key=lambda x: x["score"], reverse=True)
@@ -478,148 +305,260 @@ def build_ranking(videos: List[Dict], classifications: List[Dict]) -> List[Dict]
 
 
 # =============================================================================
-# ETAPA 3: DETECCAO DE PADROES
+# DETECCAO INCREMENTAL
 # =============================================================================
 
-def detect_patterns(ranking: List[Dict]) -> Dict:
-    """Detecta padroes no ranking de temas."""
-    if not ranking:
-        return {
-            "concentration_pct": 0,
-            "top_performers": [],
-            "bottom_performers": [],
-            "total_themes": 0,
-            "total_videos": 0,
-            "avg_views_geral": 0,
-            "avg_velocity_geral": 0,
-            "avg_score_geral": 0,
-            "high_velocity_themes": [],
-            "high_views_low_velocity": [],
-        }
+def _detect_changes(
+    current_ranking: List[Dict],
+    previous_snapshot: Optional[Dict]
+) -> Dict[str, List[Dict]]:
+    """
+    Compara videos atuais com snapshot do ultimo relatorio.
+    Return: {new: [...], updated: [...], unchanged: [...]}
+    """
+    if not previous_snapshot:
+        return {"new": current_ranking, "updated": [], "unchanged": []}
 
-    total_views = sum(e["views"] * e["video_count"] for e in ranking)
-    total_videos = sum(e["video_count"] for e in ranking)
+    new_videos = []
+    updated_videos = []
+    unchanged_videos = []
 
-    # Concentracao top 5
-    top5_views = sum(e["views"] * e["video_count"] for e in ranking[:5])
-    concentration_pct = round((top5_views / total_views * 100) if total_views > 0 else 0, 1)
+    for v in current_ranking:
+        vid = v["video_id"]
+        prev = previous_snapshot.get(vid)
 
-    # Medias
-    avg_views = total_views / total_videos if total_videos > 0 else 0
-    avg_velocity = sum(e["velocity"] for e in ranking) / len(ranking) if ranking else 0
-    avg_score = sum(e["score"] for e in ranking) / len(ranking) if ranking else 0
+        if prev is None:
+            new_videos.append(v)
+        else:
+            prev_views = prev.get("views", 0)
+            prev_ctr = prev.get("ctr")
 
-    # Top e bottom performers
-    top_performers = [e["theme"] for e in ranking if e["score"] > avg_score]
-    bottom_performers = [e["theme"] for e in ranking if e["score"] < avg_score * 0.5]
+            views_changed = (
+                prev_views > 0
+                and v["views"] > 0
+                and (v["views"] - prev_views) / prev_views >= VIEWS_CHANGE_PCT
+            )
+            ctr_changed = (
+                v["ctr"] is not None
+                and prev_ctr is not None
+                and abs(v["ctr"] - prev_ctr) >= CTR_CHANGE_PP * 100  # ambos em %
+            )
 
-    # Velocity patterns
-    high_velocity = [e["theme"] for e in ranking if e["velocity"] > avg_velocity * 2]
-    high_views_low_vel = [
-        e["theme"] for e in ranking
-        if e["views"] > avg_views and e["velocity"] < avg_velocity * 0.5
-    ]
+            if views_changed or ctr_changed:
+                v["_prev_views"] = prev_views
+                v["_prev_ctr"] = prev_ctr
+                v["_prev_tema"] = prev.get("tema", "")
+                v["_prev_hipoteses"] = prev.get("hipoteses", [])
+                updated_videos.append(v)
+            else:
+                # Manter tema/hipoteses do snapshot anterior
+                v["_prev_tema"] = prev.get("tema", "")
+                v["_prev_hipoteses"] = prev.get("hipoteses", [])
+                unchanged_videos.append(v)
+
+    return {"new": new_videos, "updated": updated_videos, "unchanged": unchanged_videos}
+
+
+def _get_previous_run(channel_id: str) -> Optional[Dict]:
+    """Busca ultimo run com todos os dados necessarios."""
+    resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/theme_analysis_runs",
+        params={
+            "channel_id": f"eq.{channel_id}",
+            "select": "id,run_date,run_number,analyzed_video_data,themes_json,report_text,themes_list",
+            "order": "run_date.desc",
+            "limit": 1
+        },
+        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+    )
+    if resp.status_code != 200 or not resp.json():
+        return None
+
+    row = resp.json()[0]
+
+    # Parse JSONB fields
+    avd = row.get("analyzed_video_data")
+    if isinstance(avd, str):
+        try:
+            avd = json.loads(avd)
+        except (json.JSONDecodeError, TypeError):
+            avd = None
+
+    tj = row.get("themes_json")
+    if isinstance(tj, str):
+        try:
+            tj = json.loads(tj)
+        except (json.JSONDecodeError, TypeError):
+            tj = None
+
+    tl = row.get("themes_list")
+    if isinstance(tl, str):
+        try:
+            tl = json.loads(tl)
+        except (json.JSONDecodeError, TypeError):
+            tl = []
+    elif not isinstance(tl, list):
+        tl = []
 
     return {
-        "concentration_pct": concentration_pct,
-        "top_performers": top_performers,
-        "bottom_performers": bottom_performers,
-        "total_themes": len(ranking),
-        "total_videos": total_videos,
-        "avg_views_geral": round(avg_views, 1),
-        "avg_velocity_geral": round(avg_velocity, 1),
-        "avg_score_geral": round(avg_score, 1),
-        "high_velocity_themes": high_velocity,
-        "high_views_low_velocity": high_views_low_vel,
+        "id": row.get("id"),
+        "run_date": row.get("run_date", ""),
+        "run_number": row.get("run_number", 1) or 1,
+        "analyzed_video_data": avd or {},
+        "themes_json": tj,
+        "report_text": row.get("report_text", ""),
+        "themes_list": tl,
     }
 
 
 # =============================================================================
-# ETAPA 4: FORMATACAO AUXILIAR
+# LLM TEMAS (Call 1) — Extrai tema + hipoteses de motores de cada video
 # =============================================================================
 
-def _format_views(n: int) -> str:
-    """Formata views: 1500 → 1.5K, 150000 → 150K."""
-    if n >= 1_000_000:
-        return f"{n/1_000_000:.1f}M"
-    elif n >= 1_000:
-        v = n / 1_000
-        return f"{v:.1f}K" if v < 100 else f"{int(v)}K"
-    return str(n)
+SYSTEM_PROMPT_TEMAS = """Voce e um analista especializado em psicologia de audiencia no YouTube. Voce trabalha para uma operacao que gerencia dezenas de canais YouTube simultaneamente. Seu objetivo e identificar QUAIS temas concretos geram performance e POR QUE -- revelando os motores psicologicos invisiveis por tras de cada clique.
+
+Para cada video voce deve identificar duas coisas:
+1. O TEMA -- o assunto factual concreto e especifico do video
+2. As HIPOTESES DE MOTORES PSICOLOGICOS -- os padroes invisiveis que explicam por que a audiencia clica
+
+O TEMA e a DECISAO (o que produzir). O MOTOR e a ANALISE (por que funciona).
+
+=== REGRAS PARA TEMA ===
+
+O tema e o ASSUNTO CONCRETO do video. Nao e uma categoria. Nao e o titulo reescrito. E o fato especifico que o video aborda.
+
+ERRADO - generico demais:
+  "Historia de Roma" -- isso e um nicho, nao um tema
+  "Crimes historicos" -- isso e uma categoria, nao um tema
+  "Atos perturbadores" -- isso e um topico, nao um tema
+
+ERRADO - repetindo o titulo:
+  "Os 5 Atos Mais Perturbadores de Caligula Que Foram Longe Demais" -- isso e o titulo copiado
+
+CERTO - assunto concreto e especifico:
+  Titulo: "Os 5 Atos Mais Perturbadores de Caligula Que Foram Longe Demais"
+    --> Tema: "Os excessos e atrocidades do imperador Caligula em Roma"
+  Titulo: "O que os Vikings faziam com as freiras"
+    --> Tema: "O destino das freiras nos saques vikings"
+  Titulo: "A noite mais sangrenta dos Vikings em Paris"
+    --> Tema: "O cerco e saque viking a Paris no ano 845 d.C."
+
+Teste de qualidade: se dois videos DIFERENTES podem ter o mesmo tema, voce esta sendo generico demais. Cada tema deve ser unico e identificavel.
+
+REGRA CRITICA: Voce so tem acesso ao TITULO do video. NUNCA deduza informacao que o titulo nao diz. Extraia o tema do que o titulo REALMENTE diz, sem adicionar informacao que nao esta la.
+
+=== REGRAS PARA HIPOTESES DE MOTORES PSICOLOGICOS ===
+
+Motores psicologicos sao os padroes INVISIVEIS que explicam o clique. Nao e o que o video e SOBRE -- e a EMOCAO que MOVE a audiencia a clicar e assistir.
+
+Regras fundamentais:
+- Cada video deve ter entre 2 e 4 hipoteses de motores
+- Motores NAO sao uma lista fixa -- voce deve identificar o padrao REAL de cada video
+- Se o padrao e genuinamente o mesmo em varios videos, USE O MESMO NOME (agrupe)
+- Se o padrao e diferente mesmo que pareca similar, CRIE UM NOVO MOTOR (separe)
+- Cada motor precisa de uma explicacao que CONECTE o padrao ao conteudo ESPECIFICO daquele video
+- NUNCA escreva explicacoes genericas que poderiam servir para qualquer video
+
+Como decidir se agrupa ou separa:
+  Pergunte-se: "A EMOCAO que leva ao clique e a mesma?"
+  Se SIM --> mesmo motor, mesmo nome
+  Se NAO --> motor diferente, nome novo
+
+=== EXEMPLOS DE MOTORES BEM IDENTIFICADOS ===
+
+Estes sao EXEMPLOS DE REFERENCIA (figurados) para voce entender o nivel de profundidade esperado. NAO sao uma lista fechada. Voce DEVE criar motores novos quando o padrao e genuinamente diferente.
+
+"Poder sem limites"
+  Fascinacao por figuras com poder absoluto e zero consequencias. O espectador se pergunta "o que EU faria com esse poder?"
+  Exemplo: "Os 5 Atos Mais Perturbadores de Caligula Que Foram Longe Demais" -- nao e so sobre atos perturbadores, e sobre um homem que TINHA poder absoluto e usou sem limites. O poder e o motor, nao a crueldade.
+  So funciona com personagens centrais que TIVERAM poder real. NAO funciona com eventos ou grupos.
+
+"Voyeurismo legitimado"
+  O formato historico/educativo permite consumir conteudo transgressor (violencia, crueldade, tabus) sem culpa. A historia serve como LICENCA MORAL para ver o proibido. O espectador se sente "autorizado" a ver algo proibido porque e "historia".
+  Exemplo: "O que os Vikings faziam com as freiras" -- o espectador consome conteudo violento e transgressor legitimado pelo formato historico. "Nao sou morbido, estou aprendendo historia."
+  Diferente de curiosidade generica -- e especificamente sobre consumir o PROIBIDO em formato SEGURO.
+
+"Choque moral"
+  Brutalidade ou violencia extrema que gera indignacao imediata. Motor de ENTRADA -- atrai o clique mas nao sustenta a atencao sozinho.
+  Exemplo: "O que os Vikings faziam com as freiras" -- a brutalidade viking contra freiras (maximo de vulnerabilidade) gera indignacao visceral.
+  Diferente de "Violacao do sagrado": choque moral e sobre a INTENSIDADE da violencia, violacao do sagrado e sobre a NATUREZA do que esta sendo violado.
+
+"Violacao do sagrado"
+  Algo que a sociedade considera sagrado (religiao, inocencia, moral, instituicoes) sendo destruido ou corrompido. A TRANSGRESSAO do que deveria ser protegido gera indignacao + curiosidade.
+  Exemplo: "O que os Vikings faziam com as freiras" -- freiras = simbolo maximo de pureza e castidade. Vikings violando esse simbolo sagrado e uma transgressao que vai alem da violencia fisica.
+  NAO e o mesmo que "Choque moral" -- Choque moral e sobre brutalidade generica. Violacao do sagrado e sobre QUEM ou O QUE esta sendo violado.
+
+"Monstruosidade feminina"
+  Fascinacao por mulheres que cometeram atrocidades -- quebra o estereotipo de mulher = cuidado e protecao. A subversao do esperado gera curiosidade intensa.
+  Exemplo: "Elizabeth Bathory se banhava em sangue" -- uma MULHER cometendo monstruosidades e mais chocante porque viola a expectativa social do feminino.
+  Motor especifico -- nao e Choque moral generico. A emocao e de SURPRESA pela inversao do estereotipo.
+
+"Luto civilizacional"
+  Tristeza pela perda irreversivel de uma cultura inteira. O lamento pelo que se perdeu para sempre.
+  Exemplo: "A queda do Imperio Asteca" -- nao e indignacao pela violencia espanhola, e TRISTEZA por uma civilizacao que nunca mais vai existir.
+  NAO e Choque moral (indignacao) -- e LAMENTO.
+
+"Conhecimento proibido"
+  Gatilho de que existe verdade oculta que "eles" esconderam de voce. O sistema, a escola, a igreja, NAO queria que voce soubesse.
+  Exemplo: "5 verdades que a escola nunca te ensinou" -- motor de GANCHO, funciona no clique mas nao sustenta retencao sozinho.
+
+=== COMO MOTORES SE REPETEM ENTRE TEMAS DIFERENTES ===
+
+Observe como os MESMOS motores aparecem em videos com TEMAS completamente diferentes. Isso e o poder da analise -- descobrir os padroes invisiveis que se repetem:
+
+Titulo: "Os 5 Atos Mais Perturbadores de Caligula Que Foram Longe Demais"
+  Tema: Os excessos e atrocidades do imperador Caligula em Roma
+  Motores:
+    H1: Poder sem limites -- poder absoluto sem consequencias
+    H2: Voyeurismo legitimado -- conteudo transgressor em formato historico
+    H3: Choque moral -- "ele fez ISSO?"
+
+Titulo: "O que os Vikings faziam com as freiras"
+  Tema: O destino das freiras nos saques vikings
+  Motores:
+    H1: Voyeurismo legitimado        <-- REPETE (mesmo de Caligula)
+    H2: Choque moral                 <-- REPETE (mesmo de Caligula)
+    H3: Violacao do sagrado          <-- NOVO (freiras = pureza sendo violada)
+
+Titulo: "Elizabeth Bathory se banhava em sangue"
+  Tema: As atrocidades de Elizabeth Bathory
+  Motores:
+    H1: Choque moral                 <-- REPETE
+    H2: Poder sem limites            <-- REPETE (mesma emocao de Caligula)
+    H3: Monstruosidade feminina      <-- NOVO (mulher cometendo atrocidades)
+
+INSIGHT: "Voyeurismo legitimado" e "Choque moral" aparecem nos tops repetidamente.
+Isso revela o que MOVE a audiencia do canal -- independente do tema concreto.
+
+=== COMO DISTINGUIR MOTORES SIMILARES ===
+
+Pergunte-se: "A EMOCAO que leva ao clique e a mesma?"
+Se SIM --> mesmo motor, mesmo nome
+Se NAO --> motor diferente, nome novo
+
+Exemplo com o mesmo video "O que os Vikings faziam com as freiras":
+  - Choque moral: emocao = INDIGNACAO pela brutalidade dos vikings
+  - Violacao do sagrado: emocao = TRANSGRESSAO -- freiras (puras) sendo violadas
+  - Voyeurismo legitimado: emocao = ver o PROIBIDO legitimado pela historia
+  Tres emocoes diferentes = tres motores diferentes no MESMO video.
+
+=== FORMATO DE RESPOSTA ===
+Responda APENAS com JSON valido. Sem markdown, sem comentarios, sem explicacoes fora do JSON."""
 
 
-def _format_velocity(v: float) -> str:
-    """Formata velocity: 1267.3 → 1.267/d."""
-    if v >= 1000:
-        return f"{v/1000:.3f}K/d"
-    return f"{v:.0f}/d"
-
-
-def _format_ranking_table(ranking: List[Dict], limit: int = TOP_N) -> str:
-    """Formata ranking como tabela ASCII."""
-    lines = []
-    header = f"{'#':>3}  {'Tema':<45}  {'Views':>8}  {'Velocity':>10}  {'Score':>5}  {'Titulo Original'}"
-    lines.append(header)
-    lines.append(f"{'---':>3}  {'-----':<45}  {'-----':>8}  {'--------':>10}  {'-----':>5}  {'---------------'}")
-
-    for e in ranking[:limit]:
-        theme_short = e["theme"][:42] + "..." if len(e["theme"]) > 45 else e["theme"]
-        title_short = e["title"][:50] + "..." if len(e["title"]) > 50 else e["title"]
-        lines.append(
-            f"{e['rank']:>3}  {theme_short:<45}  "
-            f"{_format_views(e['views']):>8}  "
-            f"{_format_velocity(e['velocity']):>10}  "
-            f"{e['score']:>5.0f}  "
-            f"{title_short}"
-        )
-
-    return "\n".join(lines)
-
-
-def _format_patterns(patterns: Dict) -> str:
-    """Formata padroes detectados como texto."""
-    lines = []
-    lines.append(f"- Concentracao top 5: {patterns['concentration_pct']}%")
-    lines.append(f"- Total temas: {patterns['total_themes']}")
-    lines.append(f"- Total videos: {patterns['total_videos']}")
-    lines.append(f"- Media views geral: {_format_views(int(patterns['avg_views_geral']))}")
-    lines.append(f"- Velocity media geral: {_format_velocity(patterns['avg_velocity_geral'])}")
-    lines.append(f"- Score medio: {patterns['avg_score_geral']:.1f}")
-
-    if patterns["top_performers"]:
-        lines.append(f"- Top performers (score > media): {len(patterns['top_performers'])} temas")
-    if patterns["bottom_performers"]:
-        lines.append(f"- Bottom performers (score < 50% media): {len(patterns['bottom_performers'])} temas")
-    if patterns["high_velocity_themes"]:
-        lines.append(f"- Temas com velocity excepcional (>2x media): {', '.join(patterns['high_velocity_themes'][:5])}")
-    if patterns["high_views_low_velocity"]:
-        lines.append(f"- Views altas + velocity baixa (acumulados): {', '.join(patterns['high_views_low_velocity'][:5])}")
-
-    return "\n".join(lines)
-
-
-# =============================================================================
-# ETAPA 5: DECOMPOSICAO + HIPOTESES (LLM Call 2)
-# =============================================================================
-
-def generate_decomposition(
-    channel_name: str,
-    subnicho: str,
-    lingua: str,
+def call_llm_temas(
     ranking: List[Dict],
-    patterns: Dict,
-    total_videos: int,
-    comparison: Optional[Dict] = None
+    channel_info: Dict,
+    avg_ctr_pct: Optional[float],
+    previous_themes: Optional[List[str]] = None
 ) -> Optional[Dict]:
     """
-    LLM Call 2: gera decomposicao em elementos + hipoteses de adjacencia.
-
-    Returns:
-        {"ranking": str, "decomposicao": str, "padroes": str}
+    LLM TEMAS: extrai tema concreto + hipoteses de motores de cada video.
+    Returns: {"videos": [{"video_id", "titulo", "tema", "hipoteses": [{"motor", "explicacao"}]}]}
     """
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
-        logger.warning("OPENAI_API_KEY nao configurada — pulando LLM Call 2")
+        logger.warning("OPENAI_API_KEY nao configurada")
         return None
 
     try:
@@ -631,613 +570,945 @@ def generate_decomposition(
 
     model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
-    # ── System Prompt ──────────────────────────────────────────────
-    system_prompt = """Voce e um analista de performance tematica de canais YouTube, especializado em
-decompor temas virais em seus elementos constitutivos e levantar hipoteses
-de adjacencia tematica.
+    # Formatar videos para o prompt
+    channel_name = channel_info.get("channel_name", "Desconhecido")
+    lingua = channel_info.get("lingua", "Portugues")
+    subnicho = channel_info.get("subnicho", "Geral")
+    avg_ctr_str = f"{avg_ctr_pct:.1f}" if avg_ctr_pct is not None else "N/A"
 
-=== CONTEXTO: O QUE E UM TEMA ===
-
-O tema e o ASSUNTO ESPECIFICO e CONCRETO de um video.
-E a ultima ramificacao na hierarquia: Nicho > Subnicho > Micronicho > TEMA.
-
-Diferente do micronicho (que agrupa videos), o tema e TERMINAL — cada video
-tem seu tema unico. Isso cria um problema especial:
-
-Se um tema viralizou, NAO da para "fazer outro video com o mesmo tema" — o tema
-ja foi usado. Diferente de um micronicho (que contem dezenas de temas) ou uma
-estrutura de titulo (que pode ser reutilizada infinitamente).
-
-=== SEU PAPEL — O PRINCIPIO DAS HIPOTESES MULTIPLAS ===
-
-Voce recebe um RANKING DE TEMAS ja calculado pelo Python (toda a matematica
-foi feita — views, velocity, score normalizado 0-100).
-
-Como o tema e terminal (nao-repetivel), a pergunta NAO e "repita o que deu certo".
-A pergunta e: "QUAL ELEMENTO do tema que deu certo pode ser replicado em OUTRO tema?"
-
-Seu trabalho e:
-1. Apresentar o ranking formatado
-2. DECOMPOR cada tema top em elementos constitutivos
-3. Levantar 2-3 HIPOTESES de adjacencia por tema
-4. Identificar PADROES TRANSVERSAIS entre os temas top
-
-=== METRICA: SCORE PONDERADO (50% VELOCITY + 50% VIEWS) ===
-
-O Score de Performance Tematica equilibra:
-- VELOCITY (views/dia): compara videos de idades diferentes de forma justa
-  50K views em 7 dias (7.143/dia) > 50K views em 90 dias (556/dia)
-- VIEWS ABSOLUTAS: volume real de audiencia alcancada
-
-Ambos normalizados 0-100 via min-max scaling. Score final = media ponderada 50/50.
-
-Ao interpretar o ranking:
-- Score alto + velocity alta = tema VIRAL ATIVO (ainda crescendo rapido)
-- Score alto + views altas mas velocity media = tema de ALTA DEMANDA (acumulou volume)
-- Velocity muito alta + views baixas = tema RECENTE com potencial (monitorar)
-- Views altas + velocity baixa = tema ANTIGO que acumulou por tempo (nao necessariamente forte)
-
-SEMPRE mencione views, velocity E idade ao interpretar um tema.
-
-=== DECOMPOSICAO EM ELEMENTOS CONSTITUTIVOS ===
-
-A decomposicao identifica os INGREDIENTES de um tema viral para permitir
-RECOMBINACAO em novos temas. As categorias sao FLEXIVEIS e devem ser
-adaptadas ao subnicho do canal:
-
-Categorias COMUNS (use as que fizerem sentido):
-- Figura de Poder: opressor, imperio, instituicao, ditador
-- Vitima: grupo vulneravel, inocentes, minoria
-- Dinamica: tipo de conflito, relacao entre partes
-- Contexto: historico, geografico, temporal
-- Emocao: choque, catarse, indignacao, fascinio, medo
-- Periodo: era temporal especifica
-- Instituicao: sistema envolvido (igreja, exercito, governo)
-- Figura Especifica: individuo nomeavel (Mengele, Leopoldo II)
-- Mecanismo Narrativo: revelacao, inversao de poder, segredo oculto
-- Elemento Tabu: proibicao social, assunto incomodo
-
-Para canais de Terror: Tipo de Ameaca, Contexto Fisico, Vitima Tipo, etc.
-Para canais de Licoes de Vida: Desafio, Superacao, Transformacao, etc.
-Adapte livremente — estas sao guias, nao regras rigidas.
-
-=== HIPOTESES DE ADJACENCIA TEMATICA ===
-
-Para cada tema do top 5, levante 2-3 hipoteses sobre QUAL ELEMENTO foi o
-motor principal do sucesso. Cada hipotese deve conter:
-
-1. NOME claro da hipotese (ex: "Otomanos como opressor recorrente")
-2. PADRAO ABSTRATO que descreve o mecanismo:
-   "Temas onde [elemento X] esta presente tendem a performar porque [razao]"
-3. EVIDENCIA PARCIAL: outros temas no ranking que reforcam ou contradizem
-   Cite tema, posicao e score especificos
-4. NIVEL DE CONFIANCA: forte (3+ evidencias), moderado (1-2), ou fraco (apenas este tema)
-
-REGRAS PARA HIPOTESES:
-- Sao INDICIOS, nao conclusoes. Use linguagem cautelosa ("sugere", "indica", "possivel")
-- NAO sugira titulos concretos de novos videos — apenas padroes abstratos
-- As hipoteses servem como materia-prima para o Agente 6, que cruza com
-  micronicho (Ag.3) e estrutura de titulo (Ag.4) para validar
-
-Exemplo de hipotese bem formulada:
-  "Hipotese A — Vitimas cristas/religiosas como motor
-   Padrao: temas onde figuras religiosas sao vitimadas por imperios geram
-   engajamento acima da media.
-   Evidencia: tema #1 (otomanos + freiras, Score 92), tema #8 (otomanos +
-   armenios cristaos, Score 75), tema #12 (Roma + cristaos, Score 61).
-   Confianca: FORTE (3 evidencias distintas, imperios diferentes, mesma vitima)"
-
-=== PADROES TRANSVERSAIS ===
-
-Apos decompor os temas top individualmente, olhe TRANSVERSALMENTE:
-
-1. ELEMENTOS RECORRENTES NOS TOPS: Presente em 3+ dos top 5?
-   Se sim, e um candidato forte a "motor de performance" do canal.
-   Cite exatamente em quantos dos top 5 aparece.
-
-2. ELEMENTOS AUSENTES NOS PIORES: Nao aparecem nos bottom performers?
-   Se um elemento esta nos tops MAS nao nos piores, reforco de que importa.
-
-3. INDICIOS DE SATURACAO: Elemento presente em MUITOS videos com score
-   progressivamente decrescente? Pode indicar que a audiencia esta saturando.
-
-4. ANOMALIAS: Tema no top que QUEBRA o padrao dos outros tops?
-   Se sim, pode revelar um SEGUNDO padrao forte paralelo ao principal.
-
-5. INDICIO DE VELOCITY: Quais elementos tem velocity mais alta?
-   Velocity alta = audiencia respondendo ATIVAMENTE (nao apenas acumulando).
-
-OBSERVACAO FINAL OBRIGATORIA:
-Encerre com uma observacao para o Agente 6 indicando o que PRECISA ser cruzado
-com dados de micronicho (Ag.3) e estrutura de titulo (Ag.4) para validar as hipoteses.
-
-=== FORMATO DE OUTPUT — EXATAMENTE 3 BLOCOS ===
-
-[RANKING]
-Tabela dos top 10-15 temas por Score, com colunas:
-#  |  Tema  |  Views  |  Velocity  |  Score  |  Titulo Original
-
-[DECOMPOSICAO]
-Para CADA um dos top 5 temas:
-- Tema completo + Score + Views + Velocity/dia + Idade
-- Elementos constitutivos (lista adaptada ao subnicho)
-- Hipotese A: nome + padrao abstrato + evidencia parcial + confianca
-- Hipotese B: nome + padrao abstrato + evidencia parcial + confianca
-- Hipotese C (se aplicavel): idem
-
-[PADROES]
-- Elementos recorrentes nos tops (com contagem: presente em X/5)
-- Elementos ausentes nos piores
-- Indicios de saturacao (se houver)
-- Anomalias interessantes
-- Indicio de velocity (quais elementos associados a velocity mais alta)
-- Observacao para o Agente 6
-
-=== REGRAS INVIOLAVEIS ===
-
-1. Seja FACTUAL — cite SCORES, VIEWS, VELOCITY exatos do ranking fornecido
-2. NAO invente dados — use APENAS o ranking e padroes fornecidos
-3. SEMPRE mencione views, velocity E idade ao interpretar um tema
-4. Hipoteses sao INDICIOS — use linguagem cautelosa, nunca afirmativa
-5. NAO sugira titulos concretos de novos videos — apenas padroes abstratos
-6. Escreva em portugues, paragrafos curtos separados por linha em branco
-7. Escreva o quanto for necessario. NAO resuma, NAO corte a analise
-8. Use EXATAMENTE os marcadores [RANKING], [DECOMPOSICAO] e [PADROES]
-9. Decomposicao: top 5 temas OBRIGATORIAMENTE, todos com hipoteses
-10. Padroes transversais: cite contagens especificas (presente em X/5 tops)
-11. Observacao para o Agente 6 e OBRIGATORIA ao final dos [PADROES]
-
-=== TIPO DE RACIOCINIO ESPERADO ===
-
-NAO FACA ISSO (superficial):
-"O tema 1 tem score alto. O tema 2 tambem. Ambos envolvem violencia."
-
-FACA ISSO (profissional — decomposicao + hipoteses com evidencia):
-"#1 'Tratamento brutal dos otomanos com freiras cristas' (Score 92, 152K views,
-1.267/dia, 120 dias). Elementos: Poder=Imperio Otomano, Vitima=freiras cristas
-(genero + fe), Dinamica=opressao imperial religiosa, Emocao=brutalidade vs pureza.
-
-Hipotese A — Otomanos como opressor recorrente:
-Temas com os otomanos exercendo dominio sobre qualquer grupo vulneravel
-tendem a performar acima da media.
-Evidencia: tema #8 (otomanos + armenios cristaos, Score 75) reforca.
-Confianca: MODERADA (2 evidencias, mesmo opressor com vitimas diferentes).
-
-Hipotese B — Vitimas cristas/religiosas como motor:
-Temas onde figuras religiosas cristas sao vitimadas geram engajamento
-independente do imperio agressor.
-Evidencia: tema #4 (Inquisicao + hereges, Score 81) e tema #12 (Roma + cristaos,
-Score 61) tangenciam — religiao como vitima em contextos distintos.
-Confianca: FORTE (3 evidencias cruzando diferentes imperios/periodos)." """
-
-    # ── Bloco de memoria cumulativa ────────────────────────────────
-    previous_report_block = ""
-    if comparison and comparison.get("previous_report"):
-        prev_date = comparison.get("previous_date", "")
-        if isinstance(prev_date, str) and "T" in prev_date:
-            try:
-                prev_date = datetime.fromisoformat(prev_date.replace("Z", "+00:00")).strftime("%d/%m/%Y")
-            except (ValueError, TypeError):
-                pass
-        previous_report_block = f"""VOCE TEM MEMORIA ACUMULATIVA:
-O relatorio anterior contem TODAS as conclusoes e hipoteses identificadas ate agora.
-Sua analise atual DEVE:
-- Se basear no relatorio anterior como referencia
-- Verificar se hipoteses anteriores foram reforcadas ou enfraquecidas pelos novos dados
-- Construir em cima, nunca ignorar o historico
-
-RELATORIO ANTERIOR COMPLETO ({prev_date}):
-{comparison['previous_report']}
-FIM DO RELATORIO ANTERIOR.
-
-"""
-
-    ranking_table = _format_ranking_table(ranking)
-    patterns_text = _format_patterns(patterns)
-
-    # ── User Prompt ────────────────────────────────────────────────
-    user_prompt = f"""{previous_report_block}Produza EXATAMENTE 3 blocos:
-
-[RANKING]
-Tabela com top 10-15 temas por Score.
-Colunas: #, Tema, Views, Velocity (/dia), Score, Titulo Original
-
-[DECOMPOSICAO]
-Para CADA um dos top 5 temas:
-- Elementos constitutivos (adaptados ao subnicho)
-- 2-3 hipoteses de adjacencia tematica
-  (padrao abstrato + evidencia parcial do ranking + nivel de confianca)
-
-[PADROES]
-Padroes transversais que cruzam multiplos temas do ranking.
-Elementos recorrentes nos tops com contagens (X/5).
-Anomalias e indicios de velocity.
-Observacao OBRIGATORIA para o Agente 6 sobre o que precisa ser cruzado
-com dados de micronicho e estrutura de titulo para validacao.
-
-DADOS DO CANAL:
-Canal: {channel_name}
-Subnicho: {subnicho}
-Lingua: {lingua}
-Videos analisados: {total_videos} (com 7+ dias de maturidade)
-
-TABELA DE RANKING (por Score = 50% velocity + 50% views, normalizado 0-100):
-{ranking_table}
-
-PADROES DETECTADOS:
-{patterns_text}"""
-
-    # ── Chamada LLM ────────────────────────────────────────────────
-    try:
-        response = client.chat.completions.create(
-            model=model,
-            temperature=0.4,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ]
+    videos_lines = []
+    for v in ranking:
+        ctr_str = ""
+        if v.get("ctr") is not None:
+            ctr_str = f" | CTR: {v['ctr']:.1f}%"
+            if v.get("ctr_diff") is not None:
+                sign = "+" if v["ctr_diff"] >= 0 else ""
+                ctr_str += f" (canal: {avg_ctr_str}% | {sign}{v['ctr_diff']:.1f}pp)"
+        videos_lines.append(
+            f"#{v['rank']} | video_id: {v['video_id']} | \"{v['title']}\" | "
+            f"Views: {v['views']:,}{ctr_str} | Score: {v['score']:.0f}/100"
         )
 
-        text = response.choices[0].message.content
+    videos_text = "\n".join(videos_lines)
 
-        # Parse dos 3 blocos
-        ranking_text = ""
-        decomposicao = ""
-        padroes = ""
+    user_prompt = f"""CANAL: {channel_name} ({lingua})
+NICHO: {channel_info.get('nicho', 'Geral')}
+SUBNICHO: {subnicho}
+CTR MEDIO DO CANAL: {avg_ctr_str}%
 
-        if "[RANKING]" in text:
-            after_rank = text.split("[RANKING]", 1)[1]
-            if "[DECOMPOSICAO]" in after_rank:
-                ranking_text = after_rank.split("[DECOMPOSICAO]", 1)[0].strip()
-                after_decomp = after_rank.split("[DECOMPOSICAO]", 1)[1]
-                if "[PADROES]" in after_decomp:
-                    decomposicao = after_decomp.split("[PADROES]", 1)[0].strip()
-                    padroes = after_decomp.split("[PADROES]", 1)[1].strip()
-                else:
-                    decomposicao = after_decomp.strip()
-            else:
-                ranking_text = after_rank.strip()
-        else:
-            ranking_text = text
+{len(ranking)} VIDEOS PARA ANALISAR (ordenados por score, filtrados: 7+ dias, 500+ views):
 
-        logger.info(f"LLM Call 2 OK: ranking={len(ranking_text)}ch, decomp={len(decomposicao)}ch, padroes={len(padroes)}ch")
+{videos_text}
 
-        return {
-            "ranking": ranking_text,
-            "decomposicao": decomposicao,
-            "padroes": padroes
-        }
+Extraia o tema concreto e as hipoteses de motores psicologicos de cada video.
 
-    except Exception as e:
-        logger.error(f"Erro LLM Call 2: {e}")
+Responda com JSON no formato:
+{{
+  "videos": [
+    {{
+      "video_id": "...",
+      "titulo": "...",
+      "tema": "...",
+      "hipoteses": [
+        {{"motor": "...", "explicacao": "..."}},
+        {{"motor": "...", "explicacao": "..."}}
+      ]
+    }}
+  ]
+}}"""
+
+    for attempt in range(2):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                temperature=0.3,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT_TEMAS},
+                    {"role": "user", "content": user_prompt}
+                ]
+            )
+
+            text = response.choices[0].message.content
+            result = json.loads(text)
+            llm_videos = result.get("videos", [])
+
+            logger.info(f"LLM TEMAS OK: {len(llm_videos)} videos analisados (tentativa {attempt+1})")
+            return result
+
+        except json.JSONDecodeError as e:
+            logger.warning(f"JSON invalido LLM TEMAS tentativa {attempt+1}: {e}")
+        except Exception as e:
+            logger.error(f"Erro LLM TEMAS tentativa {attempt+1}: {e}")
+
+    logger.error("LLM TEMAS falhou apos 2 tentativas")
+    return None
+
+
+def _fallback_temas(ranking: List[Dict]) -> Dict:
+    """Fallback quando LLM TEMAS falha — usa titulo como tema, sem hipoteses."""
+    videos = []
+    for v in ranking:
+        videos.append({
+            "video_id": v["video_id"],
+            "titulo": v["title"],
+            "tema": v["title"][:80],
+            "hipoteses": []
+        })
+    return {"videos": videos}
+
+
+# =============================================================================
+# MERGE: Python junta dados numericos + output LLM TEMAS
+# =============================================================================
+
+def _merge_ranking_with_themes(ranking: List[Dict], llm_temas: Dict, avg_ctr_pct: Optional[float]) -> List[Dict]:
+    """
+    Merge ranking (dados numericos) + output LLM TEMAS (tema + hipoteses).
+    Produz formato que a LLM MOTORES recebe como input.
+    """
+    # Indexar LLM output por video_id
+    llm_by_id = {}
+    for v in llm_temas.get("videos", []):
+        llm_by_id[v.get("video_id", "")] = v
+
+    merged = []
+    for r in ranking:
+        vid = r["video_id"]
+        llm = llm_by_id.get(vid, {})
+
+        merged.append({
+            "rank": r["rank"],
+            "score": r["score"],
+            "views": r["views"],
+            "ctr": r.get("ctr"),
+            "ctr_diff": r.get("ctr_diff"),
+            "title": r["title"],
+            "video_id": vid,
+            "age_days": r.get("age_days", 0),
+            "tema": llm.get("tema", r["title"][:80]),
+            "hipoteses": llm.get("hipoteses", []),
+            "motores": [h.get("motor", "") for h in llm.get("hipoteses", [])],
+        })
+
+    return merged
+
+
+def _count_motors(merged_data: List[Dict]) -> List[Dict]:
+    """Conta ocorrencias de cada motor + score medio."""
+    motor_stats = {}  # motor_name -> {count, total_score, videos}
+    total_videos = len(merged_data)
+
+    for v in merged_data:
+        for motor in v.get("motores", []):
+            if not motor:
+                continue
+            if motor not in motor_stats:
+                motor_stats[motor] = {"count": 0, "total_score": 0, "videos": []}
+            motor_stats[motor]["count"] += 1
+            motor_stats[motor]["total_score"] += v.get("score", 0)
+            motor_stats[motor]["videos"].append(v.get("video_id", ""))
+
+    result = []
+    for name, stats in motor_stats.items():
+        avg_score = round(stats["total_score"] / stats["count"], 0) if stats["count"] > 0 else 0
+        pct = round(stats["count"] / total_videos * 100, 0) if total_videos > 0 else 0
+        result.append({
+            "motor": name,
+            "count": stats["count"],
+            "total_videos": total_videos,
+            "pct": pct,
+            "avg_score": avg_score,
+        })
+
+    result.sort(key=lambda x: x["count"], reverse=True)
+    return result
+
+
+def _format_motor_counts(motor_counts: List[Dict], prev_motor_counts: Optional[List[Dict]] = None) -> str:
+    """Formata contagem de motores para o user prompt da LLM MOTORES."""
+    prev_map = {}
+    if prev_motor_counts:
+        for m in prev_motor_counts:
+            prev_map[m["motor"]] = m
+
+    lines = []
+    for m in motor_counts:
+        line = f"- {m['motor']}: {m['count']}/{m['total_videos']} videos ({m['pct']:.0f}%) | Score medio: {m['avg_score']:.0f}"
+        prev = prev_map.get(m["motor"])
+        if prev:
+            line += f" | era {prev['count']}/{prev['total_videos']} ({prev['pct']:.0f}%), score {prev['avg_score']:.0f}"
+        lines.append(line)
+
+    return "\n".join(lines)
+
+
+# =============================================================================
+# LLM MOTORES (Call 2) — Analise narrativa completa
+# =============================================================================
+
+SYSTEM_PROMPT_MOTORES = """Voce e um estrategista de conteudo YouTube especializado em analise de motores psicologicos. Voce trabalha para uma operacao que gerencia dezenas de canais YouTube simultaneamente. Seu objetivo e transformar dados de performance + temas + motores psicologicos em inteligencia estrategica acionavel.
+
+=== O QUE VOCE RECEBE ===
+
+Voce recebe o output da LLM TEMAS (que ja extraiu o tema e as hipoteses de motores de cada video) junto com dados numericos calculados pelo sistema:
+- Ranking de videos com scores (0-100), views, CTR e motores ja identificados
+- CTR medio do canal (apenas como referencia comparativa -- NAO faz parte do score)
+- Relatorio anterior (se existir) para comparacao e evolucao
+
+=== SEU TRABALHO ===
+
+1. COMENTAR cada video do ranking -- por que esse score? O que os motores revelam sobre a atracao da audiencia? Como os motores se relacionam entre si naquele video especifico?
+2. IDENTIFICAR os motores DOMINANTES do canal -- quais padroes psicologicos movem a audiencia deste canal? Por que ESSES motores funcionam AQUI e nao outros?
+3. DESCOBRIR PADROES -- combinacoes de motores que amplificam performance, motores que falham sozinhos, tendencias de crescimento ou saturacao
+4. GERAR RECOMENDACOES acionaveis -- temas concretos que o canal deveria produzir, testar, evitar ou reformular. Com exemplos especificos.
+
+=== REGRAS CRITICAS ===
+
+SOBRE NUMEROS:
+- Todos os numeros (views, CTR, scores, contagens, percentuais) sao FATOS calculados pelo sistema
+- NUNCA invente, altere, arredonde ou estime numeros -- use EXATAMENTE o que foi fornecido
+- Sua analise e sobre o PORQUE dos numeros, nao sobre os numeros em si
+
+SOBRE MOTORES:
+- Motores NAO sao uma lista fixa -- cada canal tem seus proprios padroes
+- NAO agrupe motores diferentes so porque parecem similares
+- Se a EMOCAO que leva ao clique e diferente, o motor e diferente
+- Se um motor aparece em 1-2 videos apenas, classifique como "emergente" ou "monitorar"
+- Ao comentar um video, CONECTE os motores ao conteudo ESPECIFICO -- nunca repita definicoes genericas
+- Explique COMO os motores interagem entre si quando ha mais de um no mesmo video
+
+SOBRE RECOMENDACOES:
+- Toda recomendacao deve incluir EXEMPLOS CONCRETOS de temas que o canal poderia produzir
+- Explique QUAL motor psicologico cada tema recomendado ativaria
+- Identifique riscos (saturacao de cenario, dependencia de motor unico)
+- Sugira testes A/B quando houver hipoteses inconclusivas
+
+SOBRE COMENTARIOS:
+- Cada comentario de video deve ser UNICO -- conecte os motores ao conteudo ESPECIFICO daquele video
+- Nunca escreva comentarios genericos que poderiam servir para qualquer video
+- Explique POR QUE os motores daquele video especifico geraram aquele score especifico
+- Quando dois videos tem motores iguais mas scores diferentes, explique a diferenca
+
+=== EXEMPLOS DE COMO COMENTAR VIDEOS NO RANKING ===
+
+EXEMPLO BOM -- comentario conectado ao conteudo especifico:
+
+  #1 | Score: 85/100 | Views: 145.230 | CTR: 8.2% (canal: 6.4% | +1.8pp)
+      Titulo: "Os 5 Atos Mais Perturbadores de Caligula Que Foram Longe Demais"
+      Tema: Os excessos e atrocidades do imperador Caligula em Roma
+      Motores: Poder sem limites + Voyeurismo legitimado + Choque moral
+      --> Combinacao tripla de motores. Caligula TINHA poder absoluto (Poder sem limites),
+      o espectador consome as atrocidades pelo filtro da historia (Voyeurismo legitimado),
+      e "longe demais" promete transgressao que choca (Choque moral). Os 3 motores se
+      reforcam: poder + transgressao + formato seguro = atracao maxima.
+      CTR 1.8pp acima da media confirma a atracao.
+
+EXEMPLO RUIM -- comentario generico que serve pra qualquer video:
+
+  #1 | Score: 85/100 | Views: 145.230 | CTR: 8.2%
+      --> Video com boa performance. Os motores psicologicos funcionam bem juntos
+      e geram um score alto. O CTR acima da media mostra que a audiencia gosta.
+      (NUNCA faca isso -- nao diz NADA sobre o conteudo especifico do video)
+
+=== EXEMPLO DE COMO ANALISAR MOTORES DOMINANTES ===
+
+EXEMPLO BOM:
+
+  1. Voyeurismo legitimado -- 12/25 videos (48%) | Score medio: 74/100
+     O motor mais forte do canal. A audiencia de Archives de Guerre consome conteudo
+     transgressor (violencia, sexo, crueldade) LEGITIMADO pelo formato historico.
+     O formato "documentario" serve como licenca moral: nao e pornografia, e "educacao".
+     REGRA DO CANAL: quanto mais transgressor o tema concreto, melhor performa --
+     DESDE que venha embrulhado em formato historico-educativo.
+     Videos: #1 Caligula (85), #4 Roma antiga (66), #5 Inquisicao (61)...
+
+EXEMPLO RUIM:
+
+  1. Voyeurismo legitimado -- 12/25 videos (48%) | Score medio: 74
+     Motor presente em varios videos do canal com boa performance.
+     (NUNCA faca isso -- nao explica POR QUE funciona neste canal especifico)
+
+=== EXEMPLO DE COMO FAZER RECOMENDACOES ===
+
+EXEMPLO BOM:
+
+  PRODUZIR MAIS: Temas que combinam Voyeurismo + Violacao do sagrado
+    - "Os rituais proibidos dos templarios" --> Voyeurismo (rituais secretos em formato
+      historico) + Violacao do sagrado (ordem religiosa transgredindo)
+    - "O que as concubinas do farao faziam em segredo" --> Voyeurismo (sexualidade implicita)
+      + Erotismo velado (imaginacao preenche o que nao e mostrado)
+
+EXEMPLO RUIM:
+
+  PRODUZIR MAIS: Temas historicos com bons motores psicologicos
+    (NUNCA faca isso -- sem exemplos concretos e sem explicar quais motores seriam ativados)
+
+=== EXEMPLO DE COMO COMPARAR COM RELATORIO ANTERIOR ===
+
+EXEMPLO BOM:
+
+  HIPOTESES ANTERIORES -- STATUS:
+  - CONFIRMADA: "Voyeurismo + Violacao = formula do canal"
+    Evidencia: Novo video "Os crimes de Nero" (score 78) confirmou. Mesmo padrao de Caligula
+    (score 85). Dupla funciona consistentemente.
+  - EM TESTE: "Civilizacoes nao-europeias tem potencial"
+    Asteca (score 61) ficou moderado. Amostra de 1 video e insuficiente para concluir.
+    Precisa de mais 2-3 videos para validar.
+  - NOVA HIPOTESE: "Temas religiosos com Voyeurismo = proximo filao"
+    Inquisicao cresceu +49% views. Testar: Cruzadas, heresias, rituais proibidos de ordens.
+
+EXEMPLO RUIM:
+
+  HIPOTESES ANTERIORES -- STATUS:
+  - CONFIRMADA: hipotese sobre Roma foi confirmada
+    (NUNCA faca isso -- sem evidencia concreta do que confirmou)
+
+=== FORMATO DE RESPOSTA -- PRIMEIRA ANALISE ===
+
+Use os marcadores exatos abaixo. Nao adicione secoes extras. Nao omita nenhum video do ranking.
+
+[RANKING COMENTADO]
+(comentar CADA video do ranking -- todos, do primeiro ao ultimo)
+(para cada video: titulo, score, views, CTR vs canal, tema, motores, analise)
+
+[MOTORES DOMINANTES]
+(listar TODOS os motores encontrados, do mais forte ao mais fraco)
+(para cada um: quantos videos, percentual, score medio)
+(explicar por que esse motor funciona neste canal especifico)
+(separar em "Motores principais" e "Motores menores/emergentes")
+(listar quais videos pertencem a cada motor)
+
+[PADROES E DESCOBERTAS]
+(combinacoes de motores que amplificam performance)
+(motores que falham sozinhos vs combinados)
+(riscos: saturacao, dependencia, concentracao)
+(oportunidades: motores emergentes, cenarios subexplorados)
+
+[RECOMENDACOES]
+(PRODUZIR MAIS -- com exemplos concretos de temas e quais motores ativariam)
+(TESTAR -- hipoteses a validar com exemplos)
+(DIVERSIFICAR -- como sair da zona de conforto mantendo motores fortes)
+(EVITAR -- o que nao produzir e por que)
+(REFORMULAR -- temas fracos que podem ser salvos mudando o angulo/motor)
+
+=== FORMATO DE RESPOSTA -- ANALISES FUTURAS (Relatorio #2+) ===
+
+O relatorio tem DUAS PARTES claramente separadas. A analise do dia vem PRIMEIRO. A comparacao com anteriores vem DEPOIS.
+
+PARTE 1 -- ANALISE DO DIA:
+
+[RANKING COMENTADO -- NOVOS VIDEOS]
+(comentar CADA video novo -- mesmo nivel de detalhe da primeira analise)
+
+[MOTORES NOS NOVOS VIDEOS]
+(quais motores apareceram nos novos: recorrentes, novos, emergentes)
+
+[PADROES DOS NOVOS]
+(o que os novos videos revelam sobre a direcao do canal)
+
+[RECOMENDACOES]
+(baseadas especificamente nos novos dados)
+
+PARTE 2 -- COMPARACAO COM ANTERIORES:
+
+[RANKING GERAL ATUALIZADO]
+(top 10 de todos os videos do canal, novos + existentes)
+(indicar mudancas de posicao, novos entrantes, videos que subiram/desceram)
+
+[EVOLUCAO DOS MOTORES]
+(como cada motor evoluiu vs relatorio anterior: cresceu, estavel, caiu, novo)
+(mostrar numeros anteriores vs atuais)
+
+[VIDEOS COM CRESCIMENTO SIGNIFICATIVO]
+(somente videos com Views +20% ou CTR +2pp -- dados fornecidos pelo sistema)
+(analisar o que o crescimento revela sobre os motores daquele video)
+
+[HIPOTESES ANTERIORES -- STATUS]
+(para cada hipotese do relatorio anterior:)
+(CONFIRMADA -- com evidencia do que confirmou)
+(EM TESTE -- por que ainda nao ha dados suficientes)
+(REFUTADA -- com evidencia do que refutou)
+(incluir NOVAS HIPOTESES geradas neste relatorio)"""
+
+
+def _format_merged_for_prompt(merged: List[Dict], avg_ctr_str: str) -> str:
+    """Formata dados merged (ranking + temas) como texto para o user prompt da LLM MOTORES."""
+    lines = []
+    for v in merged:
+        ctr_str = ""
+        if v.get("ctr") is not None:
+            ctr_str = f" | CTR: {v['ctr']:.1f}%"
+            if v.get("ctr_diff") is not None:
+                sign = "+" if v["ctr_diff"] >= 0 else ""
+                ctr_str += f" (canal: {avg_ctr_str}% | {sign}{v['ctr_diff']:.1f}pp)"
+
+        motores_str = ", ".join(v.get("motores", [])) if v.get("motores") else "N/A"
+
+        lines.append(
+            f"#{v['rank']} | Score: {v['score']:.0f}/100 | Views: {v['views']:,}{ctr_str}\n"
+            f"    Titulo: \"{v['title']}\"\n"
+            f"    Tema: {v['tema']}\n"
+            f"    Motores: {motores_str}"
+        )
+
+    return "\n\n".join(lines)
+
+
+def call_llm_motores(
+    merged_data: List[Dict],
+    channel_info: Dict,
+    avg_ctr_pct: Optional[float],
+    is_first_analysis: bool,
+    changes: Optional[Dict] = None,
+    motor_counts: Optional[List[Dict]] = None,
+    prev_motor_counts: Optional[List[Dict]] = None,
+    previous_report: Optional[str] = None,
+    run_number: int = 1,
+    prev_date: str = ""
+) -> Optional[str]:
+    """
+    LLM MOTORES: gera analise narrativa completa com motores psicologicos.
+    Returns: texto completo do relatorio.
+    """
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        logger.warning("OPENAI_API_KEY nao configurada")
         return None
 
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key)
+    except ImportError:
+        logger.error("openai nao instalado")
+        return None
+
+    model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+
+    channel_name = channel_info.get("channel_name", "Desconhecido")
+    lingua = channel_info.get("lingua", "Portugues")
+    subnicho = channel_info.get("subnicho", "Geral")
+    avg_ctr_str = f"{avg_ctr_pct:.1f}" if avg_ctr_pct is not None else "N/A"
+
+    if is_first_analysis:
+        # === PRIMEIRA ANALISE ===
+        ranking_text = _format_merged_for_prompt(merged_data, avg_ctr_str)
+        motor_counts_text = _format_motor_counts(motor_counts) if motor_counts else ""
+
+        user_prompt = f"""CANAL: {channel_name} ({lingua})
+NICHO: {channel_info.get('nicho', 'Geral')} | SUBNICHO: {subnicho}
+CTR MEDIO DO CANAL: {avg_ctr_str}%
+TOTAL DE VIDEOS ANALISADOS: {len(merged_data)}
+
+RANKING COMPLETO ({len(merged_data)} videos com temas e hipoteses):
+
+{ranking_text}
+
+CONTAGEM DE MOTORES:
+{motor_counts_text}
+
+Gere o relatorio completo de motores psicologicos. Esta e a PRIMEIRA analise deste canal."""
+
+    else:
+        # === ANALISE FUTURA (#2+) ===
+        new_videos = changes.get("new", []) if changes else []
+        updated_videos = changes.get("updated", []) if changes else []
+
+        # Novos videos
+        new_text = _format_merged_for_prompt(new_videos, avg_ctr_str) if new_videos else "Nenhum video novo."
+
+        # Videos com mudanca significativa
+        updated_lines = []
+        for v in updated_videos:
+            prev_views = v.get("_prev_views", 0)
+            prev_ctr = v.get("_prev_ctr")
+            views_change = round((v["views"] - prev_views) / prev_views * 100, 0) if prev_views > 0 else 0
+            ctr_change_str = ""
+            if v.get("ctr") is not None and prev_ctr is not None:
+                ctr_change = round(v["ctr"] - prev_ctr, 1)
+                sign = "+" if ctr_change >= 0 else ""
+                ctr_change_str = f" | CTR {prev_ctr:.1f}% -> {v['ctr']:.1f}% ({sign}{ctr_change:.1f}pp)"
+            updated_lines.append(
+                f"- {v['video_id']} \"{v['title']}\": Views {prev_views:,} -> {v['views']:,} "
+                f"(+{views_change:.0f}%){ctr_change_str} | Score {v['score']:.0f}"
+            )
+        updated_text = "\n".join(updated_lines) if updated_lines else "Nenhum video com mudanca significativa."
+
+        # Top 10 ranking geral
+        top10 = merged_data[:10]
+        top10_lines = []
+        for v in top10:
+            new_tag = " NOVO" if any(n["video_id"] == v["video_id"] for n in new_videos) else ""
+            top10_lines.append(f"#{v['rank']} {v['video_id']} Score:{v['score']:.0f}{new_tag}")
+        top10_text = " | ".join(top10_lines)
+
+        # Contagem de motores com comparacao
+        motor_counts_text = _format_motor_counts(motor_counts, prev_motor_counts) if motor_counts else ""
+
+        user_prompt = f"""CANAL: {channel_name} ({lingua})
+NICHO: {channel_info.get('nicho', 'Geral')} | SUBNICHO: {subnicho}
+CTR MEDIO DO CANAL: {avg_ctr_str}%
+RELATORIO NUMERO: #{run_number} (anterior: #{run_number - 1}, {prev_date})
+
+=== NOVOS VIDEOS ({len(new_videos)} videos) ===
+
+{new_text}
+
+=== VIDEOS COM MUDANCA SIGNIFICATIVA ({len(updated_videos)} videos) ===
+(Views +20% ou CTR +2pp -- dados calculados pelo sistema)
+
+{updated_text}
+
+=== RANKING GERAL ATUALIZADO ({len(merged_data)} videos, top 10) ===
+(scores recalculados pelo sistema com dados atuais)
+
+{top10_text}
+
+=== CONTAGEM DE MOTORES ATUALIZADA ===
+
+{motor_counts_text}
+
+=== RELATORIO ANTERIOR (#{run_number - 1}) ===
+
+{previous_report or 'Nenhum relatorio anterior disponivel.'}
+
+Gere o relatorio completo. PARTE 1: analise dos novos videos. PARTE 2: comparacao com relatorio anterior."""
+
+    # Chamada LLM com retry
+    for attempt in range(2):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                temperature=0.4,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT_MOTORES},
+                    {"role": "user", "content": user_prompt}
+                ]
+            )
+
+            text = response.choices[0].message.content
+            logger.info(f"LLM MOTORES OK: {len(text)} chars (tentativa {attempt+1})")
+            return text
+
+        except Exception as e:
+            logger.error(f"Erro LLM MOTORES tentativa {attempt+1}: {e}")
+
+    logger.error("LLM MOTORES falhou apos 2 tentativas")
+    return None
+
 
 # =============================================================================
-# ETAPA 6: GERACAO DO RELATORIO
+# RELATORIO UNIFICADO
 # =============================================================================
+
+def _format_views(n: int) -> str:
+    """Formata views: 1500 -> 1.5K, 150000 -> 150K."""
+    if n >= 1_000_000:
+        return f"{n/1_000_000:.1f}M"
+    elif n >= 1_000:
+        v = n / 1_000
+        return f"{v:.1f}K" if v < 100 else f"{int(v)}K"
+    return str(n)
+
 
 def generate_report(
     channel_name: str,
-    ranking: List[Dict],
-    patterns: Dict,
-    llm_output: Optional[Dict],
-    comparison: Optional[Dict],
-    total_videos: int,
-    all_themes: List[str]
+    merged_data: List[Dict],
+    avg_ctr_pct: Optional[float],
+    llm_motores_output: Optional[str],
+    run_number: int
 ) -> str:
-    """Gera relatorio formatado de temas."""
+    """Gera relatorio unificado: dados numericos + LLM TEMAS + LLM MOTORES."""
     now = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
+    avg_ctr_str = f"{avg_ctr_pct:.1f}" if avg_ctr_pct is not None else "N/A"
 
     report = []
-    report.append("=" * 60)
-    report.append(f"ANALISE DE TEMAS | {channel_name} | {now}")
-    report.append("=" * 60)
+    report.append("=" * 70)
+    report.append(f"AGENTE 3 — TEMAS + MOTORES PSICOLOGICOS | {channel_name}")
+    report.append(f"Relatorio #{run_number} | {now}")
+    report.append(f"Score: 50% CTR + 50% Views (normalizado 0-100)")
+    report.append(f"CTR medio do canal: {avg_ctr_str}%")
+    report.append("=" * 70)
     report.append("")
 
-    # Ranking table
-    report.append("RANKING DE TEMAS (por Score: 50% velocity + 50% views, normalizado 0-100):")
+    # Ranking com temas e motores (output LLM TEMAS formatado)
+    report.append("RANKING COM TEMAS E MOTORES:")
     report.append("")
-    report.append(_format_ranking_table(ranking))
-    report.append("")
+    for v in merged_data:
+        ctr_str = ""
+        if v.get("ctr") is not None:
+            ctr_str = f" | CTR: {v['ctr']:.1f}%"
+            if v.get("ctr_diff") is not None:
+                sign = "+" if v["ctr_diff"] >= 0 else ""
+                ctr_str += f" (canal: {avg_ctr_str}% | {sign}{v['ctr_diff']:.1f}pp)"
 
-    # Sumario
-    report.append(f"Temas identificados: {len(all_themes)}")
-    report.append(f"Videos analisados: {total_videos}")
-    report.append(f"Concentracao top 5: {patterns['concentration_pct']}%")
-    report.append(f"Media geral de views: {_format_views(int(patterns['avg_views_geral']))}")
-    report.append(f"Velocity media: {_format_velocity(patterns['avg_velocity_geral'])}")
-    report.append(f"Score medio: {patterns['avg_score_geral']:.1f}")
-    report.append("")
+        motores_str = ", ".join(v.get("motores", [])) if v.get("motores") else "N/A"
 
-    # LLM output (3 blocos)
-    if llm_output:
-        if llm_output.get("ranking"):
-            report.append("--- RANKING ---")
-            report.append("")
-            report.append(llm_output["ranking"])
-            report.append("")
-
-        if llm_output.get("decomposicao"):
-            report.append("--- DECOMPOSICAO ---")
-            report.append("")
-            report.append(llm_output["decomposicao"])
-            report.append("")
-
-        if llm_output.get("padroes"):
-            report.append("--- PADROES ---")
-            report.append("")
-            report.append(llm_output["padroes"])
-            report.append("")
-
-    # Comparacao
-    if comparison:
-        report.append("--- VS ANTERIOR ---")
+        report.append(f"#{v['rank']} | Score: {v['score']:.0f}/100 | Views: {v['views']:,}{ctr_str}")
+        report.append(f"    Titulo: \"{v['title']}\"")
+        report.append(f"    Tema: {v['tema']}")
+        report.append(f"    Motores: {motores_str}")
+        if v.get("hipoteses"):
+            for h in v["hipoteses"]:
+                report.append(f"      - {h.get('motor', '')}: {h.get('explicacao', '')}")
         report.append("")
-        prev_date = comparison.get("previous_date", "N/A")
-        if isinstance(prev_date, str) and "T" in prev_date:
-            prev_date = prev_date.split("T")[0]
-        report.append(f"  Analise anterior: {prev_date}")
-        prev_count = comparison.get("previous_theme_count")
-        if prev_count is not None:
-            report.append(f"  Temas anterior: {prev_count} -> atual: {len(all_themes)}")
-        prev_videos = comparison.get("previous_total_videos")
-        if prev_videos is not None:
-            report.append(f"  Videos anterior: {prev_videos} -> atual: {total_videos}")
-        report.append("")
+
+    report.append("=" * 70)
+    report.append("ANALISE DE MOTORES PSICOLOGICOS")
+    report.append("=" * 70)
+    report.append("")
+
+    if llm_motores_output:
+        report.append(llm_motores_output)
     else:
-        report.append("--- VS ANTERIOR ---")
-        report.append("")
-        report.append("  Primeira analise. Sem dados anteriores.")
-        report.append("")
-
-    report.append("=" * 60)
+        report.append("[Analise de motores nao disponivel — LLM nao retornou output]")
 
     return "\n".join(report)
 
 
 # =============================================================================
-# ETAPA 7: PERSISTENCIA
+# SAVE / DELETE / QUERY
 # =============================================================================
+
+def _build_snapshot(merged_data: List[Dict]) -> Dict:
+    """Constroi analyzed_video_data snapshot para deteccao incremental."""
+    snapshot = {}
+    for v in merged_data:
+        snapshot[v["video_id"]] = {
+            "views": v["views"],
+            "ctr": v.get("ctr"),
+            "score": v["score"],
+            "tema": v.get("tema", ""),
+            "hipoteses": v.get("hipoteses", []),
+        }
+    return snapshot
+
 
 def save_analysis(
     channel_id: str,
     channel_name: str,
-    ranking: List[Dict],
-    all_themes: List[str],
+    merged_data: List[Dict],
     report_text: str,
-    patterns: Dict,
-    total_videos: int
+    themes_json: Dict,
+    run_number: int
 ) -> Optional[int]:
-    """Salva analise no banco."""
+    """Salva analise no banco de dados."""
+    snapshot = _build_snapshot(merged_data)
+    all_themes = [v.get("tema", "") for v in merged_data]
+    motor_counts = _count_motors(merged_data)
 
-    run_data = {
+    # Concentration top 5
+    total_views = sum(v["views"] for v in merged_data) if merged_data else 1
+    top5_views = sum(v["views"] for v in merged_data[:5])
+    concentration_pct = round(top5_views / total_views * 100, 1) if total_views > 0 else 0
+
+    payload = {
         "channel_id": channel_id,
         "channel_name": channel_name,
         "theme_count": len(all_themes),
-        "total_videos_analyzed": total_videos,
-        "concentration_pct": patterns.get("concentration_pct"),
-        "ranking_json": json.dumps(ranking),
-        "themes_list": json.dumps(all_themes),
-        "patterns_json": json.dumps(patterns),
-        "report_text": report_text
+        "total_videos_analyzed": len(merged_data),
+        "concentration_pct": concentration_pct,
+        "ranking_json": json.dumps(merged_data[:TOP_N], ensure_ascii=False),
+        "themes_list": json.dumps(all_themes, ensure_ascii=False),
+        "patterns_json": json.dumps({"motor_counts": motor_counts}, ensure_ascii=False),
+        "report_text": report_text,
+        "analyzed_video_data": json.dumps(snapshot, ensure_ascii=False),
+        "run_number": run_number,
+        "themes_json": json.dumps(themes_json, ensure_ascii=False),
     }
 
     resp = requests.post(
         f"{SUPABASE_URL}/rest/v1/theme_analysis_runs",
-        headers=SUPABASE_HEADERS,
-        json=run_data
+        json=payload,
+        headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=representation"
+        }
     )
 
-    if resp.status_code not in [200, 201]:
-        logger.error(f"Erro ao salvar analise de temas: {resp.status_code} - {resp.text[:200]}")
+    if resp.status_code in (200, 201):
+        rows = resp.json()
+        run_id = rows[0].get("id") if rows else None
+        logger.info(f"Analise salva: run_id={run_id}, run_number={run_number}, {len(merged_data)} videos")
+        return run_id
+    else:
+        logger.error(f"Erro ao salvar analise: {resp.status_code} - {resp.text[:300]}")
         return None
 
-    result = resp.json()
-    run_id = result[0]["id"] if result else None
-    logger.info(f"Analise de temas salva: run_id={run_id}")
-    return run_id
 
-
-# =============================================================================
-# ETAPA 8: COMPARACAO COM ANTERIOR
-# =============================================================================
-
-def compare_with_previous(channel_id: str) -> Optional[Dict]:
-    """
-    Busca a ultima analise do canal.
-    Memoria cumulativa: cada analise carrega o relatorio anterior.
-    """
-    resp = requests.get(
+def delete_analysis(channel_id: str, run_id: int) -> Dict:
+    """Deleta um run especifico de theme_analysis_runs."""
+    resp = requests.delete(
         f"{SUPABASE_URL}/rest/v1/theme_analysis_runs",
         params={
-            "channel_id": f"eq.{channel_id}",
-            "select": "run_date,theme_count,total_videos_analyzed,"
-                      "concentration_pct,themes_list,report_text",
-            "order": "run_date.desc",
-            "limit": "1"
+            "id": f"eq.{run_id}",
+            "channel_id": f"eq.{channel_id}"
         },
-        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+        headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}"
+        }
     )
 
-    if resp.status_code != 200 or not resp.json():
-        return None
+    if resp.status_code in (200, 204):
+        logger.info(f"Analise deletada: channel={channel_id}, run_id={run_id}")
+        return {"success": True, "message": f"Run {run_id} deletado"}
+    else:
+        logger.error(f"Erro ao deletar: {resp.status_code} - {resp.text[:200]}")
+        return {"success": False, "error": resp.text[:200]}
 
-    prev = resp.json()[0]
-    prev_themes = prev.get("themes_list")
-    if isinstance(prev_themes, str):
-        try:
-            prev_themes = json.loads(prev_themes)
-        except (json.JSONDecodeError, TypeError):
-            prev_themes = []
-
-    return {
-        "previous_date": prev.get("run_date", ""),
-        "previous_theme_count": prev.get("theme_count"),
-        "previous_total_videos": prev.get("total_videos_analyzed"),
-        "previous_concentration": prev.get("concentration_pct"),
-        "previous_themes": prev_themes or [],
-        "previous_report": prev.get("report_text", "")
-    }
-
-
-# =============================================================================
-# ETAPA 9: FUNCOES DE CONSULTA
-# =============================================================================
 
 def get_latest_analysis(channel_id: str) -> Optional[Dict]:
-    """Retorna a analise de temas mais recente."""
+    """Retorna analise mais recente."""
     resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/theme_analysis_runs",
         params={
             "channel_id": f"eq.{channel_id}",
             "select": "*",
             "order": "run_date.desc",
-            "limit": "1"
+            "limit": 1
         },
         headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
     )
-    if resp.status_code == 200 and resp.json():
-        row = resp.json()[0]
-        # Parse JSONB fields
-        for field in ["ranking_json", "themes_list", "patterns_json"]:
-            if isinstance(row.get(field), str):
-                try:
-                    row[field] = json.loads(row[field])
-                except (json.JSONDecodeError, TypeError):
-                    pass
-        return row
-    return None
+    if resp.status_code != 200 or not resp.json():
+        return None
+
+    row = resp.json()[0]
+    # Parse JSONB fields
+    for field in ("ranking_json", "themes_list", "patterns_json", "analyzed_video_data", "themes_json"):
+        val = row.get(field)
+        if isinstance(val, str):
+            try:
+                row[field] = json.loads(val)
+            except (json.JSONDecodeError, TypeError):
+                pass
+    return row
 
 
 def get_analysis_history(channel_id: str, limit: int = 20, offset: int = 0) -> Dict:
-    """Retorna historico paginado."""
-    # Contar total
-    count_resp = requests.get(
+    """Retorna historico paginado de analises."""
+    resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/theme_analysis_runs",
-        params={"channel_id": f"eq.{channel_id}", "select": "id"},
+        params={
+            "channel_id": f"eq.{channel_id}",
+            "select": "id,channel_id,channel_name,run_date,run_number,theme_count,total_videos_analyzed,concentration_pct",
+            "order": "run_date.desc",
+            "limit": min(limit, 100),
+            "offset": offset
+        },
         headers={
             "apikey": SUPABASE_KEY,
             "Authorization": f"Bearer {SUPABASE_KEY}",
             "Prefer": "count=exact"
         }
     )
+
     total = 0
-    if count_resp.status_code == 200:
-        content_range = count_resp.headers.get("content-range", "")
-        if "/" in content_range:
-            try:
-                total = int(content_range.split("/")[1])
-            except (ValueError, IndexError):
-                total = len(count_resp.json())
-        else:
-            total = len(count_resp.json())
+    if "content-range" in resp.headers:
+        try:
+            total = int(resp.headers["content-range"].split("/")[-1])
+        except (ValueError, IndexError):
+            pass
 
-    resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/theme_analysis_runs",
-        params={
-            "channel_id": f"eq.{channel_id}",
-            "select": "id,channel_name,run_date,theme_count,"
-                      "total_videos_analyzed,concentration_pct",
-            "order": "run_date.desc",
-            "limit": str(limit),
-            "offset": str(offset)
-        },
-        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
-    )
-
-    historico = resp.json() if resp.status_code == 200 else []
-    return {"historico": historico, "total": total}
+    rows = resp.json() if resp.status_code == 200 else []
+    return {"runs": rows, "total": total, "limit": limit, "offset": offset}
 
 
 # =============================================================================
-# ETAPA 10: FUNCAO PRINCIPAL
+# ORQUESTRACAO PRINCIPAL
 # =============================================================================
 
 def run_analysis(channel_id: str) -> Dict:
     """
-    Executa analise completa de temas para um canal.
+    Executa analise completa: Temas + Motores Psicologicos.
 
-    Returns:
-        {
-            "success": bool,
-            "channel_id": str,
-            "channel_name": str,
-            "run_id": int,
-            "report": str,
-            "theme_count": int,
-            "total_videos": int,
-            "ranking": [...],
-            "error": str (se falhou)
-        }
+    Fluxo:
+    1. Busca videos + aplica filtros (7 dias, 500 views)
+    2. Busca CTR por video + CTR medio canal
+    3. Calcula scores e monta ranking
+    4. Carrega run anterior (se existe)
+    5. Detecta novos/atualizados vs snapshot anterior
+    6. LLM TEMAS: extrai tema + hipoteses (so novos, ou todos se primeira analise)
+    7. Merge ranking + temas + dados anteriores
+    8. LLM MOTORES: gera analise narrativa
+    9. Gera relatorio unificado
+    10. Salva tudo no banco
     """
-    logger.info(f"{'='*50}")
-    logger.info(f"TEMAS: Iniciando para canal {channel_id}")
-    logger.info(f"{'='*50}")
+    logger.info(f"=== INICIO Agente 3 (Temas + Motores) para {channel_id} ===")
 
-    # 1. Buscar dados do canal
+    # 1. Info do canal
     channel_info = _get_channel_info(channel_id)
     if not channel_info:
-        return {"success": False, "error": f"Canal {channel_id} nao encontrado em yt_channels"}
+        return {"success": False, "error": "Canal nao encontrado"}
 
-    channel_name = channel_info.get("channel_name", channel_id)
-    subnicho = channel_info.get("subnicho", "N/A")
-    lingua = channel_info.get("lingua", "")
+    channel_name = channel_info.get("channel_name", "Desconhecido")
 
-    logger.info(f"Canal: {channel_name} | Subnicho: {subnicho} | Lingua: {lingua}")
-
-    # 2. Buscar videos (reutiliza _fetch_channel_videos do micronicho_agent)
+    # 2. Busca videos
     videos = _fetch_channel_videos(channel_id)
-    if not videos:
-        return {"success": False, "error": "Nenhum video encontrado para o canal"}
-
     if len(videos) < MIN_VIDEOS:
-        return {"success": False, "error": f"Minimo {MIN_VIDEOS} videos necessarios, encontrados: {len(videos)}"}
+        return {
+            "success": False,
+            "error": f"Insuficiente: {len(videos)} videos (minimo {MIN_VIDEOS})",
+            "channel_name": channel_name
+        }
 
-    # 3. Buscar temas anteriores (para consistencia de formulacao)
-    comparison = compare_with_previous(channel_id)
-    previous_themes = comparison.get("previous_themes", []) if comparison else []
+    # 3. Busca CTR
+    video_ids = [v["video_id"] for v in videos]
+    ctr_data = _fetch_video_ctr(channel_id, video_ids)
+    avg_ctr = _fetch_channel_avg_ctr(channel_id)
+    avg_ctr_pct = round(avg_ctr * 100, 2) if avg_ctr is not None else None
 
-    # 4. LLM Call 1: extrair temas
-    extraction_result = extract_themes(videos, subnicho, lingua, previous_themes)
-    classifications = extraction_result["classifications"]
-    all_themes = extraction_result["all_themes"]
+    # 4. Ranking
+    ranking = build_ranking(videos, ctr_data, avg_ctr)
+    if not ranking:
+        return {"success": False, "error": "Ranking vazio", "channel_name": channel_name}
 
-    logger.info(f"Extracao: {len(classifications)} videos -> {len(all_themes)} temas")
+    logger.info(f"Ranking: {len(ranking)} videos (top score: {ranking[0]['score']:.0f})")
 
-    # 5. Construir ranking (Score ponderado 50/50)
-    ranking = build_ranking(videos, classifications)
+    # 5. Run anterior
+    prev_run = _get_previous_run(channel_id)
+    is_first = prev_run is None
+    run_number = 1 if is_first else (prev_run.get("run_number", 1) + 1)
 
-    # 6. Detectar padroes
-    patterns = detect_patterns(ranking)
+    # 6. Deteccao incremental
+    if is_first:
+        changes = {"new": ranking, "updated": [], "unchanged": []}
+        videos_for_llm = ranking
+    else:
+        changes = _detect_changes(ranking, prev_run.get("analyzed_video_data", {}))
+        videos_for_llm = changes["new"]
 
-    # 7. LLM Call 2: decomposicao + hipoteses
-    llm_output = generate_decomposition(
-        channel_name, subnicho, lingua, ranking, patterns,
-        len(videos), comparison
+        if not videos_for_llm and not changes["updated"]:
+            logger.info("Nenhum video novo ou atualizado — gerando relatorio de comparacao apenas")
+            # Mesmo sem novos, podemos gerar relatorio de comparacao
+            # Usar temas do snapshot anterior para os unchanged
+            for v in changes["unchanged"]:
+                v["tema"] = v.get("_prev_tema", v["title"][:80])
+                v["hipoteses"] = v.get("_prev_hipoteses", [])
+                v["motores"] = [h.get("motor", "") for h in v.get("hipoteses", [])]
+
+    # 7. LLM TEMAS (so novos videos, ou todos se primeira)
+    if videos_for_llm:
+        llm_temas = call_llm_temas(videos_for_llm, channel_info, avg_ctr_pct, prev_run.get("themes_list") if prev_run else None)
+        if llm_temas is None:
+            llm_temas = _fallback_temas(videos_for_llm)
+    else:
+        llm_temas = {"videos": []}
+
+    # 8. Merge: novos (com temas da LLM) + existentes (com temas do snapshot)
+    if is_first:
+        merged = _merge_ranking_with_themes(ranking, llm_temas, avg_ctr_pct)
+    else:
+        # Merge novos com temas da LLM
+        new_merged = _merge_ranking_with_themes(videos_for_llm, llm_temas, avg_ctr_pct) if videos_for_llm else []
+
+        # Unchanged e updated manteem temas do snapshot
+        existing_merged = []
+        for v in changes["unchanged"] + changes["updated"]:
+            v["tema"] = v.get("_prev_tema", v["title"][:80])
+            v["hipoteses"] = v.get("_prev_hipoteses", [])
+            v["motores"] = [h.get("motor", "") for h in v.get("hipoteses", [])]
+            existing_merged.append(v)
+
+        # Juntar e re-ranquear
+        all_merged = new_merged + existing_merged
+        all_merged.sort(key=lambda x: x.get("score", 0), reverse=True)
+        for i, v in enumerate(all_merged):
+            v["rank"] = i + 1
+
+        merged = all_merged
+
+        # Re-rank novos tambem (para formato do prompt)
+        for i, v in enumerate(new_merged):
+            v["rank"] = i + 1
+
+        # Atualizar changes com dados de temas
+        changes["new"] = new_merged
+
+    # 9. Contagem de motores (atual e anterior)
+    motor_counts = _count_motors(merged)
+    prev_motor_counts = None
+    if prev_run and prev_run.get("analyzed_video_data"):
+        # Reconstruir motor counts do snapshot anterior
+        prev_merged = []
+        for vid, data in prev_run["analyzed_video_data"].items():
+            prev_merged.append({
+                "video_id": vid,
+                "motores": [h.get("motor", "") for h in data.get("hipoteses", [])],
+                "score": data.get("score", 0),
+            })
+        prev_motor_counts = _count_motors(prev_merged)
+
+    # 10. LLM MOTORES
+    prev_date_str = ""
+    if prev_run and prev_run.get("run_date"):
+        try:
+            pd = prev_run["run_date"]
+            if isinstance(pd, str) and "T" in pd:
+                prev_date_str = datetime.fromisoformat(pd.replace("Z", "+00:00")).strftime("%d/%m/%Y")
+            else:
+                prev_date_str = str(pd)
+        except (ValueError, TypeError):
+            prev_date_str = str(prev_run.get("run_date", ""))
+
+    llm_motores_output = call_llm_motores(
+        merged_data=merged,
+        channel_info=channel_info,
+        avg_ctr_pct=avg_ctr_pct,
+        is_first_analysis=is_first,
+        changes=changes if not is_first else None,
+        motor_counts=motor_counts,
+        prev_motor_counts=prev_motor_counts,
+        previous_report=prev_run.get("report_text") if prev_run else None,
+        run_number=run_number,
+        prev_date=prev_date_str,
     )
 
-    # 8. Gerar relatorio
-    report = generate_report(
-        channel_name, ranking, patterns, llm_output,
-        comparison, len(videos), all_themes
-    )
+    # 11. Gera relatorio unificado
+    report = generate_report(channel_name, merged, avg_ctr_pct, llm_motores_output, run_number)
 
-    # 9. Salvar
+    # 12. Salva
     run_id = save_analysis(
-        channel_id, channel_name, ranking, all_themes,
-        report, patterns, len(videos)
+        channel_id=channel_id,
+        channel_name=channel_name,
+        merged_data=merged,
+        report_text=report,
+        themes_json=llm_temas,
+        run_number=run_number,
     )
 
-    logger.info(f"TEMAS COMPLETA: {channel_name} | {len(all_themes)} temas | {len(videos)} videos")
+    new_count = len(changes.get("new", []))
+    updated_count = len(changes.get("updated", []))
+
+    if run_id is None:
+        logger.warning(f"Agente 3: {channel_name} — analise ok mas save falhou!")
+
+    logger.info(
+        f"=== FIM Agente 3: {channel_name} | run #{run_number} | "
+        f"{len(merged)} videos | {new_count} novos | {updated_count} atualizados | "
+        f"run_id={run_id} ==="
+    )
+
+    # Ranking resumido para resposta da API
+    ranking_summary = [
+        {"rank": v.get("rank"), "title": v.get("title", ""), "score": v.get("score"),
+         "views": v.get("views"), "tema": v.get("tema", ""), "video_id": v.get("video_id")}
+        for v in merged[:20]
+    ]
 
     return {
-        "success": True,
-        "channel_id": channel_id,
+        "success": run_id is not None,
         "channel_name": channel_name,
         "run_id": run_id,
-        "report": report,
-        "theme_count": len(all_themes),
-        "total_videos": len(videos),
-        "ranking": ranking
+        "run_number": run_number,
+        "total_videos": len(merged),
+        "new_videos": new_count,
+        "updated_videos": updated_count,
+        "theme_count": len(set(v.get("tema", "") for v in merged)),
+        "motor_count": len(motor_counts),
+        "ranking": ranking_summary,
+        "report_text": report,
+        "report": report,  # compatibilidade com _build_unified_report
     }

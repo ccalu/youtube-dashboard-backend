@@ -44,6 +44,11 @@ CLASSIFICATION_MARGIN = 2.0  # ±2% para classificar ACIMA/MEDIA/ABAIXO
 ANOMALY_VIEWS_MULTIPLIER = 5.0  # views > 5x media = anomalia
 ANOMALY_RETENTION_DIFF = 15.0  # retencao difere >15% da media = anomalia
 
+# Satisfacao (Call 2)
+SATISFACTION_WEIGHT_SUB = 0.53  # Sub Ratio peso (sem sentimento)
+SATISFACTION_WEIGHT_APPROVAL = 0.47  # Like Approval peso (sem sentimento)
+ANOMALY_SATISFACTION_MULTIPLIER = 3.0  # metrica 3x+ acima/abaixo = anomalia
+
 
 # =============================================================================
 # ETAPA 1: LEITURA DA PLANILHA
@@ -1112,6 +1117,958 @@ DADOS DA SEMANA ATUAL:
 
 
 # =============================================================================
+# ETAPA 5C: COLETA DE DADOS DE SATISFACAO (CALL 2)
+# =============================================================================
+
+def get_satisfaction_data(channel_id: str, video_ids: List[str]) -> Dict[str, Dict]:
+    """
+    Busca likes, dislikes, subscribers_gained, comments por video.
+    Fonte primaria: yt_video_metrics (populado pelo monetization_oauth_collector).
+    Comentarios: videos_historico (campo 'comentarios', sempre populado pelo collector).
+    Fallback: videos_historico (tem likes + comentarios, sem dislikes/subs).
+    Fallback API: YouTube Analytics API direto.
+
+    Returns:
+        {video_id: {likes, dislikes, subscribers_gained, views, comments, source}}
+    """
+    if not video_ids:
+        return {}
+
+    result = {}
+    batch_size = 50
+
+    # 1. Buscar de yt_video_metrics (fonte primaria — tem likes, dislikes, subscribers_gained)
+    for i in range(0, len(video_ids), batch_size):
+        batch = video_ids[i:i + batch_size]
+        ids_str = ",".join(batch)
+        resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/yt_video_metrics",
+            params={
+                "channel_id": f"eq.{channel_id}",
+                "video_id": f"in.({ids_str})",
+                "select": "video_id,likes,dislikes,subscribers_gained,views",
+                "order": "updated_at.desc"
+            },
+            headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+        )
+
+        if resp.status_code == 200 and resp.json():
+            for row in resp.json():
+                vid = row.get("video_id")
+                likes = row.get("likes") or 0
+                if vid and vid not in result and likes > 0:
+                    result[vid] = {
+                        "likes": likes,
+                        "dislikes": row.get("dislikes") or 0,
+                        "subscribers_gained": row.get("subscribers_gained") or 0,
+                        "views": row.get("views") or 0,
+                        "source": "yt_video_metrics"
+                    }
+
+    # 2. Buscar comments de videos_historico (para TODOS os videos, inclusive os ja encontrados)
+    # yt_video_metrics nao tem comments populado, entao sempre buscar de videos_historico
+    for i in range(0, len(video_ids), batch_size):
+        batch = video_ids[i:i + batch_size]
+        ids_str = ",".join(batch)
+        resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/videos_historico",
+            params={
+                "canal_id": f"eq.{channel_id}",
+                "video_id": f"in.({ids_str})",
+                "select": "video_id,comentarios,likes,views_atuais",
+                "order": "data_coleta.desc"
+            },
+            headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+        )
+
+        if resp.status_code == 200 and resp.json():
+            seen_comments = set()
+            for row in resp.json():
+                vid = row.get("video_id")
+                if vid and vid not in seen_comments:
+                    seen_comments.add(vid)
+                    comments = row.get("comentarios") or 0
+                    if vid in result:
+                        # Adicionar comments ao registro existente (de yt_video_metrics)
+                        result[vid]["comments"] = comments
+                    else:
+                        # Video nao encontrado em yt_video_metrics — usar videos_historico como fallback
+                        likes = row.get("likes") or 0
+                        if likes > 0:
+                            result[vid] = {
+                                "likes": likes,
+                                "dislikes": 0,  # nao disponivel em videos_historico
+                                "subscribers_gained": 0,  # nao disponivel
+                                "comments": comments,
+                                "views": row.get("views_atuais") or 0,
+                                "source": "videos_historico_partial"
+                            }
+
+    # Garantir que todos os registros tenham campo 'comments' (default 0)
+    for vid in result:
+        if "comments" not in result[vid]:
+            result[vid]["comments"] = 0
+
+    # 3. Fallback API: buscar da YouTube Analytics API
+    still_missing = [vid for vid in video_ids if vid not in result]
+    if still_missing:
+        logger.info(f"Canal {channel_id}: {len(still_missing)} videos sem dados de satisfacao, tentando API...")
+        api_data = _fetch_satisfaction_from_api(channel_id, still_missing)
+        result.update(api_data)
+
+    logger.info(f"Canal {channel_id}: satisfacao obtida para {len(result)}/{len(video_ids)} videos")
+    return result
+
+
+def _fetch_satisfaction_from_api(channel_id: str, video_ids: List[str]) -> Dict[str, Dict]:
+    """
+    Busca likes, dislikes, subscribersGained da YouTube Analytics API via OAuth.
+    Reutiliza infra de OAuth do agente (mesmos tokens/credentials).
+    """
+    result = {}
+
+    tokens = _get_oauth_tokens(channel_id)
+    if not tokens:
+        logger.warning(f"Canal {channel_id}: sem tokens OAuth para buscar satisfacao da API")
+        return result
+
+    credentials = _get_credentials(channel_id)
+    if not credentials:
+        return result
+
+    access_token = _refresh_token(
+        tokens["refresh_token"],
+        credentials["client_id"],
+        credentials["client_secret"]
+    )
+    if not access_token:
+        return result
+
+    end_date = (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d")
+    start_date = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%d")
+
+    all_rows = []
+    page_size = 200
+    start_index = 1
+    video_id_set = set(video_ids)
+
+    while True:
+        resp = requests.get(
+            "https://youtubeanalytics.googleapis.com/v2/reports",
+            params={
+                "ids": f"channel=={channel_id}",
+                "startDate": start_date,
+                "endDate": end_date,
+                "metrics": "views,likes,dislikes,subscribersGained",
+                "dimensions": "video",
+                "sort": "-views",
+                "maxResults": str(page_size),
+                "startIndex": str(start_index)
+            },
+            headers={"Authorization": f"Bearer {access_token}"}
+        )
+
+        if resp.status_code != 200:
+            logger.error(f"YouTube Analytics API (satisfacao) erro: {resp.status_code} - {resp.text[:200]}")
+            break
+
+        rows = resp.json().get("rows", [])
+        if not rows:
+            break
+
+        all_rows.extend(rows)
+
+        found_so_far = sum(1 for r in all_rows if r[0] in video_id_set)
+        if found_so_far >= len(video_ids):
+            break
+
+        if len(rows) < page_size:
+            break
+
+        start_index += page_size
+
+    # row format: [video_id, views, likes, dislikes, subscribersGained]
+    for row in all_rows:
+        vid = row[0]
+        if vid in video_id_set:
+            result[vid] = {
+                "likes": int(row[2]) if len(row) > 2 and row[2] is not None else 0,
+                "dislikes": int(row[3]) if len(row) > 3 and row[3] is not None else 0,
+                "subscribers_gained": int(row[4]) if len(row) > 4 and row[4] is not None else 0,
+                "views": int(row[1]) if len(row) > 1 and row[1] is not None else 0,
+                "comments": 0,  # API nao retorna comments por video, vem de videos_historico
+                "source": "analytics_api"
+            }
+
+    logger.info(f"YouTube Analytics API (satisfacao): {len(result)} videos de {len(all_rows)} total")
+    return result
+
+
+# =============================================================================
+# ETAPA 5D: ENGINE DE SATISFACAO (CALL 2)
+# =============================================================================
+
+def analyze_satisfaction_performance(
+    matched_videos: List[Dict],
+    satisfaction_data: Dict[str, Dict]
+) -> Dict:
+    """
+    Agrupa videos por estrutura e calcula metricas de satisfacao.
+    Score composto: Sub Ratio 53% + Approval 47% (sem sentimento).
+
+    Returns:
+        {
+            "channel_avg": {approval, like_ratio, sub_ratio},
+            "structures": {A: {score, avg_approval, avg_like_ratio, avg_sub_ratio, ...}, ...},
+            "insufficient": {G: {count, videos}, ...},
+            "anomalies": [...],
+            "all_videos": [...],
+            "excluded_immature": int,
+            "has_dislikes": bool,
+            "has_subs": bool
+        }
+    """
+    now = datetime.now(timezone.utc)
+
+    combined = []
+    excluded_immature = 0
+    has_dislikes_global = False
+    has_subs_global = False
+
+    for v in matched_videos:
+        vid = v["video_id"]
+        sat = satisfaction_data.get(vid, {})
+
+        # Filtro maturidade: 7+ dias
+        if v.get("published_at"):
+            pub_date = v["published_at"]
+            if isinstance(pub_date, str):
+                try:
+                    pub_date = datetime.fromisoformat(pub_date.replace("Z", "+00:00"))
+                except (ValueError, TypeError):
+                    pub_date = None
+            if pub_date and (now - pub_date).days < MIN_MATURITY_DAYS:
+                excluded_immature += 1
+                continue
+
+        likes = sat.get("likes", 0)
+        dislikes = sat.get("dislikes", 0)
+        subs_gained = sat.get("subscribers_gained", 0)
+        comments = sat.get("comments", 0)
+        views = sat.get("views") or v.get("views") or 0
+
+        if likes == 0 and views == 0:
+            continue  # Sem dados de satisfacao
+
+        if dislikes > 0:
+            has_dislikes_global = True
+        if subs_gained > 0:
+            has_subs_global = True
+
+        # Calcular metricas por video
+        approval = (likes / (likes + dislikes) * 100) if (likes + dislikes) > 0 else None
+        like_ratio = (likes / views * 100) if views > 0 else 0.0
+        sub_ratio = (subs_gained / views * 100) if views > 0 else 0.0
+        comment_ratio = (comments / views * 100) if views > 0 else 0.0
+
+        combined.append({
+            "video_id": vid,
+            "structure": v["structure"],
+            "title": v["title"],
+            "likes": likes,
+            "dislikes": dislikes,
+            "subscribers_gained": subs_gained,
+            "comments": comments,
+            "views": views,
+            "approval": round(approval, 2) if approval is not None else None,
+            "like_ratio": round(like_ratio, 4),
+            "sub_ratio": round(sub_ratio, 4),
+            "comment_ratio": round(comment_ratio, 4),
+            "published_at": v.get("published_at"),
+            "source": sat.get("source", "unknown")
+        })
+
+    if not combined:
+        return {
+            "channel_avg": {"approval": 0, "like_ratio": 0, "sub_ratio": 0, "comment_ratio": 0},
+            "structures": {},
+            "insufficient": {},
+            "anomalies": [],
+            "all_videos": [],
+            "excluded_immature": excluded_immature,
+            "has_dislikes": False,
+            "has_subs": False
+        }
+
+    # Media geral do canal
+    all_approvals = [v["approval"] for v in combined if v["approval"] is not None]
+    all_like_ratios = [v["like_ratio"] for v in combined]
+    all_sub_ratios = [v["sub_ratio"] for v in combined]
+    all_comment_ratios = [v["comment_ratio"] for v in combined]
+
+    channel_avg = {
+        "approval": round(statistics.mean(all_approvals), 2) if all_approvals else 0,
+        "like_ratio": round(statistics.mean(all_like_ratios), 4) if all_like_ratios else 0,
+        "sub_ratio": round(statistics.mean(all_sub_ratios), 4) if all_sub_ratios else 0,
+        "comment_ratio": round(statistics.mean(all_comment_ratios), 4) if all_comment_ratios else 0
+    }
+
+    # Agrupar por estrutura
+    groups = {}
+    for v in combined:
+        s = v["structure"]
+        if s not in groups:
+            groups[s] = []
+        groups[s].append(v)
+
+    structures = {}
+    insufficient = {}
+    anomalies = []
+
+    for structure, videos in sorted(groups.items()):
+        n = len(videos)
+        approvals = [v["approval"] for v in videos if v["approval"] is not None]
+        like_ratios = [v["like_ratio"] for v in videos]
+        sub_ratios = [v["sub_ratio"] for v in videos]
+        comment_ratios = [v["comment_ratio"] for v in videos]
+
+        if n < MIN_SAMPLE_SIZE:
+            insufficient[structure] = {
+                "count": n,
+                "videos": [{
+                    "title": v["title"],
+                    "approval": v["approval"],
+                    "like_ratio": v["like_ratio"],
+                    "sub_ratio": v["sub_ratio"],
+                    "comment_ratio": v["comment_ratio"],
+                    "comments": v["comments"]
+                } for v in videos]
+            }
+            continue
+
+        avg_approval = round(statistics.mean(approvals), 2) if approvals else 0
+        avg_like_ratio = round(statistics.mean(like_ratios), 4)
+        avg_sub_ratio = round(statistics.mean(sub_ratios), 4)
+        avg_comment_ratio = round(statistics.mean(comment_ratios), 4)
+        avg_comments = round(statistics.mean([v["comments"] for v in videos]))
+
+        # Normalizacao: desvio % vs media do canal
+        approval_dev = ((avg_approval - channel_avg["approval"]) / channel_avg["approval"] * 100) if channel_avg["approval"] > 0 else 0
+        sub_ratio_dev = ((avg_sub_ratio - channel_avg["sub_ratio"]) / channel_avg["sub_ratio"] * 100) if channel_avg["sub_ratio"] > 0 else 0
+        comment_ratio_dev = ((avg_comment_ratio - channel_avg["comment_ratio"]) / channel_avg["comment_ratio"] * 100) if channel_avg["comment_ratio"] > 0 else 0
+
+        # Score composto 0-100 (50 = media do canal)
+        # Mapear desvio para escala 0-100 onde 50 = media
+        # Cada 10% de desvio = ~5 pontos no score
+        approval_score = 50 + (approval_dev * 0.5)
+        sub_score = 50 + (sub_ratio_dev * 0.5)
+
+        # Clamp 0-100
+        approval_score = max(0, min(100, approval_score))
+        sub_score = max(0, min(100, sub_score))
+
+        if has_subs_global:
+            score = round(sub_score * SATISFACTION_WEIGHT_SUB + approval_score * SATISFACTION_WEIGHT_APPROVAL)
+        else:
+            # Sem dados de subscribers: score baseado apenas em approval
+            score = round(approval_score)
+
+        # Status vs media
+        if score > 55:
+            status = "ACIMA"
+        elif score < 45:
+            status = "ABAIXO"
+        else:
+            status = "MEDIA"
+
+        structures[structure] = {
+            "score": score,
+            "avg_approval": avg_approval,
+            "avg_like_ratio": round(avg_like_ratio, 4),
+            "avg_sub_ratio": round(avg_sub_ratio, 4),
+            "avg_comment_ratio": round(avg_comment_ratio, 4),
+            "avg_comments": avg_comments,
+            "approval_dev": round(approval_dev, 1),
+            "sub_ratio_dev": round(sub_ratio_dev, 1),
+            "comment_ratio_dev": round(comment_ratio_dev, 1),
+            "count": n,
+            "status": status,
+            "videos": [{
+                "title": v["title"],
+                "video_id": v["video_id"],
+                "approval": v["approval"],
+                "like_ratio": v["like_ratio"],
+                "sub_ratio": v["sub_ratio"],
+                "comment_ratio": v["comment_ratio"],
+                "comments": v["comments"],
+                "likes": v["likes"],
+                "dislikes": v["dislikes"],
+                "subscribers_gained": v["subscribers_gained"],
+                "views": v["views"]
+            } for v in videos]
+        }
+
+        # Anomalias: metrica 3x+ acima/abaixo media da estrutura
+        for v in videos:
+            reasons = []
+            if avg_sub_ratio > 0:
+                if v["sub_ratio"] > 0:
+                    ratio = v["sub_ratio"] / avg_sub_ratio
+                    if ratio >= ANOMALY_SATISFACTION_MULTIPLIER:
+                        reasons.append(f"Sub Ratio {v['sub_ratio']:.4f}% = {ratio:.1f}x acima da media da estrutura ({avg_sub_ratio:.4f}%)")
+                    elif (avg_sub_ratio / v["sub_ratio"]) >= ANOMALY_SATISFACTION_MULTIPLIER:
+                        reasons.append(f"Sub Ratio {v['sub_ratio']:.4f}% = {avg_sub_ratio / v['sub_ratio']:.1f}x abaixo da media ({avg_sub_ratio:.4f}%)")
+                elif v["sub_ratio"] == 0:
+                    # sub_ratio=0 com media >0 e sempre anomalia
+                    reasons.append(f"Sub Ratio 0% — nenhum inscrito ganho (media da estrutura: {avg_sub_ratio:.4f}%)")
+
+            if avg_approval > 0 and v["approval"] is not None:
+                diff = abs(v["approval"] - avg_approval)
+                if diff > 15:  # >15pp de diferenca em approval
+                    direction = "acima" if v["approval"] > avg_approval else "abaixo"
+                    reasons.append(f"Approval {v['approval']:.1f}% vs {avg_approval:.1f}% media ({direction}, diff {diff:.1f}pp)")
+
+            if reasons:
+                anomalies.append({
+                    "video_id": v["video_id"],
+                    "title": v["title"],
+                    "structure": structure,
+                    "approval": v["approval"],
+                    "sub_ratio": v["sub_ratio"],
+                    "likes": v["likes"],
+                    "dislikes": v["dislikes"],
+                    "views": v["views"],
+                    "reasons": reasons
+                })
+
+    # Ordenar por score desc
+    sorted_structures = dict(sorted(
+        structures.items(),
+        key=lambda x: x[1]["score"],
+        reverse=True
+    ))
+
+    return {
+        "channel_avg": channel_avg,
+        "structures": sorted_structures,
+        "insufficient": insufficient,
+        "anomalies": anomalies,
+        "all_videos": combined,
+        "excluded_immature": excluded_immature,
+        "has_dislikes": has_dislikes_global,
+        "has_subs": has_subs_global
+    }
+
+
+# =============================================================================
+# ETAPA 5E: COMPARACAO TEMPORAL DE SATISFACAO
+# =============================================================================
+
+def compare_satisfaction_with_previous(channel_id: str, current_results: Dict) -> Optional[Dict]:
+    """
+    Busca dados de satisfacao da analise anterior para comparacao temporal.
+    """
+    resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/copy_analysis_runs",
+        params={
+            "channel_id": f"eq.{channel_id}",
+            "select": "run_date,results_json,report_text",
+            "order": "run_date.desc",
+            "limit": "1"
+        },
+        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+    )
+
+    if resp.status_code != 200 or not resp.json():
+        return None
+
+    prev = resp.json()[0]
+    prev_results = prev.get("results_json") or {}
+    if isinstance(prev_results, str):
+        prev_results = json.loads(prev_results)
+
+    prev_sat = prev_results.get("satisfaction_structures", {})
+    if not prev_sat:
+        return None  # Analise anterior nao tinha dados de satisfacao
+
+    prev_date = prev.get("run_date", "")
+    curr_structures = current_results.get("structures", {})
+
+    # Rankings anterior e atual
+    prev_ranking = sorted(prev_sat.items(), key=lambda x: x[1].get("score", 0), reverse=True)
+    curr_ranking = sorted(curr_structures.items(), key=lambda x: x[1].get("score", 0), reverse=True)
+
+    prev_rank_map = {s: i+1 for i, (s, _) in enumerate(prev_ranking)}
+    curr_rank_map = {s: i+1 for i, (s, _) in enumerate(curr_ranking)}
+
+    changes = {}
+    new_structures = []
+
+    for structure, data in curr_structures.items():
+        if structure in prev_sat:
+            prev_score = prev_sat[structure].get("score", 0)
+            curr_score = data["score"]
+            prev_rank = prev_rank_map.get(structure, 0)
+            curr_rank = curr_rank_map.get(structure, 0)
+
+            changes[structure] = {
+                "prev_score": prev_score,
+                "curr_score": curr_score,
+                "diff": curr_score - prev_score,
+                "prev_approval": prev_sat[structure].get("avg_approval", 0),
+                "curr_approval": data["avg_approval"],
+                "prev_sub_ratio": prev_sat[structure].get("avg_sub_ratio", 0),
+                "curr_sub_ratio": data["avg_sub_ratio"],
+                "prev_rank": prev_rank,
+                "curr_rank": curr_rank,
+                "rank_change": prev_rank - curr_rank
+            }
+        else:
+            new_structures.append(structure)
+
+    return {
+        "previous_date": prev_date,
+        "changes": changes,
+        "new_structures": new_structures
+    }
+
+
+# =============================================================================
+# ETAPA 5F: LLM INSIGHTS DE SATISFACAO (CALL 2)
+# =============================================================================
+
+def generate_satisfaction_llm_insights(
+    channel_name: str,
+    sat_analysis: Dict,
+    sat_comparison: Optional[Dict]
+) -> Optional[Dict]:
+    """
+    Call 2 da LLM: analise narrativa de satisfacao do publico.
+    Complementar a Call 1 (retencao). Foco em: approval, sub ratio, like ratio.
+    """
+    try:
+        from openai import OpenAI
+
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            logger.warning("OPENAI_API_KEY nao configurada - pulando analise LLM satisfacao")
+            return None
+
+        client = OpenAI(api_key=api_key)
+        model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+
+        ch_avg = sat_analysis["channel_avg"]
+        structures = sat_analysis["structures"]
+        insufficient = sat_analysis["insufficient"]
+        all_videos = sat_analysis.get("all_videos", [])
+        has_dislikes = sat_analysis.get("has_dislikes", False)
+        has_subs = sat_analysis.get("has_subs", False)
+
+        data_block = f"CANAL: {channel_name}\n"
+        data_block += f"Total videos analisados (satisfacao): {len(all_videos)}\n"
+        data_block += f"Media geral do canal: {ch_avg['approval']:.1f}% approval | {ch_avg['like_ratio']:.4f}% like ratio | {ch_avg['sub_ratio']:.4f}% sub ratio | {ch_avg.get('comment_ratio', 0):.4f}% comment ratio\n"
+        data_block += f"Dados de dislikes disponiveis: {'Sim' if has_dislikes else 'Nao (approval calculado apenas com likes)'}\n"
+        data_block += f"Dados de inscritos ganhos por video: {'Sim' if has_subs else 'Nao'}\n\n"
+
+        data_block += "DADOS POR ESTRUTURA (cada video individual):\n\n"
+        for s, d in structures.items():
+            data_block += f"Estrutura {s} ({d['count']} videos) — Score: {d['score']}/100 — Status: {d['status']}\n"
+            for v in d.get("videos", []):
+                approval_str = f"{v.get('approval', 0):.1f}%" if v.get('approval') is not None else "N/A"
+                data_block += f"  - \"{v['title']}\" | approval: {approval_str} | like_ratio: {v.get('like_ratio', 0):.4f}% | sub_ratio: {v.get('sub_ratio', 0):.4f}% | comment_ratio: {v.get('comment_ratio', 0):.4f}% | comments: {v.get('comments', 0)} | likes: {v.get('likes', 0)} | dislikes: {v.get('dislikes', 0)} | subs_gained: {v.get('subscribers_gained', 0)} | views: {v.get('views', 0):,}\n"
+            data_block += f"  Media estrutura: {d['avg_approval']:.1f}% approval | {d['avg_like_ratio']:.4f}% like_ratio | {d['avg_sub_ratio']:.4f}% sub_ratio | {d.get('avg_comment_ratio', 0):.4f}% comment_ratio | {d.get('avg_comments', 0)} coment. medio\n"
+            data_block += f"  Desvio vs canal: {d['approval_dev']:+.1f}% approval | {d['sub_ratio_dev']:+.1f}% sub_ratio | {d.get('comment_ratio_dev', 0):+.1f}% comment_ratio\n\n"
+
+        if insufficient:
+            data_block += "ESTRUTURAS COM POUCOS DADOS (<3 videos):\n"
+            for s, d in insufficient.items():
+                data_block += f"  Estrutura {s}: {d['count']} video(s)\n"
+                for v in d.get("videos", []):
+                    approval_str = f"{v.get('approval', 0):.1f}%" if v.get('approval') is not None else "N/A"
+                    data_block += f"    - \"{v['title']}\" | approval: {approval_str} | sub_ratio: {v.get('sub_ratio', 0):.4f}% | comments: {v.get('comments', 0)}\n"
+            data_block += "\n"
+
+        if sat_comparison and sat_comparison.get("changes"):
+            prev_date = sat_comparison.get("previous_date", "")
+            if isinstance(prev_date, str) and "T" in prev_date:
+                try:
+                    prev_date = datetime.fromisoformat(prev_date.replace("Z", "+00:00")).strftime("%d/%m/%Y")
+                except (ValueError, TypeError):
+                    pass
+            data_block += f"COMPARACAO COM ANALISE ANTERIOR ({prev_date}):\n"
+            for s, c in sat_comparison["changes"].items():
+                rank_info = ""
+                if c["rank_change"] > 0:
+                    rank_info = f" (subiu: {c['prev_rank']}o->{c['curr_rank']}o)"
+                elif c["rank_change"] < 0:
+                    rank_info = f" (caiu: {c['prev_rank']}o->{c['curr_rank']}o)"
+                data_block += f"  Estrutura {s}: score {c['prev_score']}->{c['curr_score']} ({c['diff']:+d}) | approval {c['prev_approval']:.1f}%->{c['curr_approval']:.1f}% | sub_ratio {c['prev_sub_ratio']:.4f}%->{c['curr_sub_ratio']:.4f}%{rank_info}\n"
+            if sat_comparison.get("new_structures"):
+                data_block += f"  Novas no ranking: {', '.join(sat_comparison['new_structures'])}\n"
+            data_block += "\n"
+
+        # =====================================================================
+        # PROMPT LLM SATISFACAO — System + User
+        # =====================================================================
+
+        system_prompt = """Voce e um analista senior de satisfacao de audiencia para canais YouTube.
+Voce analisa dados PRE-CALCULADOS por um sistema Python e produz insights narrativos
+sobre o quanto a audiencia GOSTOU do conteudo — complementar a analise de retencao.
+
+=== CONTEXTO: RETENCAO vs SATISFACAO ===
+
+O Agente 1 (Call 1) ja analisa RETENCAO: quanto tempo o espectador ficou no video.
+Voce (Call 2) analisa SATISFACAO: o espectador gostou de ter ficado?
+
+Essa distincao e critica:
+- Um video pode ter retencao alta por mecanismos retoricos (ganchos, loops abertos)
+  mas deixar o espectador insatisfeito. Ele ficou, mas nao gostou.
+- Um video pode ter retencao moderada mas satisfacao altissima — o espectador saiu
+  genuinamente satisfeito e se inscreveu.
+
+A combinacao das duas dimensoes (retencao + satisfacao) e mais poderosa que qualquer
+uma isolada. Mas voce NAO cruza com retencao — seus dados sao apenas de satisfacao.
+O cruzamento e feito por leitura humana.
+
+=== O QUE SAO ESTRUTURAS DE COPY ===
+
+Cada video do canal usa uma ESTRUTURA NARRATIVA identificada por uma letra.
+A estrutura define COMO a historia e contada — nao O QUE e contado.
+Exemplo: dois videos sobre "A Queda de Roma" podem usar:
+- A (cronologica): conta linear do inicio ao fim
+- B (misterio): abre com pergunta, vai revelando
+O MESMO tema com estruturas diferentes gera satisfacao DIFERENTE.
+
+=== METRICAS DE SATISFACAO ===
+
+1. LIKE APPROVAL RATE = likes / (likes + dislikes)
+   - Termometro direto: de todos que reagiram, qual % aprovou?
+   - Se nao ha dislikes disponiveis, esta metrica NAO esta disponivel
+   - Approval alto (>95%) e a norma no YouTube — o sinal esta nas DIFERENCAS entre estruturas
+   - Approval baixo (<90%) e um sinal forte de problema
+
+2. LIKE RATIO = likes / views (INFORMATIVO)
+   - Que % dos espectadores deu like?
+   - Complementar — indica engajamento geral
+   - NAO entra no score composto (evita redundancia com approval)
+   - Use para contexto: "estrutura X tem approval similar mas like ratio 2x maior"
+
+3. SUB RATIO = inscritos ganhos / views
+   - Sinal MAIS FORTE de satisfacao (maior commitment do espectador)
+   - Um espectador que se inscreve esta dizendo: "quero mais disso"
+   - Pesa 53% no score composto
+   - Se nao ha dados de inscritos por video, esta metrica nao esta disponivel
+
+4. SCORE COMPOSTO (0-100)
+   - 50 = media do canal. >50 = acima. <50 = abaixo
+   - Pesos: Sub Ratio 53% + Approval 47% (sem sentimento de comentarios)
+   - O score e relativo ao PROPRIO canal — NAO compare entre canais
+
+=== COMO INTERPRETAR ===
+
+A MATRIZ RETENCAO x SATISFACAO (contexto para o leitor humano):
+
+| | Satisfacao Alta | Satisfacao Baixa |
+|---|---|---|
+| Retencao Alta | Excelencia real | Alerta: prende mas nao satisfaz |
+| Retencao Baixa | Oportunidade: bom conteudo, execucao fraca | Problema em ambas dimensoes |
+
+Voce NAO faz esse cruzamento — apenas reporta satisfacao. Mas pode mencionar
+que o leitor deve cruzar com o relatorio de retencao para a visao completa.
+
+=== REGRAS INVIOLAVEIS ===
+
+1. Seja FACTUAL — cite numeros EXATOS dos dados fornecidos
+2. NAO invente dados — use APENAS o que esta nos dados
+3. NAO de recomendacoes de acao — decisao e HUMANA. Voce apresenta PADROES
+4. NAO tente explicar POR QUE uma estrutura tem mais satisfacao — so reporte o fato
+5. NAO repita tabelas de ranking (o sistema ja gera automaticamente)
+6. Anomalias: REPORTE como fato + flag. NAO explique a causa
+7. Escreva em portugues, paragrafos curtos separados por linha em branco
+8. Escreva o quanto for necessario. NAO resuma, NAO corte a analise
+9. Use EXATAMENTE os marcadores [OBSERVACOES] e [TENDENCIAS]
+10. Se dados de dislikes ou inscritos nao estao disponiveis, mencione essa limitacao
+
+=== TIPO DE RACIOCINIO ESPERADO ===
+
+NAO FACA ISSO (superficial):
+"A estrutura lider tem score 68. A pior tem 35."
+
+FACA ISSO (profissional):
+"A estrutura A lidera com score 68/100, impulsionada por um Sub Ratio de 0.42%
+(+20.0% acima da media do canal de 0.35%). Dos 5 videos analisados, 4 tem sub_ratio
+acima de 0.38%, indicando que essa forma narrativa gera conversao de inscritos
+de forma consistente.
+
+Em contraste, a estrutura D tem score 35/100 com Sub Ratio de 0.18% (-48.6% abaixo
+da media do canal). Apesar de um Approval Rate aceitavel de 94.2%, os espectadores
+nao se sentem motivados a se inscrever apos assistir — o conteudo prende mas nao
+converte. Isso sugere uma experiencia 'ok' mas nao memoravel."
+"""
+
+        previous_report_block = ""
+        if sat_comparison and sat_comparison.get("changes"):
+            prev_date = sat_comparison.get("previous_date", "")
+            if isinstance(prev_date, str) and "T" in prev_date:
+                try:
+                    prev_date = datetime.fromisoformat(prev_date.replace("Z", "+00:00")).strftime("%d/%m/%Y")
+                except (ValueError, TypeError):
+                    pass
+            previous_report_block = f"""
+VOCE TEM DADOS DA ANALISE ANTERIOR ({prev_date}) para comparar tendencias.
+Use esses dados para identificar evolucoes, consolidacoes ou reversoes.
+"""
+
+        user_prompt = f"""{previous_report_block}
+
+Produza EXATAMENTE 2 blocos:
+
+[OBSERVACOES]
+Analise de satisfacao DESTA SEMANA. Cubra obrigatoriamente TODOS os pontos:
+
+1. LIDERANCA DE SATISFACAO: Qual estrutura lidera em score? Com que margem?
+   Cite approval, like ratio e sub ratio da lider. E consistente entre videos?
+
+2. APPROVAL POR ESTRUTURA: Para CADA estrutura, cite o approval e desvio vs canal.
+   Se alguma esta abaixo de 90%, destaque como sinal forte de insatisfacao.
+   Se todas estao acima de 95%, note que as diferencas sao sutis mas ainda informativas.
+
+3. SUB RATIO (se disponivel): Para CADA estrutura, cite o sub ratio.
+   Qual estrutura CONVERTE mais espectadores em inscritos?
+   Destaque a diferenca entre a melhor e a pior em termos relativos.
+
+4. LIKE RATIO (informativo): Padroes notaveis no like ratio entre estruturas.
+   Se uma tem approval similar mas like ratio muito diferente, destaque.
+
+5. PIOR DESEMPENHO: Qual estrutura tem a pior satisfacao? Score, approval, sub ratio.
+   O que os numeros mostram (sem teorizar POR QUE)?
+
+6. ANOMALIAS: Videos com metricas muito acima ou abaixo da media da estrutura.
+   Reporte como fato.
+
+7. LIMITACOES DOS DADOS: Se faltam dislikes ou inscritos, mencione o impacto.
+   Se a fonte e parcial (videos_historico sem dislikes), note.
+
+8. OUTROS PADROES: Qualquer insight relevante nos dados.
+
+[TENDENCIAS]
+EVOLUCAO ao longo do tempo (SO se houver analise anterior):
+- Para cada estrutura, compare scores e metricas vs anterior
+- Movimentos no ranking
+- Padroes confirmados ou revertidos
+- Se primeira analise: "Primeira analise de satisfacao. Sem dados anteriores."
+
+DADOS DA SEMANA ATUAL:
+{data_block}"""
+
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.3
+        )
+
+        llm_text = response.choices[0].message.content.strip()
+        logger.info(f"LLM satisfacao gerada ({response.usage.total_tokens} tokens)")
+
+        result = {"observacoes": "", "tendencias": ""}
+
+        if "[TENDENCIAS]" in llm_text:
+            parts = llm_text.split("[TENDENCIAS]")
+            obs_part = parts[0].replace("[OBSERVACOES]", "").strip()
+            tend_part = parts[1].strip() if len(parts) > 1 else ""
+            result["observacoes"] = obs_part
+            result["tendencias"] = tend_part
+        elif "[OBSERVACOES]" in llm_text:
+            result["observacoes"] = llm_text.replace("[OBSERVACOES]", "").strip()
+        else:
+            result["observacoes"] = llm_text
+
+        return result
+
+    except ImportError:
+        logger.warning("openai nao instalado - pulando analise LLM satisfacao")
+        return None
+    except Exception as e:
+        logger.error(f"Erro ao gerar analise LLM satisfacao: {e}")
+        return None
+
+
+# =============================================================================
+# ETAPA 5G: GERADOR DE RELATORIO DE SATISFACAO
+# =============================================================================
+
+def generate_satisfaction_report(
+    channel_name: str,
+    sat_analysis: Dict,
+    sat_comparison: Optional[Dict],
+    llm_insights: Optional[Dict] = None
+) -> str:
+    """
+    Gera relatorio de satisfacao (Call 2).
+    Formato: Ranking por Score + Approval + Sub Ratio + Anomalias + vs Anterior
+    """
+    now = datetime.now().strftime("%d-%m-%Y")
+    ch_avg = sat_analysis["channel_avg"]
+    structures = sat_analysis["structures"]
+    insufficient = sat_analysis["insufficient"]
+    anomalies = sat_analysis["anomalies"]
+    all_videos = sat_analysis.get("all_videos", [])
+    excluded = sat_analysis.get("excluded_immature", 0)
+    has_dislikes = sat_analysis.get("has_dislikes", False)
+    has_subs = sat_analysis.get("has_subs", False)
+
+    lines = []
+
+    # === HEADER ===
+    lines.append("")
+    lines.append("=" * 60)
+    lines.append(f"RELATORIO SATISFACAO -- {channel_name} | {now}")
+    lines.append("=" * 60)
+    lines.append("")
+    lines.append(f"Videos analisados: {len(all_videos)} ({excluded} excluidos por maturidade <7 dias)")
+    lines.append(f"Media geral: {ch_avg['approval']:.1f}% approval | {ch_avg['like_ratio']:.4f}% like ratio | {ch_avg['sub_ratio']:.4f}% sub ratio | {ch_avg.get('comment_ratio', 0):.4f}% comment ratio")
+
+    if not has_dislikes and not has_subs:
+        lines.append("AVISO: Sem dados de dislikes NEM inscritos ganhos por video. Scores exibidos NAO sao confiaveis (todos serao ~50).")
+    elif not has_dislikes:
+        lines.append("NOTA: Dados de dislikes nao disponiveis. Approval calculado sem dislikes.")
+    elif not has_subs:
+        lines.append("NOTA: Dados de inscritos ganhos por video nao disponiveis. Score calculado sem Sub Ratio.")
+    else:
+        lines.append(f"Score calculado sem dados de sentimento. Pesos: Sub Ratio {SATISFACTION_WEIGHT_SUB*100:.0f}% + Approval {SATISFACTION_WEIGHT_APPROVAL*100:.0f}%")
+    lines.append("")
+
+    # === RANKING POR SCORE DE SATISFACAO ===
+    if structures:
+        lines.append("--- RANKING POR ESTRUTURA (Score de Satisfacao) ---")
+        lines.append("")
+        lines.append(f" {'#':<3} {'Estr.':<8} {'Score':<8} {'Approval':<11} {'Like Ratio':<13} {'Sub Ratio':<12} {'Videos':<8} {'Status'}")
+        lines.append(f" {'─'*3} {'─'*7} {'─'*7} {'─'*10} {'─'*12} {'─'*11} {'─'*7} {'─'*8}")
+
+        for i, (structure, data) in enumerate(structures.items(), 1):
+            sub_str = f"{data['avg_sub_ratio']:.4f}%" if has_subs else "N/A"
+            lines.append(
+                f" {i:<3} {structure:<8} {data['score']:<8} {data['avg_approval']:.1f}%{'':<5} "
+                f"{data['avg_like_ratio']:.4f}%{'':<5} {sub_str:<12} {data['count']:<8} {data['status']}"
+            )
+
+        lines.append("")
+
+    # === LIKE APPROVAL RATE ===
+    if structures:
+        lines.append("--- LIKE APPROVAL RATE (likes / likes+dislikes) ---")
+        lines.append("")
+        lines.append(f" {'Estr.':<8} {'Approval':<11} {'vs Media Canal':<16} {'Tendencia'}")
+
+        for structure, data in structures.items():
+            dev_str = f"{data['approval_dev']:+.1f}%"
+            lines.append(f" {structure:<8} {data['avg_approval']:.1f}%{'':<5} {dev_str:<16}")
+        lines.append("")
+
+    # === SUB RATIO ===
+    if structures and has_subs:
+        lines.append("--- SUB RATIO (inscritos ganhos / views) ---")
+        lines.append("")
+        lines.append(f" {'Estr.':<8} {'Sub Ratio':<12} {'vs Media Canal':<16} {'Tendencia'}")
+
+        for structure, data in structures.items():
+            dev_str = f"{data['sub_ratio_dev']:+.1f}%"
+            lines.append(f" {structure:<8} {data['avg_sub_ratio']:.4f}%{'':<5} {dev_str:<16}")
+        lines.append("")
+
+    # === COMMENT RATIO ===
+    if structures:
+        lines.append("--- COMMENT RATIO (comentarios / views) ---")
+        lines.append("")
+        lines.append(f" {'Estr.':<8} {'Ratio':<12} {'Coment. Med':<14} {'vs Media Canal':<16}")
+
+        for structure, data in structures.items():
+            dev_str = f"{data.get('comment_ratio_dev', 0):+.1f}%"
+            lines.append(f" {structure:<8} {data.get('avg_comment_ratio', 0):.4f}%{'':<5} {data.get('avg_comments', 0):<14} {dev_str}")
+        lines.append("")
+
+    # === OBSERVACOES (LLM) ===
+    obs_text = ""
+    tend_text = ""
+    if llm_insights and isinstance(llm_insights, dict):
+        obs_text = llm_insights.get("observacoes", "")
+        tend_text = llm_insights.get("tendencias", "")
+
+    if obs_text:
+        lines.append("--- OBSERVACOES (Satisfacao) ---")
+        lines.append("")
+        for line in obs_text.split("\n"):
+            lines.append(line)
+        lines.append("")
+
+    # === ANOMALIAS ===
+    if anomalies:
+        lines.append("--- ANOMALIAS (Satisfacao) ---")
+        lines.append("")
+        for anom in anomalies:
+            lines.append(f"! Estrutura {anom['structure']} -- Video \"{anom['title']}\"")
+            if anom.get("approval") is not None:
+                lines.append(f"   Approval: {anom['approval']:.1f}% | Likes: {anom['likes']} | Dislikes: {anom['dislikes']}")
+            lines.append(f"   Sub Ratio: {anom['sub_ratio']:.4f}% | Views: {anom['views']:,}")
+            for reason in anom.get("reasons", []):
+                lines.append(f"   NOTA: {reason}")
+            lines.append("")
+
+    # === DADOS INSUFICIENTES ===
+    if insufficient:
+        lines.append("--- DADOS INSUFICIENTES (<3 videos) ---")
+        lines.append("")
+        for structure, data_ins in insufficient.items():
+            lines.append(f" Estrutura {structure}: {data_ins['count']} video(s)")
+            for v in data_ins.get("videos", []):
+                approval_str = f"{v['approval']:.1f}%" if v.get('approval') is not None else "N/A"
+                lines.append(f"   - \"{v['title']}\" | approval: {approval_str} | sub_ratio: {v['sub_ratio']:.4f}%")
+        lines.append("")
+
+    # === vs. ANALISE ANTERIOR ===
+    if sat_comparison and sat_comparison.get("changes"):
+        prev_date = sat_comparison.get("previous_date", "")
+        if isinstance(prev_date, str) and "T" in prev_date:
+            try:
+                prev_date = datetime.fromisoformat(prev_date.replace("Z", "+00:00")).strftime("%d-%m-%Y")
+            except (ValueError, TypeError):
+                pass
+
+        lines.append(f"--- vs. ANALISE ANTERIOR ({prev_date}) (Satisfacao) ---")
+        lines.append("")
+        lines.append(f" {'Estr.':<8} {'Score Ant.':<12} {'Score Atual':<13} {'Variacao':<10} {'Ranking'}")
+
+        for structure, change in sat_comparison.get("changes", {}).items():
+            var_str = f"{change['diff']:+d}"
+            rank_str = ""
+            if change["rank_change"] > 0:
+                rank_str = f"Subiu {change['prev_rank']}o->{change['curr_rank']}o"
+            elif change["rank_change"] < 0:
+                rank_str = f"Caiu {change['prev_rank']}o->{change['curr_rank']}o"
+            else:
+                rank_str = f"Manteve {change['curr_rank']}o"
+
+            lines.append(f" {structure:<8} {change['prev_score']:<12} {change['curr_score']:<13} {var_str:<10} {rank_str}")
+
+        if sat_comparison.get("new_structures"):
+            lines.append("")
+            lines.append(f"Estruturas novas no ranking: {', '.join(sat_comparison['new_structures'])}")
+
+        lines.append("")
+
+        if tend_text:
+            for line in tend_text.split("\n"):
+                lines.append(line)
+            lines.append("")
+
+    lines.append("=" * 60)
+    return "\n".join(lines)
+
+
+# =============================================================================
 # ETAPA 6: GERADOR DE RELATORIO
 # =============================================================================
 
@@ -1322,9 +2279,11 @@ def save_analysis(
     analysis: Dict,
     comparison: Optional[Dict],
     report_text: str,
-    total_no_match: int = 0
+    total_no_match: int = 0,
+    sat_analysis: Optional[Dict] = None,
+    sat_comparison: Optional[Dict] = None
 ) -> Optional[int]:
-    """Salva analise no banco (memoria acumulativa)."""
+    """Salva analise no banco (memoria acumulativa). Inclui dados de satisfacao se disponiveis."""
     ch_avg = analysis["channel_avg"]
 
     # Serializar videos (converter datetime para string)
@@ -1345,6 +2304,41 @@ def save_analysis(
             "new_structures": comparison.get("new_structures", [])
         }
 
+    results = {
+        "structures": analysis["structures"],
+        "insufficient": analysis["insufficient"],
+        "channel_avg": ch_avg,
+        "anomalies": analysis.get("anomalies", []),
+        "comparison": comparison_serialized,
+        "videos": all_videos_serialized
+    }
+
+    # Adicionar dados de satisfacao (Call 2) se disponiveis
+    if sat_analysis and sat_analysis.get("structures"):
+        # Serializar videos de satisfacao (converter datetime)
+        sat_videos = []
+        for v in sat_analysis.get("all_videos", []):
+            vc = dict(v)
+            if isinstance(vc.get("published_at"), datetime):
+                vc["published_at"] = vc["published_at"].isoformat()
+            sat_videos.append(vc)
+
+        results["satisfaction_structures"] = sat_analysis["structures"]
+        results["satisfaction_channel_avg"] = sat_analysis["channel_avg"]
+        results["satisfaction_insufficient"] = sat_analysis.get("insufficient", {})
+        results["satisfaction_anomalies"] = sat_analysis.get("anomalies", [])
+        results["satisfaction_has_dislikes"] = sat_analysis.get("has_dislikes", False)
+        results["satisfaction_has_subs"] = sat_analysis.get("has_subs", False)
+        results["satisfaction_videos"] = sat_videos
+
+        # Salvar comparacao de satisfacao (historico de mudancas)
+        if sat_comparison:
+            results["satisfaction_comparison"] = {
+                "previous_date": sat_comparison.get("previous_date"),
+                "changes": sat_comparison.get("changes", {}),
+                "new_structures": sat_comparison.get("new_structures", [])
+            }
+
     run_data = {
         "channel_id": channel_id,
         "channel_name": channel_name,
@@ -1354,14 +2348,7 @@ def save_analysis(
         "channel_avg_retention": ch_avg.get("retention"),
         "channel_avg_watch_time": ch_avg.get("watch_time"),
         "channel_avg_views": ch_avg.get("views"),
-        "results_json": json.dumps({
-            "structures": analysis["structures"],
-            "insufficient": analysis["insufficient"],
-            "channel_avg": ch_avg,
-            "anomalies": analysis.get("anomalies", []),
-            "comparison": comparison_serialized,
-            "videos": all_videos_serialized
-        }),
+        "results_json": json.dumps(results),
         "report_text": report_text
     }
 
@@ -1454,32 +2441,82 @@ def run_analysis(channel_id: str) -> Dict:
     if analysis.get("structures"):
         llm_insights = generate_llm_insights(channel_name, analysis, comparison)
 
-    # 7. Gerar relatorio
+    # 7. Gerar relatorio Call 1 (retencao)
     report = generate_report(channel_name, analysis, comparison, len(sheet_data), total_no_match, llm_insights)
 
-    # 8. Salvar
-    run_id = save_analysis(channel_id, channel_name, analysis, comparison, report, total_no_match)
+    # =====================================================================
+    # CALL 2: SATISFACAO DO PUBLICO
+    # =====================================================================
+    sat_analysis = None
+    sat_comparison = None
+    sat_report = ""
+
+    logger.info(f"CALL 2 (Satisfacao): Buscando dados para {channel_name}...")
+
+    # 8. Buscar dados de satisfacao (reutiliza video_ids do match)
+    satisfaction_data = get_satisfaction_data(channel_id, video_ids)
+
+    if satisfaction_data:
+        # 9. Analisar satisfacao
+        sat_analysis = analyze_satisfaction_performance(matched, satisfaction_data)
+
+        if sat_analysis.get("structures"):
+            # 10. Comparar satisfacao com anterior
+            sat_comparison = compare_satisfaction_with_previous(channel_id, sat_analysis)
+
+            # 11. LLM insights de satisfacao
+            sat_llm_insights = generate_satisfaction_llm_insights(channel_name, sat_analysis, sat_comparison)
+
+            # 12. Gerar relatorio de satisfacao
+            sat_report = generate_satisfaction_report(channel_name, sat_analysis, sat_comparison, sat_llm_insights)
+
+            logger.info(f"CALL 2 OK: {len(sat_analysis['structures'])} estruturas, "
+                        f"{len(sat_analysis.get('all_videos', []))} videos")
+        else:
+            logger.warning(f"CALL 2: Sem estruturas suficientes para analise de satisfacao")
+    else:
+        logger.warning(f"CALL 2: Sem dados de satisfacao disponiveis para {channel_name}")
+
+    # 13. Combinar relatorios (Call 1 + Call 2)
+    combined_report = report
+    if sat_report:
+        combined_report = report + "\n" + sat_report
+
+    # 14. Salvar tudo junto
+    run_id = save_analysis(
+        channel_id, channel_name, analysis, comparison,
+        combined_report, total_no_match, sat_analysis, sat_comparison
+    )
 
     logger.info(f"ANALISE COMPLETA: {channel_name} | run_id={run_id}")
     logger.info(f"  Structures: {len(analysis['structures'])} | "
                 f"Videos: {len(analysis.get('all_videos', []))} | "
                 f"Media retencao: {analysis['channel_avg']['retention']:.1f}%")
+    if sat_analysis and sat_analysis.get("structures"):
+        logger.info(f"  Satisfacao: {len(sat_analysis['structures'])} estruturas | "
+                    f"Media approval: {sat_analysis['channel_avg']['approval']:.1f}%")
+
+    summary = {
+        "structures_analyzed": len(analysis["structures"]),
+        "structures_insufficient": len(analysis["insufficient"]),
+        "total_videos": len(analysis.get("all_videos", [])),
+        "total_excluded": analysis.get("excluded_immature", 0),
+        "total_no_match": total_no_match,
+        "channel_avg_retention": analysis["channel_avg"]["retention"],
+        "anomalies_count": len(analysis.get("anomalies", []))
+    }
+
+    if sat_analysis and sat_analysis.get("channel_avg"):
+        summary["satisfaction_avg_approval"] = sat_analysis["channel_avg"]["approval"]
+        summary["satisfaction_avg_sub_ratio"] = sat_analysis["channel_avg"]["sub_ratio"]
 
     return {
         "success": True,
         "channel_id": channel_id,
         "channel_name": channel_name,
         "run_id": run_id,
-        "report": report,
-        "summary": {
-            "structures_analyzed": len(analysis["structures"]),
-            "structures_insufficient": len(analysis["insufficient"]),
-            "total_videos": len(analysis.get("all_videos", [])),
-            "total_excluded": analysis.get("excluded_immature", 0),
-            "total_no_match": total_no_match,
-            "channel_avg_retention": analysis["channel_avg"]["retention"],
-            "anomalies_count": len(analysis.get("anomalies", []))
-        }
+        "report": combined_report,
+        "summary": summary
     }
 
 

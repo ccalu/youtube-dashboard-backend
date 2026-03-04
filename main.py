@@ -7468,7 +7468,8 @@ from authenticity_agent import (
 from theme_agent import (
     run_analysis as theme_run_analysis,
     get_latest_analysis as theme_get_latest,
-    get_analysis_history as theme_get_history
+    get_analysis_history as theme_get_history,
+    delete_analysis as theme_delete_analysis
 )
 
 
@@ -7788,11 +7789,11 @@ async def get_auth_overview():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# --- Endpoints individuais de temas (Agente 3) ---
+# --- Endpoints individuais de temas (Agente 3 — Temas + Motores Psicologicos) ---
 
 @app.post("/api/analise-temas/{channel_id}")
 async def trigger_theme_analysis(channel_id: str):
-    """Roda Agente 5 (Temas) para um canal."""
+    """Roda Agente 3 (Temas + Motores Psicologicos) para um canal."""
     try:
         result = theme_run_analysis(channel_id)
         return result
@@ -7803,7 +7804,7 @@ async def trigger_theme_analysis(channel_id: str):
 
 @app.post("/api/analise-temas/run-all")
 async def run_theme_analysis_all():
-    """Roda Agente 5 (Temas) para todos os canais ativos."""
+    """Roda Agente 3 (Temas + Motores Psicologicos) para todos os canais ativos."""
     try:
         from theme_agent import get_channels_for_themes
         channels = get_channels_for_themes()
@@ -7863,7 +7864,7 @@ async def get_theme_analysis_history(channel_id: str, limit: int = 20, offset: i
 async def get_theme_analysis_run(channel_id: str, run_id: int):
     """Retorna relatorio de um run especifico por ID."""
     try:
-        resp = db.supabase.table('theme_analysis_runs').select('id,channel_id,run_date,report_text,theme_count,total_videos_analyzed').eq('id', run_id).eq('channel_id', channel_id).limit(1).execute()
+        resp = db.supabase.table('theme_analysis_runs').select('id,channel_id,run_date,run_number,report_text,theme_count,total_videos_analyzed,themes_json,analyzed_video_data').eq('id', run_id).eq('channel_id', channel_id).limit(1).execute()
         if resp.data:
             return resp.data[0]
         raise HTTPException(status_code=404, detail="Run nao encontrado")
@@ -7871,6 +7872,21 @@ async def get_theme_analysis_run(channel_id: str, run_id: int):
         raise
     except Exception as e:
         logger.error(f"Erro run temas {channel_id}/{run_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/analise-temas/{channel_id}/run/{run_id}")
+async def delete_theme_analysis_run(channel_id: str, run_id: int):
+    """Deleta um relatorio especifico. Videos do relatorio voltam a ser 'novos' na proxima analise."""
+    try:
+        result = theme_delete_analysis(channel_id, run_id)
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Erro ao deletar"))
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro deletar temas {channel_id}/{run_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -9024,6 +9040,1008 @@ loadChannels();
 async def dash_copy_analysis_page():
     """Dashboard de Analise de Copy - Interface web"""
     return DASH_COPY_ANALYSIS_HTML
+
+
+# =========================================================================
+# DASHBOARD TEMAS + MOTORES PSICOLOGICOS (Agente 3)
+# =========================================================================
+
+@app.get("/api/dash-analise-temas/channels")
+async def dash_temas_channels():
+    """Lista canais ativos agrupados por subnicho + ultima analise de temas."""
+    try:
+        ch_resp = supabase.table("yt_channels")\
+            .select("channel_id,channel_name,subnicho,is_monetized,lingua")\
+            .eq("is_active", True)\
+            .order("is_monetized", desc=True)\
+            .order("channel_name")\
+            .execute()
+        channels = ch_resp.data or []
+        if not channels:
+            return {"subnichos": {}, "stats": {"total": 0, "com_relatorio": 0}}
+
+        channel_ids = [c["channel_id"] for c in channels]
+        last_themes = {}
+        for i in range(0, len(channel_ids), 20):
+            batch = channel_ids[i:i+20]
+            resp = supabase.table("theme_analysis_runs")\
+                .select("channel_id,run_date,run_number,theme_count,total_videos_analyzed")\
+                .in_("channel_id", batch)\
+                .order("run_date", desc=True)\
+                .execute()
+            for row in resp.data:
+                cid = row["channel_id"]
+                if cid not in last_themes:
+                    last_themes[cid] = row
+
+        subnichos = {}
+        com_relatorio = 0
+        for ch in channels:
+            sub = ch.get("subnicho", "Outros") or "Outros"
+            if sub not in subnichos:
+                subnichos[sub] = []
+            theme_info = last_themes.get(ch["channel_id"])
+            if theme_info:
+                com_relatorio += 1
+            subnichos[sub].append({
+                "channel_id": ch["channel_id"],
+                "channel_name": ch.get("channel_name", ""),
+                "lingua": ch.get("lingua", ""),
+                "is_monetized": ch.get("is_monetized", False),
+                "last_analysis_date": theme_info["run_date"] if theme_info else None,
+                "run_number": theme_info["run_number"] if theme_info else None,
+                "theme_count": theme_info["theme_count"] if theme_info else None,
+                "total_videos": theme_info["total_videos_analyzed"] if theme_info else None,
+            })
+
+        return {
+            "subnichos": subnichos,
+            "stats": {"total": len(channels), "com_relatorio": com_relatorio}
+        }
+    except Exception as e:
+        logger.error(f"Erro dash-analise-temas channels: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+DASH_THEME_ANALYSIS_HTML = '''<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect rx='20' width='100' height='100' fill='%230a0a0f'/><path d='M50 20C38 20 30 28 30 38c0 6 3 11 7 14v8c0 2 1 3 3 3h2v10c0 2 2 4 4 4h8c2 0 4-2 4-4V63h2c2 0 3-1 3-3v-8c4-3 7-8 7-14C70 28 62 20 50 20z' fill='%23a78bfa'/><path d='M50 20v47M42 32c0 8 0 16 8 20M58 32c0 8 0 16-8 20' stroke='%230a0a0f' stroke-width='2' fill='none'/></svg>">
+<title>Temas + Motores - Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg-primary: #0a0a0f;
+    --bg-secondary: #12121a;
+    --bg-tertiary: #1a1a24;
+    --bg-card: #16161f;
+    --text-primary: #e8e8ed;
+    --text-secondary: #a0a0b0;
+    --text-muted: #6b6b7b;
+    --accent: #a78bfa;
+    --accent-dim: rgba(167, 139, 250, 0.15);
+    --warning: #ff6b6b;
+    --warning-dim: rgba(255, 107, 107, 0.15);
+    --highlight: #ffd93d;
+    --highlight-dim: rgba(255, 217, 61, 0.1);
+    --green: #00d4aa;
+    --green-dim: rgba(0, 212, 170, 0.15);
+    --orange: #ff9f43;
+    --blue: #54a0ff;
+    --border: rgba(255, 255, 255, 0.08);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+.container { display:flex; min-height:100vh; }
+
+/* Sidebar */
+.sidebar {
+    width: 280px;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    padding: 1.5rem 1rem;
+    position: fixed;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 10;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(167,139,250,0.2) transparent;
+}
+.sidebar::-webkit-scrollbar { width: 5px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb {
+    background: rgba(167,139,250,0.15);
+    border-radius: 10px;
+}
+.sidebar::-webkit-scrollbar-thumb:hover { background: rgba(167,139,250,0.35); }
+.sidebar:not(:hover)::-webkit-scrollbar-thumb { background: transparent; }
+.sidebar-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+.sidebar-title {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    font-weight: 600;
+}
+.sidebar-subtitle {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-top: 0.25rem;
+}
+.sidebar-stats {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+}
+.sidebar-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+.btn {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+.btn-accent {
+    background: var(--accent);
+    color: #0a0a0f;
+}
+.btn-accent:hover { opacity: 0.85; transform: translateY(-1px); }
+.btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+}
+.btn-secondary:hover { color: var(--text-primary); background: #222230; }
+.btn:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+
+/* Subnicho groups */
+.subnicho-group { margin-bottom: 1rem; }
+.subnicho-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    padding: 0.4rem 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 6px;
+    margin-bottom: 0.3rem;
+}
+.subnicho-icon { font-size: 0.75rem; }
+
+/* Channel items */
+.channel-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.6rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 2px;
+}
+.channel-item:hover { background: var(--bg-tertiary); }
+.channel-item.active {
+    background: var(--accent-dim);
+    border-left: 3px solid var(--accent);
+}
+.channel-flag {
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(255,255,255,0.08);
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+.channel-info { flex: 1; min-width: 0; }
+.channel-name {
+    font-size: 0.78rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-primary);
+}
+.channel-date {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+}
+.channel-badge {
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+.channel-badge.has-report { background: var(--accent-dim); color: var(--accent); }
+
+/* Main */
+.main {
+    margin-left: 280px;
+    flex: 1;
+    padding: 2rem 2.5rem;
+    min-height: 100vh;
+}
+.main-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+.main-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+.main-actions { display: flex; gap: 0.5rem; }
+
+/* Stats bar */
+.stats-bar {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+.stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.8rem 1.2rem;
+    min-width: 120px;
+}
+.stat-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 0.2rem;
+}
+.stat-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+}
+.stat-value.purple { color: var(--accent); }
+.stat-value.green { color: var(--green); }
+.stat-value.yellow { color: var(--highlight); }
+.stat-value.blue { color: var(--blue); }
+
+/* Report */
+.report-container {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text-secondary);
+}
+.report-header-line { color: var(--accent); font-weight: 600; }
+.report-title { color: var(--accent); font-weight: 700; font-size: 0.9rem; }
+.report-meta { color: var(--text-secondary); }
+.report-meta .val { color: var(--highlight); font-weight: 600; }
+.section-header {
+    color: var(--accent);
+    font-weight: 600;
+    padding: 0.3rem 0;
+    margin-top: 0.5rem;
+}
+.section-header.ranking { color: var(--green); }
+.section-header.motores { color: var(--orange); }
+.section-header.padroes { color: var(--blue); }
+.section-header.rec { color: var(--accent); }
+.section-header.novos { color: var(--highlight); }
+.section-header.evolucao { color: var(--orange); }
+.section-header.crescimento { color: var(--green); }
+.section-header.hipoteses { color: var(--blue); }
+
+.ranking-line { color: var(--text-primary); }
+.ranking-line .score-high { color: var(--green); font-weight: 600; }
+.ranking-line .score-mid { color: var(--highlight); font-weight: 600; }
+.ranking-line .score-low { color: var(--warning); font-weight: 600; }
+.ranking-line .ctr-above { color: var(--green); }
+.ranking-line .ctr-below { color: var(--warning); }
+
+.motor-line { color: var(--text-primary); }
+.motor-line .motor-name { color: var(--orange); font-weight: 600; }
+.motor-line .motor-pct { color: var(--highlight); }
+
+.narrative { color: var(--text-secondary); }
+.alert-line { color: var(--warning); font-weight: 500; }
+.produzir-line { color: var(--green); font-weight: 500; }
+.evitar-line { color: var(--warning); }
+.score-line { color: var(--highlight); font-weight: 600; }
+
+.tema-tag {
+    display: inline-block;
+    background: var(--accent-dim);
+    color: var(--accent);
+    padding: 0 6px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+.motor-tag {
+    display: inline-block;
+    background: rgba(255,159,67,0.12);
+    color: var(--orange);
+    padding: 0 6px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+
+/* Ranking table */
+.ranking-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    margin: 1rem 0;
+}
+.ranking-table th {
+    text-align: left;
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.ranking-table td {
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    vertical-align: top;
+}
+.ranking-table tr:hover { background: rgba(167,139,250,0.05); }
+.ranking-table .rank-num {
+    color: var(--accent);
+    font-weight: 700;
+    width: 30px;
+}
+.ranking-table .score-cell { width: 60px; font-weight: 600; }
+.ranking-table .views-cell { width: 80px; color: var(--text-secondary); }
+.ranking-table .ctr-cell { width: 100px; }
+.ranking-table .tema-cell { color: var(--accent); font-size: 0.75rem; }
+.ranking-table .motores-cell { font-size: 0.72rem; color: var(--orange); }
+.ranking-table .title-cell {
+    color: var(--text-primary);
+    max-width: 300px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Tabs */
+.tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+}
+.tab {
+    padding: 0.6rem 1.2rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+.tab:hover { color: var(--text-secondary); }
+.tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+/* Empty / Loading */
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-muted);
+}
+.empty-state h2 { font-size: 1rem; margin-bottom: 0.5rem; color: var(--text-secondary); }
+.empty-state p { font-size: 0.85rem; }
+.loading {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-muted);
+}
+.loading-spinner {
+    display: inline-block;
+    width: 24px; height: 24px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 0.5rem;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Modal */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top:0; left:0; right:0; bottom:0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: 500px;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 1.5rem;
+}
+.modal-title {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--accent);
+}
+.history-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 0.8rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+    margin-bottom: 4px;
+}
+.history-item:hover { background: var(--bg-tertiary); }
+.history-item .hi-date { font-size: 0.8rem; color: var(--text-primary); font-weight: 500; }
+.history-item .hi-meta { font-size: 0.7rem; color: var(--text-muted); }
+.history-item .hi-run { font-size: 0.7rem; color: var(--accent); font-weight: 600; }
+
+/* Delete btn */
+.btn-danger {
+    background: var(--warning-dim);
+    color: var(--warning);
+    border: 1px solid rgba(255,107,107,0.2);
+}
+.btn-danger:hover { background: rgba(255,107,107,0.25); }
+</style>
+</head>
+<body>
+<div class="container">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title">Agente 3</div>
+            <div class="sidebar-subtitle">Temas + Motores</div>
+            <div class="sidebar-stats" id="sidebarStats">Carregando...</div>
+        </div>
+        <div class="sidebar-actions">
+            <button class="btn btn-accent" onclick="runAll()" title="Rodar Agente 3 em todos">Rodar Todos</button>
+        </div>
+        <div id="channelList"></div>
+    </aside>
+    <main class="main">
+        <div class="main-header">
+            <div class="main-title" id="mainTitle">Selecione um canal</div>
+            <div class="main-actions" id="mainActions" style="display:none">
+                <button class="btn btn-accent" onclick="runAnalysis()">Rodar Analise</button>
+                <button class="btn btn-secondary" onclick="showHistory()">Historico</button>
+            </div>
+        </div>
+        <div id="statsBar"></div>
+        <div id="tabsArea"></div>
+        <div id="reportArea">
+            <div class="empty-state">
+                <h2>Temas + Motores Psicologicos</h2>
+                <p>Selecione um canal na sidebar para ver a analise</p>
+            </div>
+        </div>
+    </main>
+</div>
+<div class="modal-overlay" id="historyModal">
+    <div class="modal">
+        <div class="modal-title">Historico de Analises</div>
+        <div id="historyList"></div>
+        <button class="btn btn-secondary" onclick="closeHistory()" style="margin-top:1rem;width:100%">Fechar</button>
+    </div>
+</div>
+<script>
+var _sel = null;
+var _channels = {};
+
+function getSubnichoStyle(sub) {
+    var map = {
+        'Monetizados': {color:'#00d4aa',icon:'$'},
+        'Historias Sombrias': {color:'#a78bfa',icon:'Q'},
+        'Relatos de Guerra': {color:'#2d8a6e',icon:'W'},
+        'Guerras e Civilizacoes': {color:'#ff9f43',icon:'F'},
+        'Terror': {color:'#7c1d3e',icon:'S'},
+        'Desmonetizados': {color:'#ef4444',icon:'O'},
+        'Curiosidades Historicas': {color:'#54a0ff',icon:'?'},
+        'Economia e Financas': {color:'#ffd93d',icon:'$'},
+        'Biografias e Personalidades': {color:'#f97316',icon:'P'},
+        'Misterios e Sobrenatural': {color:'#8b5cf6',icon:'M'},
+        'Ciencia e Tecnologia': {color:'#06b6d4',icon:'C'},
+        'Crimes Reais': {color:'#dc2626',icon:'!'},
+        'Cultura e Sociedade': {color:'#ec4899',icon:'C'},
+        'Natureza e Animais': {color:'#22c55e',icon:'N'}
+    };
+    return map[sub] || {color:'#6b6b7b',icon:'#'};
+}
+
+function getFlag(l) {
+    if (!l) return '??';
+    var ll = l.toLowerCase();
+    if (ll.indexOf('portug') >= 0) return 'PT';
+    if (ll.indexOf('ingl') >= 0 || ll === 'english') return 'EN';
+    if (ll.indexOf('espan') >= 0 || ll === 'spanish') return 'ES';
+    if (ll.indexOf('franc') >= 0) return 'FR';
+    if (ll.indexOf('italian') >= 0) return 'IT';
+    if (ll.indexOf('japon') >= 0) return 'JP';
+    if (ll.indexOf('alem') >= 0) return 'DE';
+    if (ll.indexOf('core') >= 0) return 'KR';
+    if (ll.indexOf('polon') >= 0) return 'PL';
+    if (ll.indexOf('russ') >= 0) return 'RU';
+    if (ll.indexOf('turc') >= 0) return 'TR';
+    if (ll.indexOf('arab') >= 0) return 'AR';
+    return l.substring(0,2).toUpperCase();
+}
+
+function fmtDate(d) {
+    if (!d) return '';
+    var dt = new Date(d);
+    return pad(dt.getDate()) + '/' + pad(dt.getMonth()+1) + ' ' + pad(dt.getHours()) + ':' + pad(dt.getMinutes());
+}
+
+function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+function fmtViews(n) {
+    if (n >= 1000000) return (n/1000000).toFixed(1) + 'M';
+    if (n >= 1000) { var v = n/1000; return v < 100 ? v.toFixed(1) + 'K' : Math.round(v) + 'K'; }
+    return String(n);
+}
+
+function escHtml(s) {
+    if (!s) return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function loadChannels() {
+    fetch('/api/dash-analise-temas/channels')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var subs = data.subnichos || {};
+        var stats = data.stats || {};
+        document.getElementById('sidebarStats').textContent = stats.total + ' canais | ' + stats.com_relatorio + ' com relatorio';
+
+        var order = ['Monetizados','Relatos de Guerra','Historias Sombrias','Terror',
+                     'Guerras e Civilizacoes','Curiosidades Historicas','Biografias e Personalidades',
+                     'Crimes Reais','Misterios e Sobrenatural','Economia e Financas',
+                     'Ciencia e Tecnologia','Cultura e Sociedade','Natureza e Animais','Desmonetizados'];
+        var keys = Object.keys(subs).sort(function(a,b) {
+            var ia = order.indexOf(a); var ib = order.indexOf(b);
+            if (ia < 0) ia = 99; if (ib < 0) ib = 99;
+            return ia - ib;
+        });
+
+        var html = '';
+        for (var ki = 0; ki < keys.length; ki++) {
+            var sub = keys[ki];
+            var st = getSubnichoStyle(sub);
+            var chs = subs[sub];
+            html += '<div class="subnicho-group">';
+            html += '<div class="subnicho-label" style="color:' + st.color + ';background:' + st.color + '12">';
+            html += '<span class="subnicho-icon">' + st.icon + '</span> ' + escHtml(sub) + ' (' + chs.length + ')</div>';
+            for (var ci = 0; ci < chs.length; ci++) {
+                var ch = chs[ci];
+                _channels[ch.channel_id] = ch;
+                var badge = '';
+                if (ch.run_number) {
+                    badge = '<span class="channel-badge has-report">#' + ch.run_number + '</span>';
+                }
+                html += '<div class="channel-item" data-id="' + ch.channel_id + '" onclick="selectChannel(\\'' + ch.channel_id + '\\')">';
+                html += '<span class="channel-flag">' + getFlag(ch.lingua) + '</span>';
+                html += '<div class="channel-info"><div class="channel-name">' + escHtml(ch.channel_name) + '</div>';
+                html += '<div class="channel-date">' + (ch.last_analysis_date ? fmtDate(ch.last_analysis_date) : 'Sem analise') + '</div></div>';
+                html += badge + '</div>';
+            }
+            html += '</div>';
+        }
+        document.getElementById('channelList').innerHTML = html;
+    });
+}
+
+function selectChannel(id) {
+    _sel = id;
+    var items = document.querySelectorAll('.channel-item');
+    for (var i = 0; i < items.length; i++) {
+        items[i].classList.toggle('active', items[i].getAttribute('data-id') === id);
+    }
+    var ch = _channels[id];
+    document.getElementById('mainTitle').textContent = ch ? ch.channel_name : id;
+    document.getElementById('mainActions').style.display = 'flex';
+    loadLatestReport(id);
+}
+
+function loadLatestReport(id) {
+    document.getElementById('statsBar').innerHTML = '';
+    document.getElementById('tabsArea').innerHTML = '';
+    document.getElementById('reportArea').innerHTML = '<div class="loading"><div class="loading-spinner"></div><br>Carregando analise...</div>';
+
+    fetch('/api/analise-temas/' + id + '/latest')
+    .then(function(r) { if (r.status === 404) return null; return r.json(); })
+    .then(function(data) {
+        if (!data) {
+            document.getElementById('reportArea').innerHTML = '<div class="empty-state"><h2>Nenhuma analise encontrada</h2><p>Clique em "Rodar Analise" para gerar o primeiro relatorio</p></div>';
+            return;
+        }
+        renderFullReport(data);
+    })
+    .catch(function() {
+        document.getElementById('reportArea').innerHTML = '<div class="empty-state"><h2>Erro ao carregar</h2></div>';
+    });
+}
+
+function renderFullReport(data) {
+    // Stats bar
+    var ranking = [];
+    try { ranking = data.ranking_json || []; } catch(e) {}
+    var statsHtml = '<div class="stats-bar">';
+    statsHtml += '<div class="stat-card"><div class="stat-label">Relatorio</div><div class="stat-value purple">#' + (data.run_number || 1) + '</div></div>';
+    statsHtml += '<div class="stat-card"><div class="stat-label">Videos</div><div class="stat-value green">' + (data.total_videos_analyzed || 0) + '</div></div>';
+    statsHtml += '<div class="stat-card"><div class="stat-label">Temas</div><div class="stat-value yellow">' + (data.theme_count || 0) + '</div></div>';
+    var motorCount = 0;
+    try { var p = data.patterns_json || {}; var mc = p.motor_counts || []; motorCount = mc.length; } catch(e) {}
+    statsHtml += '<div class="stat-card"><div class="stat-label">Motores</div><div class="stat-value blue">' + motorCount + '</div></div>';
+    if (data.concentration_pct) {
+        statsHtml += '<div class="stat-card"><div class="stat-label">Top 5 Views</div><div class="stat-value">' + Math.round(data.concentration_pct) + '%</div></div>';
+    }
+    statsHtml += '</div>';
+    document.getElementById('statsBar').innerHTML = statsHtml;
+
+    // Tabs
+    var tabsHtml = '<div class="tabs">';
+    tabsHtml += '<div class="tab active" onclick="switchTab(\\'' + 'report' + '\\')">Relatorio</div>';
+    if (ranking.length > 0) {
+        tabsHtml += '<div class="tab" onclick="switchTab(\\'' + 'ranking' + '\\')">Ranking</div>';
+    }
+    tabsHtml += '<div class="tab" onclick="switchTab(\\'' + 'motores' + '\\')">Motores</div>';
+    tabsHtml += '</div>';
+    document.getElementById('tabsArea').innerHTML = tabsHtml;
+
+    // Render report tab by default
+    window._reportData = data;
+    renderReportTab();
+}
+
+function switchTab(tab) {
+    var tabs = document.querySelectorAll('.tab');
+    for (var i = 0; i < tabs.length; i++) {
+        tabs[i].classList.toggle('active', tabs[i].textContent.toLowerCase().replace('relatorio','report').replace('motores','motores') === tab
+            || (tab === 'report' && tabs[i].textContent === 'Relatorio')
+            || (tab === 'ranking' && tabs[i].textContent === 'Ranking')
+            || (tab === 'motores' && tabs[i].textContent === 'Motores'));
+    }
+    if (tab === 'report') renderReportTab();
+    else if (tab === 'ranking') renderRankingTab();
+    else if (tab === 'motores') renderMotoresTab();
+}
+
+function renderReportTab() {
+    var data = window._reportData;
+    if (!data || !data.report_text) {
+        document.getElementById('reportArea').innerHTML = '<div class="empty-state"><h2>Sem relatorio</h2></div>';
+        return;
+    }
+    var html = '<div class="report-container">' + renderReportLines(data.report_text) + '</div>';
+    document.getElementById('reportArea').innerHTML = html;
+}
+
+function renderRankingTab() {
+    var data = window._reportData;
+    var ranking = data.ranking_json || [];
+    if (ranking.length === 0) {
+        document.getElementById('reportArea').innerHTML = '<div class="empty-state"><h2>Sem ranking</h2></div>';
+        return;
+    }
+    var html = '<table class="ranking-table">';
+    html += '<thead><tr><th>#</th><th>Score</th><th>Views</th><th>CTR</th><th>Titulo</th><th>Tema</th><th>Motores</th></tr></thead>';
+    html += '<tbody>';
+    for (var i = 0; i < ranking.length; i++) {
+        var v = ranking[i];
+        var scoreClass = v.score >= 70 ? 'score-high' : v.score >= 40 ? 'score-mid' : 'score-low';
+        var ctrHtml = '';
+        if (v.ctr != null) {
+            var ctrClass = (v.ctr_diff != null && v.ctr_diff >= 0) ? 'ctr-above' : 'ctr-below';
+            ctrHtml = v.ctr.toFixed(1) + '%';
+            if (v.ctr_diff != null) {
+                ctrHtml += ' <span class="' + ctrClass + '">(' + (v.ctr_diff >= 0 ? '+' : '') + v.ctr_diff.toFixed(1) + 'pp)</span>';
+            }
+        } else {
+            ctrHtml = '<span style="color:var(--text-muted)">--</span>';
+        }
+        var motoresHtml = '';
+        if (v.motores && v.motores.length > 0) {
+            for (var mi = 0; mi < v.motores.length; mi++) {
+                motoresHtml += '<span class="motor-tag">' + escHtml(v.motores[mi]) + '</span> ';
+            }
+        }
+        html += '<tr>';
+        html += '<td class="rank-num">' + v.rank + '</td>';
+        html += '<td class="score-cell"><span class="' + scoreClass + '">' + v.score + '</span></td>';
+        html += '<td class="views-cell">' + fmtViews(v.views) + '</td>';
+        html += '<td class="ctr-cell">' + ctrHtml + '</td>';
+        html += '<td class="title-cell" title="' + escHtml(v.title) + '">' + escHtml(v.title) + '</td>';
+        html += '<td class="tema-cell"><span class="tema-tag">' + escHtml(v.tema) + '</span></td>';
+        html += '<td class="motores-cell">' + motoresHtml + '</td>';
+        html += '</tr>';
+    }
+    html += '</tbody></table>';
+    document.getElementById('reportArea').innerHTML = html;
+}
+
+function renderMotoresTab() {
+    var data = window._reportData;
+    var motorCounts = [];
+    try { motorCounts = (data.patterns_json || {}).motor_counts || []; } catch(e) {}
+    if (motorCounts.length === 0) {
+        document.getElementById('reportArea').innerHTML = '<div class="empty-state"><h2>Sem dados de motores</h2></div>';
+        return;
+    }
+    var maxCount = motorCounts[0].count || 1;
+    var html = '<div style="max-width:700px">';
+    for (var i = 0; i < motorCounts.length; i++) {
+        var m = motorCounts[i];
+        var pct = Math.round((m.count / maxCount) * 100);
+        html += '<div style="margin-bottom:1rem;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:1rem 1.2rem">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem">';
+        html += '<span style="color:var(--orange);font-weight:700;font-size:0.9rem">' + escHtml(m.motor) + '</span>';
+        html += '<span style="color:var(--text-muted);font-size:0.75rem">' + m.count + '/' + m.total_videos + ' videos (' + Math.round(m.pct) + '%)</span>';
+        html += '</div>';
+        html += '<div style="background:var(--bg-tertiary);border-radius:6px;height:8px;overflow:hidden">';
+        html += '<div style="background:var(--orange);height:100%;width:' + pct + '%;border-radius:6px;transition:width 0.5s"></div>';
+        html += '</div>';
+        if (m.avg_score) {
+            html += '<div style="margin-top:0.3rem;font-size:0.7rem;color:var(--text-muted)">Score medio: <span style="color:var(--highlight)">' + Math.round(m.avg_score) + '</span></div>';
+        }
+        html += '</div>';
+    }
+    html += '</div>';
+    document.getElementById('reportArea').innerHTML = html;
+}
+
+function renderReportLines(text) {
+    if (!text) return '';
+    var lines = text.split('\\n');
+    var html = '';
+
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        var trimmed = line.trim();
+
+        if (/^={10,}/.test(trimmed)) {
+            html += '<div class="report-header-line">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (/^(RELATORIO |AGENTE 3)/.test(trimmed)) {
+            html += '<div class="report-title">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (/^\\[RANKING COMENTADO/.test(trimmed)) {
+            html += '<div class="section-header ranking">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (/^\\[MOTORES (DOMINANTES|NOS NOVOS)/.test(trimmed)) {
+            html += '<div class="section-header motores">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (/^\\[PADROES/.test(trimmed)) {
+            html += '<div class="section-header padroes">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (/^\\[RECOMENDACOES/.test(trimmed)) {
+            html += '<div class="section-header rec">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (/^\\[RANKING GERAL/.test(trimmed)) {
+            html += '<div class="section-header ranking">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (/^\\[EVOLUCAO/.test(trimmed)) {
+            html += '<div class="section-header evolucao">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (/^\\[VIDEOS COM CRESCIMENTO/.test(trimmed)) {
+            html += '<div class="section-header crescimento">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (/^\\[HIPOTESES ANTERIORES/.test(trimmed)) {
+            html += '<div class="section-header hipoteses">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (/^\\[RANKING COMENTADO.*NOVOS/.test(trimmed)) {
+            html += '<div class="section-header novos">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (/^--- .+ ---/.test(trimmed)) {
+            html += '<div class="section-header">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (trimmed === '') {
+            html += '<br>';
+            continue;
+        }
+        if (/^PRODUZIR MAIS:/i.test(trimmed)) {
+            html += '<div class="produzir-line">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (/^EVITAR:/i.test(trimmed) || /^NAO PRODUZIR:/i.test(trimmed)) {
+            html += '<div class="evitar-line">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (/^!/.test(trimmed)) {
+            html += '<div class="alert-line">' + escHtml(line) + '</div>';
+            continue;
+        }
+        // Meta lines with values
+        if (/^(Canal|Videos|Temas|Motores|CTR|Relatorio|Data|Score|Total):/.test(trimmed)) {
+            var metaLine = escHtml(line).replace(/:\\s*(.+)$/, ': <span class="val">$1</span>');
+            html += '<div class="report-meta">' + metaLine + '</div>';
+            continue;
+        }
+        // Score line
+        if (/Score:\\s*\\d/.test(trimmed) || /^\\d+\\/100/.test(trimmed)) {
+            html += '<div class="score-line">' + escHtml(line) + '</div>';
+            continue;
+        }
+        // Ranking lines (#1, #2, etc)
+        if (/^#\\d+/.test(trimmed)) {
+            var rl = escHtml(line);
+            rl = rl.replace(/(Score:\\s*)(\\d+)/g, function(m,p,s) {
+                var n = parseInt(s);
+                var cls = n >= 70 ? 'score-high' : n >= 40 ? 'score-mid' : 'score-low';
+                return p + '<span class="' + cls + '">' + s + '</span>';
+            });
+            rl = rl.replace(/(\\+\\d+\\.?\\d*pp)/g, '<span class="ctr-above">$1</span>');
+            rl = rl.replace(/(\\-\\d+\\.?\\d*pp)/g, '<span class="ctr-below">$1</span>');
+            html += '<div class="ranking-line">' + rl + '</div>';
+            continue;
+        }
+        // Motor dominante lines (with --)
+        if (/^\\d+\\.\\s+.+--/.test(trimmed)) {
+            var ml = escHtml(line);
+            ml = ml.replace(/^(\\d+\\.\\s+)(.+?)(\\s+--)/, '$1<span class="motor-name">$2</span>$3');
+            ml = ml.replace(/(\\d+%)/g, '<span class="motor-pct">$1</span>');
+            html += '<div class="motor-line">' + ml + '</div>';
+            continue;
+        }
+        html += '<div class="narrative">' + escHtml(line) + '</div>';
+    }
+    return html;
+}
+
+function runAnalysis() {
+    if (!_sel) return;
+    var ch = _channels[_sel];
+    if (!confirm('Rodar Agente 3 (Temas + Motores) para ' + (ch ? ch.channel_name : _sel) + '?')) return;
+    document.getElementById('reportArea').innerHTML = '<div class="loading"><div class="loading-spinner"></div><br>Rodando analise... (pode demorar 30-60s)</div>';
+    document.getElementById('mainActions').querySelectorAll('button').forEach(function(b) { b.disabled = true; });
+
+    fetch('/api/analise-temas/' + _sel, { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+        document.getElementById('mainActions').querySelectorAll('button').forEach(function(b) { b.disabled = false; });
+        if (result.success) {
+            loadLatestReport(_sel);
+            loadChannels();
+        } else {
+            document.getElementById('reportArea').innerHTML = '<div class="empty-state"><h2>Erro na analise</h2><p>' + escHtml(result.error || 'Erro desconhecido') + '</p></div>';
+        }
+    })
+    .catch(function(e) {
+        document.getElementById('mainActions').querySelectorAll('button').forEach(function(b) { b.disabled = false; });
+        document.getElementById('reportArea').innerHTML = '<div class="empty-state"><h2>Erro de conexao</h2><p>' + e.message + '</p></div>';
+    });
+}
+
+function runAll() {
+    if (!confirm('Rodar Agente 3 para TODOS os canais? Isso pode demorar varios minutos.')) return;
+    document.getElementById('reportArea').innerHTML = '<div class="loading"><div class="loading-spinner"></div><br>Rodando em todos os canais...</div>';
+
+    fetch('/api/analise-temas/run-all', { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+        alert('Concluido! ' + (result.success_count || 0) + ' sucesso, ' + (result.error_count || 0) + ' erros');
+        loadChannels();
+        if (_sel) loadLatestReport(_sel);
+    });
+}
+
+function showHistory() {
+    if (!_sel) return;
+    document.getElementById('historyList').innerHTML = '<div class="loading"><div class="loading-spinner"></div></div>';
+    document.getElementById('historyModal').classList.add('open');
+
+    fetch('/api/analise-temas/' + _sel + '/historico?limit=30')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        var runs = data.runs || [];
+        if (runs.length === 0) {
+            document.getElementById('historyList').innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:1rem">Nenhum historico</div>';
+            return;
+        }
+        var html = '';
+        for (var i = 0; i < runs.length; i++) {
+            var r = runs[i];
+            html += '<div class="history-item" onclick="loadHistoryRun(\\'' + _sel + '\\',' + r.id + ')">';
+            html += '<div><div class="hi-date">' + fmtDate(r.run_date) + '</div>';
+            html += '<div class="hi-meta">' + (r.total_videos_analyzed || 0) + ' videos, ' + (r.theme_count || 0) + ' temas</div></div>';
+            html += '<div class="hi-run">#' + (r.run_number || '?') + '</div>';
+            html += '</div>';
+        }
+        document.getElementById('historyList').innerHTML = html;
+    });
+}
+
+function loadHistoryRun(channelId, runId) {
+    closeHistory();
+    document.getElementById('reportArea').innerHTML = '<div class="loading"><div class="loading-spinner"></div><br>Carregando relatorio...</div>';
+
+    fetch('/api/analise-temas/' + channelId + '/run/' + runId)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data && data.report_text) {
+            renderFullReport(data);
+        } else {
+            // Run endpoint has limited fields, try fetching full latest
+            document.getElementById('reportArea').innerHTML = '<div class="report-container">' + renderReportLines(data.report_text || 'Sem relatorio disponivel para este run.') + '</div>';
+        }
+    });
+}
+
+function closeHistory() {
+    document.getElementById('historyModal').classList.remove('open');
+}
+
+// Init
+loadChannels();
+</script>
+</body>
+</html>'''
+
+
+@app.get("/dash-analise-temas", response_class=HTMLResponse)
+async def dash_theme_analysis_page():
+    """Dashboard de Temas + Motores Psicologicos - Interface web"""
+    return DASH_THEME_ANALYSIS_HTML
 
 
 # =========================================================================
