@@ -2011,11 +2011,8 @@ function flipHorizontal(template) {
 var AGENT_PALETTES = [
   {skin:'#FFCC99', shirt:'#22c55e', pants:'#334466', hair:'#4a3728', shoes:'#222222'},
   {skin:'#e8b88a', shirt:'#ef4444', pants:'#333333', hair:'#1a1a1a', shoes:'#222222'},
-  {skin:'#FFCC99', shirt:'#8b5cf6', pants:'#334444', hair:'#8b4513', shoes:'#333333'},
-  {skin:'#d4a574', shirt:'#3b82f6', pants:'#443355', hair:'#2c1810', shoes:'#222222'},
   {skin:'#FFCC99', shirt:'#f97316', pants:'#444433', hair:'#c0392b', shoes:'#333333'},
   {skin:'#e8b88a', shirt:'#eab308', pants:'#443322', hair:'#34495e', shoes:'#333333'},
-  {skin:'#c68642', shirt:'#06b6d4', pants:'#2a2a3d', hair:'#4a3728', shoes:'#444444'},
 ];
 
 // -- Character Sprite Generator ------------------------------
@@ -5483,13 +5480,10 @@ function setupTabs() {
 // ============================================================
 
 var AGENT_LEGEND_INFO = [
-  { name: 'Estrutura de Copy', desc: 'Analisa performance por estrutura A-G' },
+  { name: 'Copy + Satisfacao', desc: 'Performance por estrutura A-G + satisfacao' },
   { name: 'Autenticidade', desc: 'Score 0-100 contra Inauthentic Content' },
-  { name: 'Micronichos', desc: 'Subcategorias tematicas que viralizam' },
-  { name: 'Estrutura Titulo', desc: 'Padroes de titulo e CTR' },
-  { name: 'Temas', desc: 'Assuntos com potencial viral' },
-  { name: 'Recomendador', desc: 'Cerebro estrategico - sugere proximos videos' },
-  { name: 'Concorrentes', desc: 'Intel competitiva via audiencia YouTube' }
+  { name: 'Temas + Motores', desc: 'Temas e motores psicologicos de viralidade' },
+  { name: 'Recomendador', desc: 'Cerebro estrategico - sugere proximos videos' }
 ];
 
 function buildLegend() {
