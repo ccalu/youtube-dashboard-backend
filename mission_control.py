@@ -2009,10 +2009,10 @@ function flipHorizontal(template) {
 // -- Agent Palettes (Custom for Mission Control) -------------
 
 var AGENT_PALETTES = [
-  {skin:'#FFCC99', shirt:'#22c55e', pants:'#334466', hair:'#4a3728', shoes:'#222222'},
-  {skin:'#e8b88a', shirt:'#ef4444', pants:'#333333', hair:'#1a1a1a', shoes:'#222222'},
-  {skin:'#FFCC99', shirt:'#f97316', pants:'#444433', hair:'#c0392b', shoes:'#333333'},
-  {skin:'#e8b88a', shirt:'#eab308', pants:'#443322', hair:'#34495e', shoes:'#333333'},
+  {skin:'#FFCC99', shirt:'#22c55e', pants:'#334466', hair:'#4a3728', shoes:'#222222'},  // Ag1 Copy (original #1)
+  {skin:'#e8b88a', shirt:'#ef4444', pants:'#333333', hair:'#1a1a1a', shoes:'#222222'},  // Ag2 Auth (original #2)
+  {skin:'#FFCC99', shirt:'#f97316', pants:'#444433', hair:'#c0392b', shoes:'#333333'},  // Ag3 Temas (original #5)
+  {skin:'#e8b88a', shirt:'#eab308', pants:'#443322', hair:'#34495e', shoes:'#333333'},  // Ag4 Recomendador (original #6)
 ];
 
 // -- Character Sprite Generator ------------------------------
