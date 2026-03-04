@@ -7465,19 +7465,6 @@ from authenticity_agent import (
     get_risk_overview as auth_get_overview
 )
 
-from micronicho_agent import (
-    run_analysis as micro_run_analysis,
-    get_latest_analysis as micro_get_latest,
-    get_analysis_history as micro_get_history,
-    get_channels_for_micronicho as micro_get_channels
-)
-
-from title_structure_agent import (
-    run_analysis as title_run_analysis,
-    get_latest_analysis as title_get_latest,
-    get_analysis_history as title_get_history
-)
-
 from theme_agent import (
     run_analysis as theme_run_analysis,
     get_latest_analysis as theme_get_latest,
@@ -7488,13 +7475,11 @@ from theme_agent import (
 @app.post("/api/analise-completa/{channel_id}")
 async def trigger_unified_analysis(channel_id: str):
     """
-    Roda os 5 agentes (performance + autenticidade + micronichos + titulo + temas) e retorna relatorio unificado.
+    Roda os 3 agentes (performance + autenticidade + temas) e retorna relatorio unificado.
     """
     try:
         copy_result = None
         auth_result = None
-        micro_result = None
-        title_result = None
         theme_result = None
         errors = []
 
@@ -7512,39 +7497,21 @@ async def trigger_unified_analysis(channel_id: str):
             logger.error(f"Erro agente autenticidade {channel_id}: {e}")
             errors.append(f"Autenticidade: {str(e)}")
 
-        # 3. Agente de Micronichos
-        try:
-            micro_result = micro_run_analysis(channel_id)
-        except Exception as e:
-            logger.error(f"Erro agente micronichos {channel_id}: {e}")
-            errors.append(f"Micronichos: {str(e)}")
-
-        # 4. Agente de Estruturas de Titulo
-        try:
-            title_result = title_run_analysis(channel_id)
-        except Exception as e:
-            logger.error(f"Erro agente titulo {channel_id}: {e}")
-            errors.append(f"Titulo: {str(e)}")
-
-        # 5. Agente de Temas
+        # 3. Agente de Temas
         try:
             theme_result = theme_run_analysis(channel_id)
         except Exception as e:
             logger.error(f"Erro agente temas {channel_id}: {e}")
             errors.append(f"Temas: {str(e)}")
 
-        # 6. Combinar relatorios
-        unified_report = _build_unified_report(copy_result, auth_result, micro_result, title_result, theme_result)
+        # 4. Combinar relatorios
+        unified_report = _build_unified_report(copy_result, auth_result, theme_result=theme_result)
 
         channel_name = ""
         if copy_result and copy_result.get("success"):
             channel_name = copy_result.get("channel_name", "")
         elif auth_result and auth_result.get("success"):
             channel_name = auth_result.get("channel_name", "")
-        elif micro_result and micro_result.get("success"):
-            channel_name = micro_result.get("channel_name", "")
-        elif title_result and title_result.get("success"):
-            channel_name = title_result.get("channel_name", "")
         elif theme_result and theme_result.get("success"):
             channel_name = theme_result.get("channel_name", "")
 
@@ -7566,21 +7533,6 @@ async def trigger_unified_analysis(channel_id: str):
                 "alerts": auth_result.get("alerts", []) if auth_result else [],
                 "summary": auth_result.get("summary") if auth_result else None
             },
-            "micronichos": {
-                "success": micro_result.get("success", False) if micro_result else False,
-                "error": micro_result.get("error") if micro_result and not micro_result.get("success") else None,
-                "micronicho_count": micro_result.get("micronicho_count") if micro_result else None,
-                "total_videos": micro_result.get("total_videos") if micro_result else None,
-                "ranking": micro_result.get("ranking") if micro_result else None
-            },
-            "titulo": {
-                "success": title_result.get("success", False) if title_result else False,
-                "error": title_result.get("error") if title_result and not title_result.get("success") else None,
-                "structure_count": title_result.get("structure_count") if title_result else None,
-                "total_videos": title_result.get("total_videos") if title_result else None,
-                "has_ctr_data": title_result.get("has_ctr_data") if title_result else None,
-                "ranking": title_result.get("ranking") if title_result else None
-            },
             "temas": {
                 "success": theme_result.get("success", False) if theme_result else False,
                 "error": theme_result.get("error") if theme_result and not theme_result.get("success") else None,
@@ -7598,7 +7550,7 @@ async def trigger_unified_analysis(channel_id: str):
 @app.post("/api/analise-completa/run-all")
 async def run_unified_analysis_all():
     """
-    Roda analise completa (performance + autenticidade + micronichos + titulo + temas) para TODOS os canais.
+    Roda analise completa (performance + autenticidade + temas) para TODOS os canais.
     Processa 1 por vez em fila. Pula erros e continua.
     """
     try:
@@ -7620,8 +7572,6 @@ async def run_unified_analysis_all():
                 "channel_name": ch_name,
                 "performance": {"success": False},
                 "authenticity": {"success": False},
-                "micronichos": {"success": False},
-                "titulo": {"success": False},
                 "temas": {"success": False}
             }
 
@@ -7647,30 +7597,7 @@ async def run_unified_analysis_all():
             except Exception as e:
                 ch_result["authenticity"] = {"success": False, "error": str(e)}
 
-            # Agente 3: Micronichos
-            try:
-                micro_res = micro_run_analysis(ch_id)
-                ch_result["micronichos"] = {
-                    "success": micro_res.get("success", False),
-                    "micronicho_count": micro_res.get("micronicho_count"),
-                    "error": micro_res.get("error") if not micro_res.get("success") else None
-                }
-            except Exception as e:
-                ch_result["micronichos"] = {"success": False, "error": str(e)}
-
-            # Agente 4: Estruturas de Titulo
-            try:
-                title_res = title_run_analysis(ch_id)
-                ch_result["titulo"] = {
-                    "success": title_res.get("success", False),
-                    "structure_count": title_res.get("structure_count"),
-                    "has_ctr_data": title_res.get("has_ctr_data"),
-                    "error": title_res.get("error") if not title_res.get("success") else None
-                }
-            except Exception as e:
-                ch_result["titulo"] = {"success": False, "error": str(e)}
-
-            # Agente 5: Temas
+            # Agente 3: Temas
             try:
                 theme_res = theme_run_analysis(ch_id)
                 ch_result["temas"] = {
@@ -7683,7 +7610,6 @@ async def run_unified_analysis_all():
 
             # Contar sucesso se pelo menos 1 agente rodou
             if (ch_result["performance"]["success"] or ch_result["authenticity"]["success"]
-                    or ch_result["micronichos"]["success"] or ch_result["titulo"]["success"]
                     or ch_result["temas"]["success"]):
                 success_count += 1
             else:
@@ -7703,8 +7629,8 @@ async def run_unified_analysis_all():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def _build_unified_report(copy_result: dict, auth_result: dict, micro_result: dict = None, title_result: dict = None, theme_result: dict = None) -> str:
-    """Combina os relatorios dos 5 agentes em 1 texto unificado."""
+def _build_unified_report(copy_result: dict, auth_result: dict, theme_result: dict = None) -> str:
+    """Combina os relatorios dos 3 agentes em 1 texto unificado."""
     from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
@@ -7713,10 +7639,6 @@ def _build_unified_report(copy_result: dict, auth_result: dict, micro_result: di
         channel_name = copy_result.get("channel_name", "")
     elif auth_result and auth_result.get("success"):
         channel_name = auth_result.get("channel_name", "")
-    elif micro_result and micro_result.get("success"):
-        channel_name = micro_result.get("channel_name", "")
-    elif title_result and title_result.get("success"):
-        channel_name = title_result.get("channel_name", "")
     elif theme_result and theme_result.get("success"):
         channel_name = theme_result.get("channel_name", "")
 
@@ -7780,61 +7702,7 @@ def _build_unified_report(copy_result: dict, auth_result: dict, micro_result: di
         parts.append("  Agente de autenticidade nao executado.")
     parts.append("")
 
-    # Secao 3: Micronichos
-    parts.append("=" * 60)
-    parts.append("  ANALISE DE MICRONICHOS")
-    parts.append("=" * 60)
-    parts.append("")
-
-    if micro_result and micro_result.get("success") and micro_result.get("report"):
-        micro_lines = micro_result["report"].split("\n")
-        content_lines = []
-        skip_header = True
-        for line in micro_lines:
-            if skip_header:
-                if line.strip().startswith("=") or line.strip().startswith("ANALISE DE MICRONICHOS"):
-                    continue
-                if line.strip() == "":
-                    continue
-                skip_header = False
-            content_lines.append(line)
-        while content_lines and content_lines[-1].strip().startswith("=" * 10):
-            content_lines.pop()
-        parts.extend(content_lines)
-    elif micro_result and not micro_result.get("success"):
-        parts.append(f"  Erro: {micro_result.get('error', 'desconhecido')}")
-    else:
-        parts.append("  Agente de micronichos nao executado.")
-    parts.append("")
-
-    # Secao 4: Estruturas de Titulo
-    parts.append("=" * 60)
-    parts.append("  ANALISE DE ESTRUTURAS DE TITULO")
-    parts.append("=" * 60)
-    parts.append("")
-
-    if title_result and title_result.get("success") and title_result.get("report"):
-        title_lines = title_result["report"].split("\n")
-        content_lines = []
-        skip_header = True
-        for line in title_lines:
-            if skip_header:
-                if line.strip().startswith("=") or line.strip().startswith("ANALISE DE ESTRUTURAS"):
-                    continue
-                if line.strip() == "":
-                    continue
-                skip_header = False
-            content_lines.append(line)
-        while content_lines and content_lines[-1].strip().startswith("=" * 10):
-            content_lines.pop()
-        parts.extend(content_lines)
-    elif title_result and not title_result.get("success"):
-        parts.append(f"  Erro: {title_result.get('error', 'desconhecido')}")
-    else:
-        parts.append("  Agente de titulo nao executado.")
-    parts.append("")
-
-    # Secao 5: Temas
+    # Secao 3: Temas
     parts.append("=" * 60)
     parts.append("  ANALISE DE TEMAS")
     parts.append("=" * 60)
@@ -7920,221 +7788,7 @@ async def get_auth_overview():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# --- Endpoints individuais de micronichos (Agente 3) ---
-
-@app.post("/api/analise-micronichos/{channel_id}")
-async def trigger_micronicho_analysis(channel_id: str):
-    """Roda Agente 3 (Micronichos) para um canal."""
-    try:
-        result = micro_run_analysis(channel_id)
-        return result
-    except Exception as e:
-        logger.error(f"Erro agente micronichos {channel_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/analise-micronichos/run-all")
-async def run_micronicho_analysis_all():
-    """Roda Agente 3 para TODOS os canais ativos. 1 por vez em fila."""
-    try:
-        channels = micro_get_channels()
-        if not channels:
-            return {"success": False, "error": "Nenhum canal ativo encontrado"}
-
-        results = []
-        success_count = 0
-        error_count = 0
-
-        for ch in channels:
-            ch_id = ch["channel_id"]
-            ch_name = ch.get("channel_name", "")
-            logger.info(f"Micronichos: processando {ch_name} ({ch_id})")
-
-            try:
-                res = micro_run_analysis(ch_id)
-                results.append({
-                    "channel_id": ch_id,
-                    "channel_name": ch_name,
-                    "success": res.get("success", False),
-                    "micronicho_count": res.get("micronicho_count"),
-                    "error": res.get("error") if not res.get("success") else None
-                })
-                if res.get("success"):
-                    success_count += 1
-                else:
-                    error_count += 1
-            except Exception as e:
-                results.append({
-                    "channel_id": ch_id,
-                    "channel_name": ch_name,
-                    "success": False,
-                    "error": str(e)
-                })
-                error_count += 1
-
-        return {
-            "success": True,
-            "total_channels": len(channels),
-            "success_count": success_count,
-            "error_count": error_count,
-            "results": results
-        }
-    except Exception as e:
-        logger.error(f"Erro run-all micronichos: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/api/analise-micronichos/{channel_id}/latest")
-async def get_latest_micronicho_analysis(channel_id: str):
-    """Retorna a analise de micronichos mais recente."""
-    try:
-        result = micro_get_latest(channel_id)
-        if not result:
-            raise HTTPException(status_code=404, detail=f"Nenhuma analise de micronichos para {channel_id}")
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Erro buscar micronichos {channel_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/api/analise-micronichos/{channel_id}/historico")
-async def get_micronicho_analysis_history(channel_id: str, limit: int = 20, offset: int = 0):
-    """Retorna historico de analises de micronichos."""
-    try:
-        limit = min(limit, 100)
-        offset = max(offset, 0)
-        return micro_get_history(channel_id, limit=limit, offset=offset)
-    except Exception as e:
-        logger.error(f"Erro historico micronichos {channel_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/api/analise-micronichos/{channel_id}/run/{run_id}")
-async def get_micronicho_analysis_run(channel_id: str, run_id: int):
-    """Retorna relatorio de um run especifico por ID."""
-    try:
-        resp = db.supabase.table('micronicho_analysis_runs').select('id,channel_id,run_date,report_text,micronicho_count,total_videos_analyzed').eq('id', run_id).eq('channel_id', channel_id).limit(1).execute()
-        if resp.data:
-            return resp.data[0]
-        raise HTTPException(status_code=404, detail="Run nao encontrado")
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Erro run micronichos {channel_id}/{run_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# --- Endpoints individuais de estruturas de titulo (Agente 4) ---
-
-@app.post("/api/analise-titulo/{channel_id}")
-async def trigger_title_structure_analysis(channel_id: str):
-    """Roda Agente 4 (Estruturas de Titulo) para 1 canal."""
-    try:
-        result = title_run_analysis(channel_id)
-        return result
-    except Exception as e:
-        logger.error(f"Erro analise titulo {channel_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/api/analise-titulo/run-all")
-async def run_title_structure_analysis_all():
-    """Roda Agente 4 para TODOS os canais. Processa 1 por vez."""
-    try:
-        channels = micro_get_channels()
-        if not channels:
-            return {"success": False, "error": "Nenhum canal encontrado"}
-
-        results = []
-        success_count = 0
-        error_count = 0
-
-        for ch in channels:
-            ch_id = ch["channel_id"]
-            ch_name = ch.get("channel_name", "")
-            logger.info(f"Analise titulo: processando {ch_name} ({ch_id})")
-
-            try:
-                res = title_run_analysis(ch_id)
-                results.append({
-                    "channel_id": ch_id,
-                    "channel_name": ch_name,
-                    "success": res.get("success", False),
-                    "structure_count": res.get("structure_count"),
-                    "total_videos": res.get("total_videos"),
-                    "has_ctr_data": res.get("has_ctr_data"),
-                    "error": res.get("error") if not res.get("success") else None
-                })
-                if res.get("success"):
-                    success_count += 1
-                else:
-                    error_count += 1
-            except Exception as e:
-                results.append({
-                    "channel_id": ch_id,
-                    "channel_name": ch_name,
-                    "success": False,
-                    "error": str(e)
-                })
-                error_count += 1
-
-        return {
-            "success": True,
-            "total_channels": len(channels),
-            "success_count": success_count,
-            "error_count": error_count,
-            "results": results
-        }
-    except Exception as e:
-        logger.error(f"Erro run-all titulo: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/api/analise-titulo/{channel_id}/latest")
-async def get_latest_title_analysis(channel_id: str):
-    """Retorna a analise de titulo mais recente."""
-    try:
-        result = title_get_latest(channel_id)
-        if not result:
-            raise HTTPException(status_code=404, detail=f"Nenhuma analise de titulo para {channel_id}")
-        return result
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Erro buscar titulo {channel_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/api/analise-titulo/{channel_id}/historico")
-async def get_title_analysis_history(channel_id: str, limit: int = 20, offset: int = 0):
-    """Retorna historico de analises de titulo."""
-    try:
-        limit = min(limit, 100)
-        offset = max(offset, 0)
-        return title_get_history(channel_id, limit=limit, offset=offset)
-    except Exception as e:
-        logger.error(f"Erro historico titulo {channel_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/api/analise-titulo/{channel_id}/run/{run_id}")
-async def get_title_analysis_run(channel_id: str, run_id: int):
-    """Retorna relatorio de um run especifico por ID."""
-    try:
-        resp = db.supabase.table('title_structure_analysis_runs').select('id,channel_id,run_date,report_text,structure_count,total_videos_analyzed').eq('id', run_id).eq('channel_id', channel_id).limit(1).execute()
-        if resp.data:
-            return resp.data[0]
-        raise HTTPException(status_code=404, detail="Run nao encontrado")
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Erro run titulo {channel_id}/{run_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# --- Endpoints individuais de temas (Agente 5) ---
+# --- Endpoints individuais de temas (Agente 3) ---
 
 @app.post("/api/analise-temas/{channel_id}")
 async def trigger_theme_analysis(channel_id: str):

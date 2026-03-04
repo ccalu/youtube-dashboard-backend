@@ -97,15 +97,15 @@ SETORES_CONFIG = {
 }
 
 # ===========================================================
-# 7 AGENTES DO ECOSSISTEMA
+# 4 AGENTES DO ECOSSISTEMA
 # ===========================================================
 
 AGENTES_V2_TEMPLATE = [
     {
-        'id': 1, 'tipo': 'estrutura_copy', 'nome': 'Estrutura de Copy',
+        'id': 1, 'tipo': 'estrutura_copy', 'nome': 'Copy + Satisfacao',
         'camada': 1, 'cor': '#22c55e',
         'skin': '#ffcc99', 'shirt': '#22c55e', 'hair': '#4a3728',
-        'descricao': 'Estrutura de Copy - Analisa performance por estrutura A-G',
+        'descricao': 'Copy + Satisfacao - Analisa performance por estrutura A-G + satisfacao do viewer',
         'implementado': True,
         'api_run': '/api/analise-completa/{channel_id}',
         'api_latest': '/api/analise-copy/{channel_id}/latest',
@@ -124,32 +124,10 @@ AGENTES_V2_TEMPLATE = [
         'analysis_table': 'authenticity_analysis_runs',
     },
     {
-        'id': 3, 'tipo': 'micronichos', 'nome': 'Micronichos',
-        'camada': 2, 'cor': '#8b5cf6',
-        'skin': '#ffcc99', 'shirt': '#8b5cf6', 'hair': '#8b4513',
-        'descricao': 'Micronichos - Identifica subcategorias tematicas que viralizam',
-        'implementado': True,
-        'api_run': '/api/analise-micronichos/{channel_id}',
-        'api_latest': '/api/analise-micronichos/{channel_id}/latest',
-        'api_historico': '/api/analise-micronichos/{channel_id}/historico',
-        'analysis_table': 'micronicho_analysis_runs',
-    },
-    {
-        'id': 4, 'tipo': 'titulo_estrutura', 'nome': 'Estrutura de Titulo',
-        'camada': 2, 'cor': '#3b82f6',
-        'skin': '#d4a574', 'shirt': '#3b82f6', 'hair': '#2c1810',
-        'descricao': 'Estrutura de Titulo - Analisa padroes de titulo e CTR',
-        'implementado': True,
-        'api_run': '/api/analise-titulo/{channel_id}',
-        'api_latest': '/api/analise-titulo/{channel_id}/latest',
-        'api_historico': '/api/analise-titulo/{channel_id}/historico',
-        'analysis_table': 'title_structure_analysis_runs',
-    },
-    {
-        'id': 5, 'tipo': 'temas', 'nome': 'Temas',
+        'id': 3, 'tipo': 'temas', 'nome': 'Temas + Motores',
         'camada': 2, 'cor': '#f97316',
         'skin': '#ffcc99', 'shirt': '#f97316', 'hair': '#c0392b',
-        'descricao': 'Temas - Descobre assuntos especificos com potencial viral',
+        'descricao': 'Temas + Motores Psicologicos - Identifica temas e motores de viralidade (100% LLM)',
         'implementado': True,
         'api_run': '/api/analise-temas/{channel_id}',
         'api_latest': '/api/analise-temas/{channel_id}/latest',
@@ -157,19 +135,10 @@ AGENTES_V2_TEMPLATE = [
         'analysis_table': 'theme_analysis_runs',
     },
     {
-        'id': 6, 'tipo': 'recomendador', 'nome': 'Recomendador',
+        'id': 4, 'tipo': 'recomendador', 'nome': 'Recomendador',
         'camada': 3, 'cor': '#eab308',
         'skin': '#e8b88a', 'shirt': '#eab308', 'hair': '#34495e',
         'descricao': 'Recomendador - Cerebro estrategico que cruza tudo e sugere proximos videos',
-        'implementado': False,
-        'api_run': None, 'api_latest': None, 'api_historico': None,
-        'analysis_table': None,
-    },
-    {
-        'id': 7, 'tipo': 'concorrentes', 'nome': 'Concorrentes',
-        'camada': 4, 'cor': '#06b6d4',
-        'skin': '#c68642', 'shirt': '#06b6d4', 'hair': '#4a3728',
-        'descricao': 'Concorrentes - Intel competitiva via audiencia do YouTube',
         'implementado': False,
         'api_run': None, 'api_latest': None, 'api_historico': None,
         'analysis_table': None,
@@ -286,53 +255,7 @@ async def get_agent_real_status(supabase_client, channel_id):
     except Exception:
         status['autenticidade'] = {'status': 'idle', 'last_run': None}
 
-    # Agent 3: Micronichos
-    try:
-        micro_resp = supabase_client.table('micronicho_analysis_runs') \
-            .select('id,run_date,total_videos_analyzed,micronicho_count,ranking_json') \
-            .eq('channel_id', channel_id) \
-            .order('run_date', desc=True) \
-            .limit(1) \
-            .execute()
-        if micro_resp.data:
-            run = micro_resp.data[0]
-            ranking = run.get('ranking_json') or []
-            top_micro = ranking[0] if ranking else None
-            status['micronichos'] = {
-                'status': 'done',
-                'last_run': run.get('run_date'),
-                'videos_analyzed': run.get('total_videos_analyzed', 0),
-                'micronicho_count': run.get('micronicho_count', 0),
-                'top_micronicho': top_micro.get('micronicho', '') if top_micro else None,
-                'top_micronicho_videos': top_micro.get('video_count', 0) if top_micro else 0,
-            }
-        else:
-            status['micronichos'] = {'status': 'idle', 'last_run': None}
-    except Exception:
-        status['micronichos'] = {'status': 'idle', 'last_run': None}
-
-    # Agent 4: Estrutura de Titulo
-    try:
-        title_resp = supabase_client.table('title_structure_analysis_runs') \
-            .select('id,run_date,total_videos_analyzed,structure_count') \
-            .eq('channel_id', channel_id) \
-            .order('run_date', desc=True) \
-            .limit(1) \
-            .execute()
-        if title_resp.data:
-            run = title_resp.data[0]
-            status['titulo_estrutura'] = {
-                'status': 'done',
-                'last_run': run.get('run_date'),
-                'videos_analyzed': run.get('total_videos_analyzed', 0),
-                'structure_count': run.get('structure_count', 0),
-            }
-        else:
-            status['titulo_estrutura'] = {'status': 'idle', 'last_run': None}
-    except Exception:
-        status['titulo_estrutura'] = {'status': 'idle', 'last_run': None}
-
-    # Agent 5: Temas
+    # Agent 3: Temas
     try:
         theme_resp = supabase_client.table('theme_analysis_runs') \
             .select('id,run_date,total_videos_analyzed,theme_count,ranking_json') \
@@ -357,9 +280,8 @@ async def get_agent_real_status(supabase_client, channel_id):
     except Exception:
         status['temas'] = {'status': 'idle', 'last_run': None}
 
-    # Agents 6-7: Not yet implemented
-    for ag in AGENTES_V2_TEMPLATE[5:]:
-        status[ag['tipo']] = {'status': 'waiting', 'last_run': None}
+    # Agent 4 (Recomendador): Not yet implemented
+    status['recomendador'] = {'status': 'waiting', 'last_run': None}
 
     return status
 
@@ -407,50 +329,6 @@ async def get_agent_overview_batch(supabase_client):
                     'score': row.get('authenticity_score'),
                     'level': row.get('authenticity_level'),
                     'has_alerts': row.get('has_alerts', False),
-                }
-    except Exception:
-        pass
-
-    # Latest micronicho analysis per channel
-    try:
-        micro_resp = supabase_client.table('micronicho_analysis_runs') \
-            .select('channel_id,run_date,total_videos_analyzed,ranking_json') \
-            .order('run_date', desc=True) \
-            .execute()
-        seen = set()
-        for row in (micro_resp.data or []):
-            cid = row.get('channel_id')
-            if cid and cid not in seen:
-                seen.add(cid)
-                if cid not in overview:
-                    overview[cid] = {}
-                ranking = row.get('ranking_json') or []
-                top_micro = ranking[0] if ranking else None
-                overview[cid]['micronichos'] = {
-                    'status': 'done',
-                    'last_run': row.get('run_date'),
-                    'top_micronicho': top_micro.get('micronicho', '') if top_micro else None,
-                    'top_micronicho_videos': top_micro.get('video_count', 0) if top_micro else 0,
-                }
-    except Exception:
-        pass
-
-    # Latest title structure analysis per channel
-    try:
-        title_resp = supabase_client.table('title_structure_analysis_runs') \
-            .select('channel_id,run_date,total_videos_analyzed') \
-            .order('run_date', desc=True) \
-            .execute()
-        seen = set()
-        for row in (title_resp.data or []):
-            cid = row.get('channel_id')
-            if cid and cid not in seen:
-                seen.add(cid)
-                if cid not in overview:
-                    overview[cid] = {}
-                overview[cid]['titulo_estrutura'] = {
-                    'status': 'done',
-                    'last_run': row.get('run_date'),
                 }
     except Exception:
         pass
@@ -618,10 +496,6 @@ async def get_mission_control_data(db):
                     ag_statuses['estrutura_copy'] = ov['copy']
                 if 'auth' in ov:
                     ag_statuses['autenticidade'] = ov['auth']
-                if 'micronichos' in ov:
-                    ag_statuses['micronichos'] = ov['micronichos']
-                if 'titulo_estrutura' in ov:
-                    ag_statuses['titulo_estrutura'] = ov['titulo_estrutura']
                 if 'temas' in ov:
                     ag_statuses['temas'] = ov['temas']
 
@@ -774,34 +648,6 @@ async def get_agent_report(supabase_client, channel_id, agent_type):
     elif agent_type == 'autenticidade':
         try:
             resp = supabase_client.table('authenticity_analysis_runs') \
-                .select('*') \
-                .eq('channel_id', channel_id) \
-                .order('run_date', desc=True) \
-                .limit(1) \
-                .execute()
-            if resp.data:
-                return {'implemented': True, 'data': resp.data[0]}
-            return {'implemented': True, 'data': None, 'message': 'Nenhum relatorio encontrado'}
-        except Exception as e:
-            return {'implemented': True, 'error': str(e)}
-
-    elif agent_type == 'micronichos':
-        try:
-            resp = supabase_client.table('micronicho_analysis_runs') \
-                .select('*') \
-                .eq('channel_id', channel_id) \
-                .order('run_date', desc=True) \
-                .limit(1) \
-                .execute()
-            if resp.data:
-                return {'implemented': True, 'data': resp.data[0]}
-            return {'implemented': True, 'data': None, 'message': 'Nenhum relatorio encontrado'}
-        except Exception as e:
-            return {'implemented': True, 'error': str(e)}
-
-    elif agent_type == 'titulo_estrutura':
-        try:
-            resp = supabase_client.table('title_structure_analysis_runs') \
                 .select('*') \
                 .eq('channel_id', channel_id) \
                 .order('run_date', desc=True) \
@@ -4915,23 +4761,7 @@ function openSidebar(room, ch) {
   // 6. Upload status (async)
   html += '<div id="sb-upload-status"></div>';
 
-  // 7. Top Micronicho
-  var microAgent = null;
-  for (var mi = 0; mi < canalAgentes.length; mi++) {
-    if (canalAgentes[mi].tipo === 'micronichos' && canalAgentes[mi].extra_data) {
-      microAgent = canalAgentes[mi].extra_data;
-      break;
-    }
-  }
-  if (microAgent && microAgent.top_micronicho) {
-    html += '<div class="sb-section">';
-    html += '<div class="sb-label">Top Micronicho</div>';
-    html += '<div class="sb-value">' + escapeHtml(microAgent.top_micronicho);
-    if (microAgent.top_micronicho_videos) html += ' <span style="color:#666;font-size:10px">(' + microAgent.top_micronicho_videos + ' videos)</span>';
-    html += '</div></div>';
-  }
-
-  // 8. Top Tema
+  // 7. Top Tema
   var themeAgent = null;
   for (var ti = 0; ti < canalAgentes.length; ti++) {
     if (canalAgentes[ti].tipo === 'temas' && canalAgentes[ti].extra_data) {
@@ -5083,8 +4913,6 @@ function fetchAgentStatus(channelId, agentType) {
   var latestUrlMap = {
     'estrutura_copy': '/api/analise-copy/',
     'autenticidade': '/api/analise-autenticidade/',
-    'micronichos': '/api/analise-micronichos/',
-    'titulo_estrutura': '/api/analise-titulo/',
     'temas': '/api/analise-temas/'
   };
   var baseUrl = latestUrlMap[agentType] || '/api/analise-copy/';
@@ -5141,24 +4969,6 @@ function renderAgentStatus(data, agentType) {
     if (totalVideos) {
       html += '<div class="sb-status-row"><span class="sb-status-label">Videos analisados</span><span class="sb-status-val">' + totalVideos + '</span></div>';
     }
-  } else if (agentType === 'micronichos') {
-    var microCount = data.micronicho_count;
-    if (microCount) {
-      html += '<div class="sb-status-row"><span class="sb-status-label">Micronichos</span><span class="sb-status-val st-blue">' + microCount + '</span></div>';
-    }
-    if (data.ranking_json && data.ranking_json.length > 0) {
-      var top = data.ranking_json[0];
-      html += '<div class="sb-status-row"><span class="sb-status-label">Top micronicho</span><span class="sb-status-val st-green">' + escapeHtml(top.micronicho || top.name || '') + '</span></div>';
-    }
-  } else if (agentType === 'titulo_estrutura') {
-    var structCount = data.structure_count;
-    if (structCount) {
-      html += '<div class="sb-status-row"><span class="sb-status-label">Estruturas</span><span class="sb-status-val st-blue">' + structCount + '</span></div>';
-    }
-    if (data.structures_list && data.structures_list.length > 0) {
-      var topStruct = data.structures_list[0];
-      html += '<div class="sb-status-row"><span class="sb-status-label">Top estrutura</span><span class="sb-status-val st-green">' + escapeHtml(topStruct.structure || topStruct.name || '') + '</span></div>';
-    }
   } else if (agentType === 'temas') {
     var themeCount = data.theme_count;
     if (themeCount) {
@@ -5204,8 +5014,6 @@ function runAgentAnalysis(channelId, agentType) {
   var runUrlMap = {
     'estrutura_copy': '/api/analise-completa/',
     'autenticidade': '/api/analise-completa/',
-    'micronichos': '/api/analise-micronichos/',
-    'titulo_estrutura': '/api/analise-titulo/',
     'temas': '/api/analise-temas/'
   };
   var url = (runUrlMap[agentType] || '/api/analise-completa/') + channelId;
@@ -5243,8 +5051,6 @@ function loadAgentReport(channelId, agentType) {
   var latestUrlMap = {
     'estrutura_copy': '/api/analise-copy/',
     'autenticidade': '/api/analise-autenticidade/',
-    'micronichos': '/api/analise-micronichos/',
-    'titulo_estrutura': '/api/analise-titulo/',
     'temas': '/api/analise-temas/'
   };
   var baseUrl = latestUrlMap[agentType] || '/api/analise-copy/';
@@ -5287,18 +5093,14 @@ function showReport(text) {
 var _currentReportAgent = null;
 
 var _agentNames = {
-  'estrutura_copy': 'Estrutura de Copy',
+  'estrutura_copy': 'Copy + Satisfacao',
   'autenticidade': 'Autenticidade',
-  'micronichos': 'Micronichos',
-  'titulo_estrutura': 'Estrutura de Titulo',
-  'temas': 'Temas'
+  'temas': 'Temas + Motores'
 };
 
 var _latestUrlMap = {
   'estrutura_copy': '/api/analise-copy/',
   'autenticidade': '/api/analise-autenticidade/',
-  'micronichos': '/api/analise-micronichos/',
-  'titulo_estrutura': '/api/analise-titulo/',
   'temas': '/api/analise-temas/'
 };
 
@@ -5418,7 +5220,7 @@ function formatReportHtml(text, runDate) {
 
     // Skip === separator lines and title line (already in title box)
     if (/^={4,}/.test(rawTrimmed)) { flushPre(); continue; }
-    if (/^(RELATORIO|SCORE DE AUTENTICIDADE|ANALISE DE MICRONICHOS|ANALISE DE ESTRUTURAS|ANALISE DE TEMAS)\s/.test(rawTrimmed) && rawTrimmed.indexOf('|') > 0) { continue; }
+    if (/^(RELATORIO|SCORE DE AUTENTICIDADE|ANALISE DE TEMAS)\s/.test(rawTrimmed) && rawTrimmed.indexOf('|') > 0) { continue; }
     // Skip --- separator lines (only dashes/spaces/─)
     if (/^[\s\-─]{3,}$/.test(rawTrimmed) && rawTrimmed.replace(/[\s\-─]/g, '') === '') { continue; }
 
@@ -5562,8 +5364,6 @@ function loadHistoryInModal() {
         var meta = '';
         if (item.total_videos_analyzed) meta = item.total_videos_analyzed + ' videos analisados';
         if (item.authenticity_score != null) meta = 'Score: ' + Math.round(item.authenticity_score) + '/100';
-        if (item.micronicho_count) meta = item.micronicho_count + ' micronichos';
-        if (item.structure_count) meta = item.structure_count + ' estruturas';
         if (item.theme_count) meta = item.theme_count + ' temas';
 
         html += '<div class="rm-history-item" data-id="' + item.id + '" onclick="loadHistoryItem(' + item.id + ', this)">';
