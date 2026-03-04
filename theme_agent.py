@@ -24,12 +24,6 @@ from copy_analysis_agent import (
     SUPABASE_KEY,
     SUPABASE_HEADERS,
 )
-from micronicho_agent import (
-    _get_monitorado_id,
-    _fetch_channel_videos,
-    get_channels_for_micronicho as get_channels_for_themes,
-)
-
 logger = logging.getLogger("theme_agent")
 
 # =============================================================================
@@ -38,6 +32,143 @@ logger = logging.getLogger("theme_agent")
 
 MIN_VIDEOS = 5
 MATURITY_DAYS = 7
+
+
+# =============================================================================
+# FUNCOES COMPARTILHADAS (anteriormente em micronicho_agent.py)
+# =============================================================================
+
+def _get_monitorado_id(channel_id: str) -> Optional[int]:
+    """Mapeia yt_channels.channel_id (UC...) -> canais_monitorados.id (integer)."""
+    resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/yt_channels",
+        params={"channel_id": f"eq.{channel_id}", "select": "channel_name"},
+        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+    )
+    if resp.status_code != 200 or not resp.json():
+        logger.error(f"Canal {channel_id} nao encontrado em yt_channels")
+        return None
+
+    channel_name = resp.json()[0].get("channel_name", "")
+    if not channel_name:
+        return None
+
+    resp2 = requests.get(
+        f"{SUPABASE_URL}/rest/v1/canais_monitorados",
+        params={"nome_canal": f"eq.{channel_name}", "select": "id"},
+        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+    )
+    if resp2.status_code != 200 or not resp2.json():
+        logger.error(f"Canal '{channel_name}' nao encontrado em canais_monitorados")
+        return None
+
+    monitorado_id = resp2.json()[0].get("id")
+    logger.info(f"Mapeamento: {channel_id} -> canais_monitorados.id={monitorado_id} ({channel_name})")
+    return monitorado_id
+
+
+def _fetch_channel_videos(channel_id: str) -> List[Dict]:
+    """Busca videos do canal em videos_historico. Deduplicar por video_id, filtrar 7+ dias."""
+    monitorado_id = _get_monitorado_id(channel_id)
+    if monitorado_id is None:
+        logger.error(f"Nao foi possivel mapear {channel_id} para canais_monitorados")
+        return []
+
+    all_rows = []
+    page_size = 1000
+    offset = 0
+
+    while True:
+        resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/videos_historico",
+            params={
+                "canal_id": f"eq.{monitorado_id}",
+                "select": "video_id,titulo,data_publicacao,views_atuais,data_coleta",
+                "order": "data_coleta.desc",
+                "limit": page_size,
+                "offset": offset
+            },
+            headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+        )
+        if resp.status_code != 200:
+            logger.error(f"Erro ao buscar videos: {resp.status_code} - {resp.text[:200]}")
+            break
+        rows = resp.json()
+        if not rows:
+            break
+        all_rows.extend(rows)
+        offset += page_size
+        if len(rows) < page_size:
+            break
+
+    # Deduplicar por video_id (manter registro mais recente)
+    seen = {}
+    for v in all_rows:
+        vid = v.get("video_id")
+        if vid and vid not in seen:
+            seen[vid] = v
+
+    now = datetime.now(timezone.utc)
+    videos = []
+    for v in seen.values():
+        title = v.get("titulo", "")
+        views = v.get("views_atuais", 0) or 0
+        pub_date_str = v.get("data_publicacao", "")
+        if not title or not pub_date_str:
+            continue
+        try:
+            if "T" in pub_date_str:
+                pub_date = datetime.fromisoformat(pub_date_str.replace("Z", "+00:00"))
+            else:
+                pub_date = datetime.fromisoformat(pub_date_str + "T00:00:00+00:00")
+            if pub_date.tzinfo is None:
+                pub_date = pub_date.replace(tzinfo=timezone.utc)
+            age_days = (now - pub_date).days
+        except (ValueError, TypeError):
+            continue
+        if age_days < MATURITY_DAYS:
+            continue
+        videos.append({
+            "title": title,
+            "views": views,
+            "publish_date": pub_date_str,
+            "age_days": age_days,
+            "video_id": v.get("video_id")
+        })
+
+    logger.info(f"Videos encontrados: {len(all_rows)} total, {len(seen)} unicos, {len(videos)} com 7+ dias")
+    return videos
+
+
+def get_channels_for_themes() -> List[Dict]:
+    """Retorna todos canais ativos (NAO precisa de spreadsheet)."""
+    all_channels = []
+    page_size = 100
+    offset = 0
+
+    while True:
+        resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/yt_channels",
+            params={
+                "is_active": "eq.true",
+                "select": "channel_id,channel_name,subnicho,is_monetized,lingua",
+                "order": "is_monetized.desc,channel_name.asc",
+                "limit": str(page_size),
+                "offset": str(offset)
+            },
+            headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+        )
+        if resp.status_code != 200:
+            break
+        rows = resp.json()
+        if not rows:
+            break
+        all_channels.extend(rows)
+        offset += page_size
+        if len(rows) < page_size:
+            break
+
+    return all_channels
 VELOCITY_WEIGHT = 0.5
 VIEWS_WEIGHT = 0.5
 TOP_N = 15          # top 15 no ranking
