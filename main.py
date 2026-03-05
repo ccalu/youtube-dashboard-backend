@@ -6310,6 +6310,7 @@ DASH_UPLOAD_HTML = '''
             .header-right { gap: 8px; flex-shrink: 0; }
             .modal-table th:nth-child(1), .modal-table td:nth-child(1) { padding-left: 4px; padding-right: 4px; white-space: nowrap; font-size: 11px; }
             .modal-table th:nth-child(2), .modal-table td:nth-child(2) { padding-left: 4px; padding-right: 4px; }
+            .modal-table th:nth-child(3), .modal-table td:nth-child(3) { text-align: center; }
             .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 12px; margin-bottom: 20px; }
             .stat-card { padding: 14px 12px; min-height: 72px; }
             .stat-value { font-size: 24px; }
