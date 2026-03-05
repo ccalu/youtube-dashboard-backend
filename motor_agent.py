@@ -788,9 +788,13 @@ def run_analysis(channel_id: str) -> Dict:
             skip_llm = True
 
     if skip_llm:
+        if not prev_report:
+            msg = f"Skip LLM ativo mas relatorio anterior vazio para {channel_id}"
+            logger.error(msg)
+            return {"success": False, "error": msg}
         banner = (f">> Run #{run_number} -- Nenhum video novo/atualizado detectado desde a ultima analise.\n"
                   f">> Relatorio anterior reutilizado. Proxima analise com dados novos gerara atualizacao completa.\n\n")
-        llm_output = banner + prev_report if prev_report else prev_report
+        llm_output = banner + prev_report
     else:
         llm_output = _call_llm(
             merged_data=merged_data,

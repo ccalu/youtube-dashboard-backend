@@ -1494,6 +1494,8 @@ def generate_report(
 
         # Narrativa de tendencias da LLM (após tabela comparativa)
         if tend_text:
+            lines.append("--- TENDENCIAS ---")
+            lines.append("")
             for line in tend_text.split("\n"):
                 lines.append(line)
             lines.append("")

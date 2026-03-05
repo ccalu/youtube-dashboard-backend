@@ -1335,26 +1335,28 @@ def run_analysis(channel_id: str) -> Dict:
             changes=changes,
         )
         if llm_temas is None:
-            llm_temas = _fallback_temas(ranking if is_first else changes["new"])
+            llm_temas = _fallback_temas(ranking if is_first else changes["new"] + changes["updated"])
 
-    # 8. Merge: novos (com temas da LLM) + existentes (com temas do snapshot)
+    # 8. Merge: novos + updated (com temas da LLM) + unchanged (com temas do snapshot)
     new_videos = changes["new"]
+    updated_videos = changes["updated"]
     if is_first:
         merged = _merge_ranking_with_themes(ranking, llm_temas, avg_ctr_pct)
     else:
-        # Merge novos com temas da LLM
-        new_merged = _merge_ranking_with_themes(new_videos, llm_temas, avg_ctr_pct) if new_videos else []
+        # Merge novos + updated com temas da LLM (ambos foram analisados pela LLM)
+        videos_for_llm = new_videos + updated_videos
+        llm_merged = _merge_ranking_with_themes(videos_for_llm, llm_temas, avg_ctr_pct) if videos_for_llm else []
 
-        # Unchanged e updated manteem temas do snapshot
+        # Somente unchanged manteem temas do snapshot
         existing_merged = []
-        for v in changes["unchanged"] + changes["updated"]:
+        for v in changes["unchanged"]:
             v["tema"] = v.get("_prev_tema", v["title"][:80])
             v["hipoteses"] = v.get("_prev_hipoteses", [])
             v["motores"] = [h.get("motor", "") for h in v.get("hipoteses", [])]
             existing_merged.append(v)
 
         # Juntar e re-ranquear
-        all_merged = new_merged + existing_merged
+        all_merged = llm_merged + existing_merged
         all_merged.sort(key=lambda x: x.get("score", 0), reverse=True)
         for i, v in enumerate(all_merged):
             v["rank"] = i + 1

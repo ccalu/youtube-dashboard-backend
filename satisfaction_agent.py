@@ -1283,6 +1283,8 @@ def generate_report(
         lines.append("")
 
         if tend_text:
+            lines.append("--- TENDENCIAS ---")
+            lines.append("")
             for line in tend_text.split("\n"):
                 lines.append(line)
             lines.append("")
