@@ -45,6 +45,68 @@ ANOMALY_SATISFACTION_MULTIPLIER = 3.0
 
 
 # =============================================================================
+# INCREMENTAL: SNAPSHOT + DETECCAO DE VIDEOS NOVOS
+# =============================================================================
+
+def _get_previous_run(channel_id: str) -> Optional[Dict]:
+    """Busca ultimo run com snapshot e run_number para deteccao incremental."""
+    resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/satisfaction_analysis_runs",
+        params={
+            "channel_id": f"eq.{channel_id}",
+            "select": "id,run_date,run_number,analyzed_video_data,report_text",
+            "order": "run_date.desc",
+            "limit": "1"
+        },
+        headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+    )
+    if resp.status_code != 200 or not resp.json():
+        return None
+
+    row = resp.json()[0]
+
+    avd = row.get("analyzed_video_data")
+    if isinstance(avd, str):
+        try:
+            avd = json.loads(avd)
+        except (json.JSONDecodeError, TypeError):
+            avd = {}
+    if not isinstance(avd, dict):
+        avd = {}
+
+    return {
+        "id": row.get("id"),
+        "run_date": row.get("run_date", ""),
+        "run_number": row.get("run_number", 1) or 1,
+        "analyzed_video_data": avd,
+        "report_text": row.get("report_text", ""),
+    }
+
+
+def _build_snapshot(all_videos: List[Dict]) -> Dict:
+    """Constroi snapshot JSONB dos videos analisados para deteccao incremental."""
+    snapshot = {}
+    for v in all_videos:
+        vid = v.get("video_id")
+        if vid:
+            snapshot[vid] = {
+                "views": v.get("views", 0),
+                "likes": v.get("likes", 0),
+                "approval": v.get("approval"),
+                "sub_ratio": v.get("sub_ratio", 0),
+                "structure": v.get("structure", ""),
+            }
+    return snapshot
+
+
+def _get_new_video_ids(all_videos: List[Dict], previous_snapshot: Dict) -> set:
+    """Retorna set de video_ids que sao novos (nao existiam no snapshot anterior)."""
+    if not previous_snapshot:
+        return {v["video_id"] for v in all_videos if v.get("video_id")}
+    return {v["video_id"] for v in all_videos if v.get("video_id") and v["video_id"] not in previous_snapshot}
+
+
+# =============================================================================
 # BUSCAR VIDEOS MATCHED DO COPY
 # =============================================================================
 
@@ -1152,7 +1214,9 @@ def save_analysis(
     channel_name: str,
     sat_analysis: Dict,
     sat_comparison: Optional[Dict],
-    report_text: str
+    report_text: str,
+    run_number: int = 1,
+    snapshot: Optional[Dict] = None
 ) -> Optional[int]:
     """Salva analise no banco."""
     ch_avg = sat_analysis["channel_avg"]
@@ -1192,7 +1256,9 @@ def save_analysis(
         "channel_avg_sub_ratio": ch_avg.get("sub_ratio"),
         "channel_avg_comment_ratio": ch_avg.get("comment_ratio"),
         "results_json": json.dumps(results, ensure_ascii=False),
-        "report_text": report_text
+        "report_text": report_text,
+        "run_number": run_number,
+        "analyzed_video_data": json.dumps(snapshot, ensure_ascii=False) if snapshot else None
     }
 
     resp = requests.post(
@@ -1356,31 +1422,69 @@ def run_analysis(channel_id: str) -> Dict:
             "excluded_immature": sat_analysis.get("excluded_immature", 0)
         }
 
+    # 4b. Deteccao incremental
+    prev_run = _get_previous_run(channel_id)
+    is_first = prev_run is None
+    run_number = 1 if is_first else prev_run["run_number"] + 1
+    all_videos = sat_analysis.get("all_videos", [])
+    snapshot = _build_snapshot(all_videos)
+    new_ids = _get_new_video_ids(all_videos, prev_run["analyzed_video_data"] if prev_run else {})
+    new_count = len(new_ids)
+
+    logger.info(f"Canal {channel_name}: run #{run_number} | {len(all_videos)} videos | {new_count} novos")
+
     # 5. Comparar com anterior
     sat_comparison = compare_with_previous(channel_id, sat_analysis)
 
     # 6. LLM insights
-    llm_insights = generate_llm_insights(channel_name, sat_analysis, sat_comparison)
+    llm_insights = None
+    if new_count == 0 and not is_first and prev_run.get("report_text"):
+        # Zero videos novos — reutilizar LLM anterior
+        logger.info(f"Canal {channel_name}: zero videos novos — reutilizando LLM anterior")
+        prev_report = prev_run["report_text"]
+        llm_insights = {"observacoes": "", "tendencias": ""}
+        if "--- OBSERVACOES (LLM) ---" in prev_report:
+            parts = prev_report.split("--- OBSERVACOES (LLM) ---")
+            if len(parts) > 1:
+                obs_block = parts[1]
+                if "---" in obs_block:
+                    obs_block = obs_block.split("---")[0]
+                llm_insights["observacoes"] = obs_block.strip()
+        if "--- TENDENCIAS ---" in prev_report:
+            parts = prev_report.split("--- TENDENCIAS ---")
+            if len(parts) > 1:
+                tend_block = parts[1]
+                if "---" in tend_block:
+                    tend_block = tend_block.split("---")[0]
+                llm_insights["tendencias"] = tend_block.strip()
+        if not llm_insights["observacoes"]:
+            llm_insights = generate_llm_insights(channel_name, sat_analysis, sat_comparison)
+    else:
+        llm_insights = generate_llm_insights(channel_name, sat_analysis, sat_comparison)
 
     # 7. Gerar relatorio
     report = generate_report(channel_name, sat_analysis, sat_comparison, llm_insights)
 
     # 8. Salvar
-    run_id = save_analysis(channel_id, channel_name, sat_analysis, sat_comparison, report)
+    run_id = save_analysis(
+        channel_id, channel_name, sat_analysis, sat_comparison, report,
+        run_number=run_number, snapshot=snapshot
+    )
 
-    logger.info(f"SATISFACAO COMPLETA: {channel_name} | run_id={run_id}")
+    logger.info(f"SATISFACAO COMPLETA: {channel_name} | run #{run_number} | run_id={run_id}")
     logger.info(f"  Estruturas: {len(sat_analysis['structures'])} | "
-                f"Videos: {len(sat_analysis.get('all_videos', []))} | "
+                f"Videos: {len(all_videos)} | {new_count} novos | "
                 f"Media approval: {sat_analysis['channel_avg']['approval']:.1f}%")
 
     summary = {
         "structures_analyzed": len(sat_analysis["structures"]),
         "structures_insufficient": len(sat_analysis["insufficient"]),
-        "total_videos": len(sat_analysis.get("all_videos", [])),
+        "total_videos": len(all_videos),
         "total_excluded": sat_analysis.get("excluded_immature", 0),
         "channel_avg_approval": sat_analysis["channel_avg"]["approval"],
         "channel_avg_sub_ratio": sat_analysis["channel_avg"]["sub_ratio"],
-        "anomalies_count": len(sat_analysis.get("anomalies", []))
+        "anomalies_count": len(sat_analysis.get("anomalies", [])),
+        "new_videos": new_count
     }
 
     return {
@@ -1388,6 +1492,8 @@ def run_analysis(channel_id: str) -> Dict:
         "channel_id": channel_id,
         "channel_name": channel_name,
         "run_id": run_id,
+        "run_number": run_number,
+        "new_videos": new_count,
         "report": report,
         "summary": summary
     }
