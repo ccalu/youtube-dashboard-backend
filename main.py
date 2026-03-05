@@ -8866,7 +8866,7 @@ body {
     padding: 0 1rem;
     justify-content: space-between;
 }
-.mobile-header .sidebar-title { margin: 0; }
+.mobile-header-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin: 0; }
 .hamburger {
     background: none;
     border: none;
@@ -8896,6 +8896,7 @@ body {
     .main { margin-left: 0; padding: 1rem; padding-top: 60px; }
     .main-header { flex-direction: column; align-items: flex-start; gap: 0.8rem; }
     .main-title { font-size: 1rem; }
+    .main-title.default-text { display: none; }
     .main-actions { width: 100%; }
     .main-actions .btn { flex: 1; font-size: 0.75rem; padding: 0.4rem 0.5rem; }
     .tabs-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-wrap: nowrap; }
@@ -8919,10 +8920,7 @@ body {
 <body>
 
 <div class="mobile-header">
-    <div>
-        <div class="sidebar-title">Dashboard</div>
-        <div style="font-size:0.8rem;font-weight:700;color:var(--text-primary);">Central de Agentes</div>
-    </div>
+    <div class="mobile-header-title">Central de Agentes</div>
     <button class="hamburger" onclick="toggleSidebar()" id="hamburgerBtn">&#9776;</button>
 </div>
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
@@ -8944,7 +8942,7 @@ body {
     </aside>
     <main class="main">
         <div class="main-header">
-            <div class="main-title" id="mainTitle">Selecione um canal</div>
+            <div class="main-title default-text" id="mainTitle">Selecione um canal</div>
             <div class="main-actions" id="mainActions" style="display:none">
                 <button class="btn btn-accent" onclick="runAnalysis()" id="btnRun">Gerar Relatorio</button>
                 <button class="btn btn-history" onclick="showChannelHistory()">Historico</button>
@@ -9087,7 +9085,9 @@ function selectChannel(channelId) {
     if (el) el.classList.add('active');
 
     var ch = _channelsData[channelId] || {};
-    document.getElementById('mainTitle').textContent = ch.channel_name || channelId;
+    var titleEl = document.getElementById('mainTitle');
+    titleEl.textContent = ch.channel_name || channelId;
+    titleEl.classList.remove('default-text');
     document.getElementById('mainActions').style.display = 'flex';
     document.getElementById('tabsArea').style.display = 'block';
 
