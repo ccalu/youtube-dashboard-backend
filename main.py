@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import uvicorn
 import os
@@ -10235,6 +10236,16 @@ async def get_channel_ctr_data(channel_id: str, limit: int = 50):
         logger.error(f"Erro get CTR data: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# =========================================================================
+# REACT DASHBOARD - Serve compiled frontend at /dash
+# =========================================================================
+import pathlib
+
+_DASH_DIR = pathlib.Path(__file__).resolve().parent / "static" / "dash"
+
+if _DASH_DIR.is_dir():
+    app.mount("/dash", StaticFiles(directory=str(_DASH_DIR), html=True), name="react-dashboard")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
