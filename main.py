@@ -10365,6 +10365,1250 @@ async def dash_theme_analysis_page():
 
 
 # =========================================================================
+# DASHBOARD SATISFACAO DO PUBLICO (Agente 2)
+# =========================================================================
+
+@app.get("/api/dash-analise-satisfacao/channels")
+async def dash_satisfacao_channels():
+    """Lista canais ativos agrupados por subnicho + ultima analise de satisfacao."""
+    try:
+        ch_resp = supabase.table("yt_channels")\
+            .select("channel_id,channel_name,subnicho,is_monetized,lingua")\
+            .eq("is_active", True)\
+            .not_.is_("copy_spreadsheet_id", "null")\
+            .order("is_monetized", desc=True)\
+            .order("channel_name")\
+            .execute()
+        channels = ch_resp.data or []
+        if not channels:
+            return {"subnichos": {}, "stats": {"total": 0, "com_relatorio": 0}}
+
+        channel_ids = [c["channel_id"] for c in channels]
+        last_sat = {}
+        for i in range(0, len(channel_ids), 20):
+            batch = channel_ids[i:i+20]
+            try:
+                resp = supabase.table("satisfaction_analysis_runs")\
+                    .select("channel_id,run_date,channel_avg_approval,channel_avg_sub_ratio,total_videos_analyzed")\
+                    .in_("channel_id", batch)\
+                    .order("run_date", desc=True)\
+                    .execute()
+                for row in resp.data:
+                    cid = row["channel_id"]
+                    if cid not in last_sat:
+                        last_sat[cid] = row
+            except Exception:
+                pass
+
+        subnichos = {}
+        com_relatorio = 0
+        for ch in channels:
+            sub = ch.get("subnicho", "Outros") or "Outros"
+            if sub not in subnichos:
+                subnichos[sub] = []
+            sat_info = last_sat.get(ch["channel_id"])
+            if sat_info:
+                com_relatorio += 1
+            subnichos[sub].append({
+                "channel_id": ch["channel_id"],
+                "channel_name": ch.get("channel_name", ""),
+                "lingua": ch.get("lingua", ""),
+                "is_monetized": ch.get("is_monetized", False),
+                "last_analysis_date": sat_info["run_date"] if sat_info else None,
+                "avg_approval": sat_info.get("channel_avg_approval") if sat_info else None,
+                "avg_sub_ratio": sat_info.get("channel_avg_sub_ratio") if sat_info else None,
+                "total_videos": sat_info.get("total_videos_analyzed") if sat_info else None
+            })
+
+        return {
+            "subnichos": subnichos,
+            "stats": {"total": len(channels), "com_relatorio": com_relatorio}
+        }
+    except Exception as e:
+        logger.error(f"Erro dash-analise-satisfacao channels: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+DASH_SATISFACAO_HTML = '''<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect rx='20' width='100' height='100' fill='%230a0a0f'/><circle cx='50' cy='42' r='22' fill='none' stroke='%2300d4aa' stroke-width='6'/><path d='M36 45 Q50 62 64 45' stroke='%2300d4aa' stroke-width='5' stroke-linecap='round' fill='none'/><circle cx='40' cy='36' r='3' fill='%2300d4aa'/><circle cx='60' cy='36' r='3' fill='%2300d4aa'/></svg>">
+<title>Satisfacao do Publico - Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg-primary: #0a0a0f;
+    --bg-secondary: #12121a;
+    --bg-tertiary: #1a1a24;
+    --bg-card: #16161f;
+    --text-primary: #e8e8ed;
+    --text-secondary: #a0a0b0;
+    --text-muted: #6b6b7b;
+    --accent: #00d4aa;
+    --accent-dim: rgba(0, 212, 170, 0.15);
+    --warning: #ff6b6b;
+    --warning-dim: rgba(255, 107, 107, 0.15);
+    --highlight: #ffd93d;
+    --highlight-dim: rgba(255, 217, 61, 0.1);
+    --purple: #a78bfa;
+    --purple-dim: rgba(167, 139, 250, 0.15);
+    --orange: #ff9f43;
+    --blue: #54a0ff;
+    --border: rgba(255, 255, 255, 0.08);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+.container { display:flex; min-height:100vh; }
+.sidebar {
+    width: 280px;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    padding: 1.5rem 1rem;
+    position: fixed;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 10;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0,212,170,0.2) transparent;
+}
+.sidebar::-webkit-scrollbar { width: 5px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(0,212,170,0.15); border-radius: 10px; }
+.sidebar::-webkit-scrollbar-thumb:hover { background: rgba(0,212,170,0.35); }
+.sidebar:not(:hover)::-webkit-scrollbar-thumb { background: transparent; }
+.sidebar-header { margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+.sidebar-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); font-weight: 600; }
+.sidebar-subtitle { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-top: 0.25rem; }
+.sidebar-stats { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; }
+.sidebar-actions { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+.btn { padding: 0.5rem 1rem; border: none; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 600; font-family: inherit; transition: all 0.2s; }
+.btn-accent { background: var(--accent); color: #000; flex: 1; }
+.btn-accent:hover { opacity: 0.85; }
+.btn-accent:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-secondary { background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+.subnicho-group { margin-bottom: 1rem; }
+.subnicho-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.4rem; font-weight: 600; padding-left: 0.5rem; display: flex; align-items: center; gap: 0.4rem; }
+.subnicho-icon { font-size: 0.75rem; }
+.channel-flag { font-size: 0.55rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; background: rgba(0,212,170,0.15); color: var(--accent); padding: 1px 4px; border-radius: 3px; margin-right: 0.3rem; flex-shrink: 0; letter-spacing: 0.03em; }
+.channel-info { display: flex; align-items: center; overflow: hidden; min-width: 0; }
+.channel-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; border-radius: 8px; cursor: pointer; transition: all 0.15s; margin-bottom: 2px; }
+.channel-item:hover { background: var(--bg-tertiary); }
+.channel-item.active { background: var(--accent-dim); border-left: 3px solid var(--accent); }
+.channel-name { font-size: 0.82rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+.channel-item.active .channel-name { color: var(--accent); font-weight: 600; }
+.channel-meta { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+.channel-date { font-size: 0.68rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+.channel-date.has-data { color: var(--accent); }
+.approval-badge { font-size: 0.6rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; padding: 1px 5px; border-radius: 4px; flex-shrink: 0; }
+.approval-badge.high { background: rgba(0,212,170,0.2); color: #00d4aa; }
+.approval-badge.medium { background: rgba(255,217,61,0.2); color: #ffd93d; }
+.approval-badge.low { background: rgba(255,107,107,0.2); color: #ff6b6b; }
+.main { margin-left: 280px; flex: 1; padding: 2rem 3rem; min-height: 100vh; }
+.main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+.main-title { font-size: 1.2rem; font-weight: 700; }
+.main-actions { display: flex; gap: 0.5rem; }
+.report-container { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; line-height: 1.8; white-space: pre-wrap; word-break: break-word; }
+.report-header-line { color: var(--accent); font-weight: 600; }
+.report-title { color: var(--accent); font-size: 1rem; font-weight: 700; }
+.report-meta { color: var(--text-secondary); }
+.report-meta .val { color: var(--highlight); font-weight: 600; }
+.section-header { color: var(--accent); font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.5rem; font-size: 0.9rem; }
+.section-header.obs { color: var(--purple); }
+.section-header.anom { color: var(--warning); }
+.section-header.insuf { color: var(--text-muted); }
+.section-header.comp { color: var(--blue); }
+.section-header.tend { color: var(--blue); }
+.section-header.sat { color: var(--accent); }
+.ranking-line { color: var(--text-primary); }
+.tag-acima { color: var(--accent); font-weight: 700; }
+.tag-media { color: var(--highlight); font-weight: 600; }
+.tag-abaixo { color: var(--warning); font-weight: 700; }
+.anomaly-line { color: var(--warning); font-weight: 600; }
+.anomaly-detail { color: var(--text-secondary); padding-left: 0.5rem; }
+.narrative { color: var(--purple); }
+.comp-positive { color: var(--accent); }
+.comp-negative { color: var(--warning); }
+.insuf-line { color: var(--text-muted); }
+.table-header-line { color: var(--text-muted); font-size: 0.78rem; }
+.alert-line { color: var(--warning); font-weight: 600; }
+.score-line { color: var(--highlight); font-weight: 700; font-size: 0.95rem; }
+.distribution-bar { color: var(--text-secondary); }
+.empty-state { text-align: center; padding: 4rem 2rem; color: var(--text-muted); }
+.empty-state h2 { color: var(--text-secondary); margin-bottom: 1rem; font-size: 1.1rem; }
+.empty-state p { margin-bottom: 1.5rem; }
+.loading { text-align: center; padding: 3rem; color: var(--accent); }
+.loading-spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 0.5rem; vertical-align: middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 100; justify-content: center; align-items: center; }
+.modal-overlay.active { display: flex; }
+.modal { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+.modal h3 { color: var(--accent); margin-bottom: 1rem; }
+.modal-close { float: right; background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; }
+.modal-close:hover { color: var(--text-primary); }
+.history-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; border-radius: 8px; cursor: pointer; transition: all 0.15s; margin-bottom: 4px; border: 1px solid var(--border); }
+.history-item:hover { border-color: var(--accent); background: var(--accent-dim); }
+.history-date { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-weight: 600; }
+.history-info { color: var(--text-muted); font-size: 0.8rem; }
+@media (max-width: 1024px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; padding: 1.5rem; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title">Dashboard</div>
+            <div class="sidebar-subtitle">Satisfacao do Publico</div>
+            <div class="sidebar-stats" id="sidebarStats">Carregando...</div>
+        </div>
+        <div class="sidebar-actions">
+            <button class="btn btn-accent" onclick="runAll()" id="btnRunAll">Rodar Todos</button>
+        </div>
+        <div id="channelList">
+            <div class="loading"><span class="loading-spinner"></span> Carregando canais...</div>
+        </div>
+    </aside>
+    <main class="main">
+        <div class="main-header">
+            <div class="main-title" id="mainTitle">Selecione um canal</div>
+            <div class="main-actions" id="mainActions" style="display:none">
+                <button class="btn btn-accent" onclick="runAnalysis()" id="btnRun">Gerar Relatorio</button>
+                <button class="btn btn-secondary" onclick="showHistory()" id="btnHistory">Historico</button>
+            </div>
+        </div>
+        <div id="reportArea">
+            <div class="empty-state">
+                <h2>Satisfacao do Publico</h2>
+                <p>Selecione um canal na sidebar para visualizar a analise de satisfacao<br>ou clique em "Rodar Todos" para gerar analises de todos os canais.</p>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div class="modal-overlay" id="historyModal">
+    <div class="modal">
+        <button class="modal-close" onclick="closeHistory()">&times;</button>
+        <h3>Historico de Satisfacao</h3>
+        <div id="historyList">
+            <div class="loading"><span class="loading-spinner"></span> Carregando...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+var _selectedChannel = null;
+var _channelsData = {};
+
+function getSubnichoStyle(sub) {
+    var map = {
+        'Monetizados': {color:'#22c55e', icon:'$'},
+        'Historias Sombrias': {color:'#8b5cf6', icon:'\\u265B'},
+        'Relatos de Guerra': {color:'#4a8c50', icon:'\\u2694'},
+        'Guerras e Civilizacoes': {color:'#f97316', icon:'\\u26E8'},
+        'Guerras e Civiliza\\u00e7\\u00f5es': {color:'#f97316', icon:'\\u26E8'},
+        'Terror': {color:'#7c1d3e', icon:'\\u2620'},
+        'Desmonetizados': {color:'#ef4444', icon:'\\u25CB'}
+    };
+    return map[sub] || {color:'#64748b', icon:'\\u25C6'};
+}
+
+function getFlag(lingua) {
+    if (!lingua) return '';
+    var l = lingua.toLowerCase();
+    var map = {
+        'pt':'PT','portugues':'PT','portuguese':'PT',
+        'en':'EN','ingles':'EN','english':'EN',
+        'es':'ES','espanhol':'ES','spanish':'ES',
+        'de':'DE','alemao':'DE','german':'DE',
+        'fr':'FR','frances':'FR','french':'FR',
+        'it':'IT','italiano':'IT','italian':'IT',
+        'pl':'PL','polones':'PL','polish':'PL',
+        'ru':'RU','russo':'RU','russian':'RU',
+        'ja':'JP','japones':'JP','japanese':'JP',
+        'ko':'KR','coreano':'KR','korean':'KR',
+        'tr':'TR','turco':'TR','turkish':'TR',
+        'ar':'AR','arabic':'AR','arabe':'AR'
+    };
+    return map[l] || '';
+}
+
+function getApprovalClass(val) {
+    if (val == null) return '';
+    if (val >= 90) return 'high';
+    if (val >= 70) return 'medium';
+    return 'low';
+}
+
+function loadChannels() {
+    fetch('/api/dash-analise-satisfacao/channels')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var el = document.getElementById('channelList');
+            var stats = document.getElementById('sidebarStats');
+            var s = data.stats || {};
+            stats.textContent = s.total + ' canais | ' + s.com_relatorio + ' com relatorio';
+
+            var html = '';
+            var subnichos = data.subnichos || {};
+            var order = ['Monetizados','Relatos de Guerra','Historias Sombrias','Terror','Guerras e Civilizacoes','Desmonetizados'];
+            var keys = Object.keys(subnichos).sort(function(a,b) {
+                var ia = order.indexOf(a), ib = order.indexOf(b);
+                if (ia === -1) ia = 99; if (ib === -1) ib = 99;
+                return ia - ib;
+            });
+            for (var i = 0; i < keys.length; i++) {
+                var sub = keys[i];
+                var channels = subnichos[sub];
+                var sStyle = getSubnichoStyle(sub);
+                html += '<div class="subnicho-group">';
+                html += '<div class="subnicho-label" style="color:' + sStyle.color + ';">';
+                html += '<span class="subnicho-icon">' + sStyle.icon + '</span>';
+                html += escHtml(sub) + ' <span style="opacity:0.5;font-size:0.6rem;">(' + channels.length + ')</span></div>';
+                for (var j = 0; j < channels.length; j++) {
+                    var ch = channels[j];
+                    _channelsData[ch.channel_id] = ch;
+                    var dateStr = '--';
+                    var dateClass = '';
+                    if (ch.last_analysis_date) {
+                        var d = new Date(ch.last_analysis_date);
+                        dateStr = pad(d.getDate()) + '/' + pad(d.getMonth()+1);
+                        dateClass = ' has-data';
+                    }
+                    var flag = getFlag(ch.lingua || '');
+                    html += '<div class="channel-item" id="ch-' + ch.channel_id + '" onclick="selectChannel(\\'' + ch.channel_id + '\\')">';
+                    html += '<div class="channel-info">';
+                    if (flag) html += '<span class="channel-flag">' + flag + '</span>';
+                    html += '<span class="channel-name" title="' + escHtml(ch.channel_name) + '">' + escHtml(ch.channel_name) + '</span>';
+                    if (ch.avg_approval != null) {
+                        var apprClass = getApprovalClass(ch.avg_approval);
+                        html += '<span class="approval-badge ' + apprClass + '">' + ch.avg_approval.toFixed(0) + '%</span>';
+                    }
+                    html += '</div>';
+                    html += '<span class="channel-date' + dateClass + '">' + dateStr + '</span>';
+                    html += '</div>';
+                }
+                html += '</div>';
+            }
+            el.innerHTML = html;
+        })
+        .catch(function(e) {
+            document.getElementById('channelList').innerHTML = '<div class="empty-state"><p>Erro ao carregar canais</p></div>';
+        });
+}
+
+function selectChannel(channelId) {
+    _selectedChannel = channelId;
+    var items = document.querySelectorAll('.channel-item');
+    for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
+    var el = document.getElementById('ch-' + channelId);
+    if (el) el.classList.add('active');
+
+    var ch = _channelsData[channelId] || {};
+    document.getElementById('mainTitle').textContent = ch.channel_name || channelId;
+    document.getElementById('mainActions').style.display = 'flex';
+
+    loadLatestReport(channelId);
+}
+
+function loadLatestReport(channelId) {
+    var area = document.getElementById('reportArea');
+    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando relatorio...</div>';
+
+    fetch('/api/analise-satisfacao/' + channelId + '/latest')
+        .then(function(r) { return r.status === 404 ? null : r.json(); })
+        .then(function(data) {
+            if (!data) {
+                area.innerHTML = '<div class="empty-state"><h2>Nenhuma analise encontrada</h2><p>Clique em "Gerar Relatorio" para criar a primeira analise deste canal.</p></div>';
+                return;
+            }
+            renderSatisfacaoReport(data, area);
+        })
+        .catch(function(e) {
+            area.innerHTML = '<div class="empty-state"><p>Erro ao carregar relatorio: ' + escHtml(e.message) + '</p></div>';
+        });
+}
+
+function renderSatisfacaoReport(data, container) {
+    var html = '';
+    var runDate = data.run_date ? new Date(data.run_date).toLocaleString('pt-BR') : '';
+    var dateHtml = runDate ? '<div style="color:var(--text-muted);font-size:0.75rem;margin-bottom:1rem;font-family:sans-serif;">Ultimo relatorio: ' + runDate + '</div>' : '';
+
+    // Summary card
+    var approval = data.channel_avg_approval;
+    var subRatio = data.channel_avg_sub_ratio;
+    var commentRatio = data.channel_avg_comment_ratio;
+    if (approval != null || subRatio != null) {
+        html += '<div style="display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">';
+        if (approval != null) {
+            var apprColor = approval >= 90 ? '#00d4aa' : approval >= 70 ? '#ffd93d' : '#ff6b6b';
+            html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+            html += '<div style="font-size:1.8rem;font-weight:800;color:' + apprColor + ';font-family:JetBrains Mono,monospace;">' + approval.toFixed(1) + '<span style="font-size:0.8rem;opacity:0.6">%</span></div>';
+            html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Aprovacao Media</div>';
+            html += '</div>';
+        }
+        if (subRatio != null) {
+            html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+            html += '<div style="font-size:1.8rem;font-weight:800;color:var(--accent);font-family:JetBrains Mono,monospace;">' + (subRatio * 100).toFixed(2) + '<span style="font-size:0.8rem;opacity:0.6">%</span></div>';
+            html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Sub Ratio (subs/views)</div>';
+            html += '</div>';
+        }
+        if (commentRatio != null) {
+            html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+            html += '<div style="font-size:1.8rem;font-weight:800;color:var(--purple);font-family:JetBrains Mono,monospace;">' + (commentRatio * 100).toFixed(2) + '<span style="font-size:0.8rem;opacity:0.6">%</span></div>';
+            html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Comment Ratio</div>';
+            html += '</div>';
+        }
+        html += '</div>';
+    }
+
+    // Report text
+    var text = data.report_text || '';
+    if (text) {
+        html += '<div class="report-container">';
+        html += renderReportLines(text);
+        html += '</div>';
+    }
+
+    container.innerHTML = dateHtml + html;
+}
+
+function renderReportLines(text) {
+    if (!text) return '';
+    var lines = text.split('\\n');
+    var html = '';
+    var inSection = '';
+
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        var trimmed = line.trim();
+
+        if (/^={10,}/.test(trimmed)) { html += '<div class="report-header-line">' + escHtml(line) + '</div>'; continue; }
+        if (/^(RELATORIO |ANALISE DE SATISF)/.test(trimmed)) { html += '<div class="report-title">' + escHtml(line) + '</div>'; continue; }
+        if (/^SCORE GERAL:/.test(trimmed)) { html += '<div class="score-line">' + escHtml(line) + '</div>'; continue; }
+
+        if (/^---\\s+(.+?)\\s+---/.test(trimmed)) {
+            var secName = trimmed.replace(/^---\\s+/, '').replace(/\\s+---$/, '');
+            var secClass = 'section-header';
+            if (/OBSERVAC/.test(secName)) { secClass += ' obs'; inSection = 'obs'; }
+            else if (/ANOMAL/.test(secName)) { secClass += ' anom'; inSection = 'anom'; }
+            else if (/INSUFICIENTE/.test(secName)) { secClass += ' insuf'; inSection = 'insuf'; }
+            else if (/ANTERIOR|COMPARAC/.test(secName)) { secClass += ' comp'; inSection = 'comp'; }
+            else if (/TENDENCIA/.test(secName)) { secClass += ' tend'; inSection = 'tend'; }
+            else if (/SATISF/.test(secName)) { secClass += ' sat'; inSection = 'sat'; }
+            else { inSection = 'ranking'; }
+            html += '<div class="' + secClass + '">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        if (trimmed === '') { html += '<br>'; continue; }
+        if (/^!\\s+/.test(trimmed)) { html += '<div class="alert-line">' + escHtml(line) + '</div>'; continue; }
+        if (inSection === 'anom' && /^\\s{2,}/.test(line)) { html += '<div class="anomaly-detail">' + escHtml(line) + '</div>'; continue; }
+
+        if (/^Videos analisados/.test(trimmed) || /^Periodo:/.test(trimmed) || /^Media geral/.test(trimmed) || /^Canais analisados/.test(trimmed) || /^Total de videos/.test(trimmed)) {
+            var metaHtml = escHtml(line);
+            metaHtml = metaHtml.replace(/(\\d+\\.?\\d*%)/g, '<span class="val">$1</span>');
+            metaHtml = metaHtml.replace(/(\\d+\\.?\\d* min)/g, '<span class="val">$1</span>');
+            html += '<div class="report-meta">' + metaHtml + '</div>';
+            continue;
+        }
+
+        if (/^\\s+[A-G]:\\s+\\d+\\s+videos/.test(line)) { html += '<div class="distribution-bar">' + escHtml(line) + '</div>'; continue; }
+        if (/^\\s*#\\s+Estr/.test(trimmed) || /^\\s*Estr\\.?\\s+/.test(trimmed) || /^\\s*[\\u2500-]{3,}/.test(trimmed) || /^\\s+Fator/.test(trimmed)) {
+            html += '<div class="table-header-line">' + escHtml(line) + '</div>'; continue;
+        }
+
+        if (/Acima|Media|Abaixo/.test(trimmed) && inSection === 'ranking') {
+            var rLine = escHtml(line);
+            rLine = rLine.replace(/Acima(\\s*\\([^)]*\\))?/g, '<span class="tag-acima">Acima$1</span>');
+            rLine = rLine.replace(/Media(\\s*\\([^)]*\\))?/g, '<span class="tag-media">Media$1</span>');
+            rLine = rLine.replace(/Abaixo(\\s*\\([^)]*\\))?/g, '<span class="tag-abaixo">Abaixo$1</span>');
+            html += '<div class="ranking-line">' + rLine + '</div>';
+            continue;
+        }
+
+        if (inSection === 'comp' && /[+-]\\d+\\.?\\d*/.test(trimmed)) {
+            var cLine = escHtml(line);
+            cLine = cLine.replace(/(\\+\\d+\\.?\\d*)/g, '<span class="comp-positive">$1</span>');
+            cLine = cLine.replace(/(\\-\\d+\\.?\\d*)/g, '<span class="comp-negative">$1</span>');
+            cLine = cLine.replace(/(Subiu[^<]*)/g, '<span class="comp-positive">$1</span>');
+            cLine = cLine.replace(/(Caiu[^<]*)/g, '<span class="comp-negative">$1</span>');
+            html += '<div class="ranking-line">' + cLine + '</div>';
+            continue;
+        }
+
+        if (inSection === 'insuf') { html += '<div class="insuf-line">' + escHtml(line) + '</div>'; continue; }
+        if (inSection === 'obs' || inSection === 'tend' || (inSection === 'comp' && !/^\\s*\\d/.test(trimmed) && !/^\\s*Estr/.test(trimmed))) {
+            html += '<div class="narrative">' + escHtml(line) + '</div>'; continue;
+        }
+
+        html += '<div>' + escHtml(line) + '</div>';
+    }
+    return html;
+}
+
+function runAnalysis() {
+    if (!_selectedChannel) return;
+    var ch = _channelsData[_selectedChannel] || {};
+    if (!confirm('Gerar analise de satisfacao para ' + (ch.channel_name || _selectedChannel) + '?\\n\\nIsso pode demorar 30-60 segundos.')) return;
+
+    var btn = document.getElementById('btnRun');
+    btn.disabled = true;
+    btn.textContent = 'Gerando...';
+    var area = document.getElementById('reportArea');
+    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Gerando analise de satisfacao... (30-60s)</div>';
+
+    fetch('/api/analise-satisfacao/' + _selectedChannel, { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            btn.disabled = false;
+            btn.textContent = 'Gerar Relatorio';
+            if (data.success && data.report) {
+                renderSatisfacaoReport({ report_text: data.report, run_date: new Date().toISOString(), channel_avg_approval: data.summary ? data.summary.channel_avg_approval : null, channel_avg_sub_ratio: data.summary ? data.summary.channel_avg_sub_ratio : null }, area);
+                loadChannels();
+            } else {
+                area.innerHTML = '<div class="empty-state"><h2>Erro na analise</h2><p>' + escHtml(data.error || data.detail || 'Erro desconhecido') + '</p></div>';
+            }
+        })
+        .catch(function(e) {
+            btn.disabled = false;
+            btn.textContent = 'Gerar Relatorio';
+            area.innerHTML = '<div class="empty-state"><p>Erro: ' + escHtml(e.message) + '</p></div>';
+        });
+}
+
+function runAll() {
+    if (!confirm('Rodar analise de satisfacao de TODOS os canais?\\n\\nIsso pode demorar varios minutos.')) return;
+    var btn = document.getElementById('btnRunAll');
+    btn.disabled = true;
+    btn.textContent = 'Rodando...';
+
+    fetch('/api/analise-satisfacao/run-all', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            btn.disabled = false;
+            btn.textContent = 'Rodar Todos';
+            var msg = 'Concluido! ' + (data.success_count || 0) + ' sucesso, ' + (data.error_count || 0) + ' erros de ' + (data.total_channels || 0) + ' canais.';
+            alert(msg);
+            loadChannels();
+            if (_selectedChannel) loadLatestReport(_selectedChannel);
+        })
+        .catch(function(e) {
+            btn.disabled = false;
+            btn.textContent = 'Rodar Todos';
+            alert('Erro: ' + e.message);
+        });
+}
+
+function showHistory() {
+    if (!_selectedChannel) return;
+    document.getElementById('historyModal').classList.add('active');
+    var el = document.getElementById('historyList');
+    el.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando...</div>';
+
+    fetch('/api/analise-satisfacao/' + _selectedChannel + '/historico?limit=30')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var items = data.runs || [];
+            if (items.length === 0) {
+                el.innerHTML = '<div class="empty-state"><p>Nenhum historico encontrado</p></div>';
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i];
+                var d = new Date(item.run_date);
+                var dateStr = pad(d.getDate()) + '/' + pad(d.getMonth()+1) + '/' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+                var appr = item.channel_avg_approval ? item.channel_avg_approval.toFixed(1) + '%' : '--';
+                var vids = item.total_videos_analyzed || '--';
+                html += '<div class="history-item" onclick="loadHistoryItem(' + item.id + ')">';
+                html += '<span class="history-date">' + dateStr + '</span>';
+                html += '<span class="history-info">' + vids + ' videos | aprov: ' + appr + '</span>';
+                html += '</div>';
+            }
+            el.innerHTML = html;
+        })
+        .catch(function(e) {
+            el.innerHTML = '<div class="empty-state"><p>Erro: ' + e.message + '</p></div>';
+        });
+}
+
+function loadHistoryItem(runId) {
+    closeHistory();
+    if (!_selectedChannel) return;
+    // Reload latest (history items dont carry report_text)
+    loadLatestReport(_selectedChannel);
+}
+
+function closeHistory() {
+    document.getElementById('historyModal').classList.remove('active');
+}
+
+function escHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+loadChannels();
+</script>
+</body>
+</html>'''
+
+
+@app.get("/dash-analise-satisfacao", response_class=HTMLResponse)
+async def dash_satisfacao_page():
+    """Dashboard de Satisfacao do Publico - Interface web"""
+    return DASH_SATISFACAO_HTML
+
+
+# =========================================================================
+# DASHBOARD AUTENTICIDADE (Agente 3)
+# =========================================================================
+
+@app.get("/api/dash-analise-autenticidade/channels")
+async def dash_autenticidade_channels():
+    """Lista canais ativos agrupados por subnicho + ultima analise de autenticidade."""
+    try:
+        ch_resp = supabase.table("yt_channels")\
+            .select("channel_id,channel_name,subnicho,is_monetized,lingua")\
+            .eq("is_active", True)\
+            .not_.is_("copy_spreadsheet_id", "null")\
+            .order("is_monetized", desc=True)\
+            .order("channel_name")\
+            .execute()
+        channels = ch_resp.data or []
+        if not channels:
+            return {"subnichos": {}, "stats": {"total": 0, "com_relatorio": 0}}
+
+        channel_ids = [c["channel_id"] for c in channels]
+        last_auth = {}
+        for i in range(0, len(channel_ids), 20):
+            batch = channel_ids[i:i+20]
+            try:
+                resp = supabase.table("authenticity_analysis_runs")\
+                    .select("channel_id,run_date,authenticity_score,authenticity_level,structure_score,title_score,has_alerts,alert_count,total_videos_analyzed")\
+                    .in_("channel_id", batch)\
+                    .order("run_date", desc=True)\
+                    .execute()
+                for row in resp.data:
+                    cid = row["channel_id"]
+                    if cid not in last_auth:
+                        last_auth[cid] = row
+            except Exception:
+                pass
+
+        subnichos = {}
+        com_relatorio = 0
+        for ch in channels:
+            sub = ch.get("subnicho", "Outros") or "Outros"
+            if sub not in subnichos:
+                subnichos[sub] = []
+            auth_info = last_auth.get(ch["channel_id"])
+            if auth_info:
+                com_relatorio += 1
+            subnichos[sub].append({
+                "channel_id": ch["channel_id"],
+                "channel_name": ch.get("channel_name", ""),
+                "lingua": ch.get("lingua", ""),
+                "is_monetized": ch.get("is_monetized", False),
+                "last_analysis_date": auth_info["run_date"] if auth_info else None,
+                "auth_score": auth_info.get("authenticity_score") if auth_info else None,
+                "auth_level": auth_info.get("authenticity_level") if auth_info else None,
+                "structure_score": auth_info.get("structure_score") if auth_info else None,
+                "title_score": auth_info.get("title_score") if auth_info else None,
+                "has_alerts": auth_info.get("has_alerts", False) if auth_info else False,
+                "alert_count": auth_info.get("alert_count", 0) if auth_info else 0,
+                "total_videos": auth_info.get("total_videos_analyzed") if auth_info else None
+            })
+
+        return {
+            "subnichos": subnichos,
+            "stats": {"total": len(channels), "com_relatorio": com_relatorio}
+        }
+    except Exception as e:
+        logger.error(f"Erro dash-analise-autenticidade channels: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+DASH_AUTENTICIDADE_HTML = '''<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect rx='20' width='100' height='100' fill='%230a0a0f'/><path d='M50 15L80 35V60C80 75 50 90 50 90C50 90 20 75 20 60V35L50 15Z' fill='none' stroke='%23ff9f43' stroke-width='6' stroke-linejoin='round'/><path d='M38 52L47 61L63 42' stroke='%23ff9f43' stroke-width='6' stroke-linecap='round' stroke-linejoin='round' fill='none'/></svg>">
+<title>Autenticidade - Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg-primary: #0a0a0f;
+    --bg-secondary: #12121a;
+    --bg-tertiary: #1a1a24;
+    --bg-card: #16161f;
+    --text-primary: #e8e8ed;
+    --text-secondary: #a0a0b0;
+    --text-muted: #6b6b7b;
+    --accent: #00d4aa;
+    --accent-dim: rgba(0, 212, 170, 0.15);
+    --warning: #ff6b6b;
+    --warning-dim: rgba(255, 107, 107, 0.15);
+    --highlight: #ffd93d;
+    --highlight-dim: rgba(255, 217, 61, 0.1);
+    --purple: #a78bfa;
+    --purple-dim: rgba(167, 139, 250, 0.15);
+    --orange: #ff9f43;
+    --blue: #54a0ff;
+    --border: rgba(255, 255, 255, 0.08);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+.container { display:flex; min-height:100vh; }
+.sidebar {
+    width: 280px;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border);
+    padding: 1.5rem 1rem;
+    position: fixed;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 10;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,159,67,0.2) transparent;
+}
+.sidebar::-webkit-scrollbar { width: 5px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(255,159,67,0.15); border-radius: 10px; }
+.sidebar::-webkit-scrollbar-thumb:hover { background: rgba(255,159,67,0.35); }
+.sidebar:not(:hover)::-webkit-scrollbar-thumb { background: transparent; }
+.sidebar-header { margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+.sidebar-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--orange); font-weight: 600; }
+.sidebar-subtitle { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-top: 0.25rem; }
+.sidebar-stats { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; }
+.sidebar-actions { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+.btn { padding: 0.5rem 1rem; border: none; border-radius: 8px; cursor: pointer; font-size: 0.8rem; font-weight: 600; font-family: inherit; transition: all 0.2s; }
+.btn-accent { background: var(--orange); color: #000; flex: 1; }
+.btn-accent:hover { opacity: 0.85; }
+.btn-accent:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-secondary { background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border); }
+.btn-secondary:hover { border-color: var(--orange); color: var(--orange); }
+.subnicho-group { margin-bottom: 1rem; }
+.subnicho-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.4rem; font-weight: 600; padding-left: 0.5rem; display: flex; align-items: center; gap: 0.4rem; }
+.subnicho-icon { font-size: 0.75rem; }
+.channel-flag { font-size: 0.55rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; background: rgba(255,159,67,0.15); color: var(--orange); padding: 1px 4px; border-radius: 3px; margin-right: 0.3rem; flex-shrink: 0; letter-spacing: 0.03em; }
+.channel-info { display: flex; align-items: center; overflow: hidden; min-width: 0; }
+.channel-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; border-radius: 8px; cursor: pointer; transition: all 0.15s; margin-bottom: 2px; }
+.channel-item:hover { background: var(--bg-tertiary); }
+.channel-item.active { background: rgba(255,159,67,0.1); border-left: 3px solid var(--orange); }
+.channel-name { font-size: 0.82rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+.channel-item.active .channel-name { color: var(--orange); font-weight: 600; }
+.channel-meta { display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0; }
+.channel-date { font-size: 0.68rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+.channel-date.has-data { color: var(--orange); }
+.auth-badge { font-size: 0.6rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; padding: 1px 5px; border-radius: 4px; flex-shrink: 0; margin-left: 0.3rem; }
+.auth-badge.excelente { background: rgba(0,212,170,0.2); color: #00d4aa; }
+.auth-badge.bom { background: rgba(0,212,170,0.15); color: #00d4aa; }
+.auth-badge.atencao { background: rgba(255,217,61,0.2); color: #ffd93d; }
+.auth-badge.risco { background: rgba(255,107,107,0.2); color: #ff6b6b; }
+.auth-badge.critico { background: rgba(255,50,50,0.3); color: #ff3232; }
+.auth-alert-dot { color: #ff6b6b; margin-left: 2px; font-size: 0.6rem; }
+.main { margin-left: 280px; flex: 1; padding: 2rem 3rem; min-height: 100vh; }
+.main-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+.main-title { font-size: 1.2rem; font-weight: 700; }
+.main-actions { display: flex; gap: 0.5rem; }
+.report-container { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; line-height: 1.8; white-space: pre-wrap; word-break: break-word; }
+.report-header-line { color: var(--orange); font-weight: 600; }
+.report-title { color: var(--orange); font-size: 1rem; font-weight: 700; }
+.report-meta { color: var(--text-secondary); }
+.report-meta .val { color: var(--highlight); font-weight: 600; }
+.section-header { color: var(--orange); font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.5rem; font-size: 0.9rem; }
+.section-header.diag { color: var(--orange); }
+.section-header.rec { color: var(--accent); }
+.section-header.tend { color: var(--blue); }
+.section-header.alert { color: var(--warning); }
+.section-header.struct { color: var(--purple); }
+.section-header.title-sec { color: var(--highlight); }
+.section-header.comp { color: var(--blue); }
+.section-header.obs { color: var(--purple); }
+.ranking-line { color: var(--text-primary); }
+.anomaly-line { color: var(--warning); font-weight: 600; }
+.anomaly-detail { color: var(--text-secondary); padding-left: 0.5rem; }
+.narrative { color: var(--purple); }
+.comp-positive { color: var(--accent); }
+.comp-negative { color: var(--warning); }
+.alert-line { color: var(--warning); font-weight: 600; }
+.score-line { color: var(--highlight); font-weight: 700; font-size: 0.95rem; }
+.distribution-bar { color: var(--text-secondary); }
+.table-header-line { color: var(--text-muted); font-size: 0.78rem; }
+.insuf-line { color: var(--text-muted); }
+.empty-state { text-align: center; padding: 4rem 2rem; color: var(--text-muted); }
+.empty-state h2 { color: var(--text-secondary); margin-bottom: 1rem; font-size: 1.1rem; }
+.empty-state p { margin-bottom: 1.5rem; }
+.loading { text-align: center; padding: 3rem; color: var(--orange); }
+.loading-spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border); border-top-color: var(--orange); border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 0.5rem; vertical-align: middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 100; justify-content: center; align-items: center; }
+.modal-overlay.active { display: flex; }
+.modal { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; }
+.modal h3 { color: var(--orange); margin-bottom: 1rem; }
+.modal-close { float: right; background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; }
+.modal-close:hover { color: var(--text-primary); }
+.history-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; border-radius: 8px; cursor: pointer; transition: all 0.15s; margin-bottom: 4px; border: 1px solid var(--border); }
+.history-item:hover { border-color: var(--orange); background: rgba(255,159,67,0.1); }
+.history-date { font-family: 'JetBrains Mono', monospace; color: var(--orange); font-weight: 600; }
+.history-info { color: var(--text-muted); font-size: 0.8rem; }
+@media (max-width: 1024px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; padding: 1.5rem; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title">Dashboard</div>
+            <div class="sidebar-subtitle">Autenticidade</div>
+            <div class="sidebar-stats" id="sidebarStats">Carregando...</div>
+        </div>
+        <div class="sidebar-actions">
+            <button class="btn btn-accent" onclick="runAll()" id="btnRunAll">Rodar Todos</button>
+        </div>
+        <div id="channelList">
+            <div class="loading"><span class="loading-spinner"></span> Carregando canais...</div>
+        </div>
+    </aside>
+    <main class="main">
+        <div class="main-header">
+            <div class="main-title" id="mainTitle">Selecione um canal</div>
+            <div class="main-actions" id="mainActions" style="display:none">
+                <button class="btn btn-accent" onclick="runAnalysis()" id="btnRun">Gerar Relatorio</button>
+                <button class="btn btn-secondary" onclick="showHistory()" id="btnHistory">Historico</button>
+            </div>
+        </div>
+        <div id="reportArea">
+            <div class="empty-state">
+                <h2>Score de Autenticidade</h2>
+                <p>Selecione um canal na sidebar para visualizar o score de autenticidade<br>ou clique em "Rodar Todos" para gerar analises de todos os canais.</p>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div class="modal-overlay" id="historyModal">
+    <div class="modal">
+        <button class="modal-close" onclick="closeHistory()">&times;</button>
+        <h3>Historico de Autenticidade</h3>
+        <div id="historyList">
+            <div class="loading"><span class="loading-spinner"></span> Carregando...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+var _selectedChannel = null;
+var _channelsData = {};
+
+function getSubnichoStyle(sub) {
+    var map = {
+        'Monetizados': {color:'#22c55e', icon:'$'},
+        'Historias Sombrias': {color:'#8b5cf6', icon:'\\u265B'},
+        'Relatos de Guerra': {color:'#4a8c50', icon:'\\u2694'},
+        'Guerras e Civilizacoes': {color:'#f97316', icon:'\\u26E8'},
+        'Guerras e Civiliza\\u00e7\\u00f5es': {color:'#f97316', icon:'\\u26E8'},
+        'Terror': {color:'#7c1d3e', icon:'\\u2620'},
+        'Desmonetizados': {color:'#ef4444', icon:'\\u25CB'}
+    };
+    return map[sub] || {color:'#64748b', icon:'\\u25C6'};
+}
+
+function getFlag(lingua) {
+    if (!lingua) return '';
+    var l = lingua.toLowerCase();
+    var map = {
+        'pt':'PT','portugues':'PT','portuguese':'PT',
+        'en':'EN','ingles':'EN','english':'EN',
+        'es':'ES','espanhol':'ES','spanish':'ES',
+        'de':'DE','alemao':'DE','german':'DE',
+        'fr':'FR','frances':'FR','french':'FR',
+        'it':'IT','italiano':'IT','italian':'IT',
+        'pl':'PL','polones':'PL','polish':'PL',
+        'ru':'RU','russo':'RU','russian':'RU',
+        'ja':'JP','japones':'JP','japanese':'JP',
+        'ko':'KR','coreano':'KR','korean':'KR',
+        'tr':'TR','turco':'TR','turkish':'TR',
+        'ar':'AR','arabic':'AR','arabe':'AR'
+    };
+    return map[l] || '';
+}
+
+function getScoreColor(score) {
+    if (score >= 80) return '#00d4aa';
+    if (score >= 60) return '#00d4aa';
+    if (score >= 40) return '#ffd93d';
+    if (score >= 20) return '#ff6b6b';
+    return '#ff3232';
+}
+
+function loadChannels() {
+    fetch('/api/dash-analise-autenticidade/channels')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var el = document.getElementById('channelList');
+            var stats = document.getElementById('sidebarStats');
+            var s = data.stats || {};
+            stats.textContent = s.total + ' canais | ' + s.com_relatorio + ' com relatorio';
+
+            var html = '';
+            var subnichos = data.subnichos || {};
+            var order = ['Monetizados','Relatos de Guerra','Historias Sombrias','Terror','Guerras e Civilizacoes','Desmonetizados'];
+            var keys = Object.keys(subnichos).sort(function(a,b) {
+                var ia = order.indexOf(a), ib = order.indexOf(b);
+                if (ia === -1) ia = 99; if (ib === -1) ib = 99;
+                return ia - ib;
+            });
+            for (var i = 0; i < keys.length; i++) {
+                var sub = keys[i];
+                var channels = subnichos[sub];
+                var sStyle = getSubnichoStyle(sub);
+                html += '<div class="subnicho-group">';
+                html += '<div class="subnicho-label" style="color:' + sStyle.color + ';">';
+                html += '<span class="subnicho-icon">' + sStyle.icon + '</span>';
+                html += escHtml(sub) + ' <span style="opacity:0.5;font-size:0.6rem;">(' + channels.length + ')</span></div>';
+                for (var j = 0; j < channels.length; j++) {
+                    var ch = channels[j];
+                    _channelsData[ch.channel_id] = ch;
+                    var dateStr = '--';
+                    var dateClass = '';
+                    if (ch.last_analysis_date) {
+                        var d = new Date(ch.last_analysis_date);
+                        dateStr = pad(d.getDate()) + '/' + pad(d.getMonth()+1);
+                        dateClass = ' has-data';
+                    }
+                    var flag = getFlag(ch.lingua || '');
+                    html += '<div class="channel-item" id="ch-' + ch.channel_id + '" onclick="selectChannel(\\'' + ch.channel_id + '\\')">';
+                    html += '<div class="channel-info">';
+                    if (flag) html += '<span class="channel-flag">' + flag + '</span>';
+                    html += '<span class="channel-name" title="' + escHtml(ch.channel_name) + '">' + escHtml(ch.channel_name) + '</span>';
+                    if (ch.auth_score != null) {
+                        var authLvl = (ch.auth_level || '').toLowerCase();
+                        html += '<span class="auth-badge ' + authLvl + '">' + Math.round(ch.auth_score) + '</span>';
+                        if (ch.has_alerts) html += '<span class="auth-alert-dot">!</span>';
+                    }
+                    html += '</div>';
+                    html += '<span class="channel-date' + dateClass + '">' + dateStr + '</span>';
+                    html += '</div>';
+                }
+                html += '</div>';
+            }
+            el.innerHTML = html;
+        })
+        .catch(function(e) {
+            document.getElementById('channelList').innerHTML = '<div class="empty-state"><p>Erro ao carregar canais</p></div>';
+        });
+}
+
+function selectChannel(channelId) {
+    _selectedChannel = channelId;
+    var items = document.querySelectorAll('.channel-item');
+    for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
+    var el = document.getElementById('ch-' + channelId);
+    if (el) el.classList.add('active');
+
+    var ch = _channelsData[channelId] || {};
+    document.getElementById('mainTitle').textContent = ch.channel_name || channelId;
+    document.getElementById('mainActions').style.display = 'flex';
+
+    loadLatestReport(channelId);
+}
+
+function loadLatestReport(channelId) {
+    var area = document.getElementById('reportArea');
+    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando relatorio...</div>';
+
+    fetch('/api/analise-autenticidade/' + channelId + '/latest')
+        .then(function(r) { return r.status === 404 ? null : r.json(); })
+        .then(function(data) {
+            if (!data) {
+                area.innerHTML = '<div class="empty-state"><h2>Nenhuma analise encontrada</h2><p>Clique em "Gerar Relatorio" para criar a primeira analise deste canal.</p></div>';
+                return;
+            }
+            renderAuthReport(data, area);
+        })
+        .catch(function(e) {
+            area.innerHTML = '<div class="empty-state"><p>Erro ao carregar relatorio: ' + escHtml(e.message) + '</p></div>';
+        });
+}
+
+function renderAuthReport(data, container) {
+    var html = '';
+    var runDate = data.run_date ? new Date(data.run_date).toLocaleString('pt-BR') : '';
+    var dateHtml = runDate ? '<div style="color:var(--text-muted);font-size:0.75rem;margin-bottom:1rem;font-family:sans-serif;">Ultimo relatorio: ' + runDate + '</div>' : '';
+
+    // Score summary card
+    if (data.authenticity_score != null) {
+        var aScore = Math.round(data.authenticity_score);
+        var aLevel = (data.authenticity_level || '').toUpperCase();
+        var aColor = getScoreColor(aScore);
+        html += '<div style="display:flex;gap:1.5rem;align-items:center;margin-bottom:1.5rem;padding:1.2rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+        html += '<div style="text-align:center;min-width:100px;">';
+        html += '<div style="font-size:2.2rem;font-weight:800;color:' + aColor + ';font-family:JetBrains Mono,monospace;">' + aScore + '<span style="font-size:0.9rem;opacity:0.6">/100</span></div>';
+        html += '<div style="font-size:0.7rem;font-weight:700;color:' + aColor + ';letter-spacing:0.1em;">' + escHtml(aLevel) + '</div>';
+        html += '</div>';
+        html += '<div style="flex:1;">';
+        html += '<div style="font-size:0.85rem;font-weight:600;color:var(--text-primary);margin-bottom:0.5rem;">Score de Autenticidade</div>';
+        // Subscores
+        var structScore = data.structure_score != null ? Math.round(data.structure_score) : '--';
+        var titleScore = data.title_score != null ? Math.round(data.title_score) : '--';
+        html += '<div style="display:flex;gap:1.5rem;">';
+        html += '<div style="font-size:0.75rem;color:var(--text-secondary);">Estruturas: <span style="color:var(--purple);font-weight:600;">' + structScore + '/100</span></div>';
+        html += '<div style="font-size:0.75rem;color:var(--text-secondary);">Titulos: <span style="color:var(--highlight);font-weight:600;">' + titleScore + '/100</span></div>';
+        html += '</div>';
+        if (data.has_alerts) {
+            html += '<div style="font-size:0.72rem;color:#ff6b6b;margin-top:0.3rem;">! ' + (data.alert_count || '') + ' alerta(s) ativos</div>';
+        }
+        // Comparison with previous
+        var rj = data.results_json || {};
+        if (rj.comparison && rj.comparison.score_diff != null) {
+            var diff = rj.comparison.score_diff;
+            var diffColor = diff >= 0 ? '#00d4aa' : '#ff6b6b';
+            var diffSign = diff >= 0 ? '+' : '';
+            html += '<div style="font-size:0.72rem;color:' + diffColor + ';margin-top:0.2rem;">' + diffSign + diff.toFixed(1) + ' pts vs anterior</div>';
+        }
+        html += '</div>';
+        html += '</div>';
+    }
+
+    // Report text
+    var text = data.report_text || '';
+    if (text) {
+        html += '<div class="report-container">';
+        html += renderReportLines(text);
+        html += '</div>';
+    }
+
+    container.innerHTML = dateHtml + html;
+}
+
+function renderReportLines(text) {
+    if (!text) return '';
+    var lines = text.split('\\n');
+    var html = '';
+    var inSection = '';
+
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        var trimmed = line.trim();
+
+        if (/^={10,}/.test(trimmed)) { html += '<div class="report-header-line">' + escHtml(line) + '</div>'; continue; }
+        if (/^(SCORE DE AUTENTICIDADE |RELATORIO )/.test(trimmed)) { html += '<div class="report-title">' + escHtml(line) + '</div>'; continue; }
+        if (/^SCORE GERAL:/.test(trimmed)) { html += '<div class="score-line">' + escHtml(line) + '</div>'; continue; }
+
+        if (/^---\\s+(.+?)\\s+---/.test(trimmed)) {
+            var secName = trimmed.replace(/^---\\s+/, '').replace(/\\s+---$/, '');
+            var secClass = 'section-header';
+            if (/DIAGNOSTICO/.test(secName)) { secClass += ' diag'; inSection = 'diag'; }
+            else if (/RECOMENDAC/.test(secName)) { secClass += ' rec'; inSection = 'rec'; }
+            else if (/TENDENCIA/.test(secName)) { secClass += ' tend'; inSection = 'tend'; }
+            else if (/ALERTA/.test(secName)) { secClass += ' alert'; inSection = 'alert'; }
+            else if (/ESTRUTURA/.test(secName)) { secClass += ' struct'; inSection = 'struct'; }
+            else if (/TITULO/.test(secName)) { secClass += ' title-sec'; inSection = 'title-sec'; }
+            else if (/ANTERIOR|COMPARAC/.test(secName)) { secClass += ' comp'; inSection = 'comp'; }
+            else if (/OBSERVAC/.test(secName)) { secClass += ' obs'; inSection = 'obs'; }
+            else { inSection = 'general'; }
+            html += '<div class="' + secClass + '">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        if (trimmed === '') { html += '<br>'; continue; }
+        if (/^!\\s+/.test(trimmed) || (inSection === 'alert' && /^\\s+!\\s+/.test(line))) { html += '<div class="alert-line">' + escHtml(line) + '</div>'; continue; }
+
+        if (/^Videos analisados/.test(trimmed) || /^Periodo:/.test(trimmed) || /^Total de titulos/.test(trimmed) || /^Titulos analisados/.test(trimmed)) {
+            var metaHtml = escHtml(line);
+            metaHtml = metaHtml.replace(/(\\d+\\.?\\d*%)/g, '<span class="val">$1</span>');
+            html += '<div class="report-meta">' + metaHtml + '</div>';
+            continue;
+        }
+
+        if (/^\\s+[A-G]:\\s+\\d+\\s+videos/.test(line)) { html += '<div class="distribution-bar">' + escHtml(line) + '</div>'; continue; }
+        if (/^\\s*[\\u2500-]{3,}/.test(trimmed) || /^\\s+Fator/.test(trimmed)) { html += '<div class="table-header-line">' + escHtml(line) + '</div>'; continue; }
+
+        if (inSection === 'comp' && /[+-]\\d+\\.?\\d*/.test(trimmed)) {
+            var cLine = escHtml(line);
+            cLine = cLine.replace(/(\\+\\d+\\.?\\d*)/g, '<span class="comp-positive">$1</span>');
+            cLine = cLine.replace(/(\\-\\d+\\.?\\d*)/g, '<span class="comp-negative">$1</span>');
+            cLine = cLine.replace(/(Subiu[^<]*)/g, '<span class="comp-positive">$1</span>');
+            cLine = cLine.replace(/(Caiu[^<]*)/g, '<span class="comp-negative">$1</span>');
+            html += '<div class="ranking-line">' + cLine + '</div>';
+            continue;
+        }
+
+        if (inSection === 'obs' || inSection === 'diag' || inSection === 'rec' || inSection === 'tend') {
+            html += '<div class="narrative">' + escHtml(line) + '</div>'; continue;
+        }
+
+        html += '<div>' + escHtml(line) + '</div>';
+    }
+    return html;
+}
+
+function runAnalysis() {
+    if (!_selectedChannel) return;
+    var ch = _channelsData[_selectedChannel] || {};
+    if (!confirm('Gerar analise de autenticidade para ' + (ch.channel_name || _selectedChannel) + '?\\n\\nIsso pode demorar 30-60 segundos.')) return;
+
+    var btn = document.getElementById('btnRun');
+    btn.disabled = true;
+    btn.textContent = 'Gerando...';
+    var area = document.getElementById('reportArea');
+    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Gerando analise de autenticidade... (30-60s)</div>';
+
+    fetch('/api/analise-autenticidade/' + _selectedChannel, { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            btn.disabled = false;
+            btn.textContent = 'Gerar Relatorio';
+            if (data.success && data.report) {
+                renderAuthReport({
+                    report_text: data.report,
+                    run_date: new Date().toISOString(),
+                    authenticity_score: data.score,
+                    authenticity_level: data.level,
+                    structure_score: data.summary ? data.summary.structure_score : null,
+                    title_score: data.summary ? data.summary.title_score : null,
+                    has_alerts: data.alerts && data.alerts.length > 0,
+                    alert_count: data.alerts ? data.alerts.length : 0,
+                    results_json: {}
+                }, area);
+                loadChannels();
+            } else {
+                area.innerHTML = '<div class="empty-state"><h2>Erro na analise</h2><p>' + escHtml(data.error || data.detail || 'Erro desconhecido') + '</p></div>';
+            }
+        })
+        .catch(function(e) {
+            btn.disabled = false;
+            btn.textContent = 'Gerar Relatorio';
+            area.innerHTML = '<div class="empty-state"><p>Erro: ' + escHtml(e.message) + '</p></div>';
+        });
+}
+
+function runAll() {
+    if (!confirm('Rodar analise completa (inclui autenticidade) de TODOS os canais?\\n\\nIsso pode demorar varios minutos.')) return;
+    var btn = document.getElementById('btnRunAll');
+    btn.disabled = true;
+    btn.textContent = 'Rodando...';
+
+    fetch('/api/analise-completa/run-all', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            btn.disabled = false;
+            btn.textContent = 'Rodar Todos';
+            var msg = 'Concluido! ' + (data.success_count || 0) + ' sucesso, ' + (data.error_count || 0) + ' erros de ' + (data.total_channels || 0) + ' canais.';
+            alert(msg);
+            loadChannels();
+            if (_selectedChannel) loadLatestReport(_selectedChannel);
+        })
+        .catch(function(e) {
+            btn.disabled = false;
+            btn.textContent = 'Rodar Todos';
+            alert('Erro: ' + e.message);
+        });
+}
+
+function showHistory() {
+    if (!_selectedChannel) return;
+    document.getElementById('historyModal').classList.add('active');
+    var el = document.getElementById('historyList');
+    el.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando...</div>';
+
+    fetch('/api/analise-autenticidade/' + _selectedChannel + '/historico?limit=30')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var items = data.items || [];
+            if (items.length === 0) {
+                el.innerHTML = '<div class="empty-state"><p>Nenhum historico encontrado</p></div>';
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i];
+                var d = new Date(item.run_date);
+                var dateStr = pad(d.getDate()) + '/' + pad(d.getMonth()+1) + '/' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+                var score = item.authenticity_score != null ? Math.round(item.authenticity_score) + '/100' : '--';
+                var lvl = item.authenticity_level || '--';
+                var alertTxt = item.has_alerts ? ' | ! alertas' : '';
+                html += '<div class="history-item" onclick="loadHistoryRun(' + item.id + ')">';
+                html += '<span class="history-date">' + dateStr + '</span>';
+                html += '<span class="history-info">Score: ' + score + ' (' + lvl + ')' + alertTxt + '</span>';
+                html += '</div>';
+            }
+            el.innerHTML = html;
+        })
+        .catch(function(e) {
+            el.innerHTML = '<div class="empty-state"><p>Erro: ' + e.message + '</p></div>';
+        });
+}
+
+function loadHistoryRun(runId) {
+    closeHistory();
+    if (!_selectedChannel) return;
+    var area = document.getElementById('reportArea');
+    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando relatorio...</div>';
+
+    fetch('/api/analise-autenticidade/' + _selectedChannel + '/run/' + runId)
+        .then(function(r) { return r.status === 404 ? null : r.json(); })
+        .then(function(data) {
+            if (!data) {
+                area.innerHTML = '<div class="empty-state"><p>Relatorio nao encontrado</p></div>';
+                return;
+            }
+            renderAuthReport(data, area);
+        })
+        .catch(function(e) {
+            area.innerHTML = '<div class="empty-state"><p>Erro: ' + e.message + '</p></div>';
+        });
+}
+
+function closeHistory() {
+    document.getElementById('historyModal').classList.remove('active');
+}
+
+function escHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+loadChannels();
+</script>
+</body>
+</html>'''
+
+
+@app.get("/dash-analise-autenticidade", response_class=HTMLResponse)
+async def dash_autenticidade_page():
+    """Dashboard de Autenticidade - Interface web"""
+    return DASH_AUTENTICIDADE_HTML
+
+
+# =========================================================================
 # CTR DATA - YouTube Reporting API (Impressoes + Click-Through Rate)
 # =========================================================================
 
