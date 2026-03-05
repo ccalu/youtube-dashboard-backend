@@ -6,7 +6,7 @@ import { FavoritesTable } from './FavoritesTable';
 import { NotificationsTab } from './NotificationsTab';
 import { TabelaCanais } from './TabelaCanais';
 import { MonetizationTab } from './monetization/MonetizationTab';
-import { FinanceiroTab } from './financeiro/FinanceiroTab';
+
 import { CommentsTab } from './comments';
 import { KanbanTab } from './kanban';
 import { CalendarTab } from './calendar';
@@ -130,8 +130,7 @@ const DashboardContent = () => {
         return <MonetizationTab />;
       case 'notifications':
         return <NotificationsTab />;
-      case 'financeiro':
-        return <FinanceiroTab />;
+
       case 'comments':
         return <CommentsTab />;
       case 'kanban':

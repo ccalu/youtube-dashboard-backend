@@ -22,7 +22,7 @@ import {
   Bell,
   Star,
   History,
-  Wallet,
+
   MessageSquare,
   Kanban,
   CalendarDays,
@@ -136,13 +136,11 @@ export function AppSidebar({
     'notifications': 'text-red-500',
     // EMPRESA - Verdes
     'monetization': 'text-green-500',
-    'financeiro': 'text-emerald-500',
   }[itemId] || 'text-muted-foreground');
 
   // Empresa nav items (new category)
   const empresaNavItems: NavigationItem[] = [
     { id: 'monetization', title: 'Monetização', icon: DollarSign, activeColor: 'bg-green-500' },
-    { id: 'financeiro', title: 'Financeiro', icon: Wallet, activeColor: 'bg-emerald-500' },
   ];
 
   const mainNavItems: NavigationItem[] = [
@@ -219,7 +217,6 @@ export function AppSidebar({
     'notifications': { bg: '#ef4444', hover: 'rgba(239, 68, 68, 0.25)' },
     // EMPRESA - Verdes
     'monetization': { bg: '#22c55e', hover: 'rgba(34, 197, 94, 0.25)' },
-    'financeiro': { bg: '#10b981', hover: 'rgba(16, 185, 129, 0.25)' },
   }[itemId] || { bg: '#6b7280', hover: 'rgba(107, 114, 128, 0.25)' });
 
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
