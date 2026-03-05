@@ -249,8 +249,55 @@ def match_videos(channel_id: str, sheet_data: List[Dict]) -> List[Dict]:
     return matched
 
 
+def _resolve_canal_id(channel_id: str) -> Optional[int]:
+    """
+    Resolve canal_id numerico (FK canais_monitorados) a partir do channel_id (UC...).
+    videos_historico usa canal_id INTEGER, nao channel_id string.
+    Estrategia: busca 1 video em yt_video_metrics, depois resolve canal_id via videos_historico.
+    """
+    try:
+        # Pegar 1 video_id do canal via yt_video_metrics
+        resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/yt_video_metrics",
+            params={
+                "channel_id": f"eq.{channel_id}",
+                "select": "video_id",
+                "limit": "1"
+            },
+            headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+        )
+        if resp.status_code == 200 and resp.json():
+            vid = resp.json()[0].get("video_id")
+            if vid:
+                # Resolver canal_id via videos_historico
+                resp2 = requests.get(
+                    f"{SUPABASE_URL}/rest/v1/videos_historico",
+                    params={
+                        "video_id": f"eq.{vid}",
+                        "select": "canal_id",
+                        "limit": "1"
+                    },
+                    headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+                )
+                if resp2.status_code == 200 and resp2.json():
+                    canal_id = resp2.json()[0].get("canal_id")
+                    if canal_id:
+                        logger.debug(f"Resolved canal_id={canal_id} for channel {channel_id}")
+                        return canal_id
+    except Exception as e:
+        logger.warning(f"Erro ao resolver canal_id para {channel_id}: {e}")
+    logger.warning(f"Nao foi possivel resolver canal_id para channel {channel_id}")
+    return None
+
+
 def _fetch_all_videos(channel_id: str) -> List[Dict]:
     """Busca todos videos do canal em videos_historico (com paginacao Supabase)"""
+    # Resolver canal_id numerico (videos_historico usa INTEGER, nao string)
+    canal_id_int = _resolve_canal_id(channel_id)
+    if not canal_id_int:
+        logger.warning(f"Canal {channel_id}: nao foi possivel resolver canal_id, retornando vazio")
+        return []
+
     all_videos = []
     page_size = 1000
     offset = 0
@@ -261,7 +308,7 @@ def _fetch_all_videos(channel_id: str) -> List[Dict]:
         resp = requests.get(
             f"{SUPABASE_URL}/rest/v1/videos_historico",
             params={
-                "canal_id": f"eq.{channel_id}",
+                "canal_id": f"eq.{canal_id_int}",
                 "select": "video_id,titulo,data_publicacao,duracao,views_atuais",
                 "order": "data_coleta.desc",
                 "limit": page_size,

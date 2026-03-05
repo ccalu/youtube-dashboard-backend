@@ -171,6 +171,40 @@ def _refresh_token(refresh_token: str, client_id: str, client_secret: str) -> Op
 
 
 # =============================================================================
+# RESOLVER canal_id NUMERICO
+# =============================================================================
+
+def _resolve_canal_id(video_ids: List[str]) -> Optional[int]:
+    """
+    Resolve o canal_id numerico (FK de canais_monitorados) a partir de um video_id.
+    videos_historico usa canal_id INTEGER, nao channel_id string.
+    """
+    if not video_ids:
+        return None
+    # Tentar com o primeiro video_id
+    for vid in video_ids[:3]:
+        try:
+            resp = requests.get(
+                f"{SUPABASE_URL}/rest/v1/videos_historico",
+                params={
+                    "video_id": f"eq.{vid}",
+                    "select": "canal_id",
+                    "limit": "1"
+                },
+                headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+            )
+            if resp.status_code == 200 and resp.json():
+                canal_id = resp.json()[0].get("canal_id")
+                if canal_id:
+                    logger.debug(f"Resolved canal_id={canal_id} from video_id={vid}")
+                    return canal_id
+        except Exception as e:
+            logger.warning(f"Erro ao resolver canal_id via video_id={vid}: {e}")
+    logger.warning(f"Nao foi possivel resolver canal_id para nenhum dos {len(video_ids)} videos")
+    return None
+
+
+# =============================================================================
 # BUSCAR DADOS DE SATISFACAO
 # =============================================================================
 
@@ -221,41 +255,47 @@ def get_satisfaction_data(channel_id: str, video_ids: List[str]) -> Dict[str, Di
                     }
 
     # 2. Buscar comments de videos_historico (para TODOS os videos)
-    for i in range(0, len(video_ids), batch_size):
-        batch = video_ids[i:i + batch_size]
-        ids_str = ",".join(batch)
-        resp = requests.get(
-            f"{SUPABASE_URL}/rest/v1/videos_historico",
-            params={
-                "canal_id": f"eq.{channel_id}",
-                "video_id": f"in.({ids_str})",
-                "select": "video_id,comentarios,likes,views_atuais",
-                "order": "data_coleta.desc"
-            },
-            headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
-        )
+    # videos_historico usa canal_id INTEGER (FK canais_monitorados), nao channel_id string
+    canal_id_int = _resolve_canal_id(video_ids)
+    if not canal_id_int:
+        logger.warning(f"Canal {channel_id}: nao foi possivel resolver canal_id numerico, pulando videos_historico")
 
-        if resp.status_code == 200 and resp.json():
-            seen_comments = set()
-            for row in resp.json():
-                vid = row.get("video_id")
-                if vid and vid not in seen_comments:
-                    seen_comments.add(vid)
-                    comments = row.get("comentarios") or 0
-                    if vid in result:
-                        result[vid]["comments"] = comments
-                    else:
-                        likes = row.get("likes") or 0
-                        views_h = row.get("views_atuais") or 0
-                        if likes > 0 or views_h > 0:
-                            result[vid] = {
-                                "likes": likes,
-                                "dislikes": 0,
-                                "subscribers_gained": 0,
-                                "comments": comments,
-                                "views": views_h,
-                                "source": "videos_historico_partial"
-                            }
+    if canal_id_int:
+        for i in range(0, len(video_ids), batch_size):
+            batch = video_ids[i:i + batch_size]
+            ids_str = ",".join(batch)
+            resp = requests.get(
+                f"{SUPABASE_URL}/rest/v1/videos_historico",
+                params={
+                    "canal_id": f"eq.{canal_id_int}",
+                    "video_id": f"in.({ids_str})",
+                    "select": "video_id,comentarios,likes,views_atuais",
+                    "order": "data_coleta.desc"
+                },
+                headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+            )
+
+            if resp.status_code == 200 and resp.json():
+                seen_comments = set()
+                for row in resp.json():
+                    vid = row.get("video_id")
+                    if vid and vid not in seen_comments:
+                        seen_comments.add(vid)
+                        comments = row.get("comentarios") or 0
+                        if vid in result:
+                            result[vid]["comments"] = comments
+                        else:
+                            likes = row.get("likes") or 0
+                            views_h = row.get("views_atuais") or 0
+                            if likes > 0 or views_h > 0:
+                                result[vid] = {
+                                    "likes": likes,
+                                    "dislikes": 0,
+                                    "subscribers_gained": 0,
+                                    "comments": comments,
+                                    "views": views_h,
+                                    "source": "videos_historico_partial"
+                                }
 
     # Garantir campo 'comments' em todos
     for vid in result:
