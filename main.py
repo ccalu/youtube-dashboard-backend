@@ -8924,11 +8924,6 @@ function loadChannels() {
                     html += '<div class="channel-info">';
                     if (flag) html += '<span class="channel-flag">' + flag + '</span>';
                     html += '<span class="channel-name" title="' + escHtml(ch.channel_name) + '">' + escHtml(ch.channel_name) + '</span>';
-                    if (ch.auth_score != null) {
-                        var authLvl = (ch.auth_level || '').toLowerCase();
-                        html += '<span class="auth-badge ' + authLvl + '">' + Math.round(ch.auth_score) + '</span>';
-                        if (ch.has_alerts) html += '<span class="auth-alert-dot">!</span>';
-                    }
                     html += '</div>';
                     html += '<span class="channel-date' + dateClass + '">' + dateStr + '</span>';
                     html += '</div>';
