@@ -7519,6 +7519,21 @@ async def get_satisfaction_history(channel_id: str, limit: int = 20, offset: int
     return sat_get_history(channel_id, limit, offset)
 
 
+@app.get("/api/analise-satisfacao/{channel_id}/run/{run_id}")
+async def get_satisfaction_run(channel_id: str, run_id: int):
+    """Retorna relatorio de um run especifico de satisfacao."""
+    try:
+        resp = db.supabase.table('satisfaction_analysis_runs').select('*').eq('id', run_id).eq('channel_id', channel_id).limit(1).execute()
+        if resp.data:
+            return resp.data[0]
+        raise HTTPException(status_code=404, detail="Run nao encontrado")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro run satisfacao {channel_id}/{run_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.delete("/api/analise-satisfacao/{channel_id}/run/{run_id}")
 async def delete_satisfaction_run(channel_id: str, run_id: int):
     """Deleta um run de satisfacao."""
@@ -7703,7 +7718,8 @@ async def run_unified_analysis_all():
                 "performance": {"success": False},
                 "satisfacao": {"success": False},
                 "authenticity": {"success": False},
-                "temas": {"success": False}
+                "temas": {"success": False},
+                "motores": {"success": False}
             }
 
             # Agente 1: Copy (retencao)
@@ -7749,9 +7765,20 @@ async def run_unified_analysis_all():
             except Exception as e:
                 ch_result["temas"] = {"success": False, "error": str(e)}
 
+            # Agente 5: Motores (depende do temas)
+            try:
+                motor_res = motor_run_analysis(ch_id)
+                ch_result["motores"] = {
+                    "success": motor_res.get("success", False),
+                    "error": motor_res.get("error") if not motor_res.get("success") else None
+                }
+            except Exception as e:
+                ch_result["motores"] = {"success": False, "error": str(e)}
+
             # Contar sucesso se pelo menos 1 agente rodou
             if (ch_result["performance"]["success"] or ch_result["satisfacao"]["success"]
-                    or ch_result["authenticity"]["success"] or ch_result["temas"]["success"]):
+                    or ch_result["authenticity"]["success"] or ch_result["temas"]["success"]
+                    or ch_result["motores"]["success"]):
                 success_count += 1
             else:
                 error_count += 1
@@ -7917,6 +7944,17 @@ def _build_unified_report(copy_result: dict, auth_result: dict, theme_result: di
 
 
 # --- Endpoints individuais de autenticidade ---
+
+@app.post("/api/analise-autenticidade/{channel_id}")
+async def trigger_auth_analysis(channel_id: str):
+    """Dispara analise de autenticidade para um canal."""
+    try:
+        result = auth_run_analysis(channel_id)
+        return result
+    except Exception as e:
+        logger.error(f"Erro analise autenticidade {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/analise-autenticidade/{channel_id}/latest")
 async def get_latest_auth_analysis(channel_id: str):
@@ -8139,6 +8177,21 @@ async def get_motor_analysis_history(channel_id: str, limit: int = 20, offset: i
         return motor_get_history(channel_id, limit=limit, offset=offset)
     except Exception as e:
         logger.error(f"Erro historico motores {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/analise-motores/{channel_id}/run/{run_id}")
+async def get_motor_analysis_run(channel_id: str, run_id: int):
+    """Retorna relatorio de um run especifico de motores."""
+    try:
+        resp = db.supabase.table('motor_analysis_runs').select('*').eq('id', run_id).eq('channel_id', channel_id).limit(1).execute()
+        if resp.data:
+            return resp.data[0]
+        raise HTTPException(status_code=404, detail="Run nao encontrado")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro run motores {channel_id}/{run_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -108,7 +108,7 @@ AGENTES_V2_TEMPLATE = [
         'skin': '#ffcc99', 'shirt': '#22c55e', 'hair': '#4a3728',
         'descricao': 'Copy - Analisa performance por estrutura A-G (retencao, duracao, formato)',
         'implementado': True,
-        'api_run': '/api/analise-completa/{channel_id}',
+        'api_run': '/api/analise-copy/{channel_id}',
         'api_latest': '/api/analise-copy/{channel_id}/latest',
         'api_historico': '/api/analise-copy/{channel_id}/historico',
         'analysis_table': 'copy_analysis_runs',
@@ -130,7 +130,7 @@ AGENTES_V2_TEMPLATE = [
         'skin': '#e8b88a', 'shirt': '#ef4444', 'hair': '#1a1a1a',
         'descricao': 'Autenticidade - Score 0-100 contra politica de Inauthentic Content',
         'implementado': True,
-        'api_run': '/api/analise-completa/{channel_id}',
+        'api_run': '/api/analise-autenticidade/{channel_id}',
         'api_latest': '/api/analise-autenticidade/{channel_id}/latest',
         'api_historico': '/api/analise-autenticidade/{channel_id}/historico',
         'analysis_table': 'authenticity_analysis_runs',
@@ -613,10 +613,14 @@ async def get_mission_control_data(db):
                 ov = agent_overview[yt_channel_id]
                 if 'copy' in ov:
                     ag_statuses['estrutura_copy'] = ov['copy']
+                if 'satisfacao' in ov:
+                    ag_statuses['satisfacao'] = ov['satisfacao']
                 if 'auth' in ov:
                     ag_statuses['autenticidade'] = ov['auth']
                 if 'temas' in ov:
                     ag_statuses['temas'] = ov['temas']
+                if 'motores' in ov:
+                    ag_statuses['motores'] = ov['motores']
 
             agentes = build_agent_list(cid, ag_statuses)
             active = sum(1 for a in agentes if a['status'] in ('done', 'working'))
@@ -5141,7 +5145,7 @@ function renderAgentStatus(data, agentType) {
       }
     }
   } else if (agentType === 'motores') {
-    var totalVideos = data.total_videos_analyzed;
+    var totalVideos = data.total_videos || data.total_videos_analyzed;
     if (totalVideos) {
       html += '<div class="sb-status-row"><span class="sb-status-label">Videos analisados</span><span class="sb-status-val">' + totalVideos + '</span></div>';
     }
@@ -5178,7 +5182,7 @@ function runAgentAnalysis(channelId, agentType) {
   var runUrlMap = {
     'estrutura_copy': '/api/analise-copy/',
     'satisfacao': '/api/analise-satisfacao/',
-    'autenticidade': '/api/analise-completa/',
+    'autenticidade': '/api/analise-autenticidade/',
     'temas': '/api/analise-temas/',
     'motores': '/api/analise-motores/'
   };
