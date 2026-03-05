@@ -6277,6 +6277,8 @@ DASH_UPLOAD_HTML = '''
         .loading { text-align: center; padding: 60px 20px; color: var(--text-tertiary); font-size: 14px; }
 
         /* Batch Upload */
+        .btn-batch--mobile { display: none; width: 36px; height: 36px; padding: 0; background: var(--info-muted); color: var(--info); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: var(--radius-sm); font-size: 18px; cursor: pointer; transition: all 0.15s ease; line-height: 1; }
+        .btn-batch--mobile:hover { background: rgba(59, 130, 246, 0.25); border-color: var(--info); }
         .btn-batch { padding: 8px 18px; background: var(--info-muted); color: var(--info); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
         .btn-batch:hover { background: rgba(59, 130, 246, 0.25); border-color: var(--info); }
         .batch-loading { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 40px; color: var(--text-tertiary); }
@@ -6298,8 +6300,11 @@ DASH_UPLOAD_HTML = '''
 
         /* ===== RESPONSIVE MOBILE ===== */
         @media (max-width: 768px) {
-            .page-header { padding: 14px 16px 12px; flex-wrap: wrap; gap: 10px; }
+            .btn-batch--desktop { display: none; }
+            .btn-batch--mobile { display: inline-flex; align-items: center; justify-content: center; }
+            .page-header { padding: 14px 16px 12px; flex-wrap: nowrap; gap: 10px; }
             .header-title { font-size: 18px; }
+            .header-subtitle { display: none; }
             .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 12px; margin-bottom: 20px; }
             .stat-card { padding: 14px 12px; min-height: 72px; }
             .stat-value { font-size: 24px; }
@@ -6315,18 +6320,25 @@ DASH_UPLOAD_HTML = '''
             .channel-table th:nth-child(5) { width: auto !important; }
             .channel-name { font-size: 12px; white-space: normal; word-break: break-word; }
             .video-title { max-width: 150px; }
-            .btn-icon { width: 32px; height: 32px; font-size: 16px; }
+            .cell-actions { gap: 6px; }
+            .btn-icon { width: 36px; height: 36px; font-size: 18px; }
             .status-bar { padding: 8px 12px; font-size: 11px; }
             .modal-panel { width: 96%; max-height: 85vh; }
+            .modal-overlay { padding-top: 2vh; }
             .modal-header { padding: 14px 16px; }
-            .modal-body { padding: 14px 12px; }
-            .modal-summary { flex-wrap: wrap; gap: 8px; padding: 10px 12px; font-size: 12px; }
+            .modal-body { padding: 14px 10px; }
+            .modal-summary { flex-wrap: wrap; gap: 10px; padding: 10px 12px; font-size: 12px; justify-content: center; }
+            .modal-summary .summary-text-label { display: none; }
             .modal-table th, .modal-table td { padding: 6px 8px; font-size: 12px; }
             .modal-table th:nth-child(4), .modal-table td:nth-child(4) { display: none; }
+            .modal-table td:nth-child(2) { max-width: 120px !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
             .batch-channel-row { padding: 8px 12px; gap: 8px; }
             .batch-video-hint { max-width: 120px; font-size: 11px; }
             .batch-footer { padding: 12px 14px; flex-wrap: wrap; gap: 10px; }
             .accordion-trigger { padding: 10px 12px; }
+            .accordion-content .modal-table th:nth-child(3), .accordion-content .modal-table td:nth-child(3),
+            .accordion-content .modal-table th:nth-child(4), .accordion-content .modal-table td:nth-child(4) { display: none; }
+            .accordion-content .modal-table td:nth-child(2) { max-width: 100px !important; }
         }
         @media (max-width: 480px) {
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -6335,11 +6347,15 @@ DASH_UPLOAD_HTML = '''
             .channel-table th:nth-child(2), .channel-table td:nth-child(2) { display: none; }
             .cell-channel { flex-wrap: wrap; gap: 3px; }
             .channel-name { font-size: 11px; }
-            .cell-actions { gap: 2px; }
-            .btn-icon { width: 28px; height: 28px; font-size: 14px; }
+            .cell-actions { gap: 4px; }
+            .btn-icon { width: 34px; height: 34px; font-size: 17px; }
             .status-bar-left { flex-wrap: wrap; gap: 8px; }
             .status-bar-sep { display: none; }
-            .modal-panel { width: 100%; border-radius: var(--radius-md) var(--radius-md) 0 0; max-height: 90vh; }
+            .modal-panel { width: 100%; border-radius: var(--radius-md) var(--radius-md) 0 0; max-height: 92vh; }
+            .modal-overlay { padding-top: 0; align-items: flex-end; }
+            .modal-body { padding: 12px 8px; }
+            .modal-table td:nth-child(1) { white-space: nowrap; }
+            .modal-table td:nth-child(2) { max-width: 90px !important; }
             .batch-footer { justify-content: center; }
         }
     </style>
@@ -6351,8 +6367,9 @@ DASH_UPLOAD_HTML = '''
             <div class="header-subtitle">Sistema de upload automatizado</div>
         </div>
         <div style="display:flex;align-items:center;gap:16px;">
-            <button class="btn-batch" onclick="abrirBatchUpload()">Upload em Lote</button>
+            <button class="btn-batch btn-batch--desktop" onclick="abrirBatchUpload()">Upload em Lote</button>
             <div class="live-indicator"><span class="live-dot"></span><span>Ao vivo</span></div>
+            <button class="btn-batch btn-batch--mobile" onclick="abrirBatchUpload()" title="Upload em Lote">&#x1F4E4;</button>
         </div>
     </header>
     <div class="stats-grid">
@@ -6424,6 +6441,7 @@ DASH_UPLOAD_HTML = '''
     </div>
     <script>
         var filtroStatus = null;
+        function isMobile() { return window.innerWidth <= 768; }
         function escapeHtml(text) {
             if (!text) return '';
             return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -6540,11 +6558,19 @@ DASH_UPLOAD_HTML = '''
             var countSucesso = 0, countSemVideo = 0, countErro = 0;
             items.forEach(function(item) { if (item.status === 'sucesso') countSucesso++; else if (item.status === 'sem_video') countSemVideo++; else if (item.status === 'erro') countErro++; });
             var totalRegistros = countSucesso + countSemVideo + countErro;
+            var mob = isMobile();
             var html = '<div class="modal-summary" style="background:var(--success-muted);border-color:rgba(34,197,94,0.25);">';
-            html += '<span class="modal-summary-stat" style="color:var(--text-primary);font-weight:600;">Total de Registros: ' + totalRegistros + ' |</span>';
-            html += '<span class="modal-summary-stat" style="color:var(--success);">&#x2705; ' + countSucesso + ' uploads</span>';
-            html += '<span class="modal-summary-stat" style="color:var(--warning);">&#x26A0;&#xFE0F; ' + countSemVideo + ' sem video</span>';
-            html += '<span class="modal-summary-stat" style="color:var(--error);">&#x274C; ' + countErro + ' erros</span>';
+            if (mob) {
+                html += '<span class="modal-summary-stat" style="color:var(--text-primary);font-weight:600;">' + totalRegistros + '</span>';
+                html += '<span class="modal-summary-stat" style="color:var(--success);">&#x2705; ' + countSucesso + '</span>';
+                html += '<span class="modal-summary-stat" style="color:var(--warning);">&#x26A0;&#xFE0F; ' + countSemVideo + '</span>';
+                html += '<span class="modal-summary-stat" style="color:var(--error);">&#x274C; ' + countErro + '</span>';
+            } else {
+                html += '<span class="modal-summary-stat" style="color:var(--text-primary);font-weight:600;">Total de Registros: ' + totalRegistros + ' |</span>';
+                html += '<span class="modal-summary-stat" style="color:var(--success);">&#x2705; ' + countSucesso + ' uploads</span>';
+                html += '<span class="modal-summary-stat" style="color:var(--warning);">&#x26A0;&#xFE0F; ' + countSemVideo + ' sem video</span>';
+                html += '<span class="modal-summary-stat" style="color:var(--error);">&#x274C; ' + countErro + ' erros</span>';
+            }
             html += '</div>';
             html += '<table class="modal-table"><thead><tr><th>Data</th><th>Video</th><th>Status</th><th>Horario</th></tr></thead><tbody>';
             if (paginaItems.length > 0) {
@@ -6553,10 +6579,10 @@ DASH_UPLOAD_HTML = '''
                     var df = item.data; if (df && df.includes('-')) { var p = df.split('-'); df = p[2] + '/' + p[1] + '/' + p[0]; }
                     html += '<td>' + df + '</td>';
                     html += '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(truncarTitulo(item.video_titulo)) + '</td>';
-                    var statusColor = 'var(--text-tertiary)'; var statusText = '&#x26AA; Sem Video';
-                    if (item.status === 'sucesso') { statusColor = 'var(--success)'; statusText = '&#x2705; Sucesso'; }
-                    else if (item.status === 'erro') { statusColor = 'var(--error)'; statusText = '&#x274C; Erro'; }
-                    html += '<td style="color:' + statusColor + ';font-weight:500;">' + statusText + '</td>';
+                    var statusColor = 'var(--text-tertiary)'; var statusEmoji = '&#x26AA;'; var statusLabel = ' Sem Video';
+                    if (item.status === 'sucesso') { statusColor = 'var(--success)'; statusEmoji = '&#x2705;'; statusLabel = ' Sucesso'; }
+                    else if (item.status === 'erro') { statusColor = 'var(--error)'; statusEmoji = '&#x274C;'; statusLabel = ' Erro'; }
+                    html += '<td style="color:' + statusColor + ';font-weight:500;">' + statusEmoji + (mob ? '' : statusLabel) + '</td>';
                     html += '<td style="color:var(--text-tertiary);">' + (item.hora_processamento || '-') + '</td>';
                     html += '</tr>';
                 });
@@ -6610,11 +6636,19 @@ DASH_UPLOAD_HTML = '''
                     var totalSucesso = 0, totalSemVideo = 0, totalErro = 0;
                     data.historico_por_data.forEach(function(dia) { dia.canais.forEach(function(canal) { if (canal.status === 'sucesso') totalSucesso++; else if (canal.status === 'sem_video') totalSemVideo++; else if (canal.status === 'erro') totalErro++; }); });
                     var totalRegistros = totalSucesso + totalSemVideo + totalErro;
+                    var mob = isMobile();
                     var html = '<div class="modal-summary" style="background:var(--success-muted);border-color:rgba(34,197,94,0.25);">';
-                    html += '<span class="modal-summary-stat" style="color:var(--text-primary);font-weight:600;">Total de Registros: ' + totalRegistros + ' |</span>';
-                    html += '<span class="modal-summary-stat" style="color:var(--success);">&#x2705; ' + totalSucesso + ' uploads</span>';
-                    html += '<span class="modal-summary-stat" style="color:var(--warning);">&#x26A0;&#xFE0F; ' + totalSemVideo + ' sem video</span>';
-                    html += '<span class="modal-summary-stat" style="color:var(--error);">&#x274C; ' + totalErro + ' erros</span>';
+                    if (mob) {
+                        html += '<span class="modal-summary-stat" style="color:var(--text-primary);font-weight:600;">' + totalRegistros + '</span>';
+                        html += '<span class="modal-summary-stat" style="color:var(--success);">&#x2705; ' + totalSucesso + '</span>';
+                        html += '<span class="modal-summary-stat" style="color:var(--warning);">&#x26A0;&#xFE0F; ' + totalSemVideo + '</span>';
+                        html += '<span class="modal-summary-stat" style="color:var(--error);">&#x274C; ' + totalErro + '</span>';
+                    } else {
+                        html += '<span class="modal-summary-stat" style="color:var(--text-primary);font-weight:600;">Total de Registros: ' + totalRegistros + ' |</span>';
+                        html += '<span class="modal-summary-stat" style="color:var(--success);">&#x2705; ' + totalSucesso + ' uploads</span>';
+                        html += '<span class="modal-summary-stat" style="color:var(--warning);">&#x26A0;&#xFE0F; ' + totalSemVideo + ' sem video</span>';
+                        html += '<span class="modal-summary-stat" style="color:var(--error);">&#x274C; ' + totalErro + ' erros</span>';
+                    }
                     html += '</div>';
                     html += '<div style="max-height:450px;overflow-y:auto;">';
                     data.historico_por_data.forEach(function(dia, idx) {
@@ -6638,10 +6672,10 @@ DASH_UPLOAD_HTML = '''
                             html += '<table class="modal-table"><thead><tr><th>Canal</th><th>Video</th><th>Status</th><th>Horario</th></tr></thead><tbody>';
                             canaisSucesso.forEach(function(canal) {
                                 var sigla = getSiglaIdioma(canal.lingua);
-                                html += '<tr><td style="color:var(--text-primary);font-weight:500;">' + escapeHtml(canal.nome);
+                                html += '<tr><td style="color:var(--text-primary);font-weight:500;white-space:nowrap;">' + escapeHtml(canal.nome);
                                 if (sigla) html += ' <span class="lang-tag">' + sigla + '</span>';
                                 html += '</td><td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(truncarTitulo(canal.video_titulo)) + '</td>';
-                                html += '<td style="color:var(--success);font-weight:500;">Sucesso</td>';
+                                html += '<td style="color:var(--success);font-weight:500;">&#x2705;' + (mob ? '' : ' Sucesso') + '</td>';
                                 html += '<td style="color:var(--text-tertiary);">' + (canal.hora || '-') + '</td></tr>';
                             });
                             html += '</tbody></table>';
