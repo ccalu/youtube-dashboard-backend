@@ -4303,6 +4303,128 @@ function renderTileGrid(ctx, tileMap, offsetX, offsetY, zoom, floorColor, wallCo
 var _roomBgCache = {};
 var _roomBgCacheZoom = -1;
 
+// -- Nameplate + Stats bar cache per room --
+// These only change when data refreshes (every 60s), not every frame
+var _roomBarCache = {};
+var _roomBarCacheZoom = -1;
+var _roomBarCacheVer = 0;  // incremented on data refresh to invalidate
+
+function invalidateBarCache() { _roomBarCacheVer++; _roomBarCache = {}; }
+
+function getRoomBarCanvas(room, type, roomW, barH, zoom, mainFont, langFont, accentColor) {
+  var cacheZoom = Math.round(zoom * 2) / 2;
+  if (cacheZoom !== _roomBarCacheZoom) { _roomBarCache = {}; _roomBarCacheZoom = cacheZoom; }
+  var key = room.roomIndex + '_' + type + '_v' + _roomBarCacheVer;
+  if (_roomBarCache[key]) return _roomBarCache[key];
+
+  var w = Math.ceil(roomW);
+  var h = Math.ceil(barH);
+  var oc = document.createElement('canvas');
+  oc.width = w; oc.height = h;
+  var ctx = oc.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+
+  if (type === 'np') {
+    // Nameplate
+    ctx.fillStyle = accentColor;
+    ctx.fillRect(0, 0, w, 2);
+    ctx.fillStyle = 'rgba(13,13,36,0.9)';
+    ctx.fillRect(0, 2, w, h - 2);
+    var nameFont = mainFont;
+    var canalName = room.canal.nome || room.canal.canal_nome || 'Canal';
+    ctx.font = 'bold ' + nameFont + 'px "Segoe UI", system-ui, sans-serif';
+    while (canalName.length > 5 && ctx.measureText(canalName).width > w - 50) {
+      canalName = canalName.substring(0, canalName.length - 3) + '..';
+    }
+    ctx.fillStyle = '#e0e0e0';
+    ctx.textAlign = 'left';
+    var nameTextY = Math.round(h / 2 + nameFont * 0.35 + 1);
+    ctx.fillText(canalName, 6, nameTextY);
+    if (room.canal.coleta_falhas && room.canal.coleta_falhas > 0) {
+      var nameW = ctx.measureText(canalName).width;
+      ctx.font = Math.round(nameFont * 0.9) + 'px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+      ctx.fillText('\u26A0\uFE0F', Math.round(6 + nameW + 4), nameTextY);
+    }
+    var lang = room.canal.lingua || '??';
+    ctx.font = 'bold ' + langFont + 'px "Segoe UI", system-ui, sans-serif';
+    var langW = ctx.measureText(lang).width + 8;
+    ctx.fillStyle = accentColor;
+    ctx.fillRect(Math.round(w - langW - 4), 4, Math.round(langW), Math.round(h - 6));
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.fillText(lang, Math.round(w - langW / 2 - 4), Math.round(h / 2 + langFont * 0.35 + 1));
+  } else {
+    // Stats bar
+    ctx.fillStyle = 'rgba(13,13,36,0.9)';
+    ctx.fillRect(0, 0, w, h);
+    var statsFont = mainFont;
+    var subs = formatNumber(room.canal.inscritos || 0);
+    var diff = room.canal.inscritos_diff || 0;
+    var v7d = formatNumber(room.canal.views_7d || 0);
+    var v30d = formatNumber(room.canal.views_30d || 0);
+    var vid30 = room.canal.video_count || 0;
+    var retPct = room.canal.avg_retention;
+    var ctrPct = room.canal.avg_ctr;
+    var diffText = '', diffColor = null;
+    if (diff > 0) { diffText = ' (+' + diff + ')'; diffColor = '#4ade80'; }
+    else if (diff < 0) { diffText = ' (' + diff + ')'; diffColor = '#ef4444'; }
+    var viewsText = v7d + '/' + v30d;
+    var viewsDiff = '', viewsDiffColor = null;
+    var rawV7d = room.canal.views_7d || 0, rawV15d = room.canal.views_15d || 0;
+    var prevWeekViews = rawV15d - rawV7d;
+    if (prevWeekViews > 0 && rawV7d > 0) {
+      var gPct = ((rawV7d / prevWeekViews) - 1) * 100;
+      if (gPct > 0) { viewsDiff = ' \u2191'; viewsDiffColor = '#4ade80'; }
+      else if (gPct < -5) { viewsDiff = ' \u2193'; viewsDiffColor = '#ef4444'; }
+    }
+    var vidText = '' + vid30;
+    var retText = (retPct != null && retPct > 0) ? retPct.toFixed(0) + '%' : '--';
+    var ctrText = (ctrPct != null && ctrPct > 0) ? (ctrPct * 100).toFixed(1) + '%' : '--';
+    var blocks = [
+      { emoji: '\uD83D\uDC65', text: subs, color: '#ccc', diffText: diffText, diffColor: diffColor },
+      { emoji: '\uD83D\uDC41', text: viewsText, color: '#60a5fa', diffText: viewsDiff, diffColor: viewsDiffColor },
+      { emoji: '\uD83C\uDFAC', text: vidText, color: '#aaa' },
+      { emoji: '\u23F1', text: retText, color: '#fbbf24' },
+      { emoji: '\uD83C\uDFAF', text: ctrText, color: '#fb923c' }
+    ];
+    var emojiFont = Math.round(statsFont * 0.9) + 'px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
+    var textFont = statsFont + 'px "Segoe UI", system-ui, sans-serif';
+    var stTextY = Math.round(h / 2 + statsFont * 0.35);
+    var blockWidths = [], totalContentW = 0;
+    for (var mi = 0; mi < blocks.length; mi++) {
+      ctx.font = emojiFont;
+      var eW = ctx.measureText(blocks[mi].emoji).width + 3;
+      ctx.font = textFont;
+      var tW = ctx.measureText(blocks[mi].text).width;
+      var dW = blocks[mi].diffText ? ctx.measureText(blocks[mi].diffText).width : 0;
+      var bwt = eW + tW + dW;
+      blockWidths.push({ emojiW: eW, textW: tW, diffW: dW, totalW: bwt });
+      totalContentW += bwt;
+    }
+    var padding = 6, availW = w - padding * 2;
+    var totalGap = availW - totalContentW;
+    var gap = blocks.length > 1 ? totalGap / (blocks.length - 1) : 0;
+    if (gap < 4) gap = 4;
+    var curX = padding;
+    for (var bi = 0; bi < blocks.length; bi++) {
+      var blk = blocks[bi], bwd = blockWidths[bi];
+      ctx.textAlign = 'left';
+      ctx.font = emojiFont; ctx.fillStyle = '#888';
+      ctx.fillText(blk.emoji, Math.round(curX), stTextY);
+      ctx.font = textFont; ctx.fillStyle = blk.color;
+      ctx.fillText(blk.text, Math.round(curX + bwd.emojiW), stTextY);
+      if (blk.diffText && blk.diffColor) {
+        ctx.fillStyle = blk.diffColor;
+        ctx.fillText(blk.diffText, Math.round(curX + bwd.emojiW + bwd.textW), stTextY);
+      }
+      curX += Math.round(bwd.totalW + gap);
+    }
+  }
+
+  _roomBarCache[key] = oc;
+  return oc;
+}
+
 function getRoomBgCanvas(room, roomW, roomH, zoom) {
   // Invalidate cache if zoom changed
   var cacheZoom = Math.round(zoom * 2) / 2;
@@ -4348,6 +4470,10 @@ function getRoomBgCanvas(room, roomW, roomH, zoom) {
   return offCanvas;
 }
 
+// -- Reusable character draw list (avoids allocation per frame) --
+var _charDrawList = [];
+var _charDrawListLen = 0;
+
 function renderScene(ctx, furniture, characters, offsetX, offsetY, zoom, spriteCache, tileMap, wallColor, selectedCharId, room) {
   // Draw cached static background (floor + walls + furniture) in 1 call
   if (room) {
@@ -4357,84 +4483,72 @@ function renderScene(ctx, furniture, characters, offsetX, offsetY, zoom, spriteC
     ctx.drawImage(bgCanvas, offsetX, offsetY);
   }
 
-  // Only characters need per-frame rendering (they move)
-  var drawables = [];
-
+  // Build flat draw list for characters (no closures, no allocation per frame)
+  _charDrawListLen = 0;
   for (var ci = 0; ci < characters.length; ci++) {
     var ch = characters[ci];
     var sprites = spriteCache[ch.palette];
     if (!sprites) sprites = spriteCache[0];
     var spriteData = getCharacterSprite(ch, sprites);
     var charCached = getCachedSprite(spriteData, zoom);
-    // Sitting offset for TYPE, READ, SLEEP
     var isSitting = ch.state === CharState.TYPE || ch.state === CharState.READ || ch.state === CharState.SLEEP;
     var sittingOffset = isSitting ? SIT_OFFSET : 0;
     var drawX = Math.round(offsetX + ch.x * zoom - charCached.width / 2);
     var drawY = Math.round(offsetY + (ch.y + sittingOffset) * zoom - charCached.height);
     var charZY = ch.y + TILE_SIZE / 2 + Z_SORT_OFFSET;
-
-    // Screen center of character (for effects)
     var charCenterX = offsetX + ch.x * zoom;
-    var charTopY = drawY;
 
-    // Selected agent outline
-    var isSelected = selectedCharId !== null && selectedCharId !== undefined && ch.id === selectedCharId;
-    if (isSelected) {
-      var outlineData = getOutlineSprite(spriteData);
-      var outlineCached = getCachedSprite(outlineData, zoom);
-      var olDrawX = drawX - zoom;
-      var olDrawY = drawY - zoom;
-      (function(oCached, oDx, oDy) {
-        drawables.push({
-          zY: charZY - 0.001,
-          draw: function(c) {
-            c.save();
-            c.globalAlpha = 0.8;
-            c.drawImage(oCached, oDx, oDy);
-            c.restore();
-          }
-        });
-      })(outlineCached, olDrawX, olDrawY);
+    var entry = _charDrawList[_charDrawListLen];
+    if (!entry) { entry = {}; _charDrawList[_charDrawListLen] = entry; }
+    entry.zY = charZY;
+    entry.img = charCached;
+    entry.x = drawX;
+    entry.y = drawY;
+    entry.ch = ch;
+    entry.cx = charCenterX;
+    entry.topY = drawY;
+    entry.isSelected = selectedCharId !== null && selectedCharId !== undefined && ch.id === selectedCharId;
+    if (entry.isSelected) {
+      entry.outlineImg = getCachedSprite(getOutlineSprite(spriteData), zoom);
+      entry.olX = drawX - zoom;
+      entry.olY = drawY - zoom;
     }
-
-    // --- CHARACTER SPRITE ---
-    (function(cachedRef, dxRef, dyRef) {
-      drawables.push({
-        zY: charZY,
-        draw: function(c) {
-          c.drawImage(cachedRef, dxRef, dyRef);
-        }
-      });
-    })(charCached, drawX, drawY);
-
-    // --- EFFECTS ABOVE CHARACTER ---
-    (function(chRef, cx, topY) {
-      drawables.push({
-        zY: charZY + 0.001,
-        draw: function(c) {
-          // Zzz for sleeping
-          if (chRef.state === CharState.SLEEP) {
-            drawZzz(c, cx, topY, gameTime + chRef.id * 0.5, zoom);
-          }
-          // Phone glow
-          if (chRef.state === CharState.PHONE) {
-            drawPhoneGlow(c, cx, topY + 16 * zoom, gameTime, zoom);
-          }
-          // Chat speech bubble
-          if (chRef.state === CharState.CHAT) {
-            var showBubble = Math.sin(gameTime * 1.5 + chRef.id) > 0;
-            drawSpeechBubble(c, cx, topY, '...', gameTime, zoom, showBubble);
-          }
-        }
-      });
-    })(ch, charCenterX, charTopY);
+    _charDrawListLen++;
   }
 
-  // Z-sort only characters (much smaller array than before)
-  drawables.sort(function(a, b) { return a.zY - b.zY; });
+  // Sort by Y (insertion sort is faster for small arrays like 6 items)
+  for (var si = 1; si < _charDrawListLen; si++) {
+    var tmp = _charDrawList[si];
+    var j = si - 1;
+    while (j >= 0 && _charDrawList[j].zY > tmp.zY) {
+      _charDrawList[j + 1] = _charDrawList[j];
+      j--;
+    }
+    _charDrawList[j + 1] = tmp;
+  }
 
-  for (var di = 0; di < drawables.length; di++) {
-    drawables[di].draw(ctx);
+  // Draw characters + effects inline (no closures)
+  for (var di = 0; di < _charDrawListLen; di++) {
+    var d = _charDrawList[di];
+    // Selected outline
+    if (d.isSelected) {
+      ctx.save();
+      ctx.globalAlpha = 0.8;
+      ctx.drawImage(d.outlineImg, d.olX, d.olY);
+      ctx.restore();
+    }
+    // Character sprite
+    ctx.drawImage(d.img, d.x, d.y);
+    // Effects
+    var chRef = d.ch;
+    if (chRef.state === CharState.SLEEP) {
+      drawZzz(ctx, d.cx, d.topY, gameTime + chRef.id * 0.5, zoom);
+    } else if (chRef.state === CharState.PHONE) {
+      drawPhoneGlow(ctx, d.cx, d.topY + 16 * zoom, gameTime, zoom);
+    } else if (chRef.state === CharState.CHAT) {
+      var showBubble = Math.sin(gameTime * 1.5 + chRef.id) > 0;
+      drawSpeechBubble(ctx, d.cx, d.topY, '...', gameTime, zoom, showBubble);
+    }
   }
 }
 
@@ -4490,8 +4604,10 @@ function loadMCData(isRefresh) {
       if (isRefresh && allRooms.length > 0) {
         // Only update stats, do NOT rebuild rooms (preserves character positions)
         refreshRoomStats(data);
+        invalidateBarCache();
       } else {
         buildAllRooms();
+        invalidateBarCache();
         filterRooms(activeTab);
       }
       updateStats();
@@ -4668,45 +4784,9 @@ function renderAllRooms(ctx, canvasW, canvasH) {
 
     var accentColor = room.theme.accent || '#888';
 
-    // -- NAMEPLATE: ABOVE the room, separated --
-    // Enable smoothing for crisp text rendering
-    ctx.imageSmoothingEnabled = true;
-    var npY = roomY - barH;
-    // Accent line on top
-    ctx.fillStyle = accentColor;
-    ctx.fillRect(Math.round(roomX), Math.round(npY), Math.round(roomW), 2);
-    // Name background
-    ctx.fillStyle = 'rgba(13,13,36,0.9)';
-    ctx.fillRect(Math.round(roomX), Math.round(npY + 2), Math.round(roomW), barH - 2);
-
-    // Channel name
-    var canalName = room.canal.nome || room.canal.canal_nome || 'Canal';
-    ctx.font = 'bold ' + nameFont + 'px "Segoe UI", system-ui, sans-serif';
-    while (canalName.length > 5 && ctx.measureText(canalName).width > roomW - 50) {
-      canalName = canalName.substring(0, canalName.length - 3) + '..';
-    }
-    ctx.fillStyle = '#e0e0e0';
-    ctx.textAlign = 'left';
-    var nameTextX = Math.round(roomX + 6);
-    var nameTextY = Math.round(npY + barH / 2 + nameFont * 0.35 + 1);
-    ctx.fillText(canalName, nameTextX, nameTextY);
-
-    // Alert indicator if collection failing
-    if (room.canal.coleta_falhas && room.canal.coleta_falhas > 0) {
-      var nameW = ctx.measureText(canalName).width;
-      ctx.font = Math.round(nameFont * 0.9) + 'px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
-      ctx.fillText('\u26A0\uFE0F', Math.round(nameTextX + nameW + 4), nameTextY);
-    }
-
-    // Language badge
-    var lang = room.canal.lingua || '??';
-    ctx.font = 'bold ' + langFont + 'px "Segoe UI", system-ui, sans-serif';
-    var langW = ctx.measureText(lang).width + 8;
-    ctx.fillStyle = accentColor;
-    ctx.fillRect(Math.round(roomX + roomW - langW - 4), Math.round(npY + 4), Math.round(langW), Math.round(barH - 6));
-    ctx.fillStyle = '#fff';
-    ctx.textAlign = 'center';
-    ctx.fillText(lang, Math.round(roomX + roomW - langW / 2 - 4), Math.round(npY + barH / 2 + langFont * 0.35 + 1));
+    // -- NAMEPLATE (cached) --
+    var npCanvas = getRoomBarCanvas(room, 'np', roomW, barH, zoom, nameFont, langFont, accentColor);
+    ctx.drawImage(npCanvas, Math.round(roomX), Math.round(roomY - barH));
 
     // -- Render room background (cached) + characters (dynamic) --
     ctx.imageSmoothingEnabled = false;
@@ -4716,105 +4796,10 @@ function renderAllRooms(ctx, canvasW, canvasH) {
     // -- Render particles for this room --
     renderParticlesForRoom(ctx, roomX, roomY, zoom, room.roomIndex);
 
-    // -- STATS BAR: BELOW the room, separated --
-    ctx.imageSmoothingEnabled = true;
-    var sbY = roomY + roomH;
-    ctx.fillStyle = 'rgba(13,13,36,0.9)';
-    ctx.fillRect(Math.round(roomX), Math.round(sbY), Math.round(roomW), barH);
-
-    // Prepare stats data
-    var subs = formatNumber(room.canal.inscritos || 0);
-    var diff = room.canal.inscritos_diff || 0;
-    var v7d = formatNumber(room.canal.views_7d || 0);
-    var v30d = formatNumber(room.canal.views_30d || 0);
-    var vid30 = room.canal.video_count || 0;
-    var retPct = room.canal.avg_retention;
-    var ctrPct = room.canal.avg_ctr;
-
-    // Build 5 stat blocks: [emoji, text, color, diffText, diffColor]
-    var diffText = '';
-    var diffColor = null;
-    if (diff > 0) { diffText = ' (+' + diff + ')'; diffColor = '#4ade80'; }
-    else if (diff < 0) { diffText = ' (' + diff + ')'; diffColor = '#ef4444'; }
-
-    var viewsText = v7d + '/' + v30d;
-    // Growth arrow for views
-    var viewsDiff = '';
-    var viewsDiffColor = null;
-    var rawV7d = room.canal.views_7d || 0;
-    var rawV15d = room.canal.views_15d || 0;
-    var prevWeekViews = rawV15d - rawV7d;
-    if (prevWeekViews > 0 && rawV7d > 0) {
-      var gPct = ((rawV7d / prevWeekViews) - 1) * 100;
-      if (gPct > 0) { viewsDiff = ' \u2191'; viewsDiffColor = '#4ade80'; }
-      else if (gPct < -5) { viewsDiff = ' \u2193'; viewsDiffColor = '#ef4444'; }
-    }
-    var vidText = '' + vid30;
-    var retText = (retPct != null && retPct > 0) ? retPct.toFixed(0) + '%' : '--';
-    var ctrText = (ctrPct != null && ctrPct > 0) ? (ctrPct * 100).toFixed(1) + '%' : '--';
-
-    var blocks = [
-      { emoji: '\uD83D\uDC65', text: subs, color: '#ccc', diffText: diffText, diffColor: diffColor },
-      { emoji: '\uD83D\uDC41', text: viewsText, color: '#60a5fa', diffText: viewsDiff, diffColor: viewsDiffColor },
-      { emoji: '\uD83C\uDFAC', text: vidText, color: '#aaa' },
-      { emoji: '\u23F1', text: retText, color: '#fbbf24' },
-      { emoji: '\uD83C\uDFAF', text: ctrText, color: '#fb923c' }
-    ];
-
-    ctx.font = statsFont + 'px "Segoe UI", system-ui, sans-serif';
-    var stTextY = Math.round(sbY + barH / 2 + statsFont * 0.35);
-    var emojiFont = Math.round(statsFont * 0.9) + 'px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
-    var textFont = statsFont + 'px "Segoe UI", system-ui, sans-serif';
-
-    // Measure total width of all blocks to distribute evenly
-    var blockWidths = [];
-    var totalContentW = 0;
-    for (var mi = 0; mi < blocks.length; mi++) {
-      ctx.font = emojiFont;
-      var eW = ctx.measureText(blocks[mi].emoji).width + 3;
-      ctx.font = textFont;
-      var tW = ctx.measureText(blocks[mi].text).width;
-      var dW = blocks[mi].diffText ? ctx.measureText(blocks[mi].diffText).width : 0;
-      var bw = eW + tW + dW;
-      blockWidths.push({ emojiW: eW, textW: tW, diffW: dW, totalW: bw });
-      totalContentW += bw;
-    }
-
-    // Calculate equal gap between blocks
-    var padding = 6;
-    var availW = roomW - padding * 2;
-    var totalGap = availW - totalContentW;
-    var gap = blocks.length > 1 ? totalGap / (blocks.length - 1) : 0;
-    if (gap < 4) gap = 4; // minimum gap
-
-    // Draw each block with equal spacing
-    var curX = Math.round(roomX + padding);
-    for (var bi = 0; bi < blocks.length; bi++) {
-      var blk = blocks[bi];
-      var bw = blockWidths[bi];
-
-      // Emoji
-      ctx.textAlign = 'left';
-      ctx.font = emojiFont;
-      ctx.fillStyle = '#888';
-      ctx.fillText(blk.emoji, Math.round(curX), stTextY);
-
-      // Value text
-      ctx.font = textFont;
-      ctx.fillStyle = blk.color;
-      ctx.fillText(blk.text, Math.round(curX + bw.emojiW), stTextY);
-
-      // Diff text (colored green/red)
-      if (blk.diffText && blk.diffColor) {
-        ctx.fillStyle = blk.diffColor;
-        ctx.fillText(blk.diffText, Math.round(curX + bw.emojiW + bw.textW), stTextY);
-      }
-
-      curX += Math.round(bw.totalW + gap);
-    }
+    // -- STATS BAR (cached) --
+    var stCanvas = getRoomBarCanvas(room, 'st', roomW, barH, zoom, statsFont, langFont, accentColor);
+    ctx.drawImage(stCanvas, Math.round(roomX), Math.round(roomY + roomH));
   }
-  // Restore pixel-perfect rendering for sprites
-  ctx.imageSmoothingEnabled = false;
   ctx.restore(); // restore DPR scale
 }
 
