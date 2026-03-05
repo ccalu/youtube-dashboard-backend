@@ -27,189 +27,144 @@ logger = logging.getLogger("motor_agent")
 # SYSTEM PROMPT — LLM MOTORES
 # =============================================================================
 
-SYSTEM_PROMPT_MOTORES = """Voce e um estrategista de conteudo YouTube especializado em analise de motores psicologicos. Voce trabalha para uma operacao que gerencia dezenas de canais YouTube simultaneamente. Seu objetivo e transformar dados de performance + temas + motores psicologicos em inteligencia estrategica acionavel.
+SYSTEM_PROMPT_MOTORES = """Voce e um estrategista de conteudo YouTube especializado em transformar analises de motores psicologicos em ACOES CONCRETAS. Voce trabalha para uma operacao que gerencia dezenas de canais YouTube simultaneamente.
+
+IMPORTANTE: Voce NAO precisa descrever os motores (isso ja foi feito pelo Agente de Temas). Seu trabalho e ESTRATEGICO e PRESCRITIVO -- transformar a analise em decisoes.
 
 === O QUE VOCE RECEBE ===
 
-Voce recebe o output da LLM TEMAS (que ja extraiu o tema e as hipoteses de motores de cada video) junto com dados numericos calculados pelo sistema:
-- Ranking de videos com scores (0-100), views, CTR e motores ja identificados
-- CTR medio do canal (apenas como referencia comparativa -- NAO faz parte do score)
-- Relatorio anterior (se existir) para comparacao e evolucao
+1. CATALOGO DE MOTORES -- cada motor ja descrito com vocabulario, correlacoes (score/CTR COM vs SEM), insight psicologico
+2. ANTI-PATTERNS -- padroes que matam performance, ja identificados
+3. INTERACOES -- combinacoes que amplificam ou neutralizam, ja mapeadas
+4. CONTAGEM DE MOTORES -- frequencia + score medio de cada motor
+5. TOP DO RANKING -- melhores e piores videos para contexto
+6. RELATORIO ANTERIOR (se existir) -- para comparacao e evolucao
 
 === SEU TRABALHO ===
 
-1. COMENTAR cada video do ranking -- por que esse score? O que os motores revelam sobre a atracao da audiencia? Como os motores se relacionam entre si naquele video especifico?
-2. IDENTIFICAR os motores DOMINANTES do canal -- quais padroes psicologicos movem a audiencia deste canal? Por que ESSES motores funcionam AQUI e nao outros?
-3. DESCOBRIR PADROES -- combinacoes de motores que amplificam performance, motores que falham sozinhos, tendencias de crescimento ou saturacao
-4. GERAR RECOMENDACOES acionaveis -- temas concretos que o canal deveria produzir, testar, evitar ou reformular. Com exemplos especificos.
+1. FORMULA DE PERFORMANCE -- qual e a "receita" deste canal? Qual combinacao de motores gera os melhores resultados? Qual combinacao e toxica?
+2. RECOMENDACOES CONCRETAS -- temas especificos para produzir, com titulo-exemplo no idioma do canal, explicando quais motores cada um ativaria
+3. HIPOTESES PARA TESTAR -- o que ainda nao sabemos e como descobrir
+4. PRIORIDADES PRATICAS -- acoes ordenadas por impacto e urgencia
 
 === REGRAS CRITICAS ===
 
 SOBRE NUMEROS:
-- Todos os numeros (views, CTR, scores, contagens, percentuais) sao FATOS calculados pelo sistema
+- Todos os numeros (views, CTR, scores, contagens, percentuais, correlacoes) sao FATOS calculados pelo sistema
 - NUNCA invente, altere, arredonde ou estime numeros -- use EXATAMENTE o que foi fornecido
-- Sua analise e sobre o PORQUE dos numeros, nao sobre os numeros em si
-
-SOBRE MOTORES:
-- Motores NAO sao uma lista fixa -- cada canal tem seus proprios padroes
-- NAO agrupe motores diferentes so porque parecem similares
-- Se a EMOCAO que leva ao clique e diferente, o motor e diferente
-- Se um motor aparece em 1-2 videos apenas, classifique como "emergente" ou "monitorar"
-- Ao comentar um video, CONECTE os motores ao conteudo ESPECIFICO -- nunca repita definicoes genericas
-- Explique COMO os motores interagem entre si quando ha mais de um no mesmo video
+- Use os numeros como EVIDENCIA para suas recomendacoes
 
 SOBRE RECOMENDACOES:
-- Toda recomendacao deve incluir EXEMPLOS CONCRETOS de temas que o canal poderia produzir
-- Explique QUAL motor psicologico cada tema recomendado ativaria
-- Identifique riscos (saturacao de cenario, dependencia de motor unico)
+- TODA recomendacao DEVE incluir exemplos concretos de TITULOS que o canal deveria produzir
+- Os titulos-exemplo devem ser no IDIOMA DO CANAL (coreano, portugues, etc.)
+- Explique QUAIS motores cada titulo ativaria e POR QUE funcionariam
+- Identifique riscos: saturacao de cenario, dependencia de motor unico, fadiga da audiencia
 - Sugira testes A/B quando houver hipoteses inconclusivas
 
-SOBRE COMENTARIOS:
-- Cada comentario de video deve ser UNICO -- conecte os motores ao conteudo ESPECIFICO daquele video
-- Nunca escreva comentarios genericos que poderiam servir para qualquer video
-- Explique POR QUE os motores daquele video especifico geraram aquele score especifico
-- Quando dois videos tem motores iguais mas scores diferentes, explique a diferenca
+SOBRE FORMULA:
+- A formula deve ser ESPECIFICA para este canal (nao generica)
+- Mostre a combinacao VENCEDORA (motores que juntos geram top performance) com evidencia
+- Mostre a combinacao TOXICA (o que mata CTR) com evidencia dos anti-patterns
+- Use os dados de correlacao fornecidos (score COM vs SEM motor)
 
-=== EXEMPLOS DE COMO COMENTAR VIDEOS NO RANKING ===
-
-EXEMPLO BOM -- comentario conectado ao conteudo especifico:
-
-  #1 | Score: 85/100 | Views: 145.230 | CTR: 8.2% (canal: 6.4% | +1.8pp)
-      Titulo: "Os 5 Atos Mais Perturbadores de Caligula Que Foram Longe Demais"
-      Tema: Os excessos e atrocidades do imperador Caligula em Roma
-      Motores: Poder sem limites + Voyeurismo legitimado + Choque moral
-      --> Combinacao tripla de motores. Caligula TINHA poder absoluto (Poder sem limites),
-      o espectador consome as atrocidades pelo filtro da historia (Voyeurismo legitimado),
-      e "longe demais" promete transgressao que choca (Choque moral). Os 3 motores se
-      reforcam: poder + transgressao + formato seguro = atracao maxima.
-      CTR 1.8pp acima da media confirma a atracao.
-
-EXEMPLO RUIM -- comentario generico que serve pra qualquer video:
-
-  #1 | Score: 85/100 | Views: 145.230 | CTR: 8.2%
-      --> Video com boa performance. Os motores psicologicos funcionam bem juntos
-      e geram um score alto. O CTR acima da media mostra que a audiencia gosta.
-      (NUNCA faca isso -- nao diz NADA sobre o conteudo especifico do video)
-
-=== EXEMPLO DE COMO ANALISAR MOTORES DOMINANTES ===
+=== EXEMPLO DE FORMULA DE PERFORMANCE ===
 
 EXEMPLO BOM:
 
-  1. Voyeurismo legitimado -- 12/25 videos (48%) | Score medio: 74/100
-     O motor mais forte do canal. A audiencia de Archives de Guerre consome conteudo
-     transgressor (violencia, sexo, crueldade) LEGITIMADO pelo formato historico.
-     O formato "documentario" serve como licenca moral: nao e pornografia, e "educacao".
-     REGRA DO CANAL: quanto mais transgressor o tema concreto, melhor performa --
-     DESDE que venha embrulhado em formato historico-educativo.
-     Videos: #1 Caligula (85), #4 Roma antiga (66), #5 Inquisicao (61)...
+  FORMULA VENCEDORA (score medio 82/100):
+    [MULHERES VITIMAS] + [REVELACAO/SEGREDO] + [PERPETRADOR PODEROSO]
+    Evidencia: Os 4 videos com essa combinacao tem score medio 82 (vs media geral 55).
+    O motor "Mulheres Vitimas" sozinho ja eleva o score (COM: 71, SEM: 38), mas
+    combinado com "Revelacao" o efeito e multiplicado.
+
+  FORMULA TOXICA (score medio 28/100):
+    [BIOGRAFIA GENERICA] + [SEM VITIMA FEMININA] + [FIGURA DESCONHECIDA]
+    Evidencia: Videos com esse padrao tem score medio 28. O anti-pattern "Titulo
+    Biografico" aparece em 4 dos 5 piores videos do ranking.
 
 EXEMPLO RUIM:
 
-  1. Voyeurismo legitimado -- 12/25 videos (48%) | Score medio: 74
-     Motor presente em varios videos do canal com boa performance.
-     (NUNCA faca isso -- nao explica POR QUE funciona neste canal especifico)
+  FORMULA VENCEDORA: Usar motores fortes juntos
+    (NUNCA faca isso -- sem numeros, sem evidencia, sem motores especificos)
 
-=== EXEMPLO DE COMO FAZER RECOMENDACOES ===
+=== EXEMPLO DE RECOMENDACOES COM TITULOS ===
 
-EXEMPLO BOM:
+EXEMPLO BOM (canal em coreano):
 
-  PRODUZIR MAIS: Temas que combinam Voyeurismo + Violacao do sagrado
-    - "Os rituais proibidos dos templarios" --> Voyeurismo (rituais secretos em formato
-      historico) + Violacao do sagrado (ordem religiosa transgredindo)
-    - "O que as concubinas do farao faziam em segredo" --> Voyeurismo (sexualidade implicita)
-      + Erotismo velado (imaginacao preenche o que nao e mostrado)
+  PRODUZIR (ativa Motor #1 + #2 + #3):
+    Titulo: "진시황이 후궁들에게 숨긴 가장 충격적인 비밀"
+    (O segredo mais chocante que Qin Shi Huang escondeu sobre as concubinas)
+    Motores: Mulheres Vitimas + Revelacao + Perpetrador Poderoso + Civilizacao Reconhecivel
+    CTR estimado: 10%+ (baseado na correlacao dos 4 motores combinados)
 
 EXEMPLO RUIM:
 
-  PRODUZIR MAIS: Temas historicos com bons motores psicologicos
-    (NUNCA faca isso -- sem exemplos concretos e sem explicar quais motores seriam ativados)
+  PRODUZIR: Mais videos sobre reis e mulheres
+    (NUNCA faca isso -- sem titulo concreto, sem motores explicitos)
 
-=== EXEMPLO DE COMO COMPARAR COM RELATORIO ANTERIOR ===
+=== EXEMPLO DE COMPARACAO COM RELATORIO ANTERIOR ===
 
 EXEMPLO BOM:
 
   HIPOTESES ANTERIORES -- STATUS:
-  - CONFIRMADA: "Voyeurismo + Violacao = formula do canal"
-    Evidencia: Novo video "Os crimes de Nero" (score 78) confirmou. Mesmo padrao de Caligula
-    (score 85). Dupla funciona consistentemente.
-  - EM TESTE: "Civilizacoes nao-europeias tem potencial"
-    Asteca (score 61) ficou moderado. Amostra de 1 video e insuficiente para concluir.
-    Precisa de mais 2-3 videos para validar.
-  - NOVA HIPOTESE: "Temas religiosos com Voyeurismo = proximo filao"
-    Inquisicao cresceu +49% views. Testar: Cruzadas, heresias, rituais proibidos de ordens.
-
-EXEMPLO RUIM:
-
-  HIPOTESES ANTERIORES -- STATUS:
-  - CONFIRMADA: hipotese sobre Roma foi confirmada
-    (NUNCA faca isso -- sem evidencia concreta do que confirmou)
+  - CONFIRMADA: "Voyeurismo + Violacao do sagrado = formula do canal"
+    Evidencia: Novo video "Os crimes de Nero" (score 78) confirmou. Mesmo padrao de
+    Caligula (score 85). Dupla funciona consistentemente. Correlacao COM ambos: score 81.
+  - EM TESTE: "Civilizacoes asiaticas tem CTR extra"
+    Amostra ainda de 1 video (China, score 72). Precisa de 2-3 videos sobre
+    Japao/Mongolia/India para validar.
+  - REFUTADA: "Videos sobre escravos masculinos funcionam"
+    2 novos videos testaram (scores 31 e 28). Motor "Mulheres Vitimas" e insubstituivel.
 
 === FORMATO DE RESPOSTA -- PRIMEIRA ANALISE ===
 
-Use os marcadores exatos abaixo. Nao adicione secoes extras. Nao omita nenhum video do ranking.
+Use os marcadores exatos abaixo.
 
-[RANKING COMENTADO]
-(comentar CADA video do ranking -- todos, do primeiro ao ultimo)
-(para cada video: titulo, score, views, CTR vs canal, tema, motores, analise)
-
-[MOTORES DOMINANTES]
-(listar TODOS os motores encontrados, do mais forte ao mais fraco)
-(para cada um: quantos videos, percentual, score medio)
-(explicar por que esse motor funciona neste canal especifico)
-(separar em "Motores principais" e "Motores menores/emergentes")
-(listar quais videos pertencem a cada motor)
-
-[PADROES E DESCOBERTAS]
-(combinacoes de motores que amplificam performance)
-(motores que falham sozinhos vs combinados)
-(riscos: saturacao, dependencia, concentracao)
-(oportunidades: motores emergentes, cenarios subexplorados)
+[FORMULA DE PERFORMANCE]
+FORMULA VENCEDORA: combinacao de motores que gera top performance + evidencia numerica
+FORMULA TOXICA: combinacao que mata performance + evidencia dos anti-patterns
+DNA DO CANAL: os 1-2 motores que definem a identidade deste canal (sem eles, nada funciona)
 
 [RECOMENDACOES]
-(PRODUZIR MAIS -- com exemplos concretos de temas e quais motores ativariam)
-(TESTAR -- hipoteses a validar com exemplos)
-(DIVERSIFICAR -- como sair da zona de conforto mantendo motores fortes)
-(EVITAR -- o que nao produzir e por que)
-(REFORMULAR -- temas fracos que podem ser salvos mudando o angulo/motor)
+PRODUZIR MAIS (3-5 titulos concretos no idioma do canal + quais motores ativariam)
+DIVERSIFICAR (como expandir sem perder motores-chave + 2-3 titulos-teste)
+EVITAR (o que NAO produzir + por que, baseado nos anti-patterns)
+REFORMULAR (temas fracos que podem ser salvos mudando o angulo/motor + titulo reformulado)
+
+[HIPOTESES PARA TESTAR]
+(3-5 hipoteses estruturadas, cada uma com:)
+  - O que testar
+  - Qual motor validaria
+  - Titulo-teste sugerido (no idioma do canal)
+  - Resultado esperado
+  - Risco
+
+[PRIORIDADES PRATICAS]
+IMEDIATO (proximo 1-2 videos): titulo concreto + motores + por que priorizar
+CURTO PRAZO (proximas 2 semanas): 2-3 testes a rodar
+ESTRATEGICO (proximo mes): direcao do canal baseada nos padroes
 
 === FORMATO DE RESPOSTA -- ANALISES FUTURAS (Relatorio #2+) ===
 
-O relatorio tem DUAS PARTES claramente separadas. A analise do dia vem PRIMEIRO. A comparacao com anteriores vem DEPOIS.
-
-PARTE 1 -- ANALISE DO DIA:
-
-[RANKING COMENTADO -- NOVOS VIDEOS]
-(comentar CADA video novo -- mesmo nivel de detalhe da primeira analise)
-
-[MOTORES NOS NOVOS VIDEOS]
-(quais motores apareceram nos novos: recorrentes, novos, emergentes)
-
-[PADROES DOS NOVOS]
-(o que os novos videos revelam sobre a direcao do canal)
-
-[RECOMENDACOES]
-(baseadas especificamente nos novos dados)
-
-PARTE 2 -- COMPARACAO COM ANTERIORES:
-
-[RANKING GERAL ATUALIZADO]
-(top 10 de todos os videos do canal, novos + existentes)
-(indicar mudancas de posicao, novos entrantes, videos que subiram/desceram)
+[FORMULA DE PERFORMANCE -- ATUALIZADA]
+(a formula mudou? novos motores entraram? algum enfraqueceu?)
+(usar dados de correlacao atuais vs anteriores)
 
 [EVOLUCAO DOS MOTORES]
-(como cada motor evoluiu vs relatorio anterior: cresceu, estavel, caiu, novo)
-(mostrar numeros anteriores vs atuais)
-
-[VIDEOS COM CRESCIMENTO SIGNIFICATIVO]
-(somente videos com Views +20% ou CTR +2pp -- dados fornecidos pelo sistema)
-(analisar o que o crescimento revela sobre os motores daquele video)
+(como cada motor evoluiu: cresceu, estavel, caiu, NOVO, EXTINTO)
+(numeros anteriores vs atuais)
 
 [HIPOTESES ANTERIORES -- STATUS]
-(para cada hipotese do relatorio anterior:)
-(CONFIRMADA -- com evidencia do que confirmou)
-(EM TESTE -- por que ainda nao ha dados suficientes)
-(REFUTADA -- com evidencia do que refutou)
-(incluir NOVAS HIPOTESES geradas neste relatorio)"""
+(CONFIRMADA / EM TESTE / REFUTADA -- cada uma com evidencia concreta)
+
+[RECOMENDACOES]
+(mesmo formato da primeira analise, baseado nos novos dados)
+
+[NOVAS HIPOTESES]
+(hipoteses geradas pelos novos padroes observados)
+
+[PRIORIDADES PRATICAS]
+(atualizadas com base na evolucao)"""
 
 
 # =============================================================================
@@ -304,11 +259,90 @@ def _get_previous_motor_run(channel_id: str) -> Optional[Dict]:
 # LLM MOTORES
 # =============================================================================
 
+def _format_catalog_for_prompt(themes_json: Dict, motor_counts: Optional[List[Dict]] = None) -> str:
+    """Formata catalogo de motores + correlacoes + anti-patterns como texto para o prompt."""
+    lines = []
+
+    # Catalogo de motores
+    catalogo = themes_json.get("catalogo_motores", [])
+    correlacoes = themes_json.get("correlacoes", {})
+    if catalogo:
+        lines.append("=== CATALOGO DE MOTORES ===")
+        for i, cat in enumerate(catalogo, 1):
+            motor_name = cat.get("motor", "")
+            lines.append(f"\nMotor #{i}: {motor_name}")
+            lines.append(f"  Descricao: {cat.get('descricao', '')}")
+            # Vocabulario
+            vocab = cat.get("vocabulario", [])
+            if vocab:
+                vocab_strs = []
+                for voc in vocab:
+                    orig = voc.get("original", "")
+                    trad = voc.get("traducao", "")
+                    if trad and trad != orig:
+                        vocab_strs.append(f"{orig} ({trad})")
+                    else:
+                        vocab_strs.append(orig)
+                lines.append(f"  Vocabulario: {', '.join(vocab_strs)}")
+            # Correlacao
+            corr = correlacoes.get(motor_name, {})
+            if corr:
+                com = corr.get("com", {})
+                sem = corr.get("sem", {})
+                com_str = f"COM motor ({com.get('videos', 0)} videos): score medio {com.get('score_medio', '?')}"
+                sem_str = f"SEM motor ({sem.get('videos', 0)} videos): score medio {sem.get('score_medio', '?')}"
+                if com.get("ctr_medio") is not None:
+                    com_str += f", CTR {com['ctr_medio']}%"
+                if sem.get("ctr_medio") is not None:
+                    sem_str += f", CTR {sem['ctr_medio']}%"
+                lines.append(f"  {com_str}")
+                lines.append(f"  {sem_str}")
+            # Insight
+            insight = cat.get("insight_psicologico", "")
+            if insight:
+                lines.append(f"  Insight: {insight}")
+            # Videos count
+            vids = cat.get("videos_ids", [])
+            if vids:
+                lines.append(f"  Videos: {len(vids)} videos")
+
+    # Motor counts (estatisticas Python)
+    if motor_counts:
+        lines.append("\n=== CONTAGEM DE MOTORES (dados do sistema) ===")
+        counts_text = _format_motor_counts(motor_counts)
+        lines.append(counts_text)
+
+    # Anti-patterns
+    anti = themes_json.get("anti_patterns", [])
+    if anti:
+        lines.append("\n=== ANTI-PATTERNS IDENTIFICADOS ===")
+        for i, ap in enumerate(anti, 1):
+            lines.append(f"\nKiller #{i}: {ap.get('pattern', '')}")
+            lines.append(f"  {ap.get('descricao', '')}")
+            lines.append(f"  Impacto: {ap.get('impacto', 'N/A')}")
+            ex = ap.get("exemplos_video_ids", [])
+            if ex:
+                lines.append(f"  Exemplos: {len(ex)} videos")
+
+    # Interacoes
+    interacoes = themes_json.get("interacoes_motores", [])
+    if interacoes:
+        lines.append("\n=== INTERACOES ENTRE MOTORES ===")
+        for inter in interacoes:
+            comb = " + ".join(inter.get("combinacao", []))
+            tipo = inter.get("tipo", "")
+            lines.append(f"\n  {comb} [{tipo.upper()}]")
+            lines.append(f"  {inter.get('explicacao', '')}")
+
+    return "\n".join(lines)
+
+
 def _call_llm(
     merged_data: List[Dict],
     channel_info: Dict,
     avg_ctr_pct: Optional[float],
     is_first_analysis: bool,
+    themes_json: Optional[Dict] = None,
     changes: Optional[Dict] = None,
     motor_counts: Optional[List[Dict]] = None,
     prev_motor_counts: Optional[List[Dict]] = None,
@@ -317,7 +351,7 @@ def _call_llm(
     prev_date: str = ""
 ) -> Optional[str]:
     """
-    LLM MOTORES: gera analise narrativa completa com motores psicologicos.
+    LLM MOTORES: gera analise estrategica (formula, recomendacoes, hipoteses, prioridades).
     Returns: texto completo do relatorio.
     """
     api_key = os.environ.get("OPENAI_API_KEY")
@@ -339,34 +373,39 @@ def _call_llm(
     subnicho = channel_info.get("subnicho", "Geral")
     avg_ctr_str = f"{avg_ctr_pct:.1f}" if avg_ctr_pct is not None else "N/A"
 
-    if is_first_analysis:
-        # === PRIMEIRA ANALISE ===
-        ranking_text = _format_merged_for_prompt(merged_data, avg_ctr_str)
-        motor_counts_text = _format_motor_counts(motor_counts) if motor_counts else ""
+    # Catalogo + correlacoes + anti-patterns formatados
+    catalog_text = _format_catalog_for_prompt(themes_json or {}, motor_counts)
 
+    # Top 5 + bottom 3 do ranking para contexto
+    top5 = _format_merged_for_prompt(merged_data[:5], avg_ctr_str) if len(merged_data) >= 5 else _format_merged_for_prompt(merged_data, avg_ctr_str)
+    bottom3 = _format_merged_for_prompt(merged_data[-3:], avg_ctr_str) if len(merged_data) > 5 else ""
+
+    if is_first_analysis:
         user_prompt = f"""CANAL: {channel_name} ({lingua})
 NICHO: {channel_info.get('nicho', 'Geral')} | SUBNICHO: {subnicho}
 CTR MEDIO DO CANAL: {avg_ctr_str}%
 TOTAL DE VIDEOS ANALISADOS: {len(merged_data)}
+IDIOMA DOS TITULOS-EXEMPLO: {lingua}
 
-RANKING COMPLETO ({len(merged_data)} videos com temas e hipoteses):
+{catalog_text}
 
-{ranking_text}
+=== TOP 5 VIDEOS (para contexto) ===
 
-CONTAGEM DE MOTORES:
-{motor_counts_text}
+{top5}
 
-Gere o relatorio completo de motores psicologicos. Esta e a PRIMEIRA analise deste canal."""
+=== BOTTOM 3 VIDEOS (para contexto) ===
+
+{bottom3}
+
+Gere o relatorio ESTRATEGICO. Esta e a PRIMEIRA analise deste canal.
+Foque em: Formula de Performance, Recomendacoes com titulos no idioma {lingua}, Hipoteses, Prioridades."""
 
     else:
-        # === ANALISE FUTURA (#2+) ===
         new_videos = changes.get("new", []) if changes else []
         updated_videos = changes.get("updated", []) if changes else []
 
-        # Novos videos
         new_text = _format_merged_for_prompt(new_videos, avg_ctr_str) if new_videos else "Nenhum video novo."
 
-        # Videos com mudanca significativa
         updated_lines = []
         for v in updated_videos:
             prev_views = v.get("_prev_views", 0)
@@ -383,45 +422,31 @@ Gere o relatorio completo de motores psicologicos. Esta e a PRIMEIRA analise des
             )
         updated_text = "\n".join(updated_lines) if updated_lines else "Nenhum video com mudanca significativa."
 
-        # Top 10 ranking geral
-        top10 = merged_data[:10]
-        top10_lines = []
-        for v in top10:
-            new_tag = " NOVO" if any(n["video_id"] == v["video_id"] for n in new_videos) else ""
-            top10_lines.append(f"#{v['rank']} {v['video_id']} Score:{v['score']:.0f}{new_tag}")
-        top10_text = " | ".join(top10_lines)
-
-        # Contagem de motores com comparacao
-        motor_counts_text = _format_motor_counts(motor_counts, prev_motor_counts) if motor_counts else ""
-
         user_prompt = f"""CANAL: {channel_name} ({lingua})
 NICHO: {channel_info.get('nicho', 'Geral')} | SUBNICHO: {subnicho}
 CTR MEDIO DO CANAL: {avg_ctr_str}%
 RELATORIO NUMERO: #{run_number} (anterior: #{run_number - 1}, {prev_date})
+IDIOMA DOS TITULOS-EXEMPLO: {lingua}
+
+{catalog_text}
 
 === NOVOS VIDEOS ({len(new_videos)} videos) ===
 
 {new_text}
 
 === VIDEOS COM MUDANCA SIGNIFICATIVA ({len(updated_videos)} videos) ===
-(Views +20% ou CTR +2pp -- dados calculados pelo sistema)
 
 {updated_text}
 
-=== RANKING GERAL ATUALIZADO ({len(merged_data)} videos, top 10) ===
-(scores recalculados pelo sistema com dados atuais)
+=== TOP 5 VIDEOS ATUAIS (para contexto) ===
 
-{top10_text}
-
-=== CONTAGEM DE MOTORES ATUALIZADA ===
-
-{motor_counts_text}
+{top5}
 
 === RELATORIO ANTERIOR (#{run_number - 1}) ===
 
 {previous_report or 'Nenhum relatorio anterior disponivel.'}
 
-Gere o relatorio completo. PARTE 1: analise dos novos videos. PARTE 2: comparacao com relatorio anterior."""
+Gere o relatorio ESTRATEGICO. FOCO: Formula atualizada, Evolucao dos motores, Hipoteses anteriores (status), Recomendacoes com titulos no idioma {lingua}, Prioridades."""
 
     # Chamada LLM com retry
     for attempt in range(2):
@@ -577,17 +602,19 @@ def get_analysis_history(channel_id: str, limit: int = 20, offset: int = 0) -> D
 
 def run_analysis(channel_id: str) -> Dict:
     """
-    Agente 4 (Motores Psicologicos) — orquestrador principal.
+    Agente 5 (Motores Psicologicos) — orquestrador principal.
 
     Fluxo:
-    1. Carrega ultimo theme run (Agente 3)
+    1. Carrega ultimo theme run (Agente 4 Temas)
     2. Reconstroi merged_data do ranking_json
     3. Conta motores
     4. Carrega motor run anterior (para comparacao)
-    5. Chama LLM MOTORES
-    6. Salva em motor_analysis_runs
+    5. Detecta changes (novos/atualizados)
+    6. Carrega themes_json (catalogo + correlacoes + anti-patterns)
+    7. Chama LLM MOTORES (estrategico)
+    8. Salva em motor_analysis_runs
     """
-    logger.info(f"=== INICIO Agente 4 (Motores): {channel_id} ===")
+    logger.info(f"=== INICIO Agente 5 (Motores): {channel_id} ===")
 
     # 1. Carregar ultimo theme run
     theme_run = _load_theme_run(channel_id)
@@ -710,14 +737,23 @@ def run_analysis(channel_id: str) -> Dict:
 
         changes = {"new": new_videos, "updated": updated_videos}
 
-    # 6. Chamar LLM MOTORES
-    logger.info(f"Agente 4: {channel_name} | run #{run_number} | {len(merged_data)} videos | first={is_first}")
+    # 6. Carregar themes_json (catalogo + anti-patterns + correlacoes)
+    themes_json = theme_run.get("themes_json") or {}
+    if isinstance(themes_json, str):
+        try:
+            themes_json = json.loads(themes_json)
+        except (json.JSONDecodeError, TypeError):
+            themes_json = {}
+
+    # 7. Chamar LLM MOTORES
+    logger.info(f"Agente 5: {channel_name} | run #{run_number} | {len(merged_data)} videos | first={is_first}")
 
     llm_output = _call_llm(
         merged_data=merged_data,
         channel_info=channel_info,
         avg_ctr_pct=avg_ctr_pct,
         is_first_analysis=is_first,
+        themes_json=themes_json,
         changes=changes,
         motor_counts=motor_counts,
         prev_motor_counts=prev_motor_counts,
@@ -731,7 +767,7 @@ def run_analysis(channel_id: str) -> Dict:
         logger.error(msg)
         return {"success": False, "error": msg}
 
-    # 7. Salvar
+    # 8. Salvar
     run_id = save_analysis(
         channel_id=channel_id,
         channel_name=channel_name,
@@ -745,10 +781,10 @@ def run_analysis(channel_id: str) -> Dict:
     )
 
     if run_id is None:
-        logger.warning(f"Agente 4: {channel_name} — analise ok mas save falhou!")
+        logger.warning(f"Agente 5: {channel_name} — analise ok mas save falhou!")
 
     logger.info(
-        f"=== FIM Agente 4: {channel_name} | run #{run_number} | "
+        f"=== FIM Agente 5: {channel_name} | run #{run_number} | "
         f"{len(merged_data)} videos | {len(motor_counts)} motores | "
         f"run_id={run_id} ==="
     )

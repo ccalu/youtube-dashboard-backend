@@ -543,8 +543,94 @@ Exemplo com o mesmo video "O que os Vikings faziam com as freiras":
   - Voyeurismo legitimado: emocao = ver o PROIBIDO legitimado pela historia
   Tres emocoes diferentes = tres motores diferentes no MESMO video.
 
+=== CATALOGO DE MOTORES ===
+
+Apos analisar TODOS os videos, compile um CATALOGO de cada motor distinto que voce identificou. Este catalogo e crucial -- e o mapa completo dos padroes psicologicos do canal.
+
+Para cada motor do catalogo:
+1. DESCRICAO: Explique o que e este motor e POR QUE funciona NESTE canal especifico (nao generico)
+2. VOCABULARIO: Extraia palavras-chave dos titulos que contem este motor. As keywords devem estar no IDIOMA ORIGINAL do canal + traducao em portugues. Sao as palavras nos titulos que ATIVAM este motor.
+3. INSIGHT PSICOLOGICO: Analise profunda de por que esse motor move ESTA audiencia especifica. Conecte ao nicho, cultura e perfil do publico.
+4. VIDEOS: Liste os video_ids que contem este motor
+
+Regras:
+- O vocabulario deve ser extraido dos TITULOS REAIS fornecidos (nao inventado)
+- Se o canal e em coreano, as keywords sao em coreano + traducao
+- Se o canal e em portugues, as keywords sao em portugues (sem traducao necessaria)
+- Ordene os motores do mais frequente ao menos frequente
+
+=== ANTI-PATTERNS (KILLERS) ===
+
+Alem dos motores que FUNCIONAM, identifique os padroes que MATAM a performance. Olhe o FUNDO do ranking (videos com scores mais baixos) e identifique o que eles tem em comum.
+
+Para cada anti-pattern:
+1. NOME: Nome descritivo do padrao killer (ex: "Titulo Biografico Generico")
+2. DESCRICAO: Por que esse padrao mata a performance neste canal
+3. EXEMPLOS: Quais videos (video_ids) demonstram este killer
+4. IMPACTO: Estimativa do impacto negativo (ex: "CTR cai ~50% quando presente")
+
+Regras:
+- Minimo 2 exemplos concretos para cada anti-pattern (nao reporte com 1 so exemplo)
+- Use os scores/CTR REAIS dos videos como evidencia
+- Anti-patterns comuns: titulo generico sem gancho, ausencia do motor dominante, repetir a mesma figura/tema, referencias culturais desconhecidas pelo publico
+
+=== INTERACOES ENTRE MOTORES ===
+
+Identifique como os motores interagem entre si quando aparecem no MESMO video:
+- AMPLIFICAM: Combinacoes que geram scores acima da media (os motores se potencializam)
+- NEUTRALIZAM: Combinacoes que nao agregam valor (um motor anula o outro)
+
+Para cada interacao:
+1. COMBINACAO: Quais motores interagem
+2. TIPO: "amplifica" ou "neutraliza"
+3. EXPLICACAO: Por que essa interacao acontece
+
+Regras:
+- So reporte interacoes com 2+ exemplos de videos
+- Use os scores dos videos como evidencia
+
 === FORMATO DE RESPOSTA ===
-Responda APENAS com JSON valido. Sem markdown, sem comentarios, sem explicacoes fora do JSON."""
+
+Responda APENAS com JSON valido no formato abaixo. Sem markdown, sem comentarios, sem explicacoes fora do JSON.
+
+{
+  "videos": [
+    {
+      "video_id": "...",
+      "titulo": "titulo original do video",
+      "tema": "assunto concreto e especifico",
+      "hipoteses": [
+        {"motor": "Nome do Motor", "explicacao": "Por que esse motor funciona NESTE video especifico"}
+      ]
+    }
+  ],
+  "catalogo_motores": [
+    {
+      "motor": "Nome do Motor",
+      "descricao": "O que e este motor e por que funciona neste canal",
+      "vocabulario": [
+        {"original": "palavra no idioma do canal", "traducao": "traducao em portugues"}
+      ],
+      "insight_psicologico": "Analise profunda de por que move esta audiencia",
+      "videos_ids": ["id1", "id2"]
+    }
+  ],
+  "anti_patterns": [
+    {
+      "pattern": "Nome do Anti-Pattern",
+      "descricao": "Por que mata a performance",
+      "exemplos_video_ids": ["id1", "id2"],
+      "impacto": "Descricao do impacto negativo com dados"
+    }
+  ],
+  "interacoes_motores": [
+    {
+      "combinacao": ["Motor A", "Motor B"],
+      "tipo": "amplifica",
+      "explicacao": "Por que esses motores se potencializam juntos"
+    }
+  ]
+}"""
 
 
 def call_llm_temas(
@@ -601,22 +687,13 @@ CTR MEDIO DO CANAL: {avg_ctr_str}%
 
 {videos_text}
 
-Extraia o tema concreto e as hipoteses de motores psicologicos de cada video.
+Analise TODOS os videos e retorne:
+1. Para cada video: tema concreto + hipoteses de motores psicologicos
+2. Catalogo completo dos motores identificados (com descricao, vocabulario no idioma {lingua}, insight)
+3. Anti-patterns (padroes que matam performance, minimo 2 exemplos cada)
+4. Interacoes entre motores (combinacoes que amplificam ou neutralizam)
 
-Responda com JSON no formato:
-{{
-  "videos": [
-    {{
-      "video_id": "...",
-      "titulo": "...",
-      "tema": "...",
-      "hipoteses": [
-        {{"motor": "...", "explicacao": "..."}},
-        {{"motor": "...", "explicacao": "..."}}
-      ]
-    }}
-  ]
-}}"""
+Responda com JSON no formato especificado no system prompt (videos + catalogo_motores + anti_patterns + interacoes_motores)."""
 
     for attempt in range(2):
         try:
@@ -634,7 +711,18 @@ Responda com JSON no formato:
             result = json.loads(text)
             llm_videos = result.get("videos", [])
 
-            logger.info(f"LLM TEMAS OK: {len(llm_videos)} videos analisados (tentativa {attempt+1})")
+            # Garantir campos enriquecidos com defaults
+            if "catalogo_motores" not in result:
+                result["catalogo_motores"] = []
+            if "anti_patterns" not in result:
+                result["anti_patterns"] = []
+            if "interacoes_motores" not in result:
+                result["interacoes_motores"] = []
+
+            n_cat = len(result["catalogo_motores"])
+            n_anti = len(result["anti_patterns"])
+            n_inter = len(result["interacoes_motores"])
+            logger.info(f"LLM TEMAS OK: {len(llm_videos)} videos, {n_cat} motores catalogados, {n_anti} anti-patterns, {n_inter} interacoes (tentativa {attempt+1})")
             return result
 
         except json.JSONDecodeError as e:
@@ -656,7 +744,7 @@ def _fallback_temas(ranking: List[Dict]) -> Dict:
             "tema": v["title"][:80],
             "hipoteses": []
         })
-    return {"videos": videos}
+    return {"videos": videos, "catalogo_motores": [], "anti_patterns": [], "interacoes_motores": []}
 
 
 # =============================================================================
@@ -726,6 +814,48 @@ def _count_motors(merged_data: List[Dict]) -> List[Dict]:
     return result
 
 
+def compute_motor_correlations(merged_data: List[Dict], catalogo_motores: List[Dict]) -> Dict:
+    """
+    Calcula correlacoes COM vs SEM para cada motor (Python, nao LLM).
+    Para cada motor: score medio e CTR medio dos videos COM vs SEM esse motor.
+    """
+    correlations = {}
+
+    for cat_motor in catalogo_motores:
+        motor_name = cat_motor.get("motor", "")
+        if not motor_name:
+            continue
+
+        # Separar videos COM e SEM este motor
+        com = []
+        sem = []
+        for v in merged_data:
+            video_motors = v.get("motores", [])
+            if motor_name in video_motors:
+                com.append(v)
+            else:
+                sem.append(v)
+
+        def avg(lst, key):
+            vals = [v.get(key) for v in lst if v.get(key) is not None]
+            return round(sum(vals) / len(vals), 1) if vals else None
+
+        correlations[motor_name] = {
+            "com": {
+                "videos": len(com),
+                "score_medio": avg(com, "score"),
+                "ctr_medio": avg(com, "ctr"),
+            },
+            "sem": {
+                "videos": len(sem),
+                "score_medio": avg(sem, "score"),
+                "ctr_medio": avg(sem, "ctr"),
+            }
+        }
+
+    return correlations
+
+
 def _format_motor_counts(motor_counts: List[Dict], prev_motor_counts: Optional[List[Dict]] = None) -> str:
     """Formata contagem de motores para o user prompt da LLM MOTORES.
     Mantida aqui para ser importada por motor_agent.py."""
@@ -764,22 +894,23 @@ def generate_report(
     channel_name: str,
     merged_data: List[Dict],
     avg_ctr_pct: Optional[float],
-    run_number: int
+    run_number: int,
+    themes_json: Optional[Dict] = None
 ) -> str:
-    """Gera relatorio do Agente 3 (Temas): ranking + temas + hipoteses de motores por video."""
+    """Gera relatorio do Agente 4 (Temas): ranking + temas + catalogo + anti-padroes."""
     now = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
     avg_ctr_str = f"{avg_ctr_pct:.1f}" if avg_ctr_pct is not None else "N/A"
 
     report = []
     report.append("=" * 70)
-    report.append(f"AGENTE 3 — TEMAS | {channel_name}")
+    report.append(f"AGENTE 4 — TEMAS | {channel_name}")
     report.append(f"Relatorio #{run_number} | {now}")
     report.append(f"Score: 50% CTR + 50% Views (normalizado 0-100)")
     report.append(f"CTR medio do canal: {avg_ctr_str}%")
     report.append("=" * 70)
     report.append("")
 
-    # Ranking com temas e hipoteses de motores (output LLM TEMAS formatado)
+    # Ranking com temas e hipoteses de motores
     report.append("RANKING COM TEMAS E HIPOTESES DE MOTORES:")
     report.append("")
     for v in merged_data:
@@ -800,6 +931,74 @@ def generate_report(
             for h in v["hipoteses"]:
                 report.append(f"      - {h.get('motor', '')}: {h.get('explicacao', '')}")
         report.append("")
+
+    if not themes_json:
+        return "\n".join(report)
+
+    # Catalogo de motores
+    catalogo = themes_json.get("catalogo_motores", [])
+    correlacoes = themes_json.get("correlacoes", {})
+    if catalogo:
+        report.append("-" * 70)
+        report.append("CATALOGO DE MOTORES PSICOLOGICOS:")
+        report.append("")
+        for i, cat in enumerate(catalogo, 1):
+            motor_name = cat.get("motor", "")
+            report.append(f"  Motor #{i}: {motor_name}")
+            report.append(f"    {cat.get('descricao', '')}")
+            # Vocabulario
+            vocab = cat.get("vocabulario", [])
+            if vocab:
+                vocab_strs = []
+                for voc in vocab:
+                    orig = voc.get("original", "")
+                    trad = voc.get("traducao", "")
+                    if trad and trad != orig:
+                        vocab_strs.append(f"{orig} ({trad})")
+                    else:
+                        vocab_strs.append(orig)
+                report.append(f"    Vocabulario: {', '.join(vocab_strs)}")
+            # Correlacao (Python-computed)
+            corr = correlacoes.get(motor_name, {})
+            if corr:
+                com = corr.get("com", {})
+                sem = corr.get("sem", {})
+                com_score = f"score {com.get('score_medio', '?')}" if com.get("score_medio") is not None else ""
+                sem_score = f"score {sem.get('score_medio', '?')}" if sem.get("score_medio") is not None else ""
+                com_ctr = f", CTR {com.get('ctr_medio', '?')}%" if com.get("ctr_medio") is not None else ""
+                sem_ctr = f", CTR {sem.get('ctr_medio', '?')}%" if sem.get("ctr_medio") is not None else ""
+                report.append(f"    COM motor ({com.get('videos', 0)} videos): {com_score}{com_ctr}")
+                report.append(f"    SEM motor ({sem.get('videos', 0)} videos): {sem_score}{sem_ctr}")
+            # Insight
+            insight = cat.get("insight_psicologico", "")
+            if insight:
+                report.append(f"    Insight: {insight}")
+            report.append("")
+
+    # Anti-patterns
+    anti = themes_json.get("anti_patterns", [])
+    if anti:
+        report.append("-" * 70)
+        report.append("ANTI-PADROES (KILLERS):")
+        report.append("")
+        for i, ap in enumerate(anti, 1):
+            report.append(f"  Killer #{i}: {ap.get('pattern', '')}")
+            report.append(f"    {ap.get('descricao', '')}")
+            report.append(f"    Impacto: {ap.get('impacto', 'N/A')}")
+            report.append("")
+
+    # Interacoes
+    interacoes = themes_json.get("interacoes_motores", [])
+    if interacoes:
+        report.append("-" * 70)
+        report.append("INTERACOES ENTRE MOTORES:")
+        report.append("")
+        for inter in interacoes:
+            comb = " + ".join(inter.get("combinacao", []))
+            tipo = inter.get("tipo", "")
+            report.append(f"  {comb} [{tipo.upper()}]")
+            report.append(f"    {inter.get('explicacao', '')}")
+            report.append("")
 
     return "\n".join(report)
 
@@ -1065,11 +1264,18 @@ def run_analysis(channel_id: str) -> Dict:
         # Atualizar changes com dados de temas
         changes["new"] = new_merged
 
-    # 9. Gera relatorio (ranking + temas + hipoteses — sem narrativa de motores)
-    motor_counts = _count_motors(merged)
-    report = generate_report(channel_name, merged, avg_ctr_pct, run_number)
+    # 9. Compute correlacoes COM vs SEM (Python, preciso)
+    catalogo = llm_temas.get("catalogo_motores", [])
+    correlations = compute_motor_correlations(merged, catalogo) if catalogo else {}
+    if correlations:
+        llm_temas["correlacoes"] = correlations
+        logger.info(f"Correlacoes calculadas para {len(correlations)} motores")
 
-    # 10. Salva
+    # 10. Gera relatorio (ranking + temas + hipoteses + catalogo + anti-padroes)
+    motor_counts = _count_motors(merged)
+    report = generate_report(channel_name, merged, avg_ctr_pct, run_number, llm_temas)
+
+    # 11. Salva
     run_id = save_analysis(
         channel_id=channel_id,
         channel_name=channel_name,
