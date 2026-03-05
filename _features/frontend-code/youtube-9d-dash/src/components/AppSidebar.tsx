@@ -28,6 +28,9 @@ import {
   CalendarDays,
   Wallet,
   ExternalLink,
+  Rocket,
+  Monitor,
+  Bot,
 } from 'lucide-react';
 import { apiService, NotificacaoStats } from '@/services/api';
 import { kanbanApiService } from '@/services/kanbanApi';
@@ -139,6 +142,9 @@ export function AppSidebar({
     // EMPRESA - Verdes
     'monetization': 'text-green-500',
     'financeiro-ext': 'text-emerald-500',
+    'upload-ext': 'text-purple-500',
+    'mission-control-ext': 'text-purple-500',
+    'dash-agentes-ext': 'text-purple-500',
   }[itemId] || 'text-muted-foreground');
 
   // Empresa nav items (new category)
@@ -191,6 +197,13 @@ export function AppSidebar({
     });
   }, [queryClient]);
 
+  // Automações nav items (external links)
+  const automacoesNavItems: NavigationItem[] = [
+    { id: 'upload-ext', title: 'Upload', icon: Rocket, activeColor: 'bg-purple-500' },
+    { id: 'mission-control-ext', title: 'Mission Control', icon: Monitor, activeColor: 'bg-purple-500' },
+    { id: 'dash-agentes-ext', title: 'Dash Agentes', icon: Bot, activeColor: 'bg-purple-500' },
+  ];
+
   const toolsItems = [
     { id: 'history', title: 'Histórico de Coleta', icon: History, action: onOpenHistory, color: '#3b82f6', iconColor: 'text-blue-500' },
     { id: 'kanban', title: 'Kanban', icon: Kanban, action: () => handleNavClick('kanban'), onHover: prefetchKanban, color: '#6366f1', iconColor: 'text-indigo-500' },
@@ -200,8 +213,14 @@ export function AppSidebar({
   ];
 
   const handleNavClick = (itemId: string) => {
-    if (itemId === 'financeiro-ext') {
-      window.open('https://financeiro-dashboard-production.up.railway.app/', '_blank');
+    const externalLinks: Record<string, string> = {
+      'financeiro-ext': 'https://financeiro-dashboard-production.up.railway.app/',
+      'upload-ext': 'https://youtube-dashboard-backend-production.up.railway.app/dash-upload',
+      'mission-control-ext': 'https://youtube-dashboard-backend-production.up.railway.app/mission-control',
+      'dash-agentes-ext': 'https://youtube-dashboard-backend-production.up.railway.app/dash-agentes',
+    };
+    if (externalLinks[itemId]) {
+      window.open(externalLinks[itemId], '_blank');
       return;
     }
     onTabChange(itemId);
@@ -226,6 +245,9 @@ export function AppSidebar({
     // EMPRESA - Verdes
     'monetization': { bg: '#22c55e', hover: 'rgba(34, 197, 94, 0.25)' },
     'financeiro-ext': { bg: '#10b981', hover: 'rgba(16, 185, 129, 0.25)' },
+    'upload-ext': { bg: '#a855f7', hover: 'rgba(168, 85, 247, 0.25)' },
+    'mission-control-ext': { bg: '#a855f7', hover: 'rgba(168, 85, 247, 0.25)' },
+    'dash-agentes-ext': { bg: '#a855f7', hover: 'rgba(168, 85, 247, 0.25)' },
   }[itemId] || { bg: '#6b7280', hover: 'rgba(107, 114, 128, 0.25)' });
 
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
@@ -258,7 +280,7 @@ export function AppSidebar({
             isActive || isHovered ? 'text-white' : iconColor
           } ${isHovered && !isActive ? 'scale-110' : ''}`} />
           <span className={`flex-1 font-medium text-sm ${isActive || isHovered ? 'text-white' : ''}`}>{item.title}</span>
-          {item.id === 'financeiro-ext' && (
+          {item.id.endsWith('-ext') && (
             <ExternalLink className={`h-3.5 w-3.5 ${isActive || isHovered ? 'text-white/70' : 'text-muted-foreground/50'}`} />
           )}
           {item.badge !== undefined && item.badge > 0 && (
@@ -312,6 +334,22 @@ export function AppSidebar({
           <SidebarGroupContent>
             <SidebarMenu className="space-y-0.5">
               {empresaNavItems.map(renderNavItem)}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <div className="my-2" />
+
+        {/* Automações */}
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70 px-2 mb-1.5 flex items-center gap-2">
+            <span className="h-px flex-1 bg-gradient-to-r from-purple-500/50 to-transparent" />
+            <span className="text-purple-400">👾 Automações</span>
+            <span className="h-px flex-1 bg-gradient-to-l from-purple-500/50 to-transparent" />
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="space-y-0.5">
+              {automacoesNavItems.map(renderNavItem)}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
