@@ -10434,7 +10434,7 @@ DASH_SATISFACAO_HTML = '''<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect rx='20' width='100' height='100' fill='%230a0a0f'/><circle cx='50' cy='42' r='22' fill='none' stroke='%2300d4aa' stroke-width='6'/><path d='M36 45 Q50 62 64 45' stroke='%2300d4aa' stroke-width='5' stroke-linecap='round' fill='none'/><circle cx='40' cy='36' r='3' fill='%2300d4aa'/><circle cx='60' cy='36' r='3' fill='%2300d4aa'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect rx='20' width='100' height='100' fill='%230a0a0f'/><path d='M50 25C45 15 30 15 28 28C26 38 50 55 50 55C50 55 74 38 72 28C70 15 55 15 50 25Z' fill='%23ff9f43'/><path d='M30 65L70 65' stroke='%23ff9f43' stroke-width='4' stroke-linecap='round'/><path d='M35 75L65 75' stroke='%23ff9f43' stroke-width='4' stroke-linecap='round' opacity='0.6'/></svg>">
 <title>Satisfacao do Publico - Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -10447,8 +10447,8 @@ DASH_SATISFACAO_HTML = '''<!DOCTYPE html>
     --text-primary: #e8e8ed;
     --text-secondary: #a0a0b0;
     --text-muted: #6b6b7b;
-    --accent: #00d4aa;
-    --accent-dim: rgba(0, 212, 170, 0.15);
+    --accent: #ff9f43;
+    --accent-dim: rgba(255, 159, 67, 0.15);
     --warning: #ff6b6b;
     --warning-dim: rgba(255, 107, 107, 0.15);
     --highlight: #ffd93d;
@@ -10457,6 +10457,7 @@ DASH_SATISFACAO_HTML = '''<!DOCTYPE html>
     --purple-dim: rgba(167, 139, 250, 0.15);
     --orange: #ff9f43;
     --blue: #54a0ff;
+    --teal: #00d4aa;
     --border: rgba(255, 255, 255, 0.08);
 }
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -10477,12 +10478,12 @@ body {
     overflow-y: auto;
     z-index: 10;
     scrollbar-width: thin;
-    scrollbar-color: rgba(0,212,170,0.2) transparent;
+    scrollbar-color: rgba(255,159,67,0.2) transparent;
 }
 .sidebar::-webkit-scrollbar { width: 5px; }
 .sidebar::-webkit-scrollbar-track { background: transparent; }
-.sidebar::-webkit-scrollbar-thumb { background: rgba(0,212,170,0.15); border-radius: 10px; }
-.sidebar::-webkit-scrollbar-thumb:hover { background: rgba(0,212,170,0.35); }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(255,159,67,0.15); border-radius: 10px; }
+.sidebar::-webkit-scrollbar-thumb:hover { background: rgba(255,159,67,0.35); }
 .sidebar:not(:hover)::-webkit-scrollbar-thumb { background: transparent; }
 .sidebar-header { margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
 .sidebar-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); font-weight: 600; }
@@ -10498,7 +10499,7 @@ body {
 .subnicho-group { margin-bottom: 1rem; }
 .subnicho-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.4rem; font-weight: 600; padding-left: 0.5rem; display: flex; align-items: center; gap: 0.4rem; }
 .subnicho-icon { font-size: 0.75rem; }
-.channel-flag { font-size: 0.55rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; background: rgba(0,212,170,0.15); color: var(--accent); padding: 1px 4px; border-radius: 3px; margin-right: 0.3rem; flex-shrink: 0; letter-spacing: 0.03em; }
+.channel-flag { font-size: 0.55rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; background: rgba(255,159,67,0.15); color: var(--accent); padding: 1px 4px; border-radius: 3px; margin-right: 0.3rem; flex-shrink: 0; letter-spacing: 0.03em; }
 .channel-info { display: flex; align-items: center; overflow: hidden; min-width: 0; }
 .channel-item { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; border-radius: 8px; cursor: pointer; transition: all 0.15s; margin-bottom: 2px; }
 .channel-item:hover { background: var(--bg-tertiary); }
@@ -10509,7 +10510,7 @@ body {
 .channel-date { font-size: 0.68rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
 .channel-date.has-data { color: var(--accent); }
 .approval-badge { font-size: 0.6rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; padding: 1px 5px; border-radius: 4px; flex-shrink: 0; }
-.approval-badge.high { background: rgba(0,212,170,0.2); color: #00d4aa; }
+.approval-badge.high { background: rgba(255,159,67,0.2); color: #ff9f43; }
 .approval-badge.medium { background: rgba(255,217,61,0.2); color: #ffd93d; }
 .approval-badge.low { background: rgba(255,107,107,0.2); color: #ff6b6b; }
 .main { margin-left: 280px; flex: 1; padding: 2rem 3rem; min-height: 100vh; }
@@ -10529,13 +10530,13 @@ body {
 .section-header.tend { color: var(--blue); }
 .section-header.sat { color: var(--accent); }
 .ranking-line { color: var(--text-primary); }
-.tag-acima { color: var(--accent); font-weight: 700; }
+.tag-acima { color: var(--teal); font-weight: 700; }
 .tag-media { color: var(--highlight); font-weight: 600; }
 .tag-abaixo { color: var(--warning); font-weight: 700; }
 .anomaly-line { color: var(--warning); font-weight: 600; }
 .anomaly-detail { color: var(--text-secondary); padding-left: 0.5rem; }
 .narrative { color: var(--purple); }
-.comp-positive { color: var(--accent); }
+.comp-positive { color: var(--teal); }
 .comp-negative { color: var(--warning); }
 .insuf-line { color: var(--text-muted); }
 .table-header-line { color: var(--text-muted); font-size: 0.78rem; }
@@ -10973,76 +10974,11 @@ async def dash_satisfacao_page():
     return DASH_SATISFACAO_HTML
 
 
-# =========================================================================
-# DASHBOARD AUTENTICIDADE (Agente 3)
-# =========================================================================
-
-@app.get("/api/dash-analise-autenticidade/channels")
-async def dash_autenticidade_channels():
-    """Lista canais ativos agrupados por subnicho + ultima analise de autenticidade."""
-    try:
-        ch_resp = supabase.table("yt_channels")\
-            .select("channel_id,channel_name,subnicho,is_monetized,lingua")\
-            .eq("is_active", True)\
-            .not_.is_("copy_spreadsheet_id", "null")\
-            .order("is_monetized", desc=True)\
-            .order("channel_name")\
-            .execute()
-        channels = ch_resp.data or []
-        if not channels:
-            return {"subnichos": {}, "stats": {"total": 0, "com_relatorio": 0}}
-
-        channel_ids = [c["channel_id"] for c in channels]
-        last_auth = {}
-        for i in range(0, len(channel_ids), 20):
-            batch = channel_ids[i:i+20]
-            try:
-                resp = supabase.table("authenticity_analysis_runs")\
-                    .select("channel_id,run_date,authenticity_score,authenticity_level,structure_score,title_score,has_alerts,alert_count,total_videos_analyzed")\
-                    .in_("channel_id", batch)\
-                    .order("run_date", desc=True)\
-                    .execute()
-                for row in resp.data:
-                    cid = row["channel_id"]
-                    if cid not in last_auth:
-                        last_auth[cid] = row
-            except Exception:
-                pass
-
-        subnichos = {}
-        com_relatorio = 0
-        for ch in channels:
-            sub = ch.get("subnicho", "Outros") or "Outros"
-            if sub not in subnichos:
-                subnichos[sub] = []
-            auth_info = last_auth.get(ch["channel_id"])
-            if auth_info:
-                com_relatorio += 1
-            subnichos[sub].append({
-                "channel_id": ch["channel_id"],
-                "channel_name": ch.get("channel_name", ""),
-                "lingua": ch.get("lingua", ""),
-                "is_monetized": ch.get("is_monetized", False),
-                "last_analysis_date": auth_info["run_date"] if auth_info else None,
-                "auth_score": auth_info.get("authenticity_score") if auth_info else None,
-                "auth_level": auth_info.get("authenticity_level") if auth_info else None,
-                "structure_score": auth_info.get("structure_score") if auth_info else None,
-                "title_score": auth_info.get("title_score") if auth_info else None,
-                "has_alerts": auth_info.get("has_alerts", False) if auth_info else False,
-                "alert_count": auth_info.get("alert_count", 0) if auth_info else 0,
-                "total_videos": auth_info.get("total_videos_analyzed") if auth_info else None
-            })
-
-        return {
-            "subnichos": subnichos,
-            "stats": {"total": len(channels), "com_relatorio": com_relatorio}
-        }
-    except Exception as e:
-        logger.error(f"Erro dash-analise-autenticidade channels: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+# Dashboard de autenticidade removido - ja integrado no dash-analise-copy
+# (endpoint /api/dash-analise-autenticidade/channels removido)
 
 
-DASH_AUTENTICIDADE_HTML = '''<!DOCTYPE html>
+_DASH_AUTENTICIDADE_REMOVED = '''<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -11600,12 +11536,6 @@ loadChannels();
 </script>
 </body>
 </html>'''
-
-
-@app.get("/dash-analise-autenticidade", response_class=HTMLResponse)
-async def dash_autenticidade_page():
-    """Dashboard de Autenticidade - Interface web"""
-    return DASH_AUTENTICIDADE_HTML
 
 
 # =========================================================================
