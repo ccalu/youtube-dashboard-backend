@@ -4617,6 +4617,15 @@ function renderAllRooms(ctx, canvasW, canvasH) {
   var langFont = Math.max(10, Math.min(13, Math.round(6 * zoom)));
   var barH = Math.max(22, Math.min(32, Math.round(14 * zoom)));
 
+  // Viewport culling: only render rooms visible on screen
+  var canvasEl = document.getElementById('cv');
+  var vpTop = 0, vpBottom = cssH;
+  if (canvasEl) {
+    var rect = canvasEl.getBoundingClientRect();
+    vpTop = Math.max(0, -rect.top);
+    vpBottom = vpTop + window.innerHeight;
+  }
+
   for (var i = 0; i < visibleRooms.length; i++) {
     var room = visibleRooms[i];
     var gridCol = i % ROOMS_PER_ROW;
@@ -4627,6 +4636,11 @@ function renderAllRooms(ctx, canvasW, canvasH) {
     var roomY = startY + gridRow * rowStep;
     var roomW = layout.roomW * zoom;
     var roomH = layout.roomH * zoom;
+
+    // Viewport culling: skip rooms entirely outside the visible area
+    var roomTop = roomY - barH;
+    var roomBottom = roomY + roomH + barH;
+    if (roomBottom < vpTop || roomTop > vpBottom) continue;
 
     var accentColor = room.theme.accent || '#888';
 
@@ -5815,12 +5829,40 @@ function startMCGameLoop(canvas) {
   initSpriteCache();
 
   // Start game loop
+  var _offscreenAccum = 0;
   stopLoop = startGameLoop(canvas, {
     update: function(dt) {
       gameTime += dt;
-      // Update all characters in visible rooms
+
+      // Viewport-aware update: throttle offscreen rooms to save CPU on mobile
+      var canvasEl = document.getElementById('cv');
+      var dpr = window.devicePixelRatio || 1;
+      var cssH = canvasEl ? canvasEl.height / dpr : 600;
+      var vpTop = 0, vpBottom = cssH;
+      if (canvasEl) {
+        var rect = canvasEl.getBoundingClientRect();
+        vpTop = Math.max(0, -rect.top);
+        vpBottom = vpTop + window.innerHeight;
+      }
+      var layout = visibleRooms.length > 0 ? getRoomLayout(visibleRooms, zoom) : null;
+      var barH = Math.max(22, Math.min(32, Math.round(14 * zoom)));
+      var rowStep = layout ? layout.roomH * zoom + layout.gapV * zoom + barH * 2 : 200;
+
+      // Offscreen rooms get updated at reduced rate (~4fps instead of 60fps)
+      _offscreenAccum += dt;
+      var updateOffscreen = _offscreenAccum >= 0.25;
+      if (updateOffscreen) _offscreenAccum = 0;
+
       for (var i = 0; i < visibleRooms.length; i++) {
         var room = visibleRooms[i];
+        var gridRow = Math.floor(i / ROOMS_PER_ROW);
+        var roomY = 24 + gridRow * rowStep;
+        var roomTop = roomY - barH;
+        var roomBottom = roomY + (layout ? layout.roomH * zoom : 176) + barH;
+        var isOnScreen = roomBottom >= vpTop && roomTop <= vpBottom;
+
+        if (!isOnScreen && !updateOffscreen) continue;
+
         for (var j = 0; j < room.characters.length; j++) {
           updateCharacter(
             room.characters[j], dt,
