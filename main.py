@@ -8920,7 +8920,7 @@ body {
 <body>
 
 <div class="mobile-header">
-    <div class="mobile-header-title">Central de Agentes</div>
+    <div class="mobile-header-title"><span style="color:var(--accent);font-weight:600;margin-right:0.4rem;">Dashboard</span>Central de Agentes</div>
     <button class="hamburger" onclick="toggleSidebar()" id="hamburgerBtn">&#9776;</button>
 </div>
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
