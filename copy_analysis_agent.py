@@ -92,8 +92,8 @@ def _build_snapshot(all_videos: List[Dict]) -> Dict:
         if vid:
             snapshot[vid] = {
                 "views": v.get("views", 0),
-                "retention_pct": v.get("retention", 0),
-                "watch_time_min": v.get("watch_time", 0),
+                "retention_pct": v.get("retention_pct", 0),
+                "watch_time_min": v.get("watch_time_min", 0),
                 "structure": v.get("structure", ""),
             }
     return snapshot
@@ -744,7 +744,7 @@ def analyze_copy_performance(
             insufficient[structure] = {
                 "count": n,
                 "partial_retention": round(statistics.mean(retentions), 2) if retentions else None,
-                "videos": [{"title": v["title"], "retention": v["retention_pct"]} for v in videos]
+                "videos": [{"title": v["title"], "video_id": v["video_id"], "retention": v["retention_pct"]} for v in videos]
             }
             continue
 
@@ -909,7 +909,11 @@ def compare_with_previous(channel_id: str, current_results: Dict) -> Optional[Di
 def generate_llm_insights(
     channel_name: str,
     analysis: Dict,
-    comparison: Optional[Dict]
+    comparison: Optional[Dict],
+    new_video_ids: Optional[set] = None,
+    run_number: int = 1,
+    is_first_run: bool = True,
+    previous_report: Optional[str] = None
 ) -> Optional[Dict]:
     """
     Envia dados brutos para GPT-4o-mini analisar.
@@ -919,6 +923,10 @@ def generate_llm_insights(
     Memoria acumulativa: recebe o relatorio anterior completo como contexto.
     Cada relatorio ja carrega as conclusoes de todos os anteriores,
     entao a LLM sempre tem a inteligencia acumulada para comparar.
+
+    Incremental: a partir do run #2, recebe apenas videos NOVOS no data_block,
+    mas as medias gerais incluem TODOS os videos. O relatorio anterior e passado
+    como contexto para a LLM comparar evolucao.
 
     Returns:
         Texto com analise completa da LLM ou None se falhar
@@ -940,18 +948,38 @@ def generate_llm_insights(
         insufficient = analysis["insufficient"]
         all_videos = analysis.get("all_videos", [])
 
-        data_block = f"CANAL: {channel_name}\n"
-        data_block += f"Total videos analisados: {len(all_videos)}\n"
-        data_block += f"Media geral do canal: {ch_avg['retention']:.1f}% retencao, {ch_avg['watch_time']:.1f} min watch time, {ch_avg['views']:,.0f} views\n\n"
+        # Incremental: filtrar apenas videos novos no data_block (run #2+)
+        is_incremental = not is_first_run and new_video_ids and len(new_video_ids) > 0
+        filter_new = is_incremental  # True = so videos novos no data_block
 
-        # Dados brutos por estrutura com cada video
-        data_block += "DADOS POR ESTRUTURA (cada video individual):\n\n"
+        data_block = f"CANAL: {channel_name}\n"
+        data_block += f"Total videos no canal: {len(all_videos)}\n"
+        if filter_new:
+            data_block += f"Videos NOVOS nesta analise: {len(new_video_ids)}\n"
+        data_block += f"Media geral do canal (TODOS os videos): {ch_avg['retention']:.1f}% retencao, {ch_avg['watch_time']:.1f} min watch time, {ch_avg['views']:,.0f} views\n\n"
+
+        # Dados brutos por estrutura com cada video (filtrado se incremental)
+        if filter_new:
+            data_block += "DADOS POR ESTRUTURA (apenas videos NOVOS, medias incluem TODOS):\n\n"
+        else:
+            data_block += "DADOS POR ESTRUTURA (cada video individual):\n\n"
         for s, d in structures.items():
-            data_block += f"Estrutura {s} ({d['count']} videos):\n"
-            for v in d.get("videos", []):
+            videos_in_struct = d.get("videos", [])
+            if filter_new:
+                videos_to_show = [v for v in videos_in_struct if v.get("video_id") in new_video_ids]
+            else:
+                videos_to_show = videos_in_struct
+            # Pular estruturas sem videos novos no modo incremental
+            if filter_new and not videos_to_show:
+                data_block += f"Estrutura {s} ({d['count']} videos total) — sem videos novos\n"
+                data_block += f"  Media: {d['avg_retention']:.1f}% ret, {d['avg_watch_time']:.1f} min wt, {d['avg_views']:,.0f} views\n\n"
+                continue
+            new_label = f", {len(videos_to_show)} novos" if filter_new else ""
+            data_block += f"Estrutura {s} ({d['count']} videos total{new_label}):\n"
+            for v in videos_to_show:
                 views_str = f"{v.get('views', 0):,}" if v.get('views') else "N/A"
                 data_block += f"  - \"{v['title']}\" | ret: {v.get('retention', 0):.1f}% | views: {views_str}\n"
-            data_block += f"  Media: {d['avg_retention']:.1f}% ret, {d['avg_watch_time']:.1f} min wt, {d['avg_views']:,.0f} views\n"
+            data_block += f"  Media (TODOS): {d['avg_retention']:.1f}% ret, {d['avg_watch_time']:.1f} min wt, {d['avg_views']:,.0f} views\n"
             data_block += f"  Desvio padrao retencao: {d['std_retention']:.1f}%\n\n"
 
         if insufficient:
@@ -962,6 +990,8 @@ def generate_llm_insights(
                     data_block += f", retencao parcial: {d['partial_retention']:.1f}%"
                 data_block += "\n"
                 for v in d.get("videos", []):
+                    if filter_new and v.get("video_id") not in new_video_ids:
+                        continue
                     data_block += f"    - \"{v['title']}\" | ret: {v.get('retention', 0):.1f}%\n"
             data_block += "\n"
 
@@ -1110,8 +1140,11 @@ A lider e mais confiavel para decisoes de producao, apesar da diferenca de media
 
         # Montar bloco de memoria acumulativa (relatorio anterior)
         previous_report_block = ""
-        if comparison and comparison.get("previous_report"):
-            prev_date = comparison.get("previous_date", "")
+        prev_report_text = previous_report if previous_report else (
+            comparison.get("previous_report") if comparison else None
+        )
+        if prev_report_text:
+            prev_date = comparison.get("previous_date", "") if comparison else ""
             if isinstance(prev_date, str) and "T" in prev_date:
                 try:
                     prev_date = datetime.fromisoformat(prev_date.replace("Z", "+00:00")).strftime("%d/%m/%Y")
@@ -1127,12 +1160,50 @@ Sua analise atual DEVE:
 - Construir em cima, nunca ignorar o historico
 
 RELATORIO ANTERIOR COMPLETO ({prev_date}):
-{comparison['previous_report']}
+{prev_report_text}
 FIM DO RELATORIO ANTERIOR.
 """
 
-        user_prompt = f"""{previous_report_block}
+        # Montar bloco de contexto incremental (run #2+)
+        incremental_block = ""
+        if is_incremental:
+            incremental_block = f"""
+=== ANALISE INCREMENTAL (Run #{run_number}) ===
 
+Este canal ja foi analisado anteriormente. Voce esta recebendo:
+- DADOS: apenas dos {len(new_video_ids)} videos NOVOS (nao analisados antes)
+- MEDIAS GERAIS: de TODOS os videos do canal (novos + anteriores)
+- RELATORIO ANTERIOR: sua analise completa da ultima vez
+
+Sua analise DEVE cobrir adicionalmente:
+
+1. IMPACTO DOS NOVOS VIDEOS NAS ESTRUTURAS
+   - Para cada estrutura que recebeu videos novos: a media subiu ou caiu?
+   - Quanto mudou em pontos percentuais vs o que estava no relatorio anterior?
+   - O video novo puxou a estrutura pra cima ou pra baixo?
+
+2. EVOLUCAO DO RANKING
+   - Alguma estrutura mudou de posicao no ranking por causa dos novos videos?
+   - Alguma estrutura mudou de status (ABAIXO -> MEDIA, MEDIA -> ACIMA)?
+   - Movimentos significativos (2+ posicoes) merecem destaque
+
+3. CONFIRMACAO OU REVERSAO DE TENDENCIAS
+   - Tendencias do relatorio anterior que se CONFIRMAM com os novos dados
+   - Tendencias que se REVERTEM (ex: estrutura que estava caindo voltou a subir)
+   - Padroes novos que surgem pela primeira vez
+
+4. CONSISTENCIA ATUALIZADA
+   - O desvio padrao de alguma estrutura mudou significativamente?
+   - Uma estrutura consistente ficou volatil (ou vice-versa)?
+
+5. SINAIS DE ATENCAO
+   - Videos novos com performance muito abaixo da media da estrutura
+   - Videos novos com performance muito acima (potencial nova referencia)
+   - Estruturas que receberam muitos videos novos vs poucas que ficaram estagnadas
+"""
+
+        user_prompt = f"""{previous_report_block}
+{incremental_block}
 Produza EXATAMENTE 2 blocos:
 
 [OBSERVACOES]
@@ -1583,8 +1654,8 @@ def run_analysis(channel_id: str) -> Dict:
             # Extrair observacoes/tendencias do report anterior
             prev_report = prev_run["report_text"]
             llm_insights = {"observacoes": "", "tendencias": ""}
-            if "--- OBSERVACOES (LLM) ---" in prev_report:
-                parts = prev_report.split("--- OBSERVACOES (LLM) ---")
+            if "--- OBSERVACOES ---" in prev_report:
+                parts = prev_report.split("--- OBSERVACOES ---")
                 if len(parts) > 1:
                     obs_block = parts[1]
                     if "---" in obs_block:
@@ -1598,9 +1669,17 @@ def run_analysis(channel_id: str) -> Dict:
                         tend_block = tend_block.split("---")[0]
                     llm_insights["tendencias"] = tend_block.strip()
             if not llm_insights["observacoes"]:
-                llm_insights = generate_llm_insights(channel_name, analysis, comparison)
+                llm_insights = generate_llm_insights(
+                    channel_name, analysis, comparison,
+                    new_video_ids=new_ids, run_number=run_number,
+                    is_first_run=is_first, previous_report=prev_run.get("report_text") if prev_run else None
+                )
         else:
-            llm_insights = generate_llm_insights(channel_name, analysis, comparison)
+            llm_insights = generate_llm_insights(
+                channel_name, analysis, comparison,
+                new_video_ids=new_ids, run_number=run_number,
+                is_first_run=is_first, previous_report=prev_run.get("report_text") if prev_run else None
+            )
 
     # 7. Gerar relatorio
     report = generate_report(channel_name, analysis, comparison, len(sheet_data), total_no_match, llm_insights)

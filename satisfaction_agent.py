@@ -5,7 +5,7 @@ Analisa o quanto a audiencia GOSTOU do conteudo, por estrutura de copy.
 Complementar ao Agente de Copy (retencao).
 
 Metricas: Like Approval Rate, Sub Ratio, Like Ratio, Comment Ratio.
-Score composto: Sub Ratio 53% + Approval 47%.
+Score composto: Sub Ratio 60% + Approval 40%.
 
 Depende do Agente de Copy ter rodado antes (busca videos matched do ultimo run).
 """
@@ -39,8 +39,8 @@ SUPABASE_HEADERS = {
 
 MIN_MATURITY_DAYS = 7
 MIN_SAMPLE_SIZE = 3
-SATISFACTION_WEIGHT_SUB = 0.53
-SATISFACTION_WEIGHT_APPROVAL = 0.47
+SATISFACTION_WEIGHT_SUB = 0.60
+SATISFACTION_WEIGHT_APPROVAL = 0.40
 ANOMALY_SATISFACTION_MULTIPLIER = 3.0
 
 
@@ -466,7 +466,7 @@ def analyze_satisfaction_performance(
 ) -> Dict:
     """
     Agrupa videos por estrutura e calcula metricas de satisfacao.
-    Score composto: Sub Ratio 53% + Approval 47% (sem sentimento).
+    Score composto: Sub Ratio 60% + Approval 40% (sem sentimento).
 
     Returns:
         {
@@ -588,6 +588,7 @@ def analyze_satisfaction_performance(
                 "count": n,
                 "videos": [{
                     "title": v["title"],
+                    "video_id": v["video_id"],
                     "approval": v["approval"],
                     "like_ratio": v["like_ratio"],
                     "sub_ratio": v["sub_ratio"],
@@ -780,9 +781,18 @@ def compare_with_previous(channel_id: str, current_results: Dict) -> Optional[Di
 def generate_llm_insights(
     channel_name: str,
     sat_analysis: Dict,
-    sat_comparison: Optional[Dict]
+    sat_comparison: Optional[Dict],
+    new_video_ids: Optional[set] = None,
+    run_number: int = 1,
+    is_first_run: bool = True,
+    previous_report: Optional[str] = None
 ) -> Optional[Dict]:
-    """LLM: analise narrativa de satisfacao do publico."""
+    """LLM: analise narrativa de satisfacao do publico.
+
+    Incremental: a partir do run #2, recebe apenas videos NOVOS no data_block,
+    mas as medias gerais incluem TODOS os videos. O relatorio anterior e passado
+    como contexto para a LLM comparar evolucao.
+    """
     try:
         from openai import OpenAI
 
@@ -801,19 +811,39 @@ def generate_llm_insights(
         has_dislikes = sat_analysis.get("has_dislikes", False)
         has_subs = sat_analysis.get("has_subs", False)
 
+        # Incremental: filtrar apenas videos novos no data_block (run #2+)
+        is_incremental = not is_first_run and new_video_ids and len(new_video_ids) > 0
+        filter_new = is_incremental
+
         data_block = f"CANAL: {channel_name}\n"
-        data_block += f"Total videos analisados (satisfacao): {len(all_videos)}\n"
-        data_block += f"Media geral do canal: {ch_avg['approval']:.1f}% approval | {ch_avg['like_ratio']:.4f}% like ratio | {ch_avg['sub_ratio']:.4f}% sub ratio | {ch_avg.get('comment_ratio', 0):.4f}% comment ratio\n"
+        data_block += f"Total videos no canal (satisfacao): {len(all_videos)}\n"
+        if filter_new:
+            data_block += f"Videos NOVOS nesta analise: {len(new_video_ids)}\n"
+        data_block += f"Media geral do canal (TODOS os videos): {ch_avg['approval']:.1f}% approval | {ch_avg['like_ratio']:.4f}% like ratio | {ch_avg['sub_ratio']:.4f}% sub ratio | {ch_avg.get('comment_ratio', 0):.4f}% comment ratio\n"
         data_block += f"Dados de dislikes disponiveis: {'Sim' if has_dislikes else 'Nao (approval calculado apenas com likes)'}\n"
         data_block += f"Dados de inscritos ganhos por video: {'Sim' if has_subs else 'Nao'}\n\n"
 
-        data_block += "DADOS POR ESTRUTURA (cada video individual):\n\n"
+        if filter_new:
+            data_block += "DADOS POR ESTRUTURA (apenas videos NOVOS, medias incluem TODOS):\n\n"
+        else:
+            data_block += "DADOS POR ESTRUTURA (cada video individual):\n\n"
         for s, d in structures.items():
-            data_block += f"Estrutura {s} ({d['count']} videos) — Score: {d['score']}/100 — Status: {d['status']}\n"
-            for v in d.get("videos", []):
+            videos_in_struct = d.get("videos", [])
+            if filter_new:
+                videos_to_show = [v for v in videos_in_struct if v.get("video_id") in new_video_ids]
+            else:
+                videos_to_show = videos_in_struct
+            # Pular estruturas sem videos novos no modo incremental
+            if filter_new and not videos_to_show:
+                data_block += f"Estrutura {s} ({d['count']} videos total) — Score: {d['score']}/100 — sem videos novos\n"
+                data_block += f"  Media (TODOS): {d['avg_approval']:.1f}% approval | {d['avg_sub_ratio']:.4f}% sub_ratio\n\n"
+                continue
+            new_label = f", {len(videos_to_show)} novos" if filter_new else ""
+            data_block += f"Estrutura {s} ({d['count']} videos total{new_label}) — Score: {d['score']}/100 — Status: {d['status']}\n"
+            for v in videos_to_show:
                 approval_str = f"{v.get('approval', 0):.1f}%" if v.get('approval') is not None else "N/A"
                 data_block += f"  - \"{v['title']}\" | approval: {approval_str} | like_ratio: {v.get('like_ratio', 0):.4f}% | sub_ratio: {v.get('sub_ratio', 0):.4f}% | comment_ratio: {v.get('comment_ratio', 0):.4f}% | comments: {v.get('comments', 0)} | likes: {v.get('likes', 0)} | dislikes: {v.get('dislikes', 0)} | subs_gained: {v.get('subscribers_gained', 0)} | views: {v.get('views', 0):,}\n"
-            data_block += f"  Media estrutura: {d['avg_approval']:.1f}% approval | {d['avg_like_ratio']:.4f}% like_ratio | {d['avg_sub_ratio']:.4f}% sub_ratio | {d.get('avg_comment_ratio', 0):.4f}% comment_ratio | {d.get('avg_comments', 0)} coment. medio\n"
+            data_block += f"  Media (TODOS): {d['avg_approval']:.1f}% approval | {d['avg_like_ratio']:.4f}% like_ratio | {d['avg_sub_ratio']:.4f}% sub_ratio | {d.get('avg_comment_ratio', 0):.4f}% comment_ratio | {d.get('avg_comments', 0)} coment. medio\n"
             data_block += f"  Desvio vs canal: {d['approval_dev']:+.1f}% approval | {d['sub_ratio_dev']:+.1f}% sub_ratio | {d.get('comment_ratio_dev', 0):+.1f}% comment_ratio\n\n"
 
         if insufficient:
@@ -821,6 +851,8 @@ def generate_llm_insights(
             for s, d in insufficient.items():
                 data_block += f"  Estrutura {s}: {d['count']} video(s)\n"
                 for v in d.get("videos", []):
+                    if filter_new and v.get("video_id") not in new_video_ids:
+                        continue
                     approval_str = f"{v.get('approval', 0):.1f}%" if v.get('approval') is not None else "N/A"
                     data_block += f"    - \"{v['title']}\" | approval: {approval_str} | sub_ratio: {v.get('sub_ratio', 0):.4f}% | comments: {v.get('comments', 0)}\n"
             data_block += "\n"
@@ -893,7 +925,7 @@ O MESMO tema com estruturas diferentes gera satisfacao DIFERENTE.
 3. SUB RATIO = inscritos ganhos / views
    - Sinal MAIS FORTE de satisfacao (maior commitment do espectador)
    - Um espectador que se inscreve esta dizendo: "quero mais disso"
-   - Pesa 53% no score composto
+   - Pesa 60% no score composto
    - Se nao ha dados de inscritos por video, esta metrica nao esta disponivel
 
 4. COMMENT RATIO = comentarios / views (INFORMATIVO)
@@ -904,7 +936,7 @@ O MESMO tema com estruturas diferentes gera satisfacao DIFERENTE.
 
 5. SCORE COMPOSTO (0-100)
    - 50 = media do canal. >50 = acima. <50 = abaixo
-   - Pesos: Sub Ratio 53% + Approval 47% (sem sentimento de comentarios)
+   - Pesos: Sub Ratio 60% + Approval 40% (sem sentimento de comentarios)
    - O score e relativo ao PROPRIO canal — NAO compare entre canais
 
 === REGRAS INVIOLAVEIS ===
@@ -937,21 +969,72 @@ nao se sentem motivados a se inscrever apos assistir — o conteudo prende mas n
 converte. Isso sugere uma experiencia 'ok' mas nao memoravel."
 """
 
+        # Montar bloco de memoria acumulativa (relatorio anterior)
         previous_report_block = ""
-        if sat_comparison and sat_comparison.get("changes"):
-            prev_date = sat_comparison.get("previous_date", "")
+        prev_report_text = previous_report if previous_report else None
+        if prev_report_text:
+            prev_date = sat_comparison.get("previous_date", "") if sat_comparison else ""
             if isinstance(prev_date, str) and "T" in prev_date:
                 try:
                     prev_date = datetime.fromisoformat(prev_date.replace("Z", "+00:00")).strftime("%d/%m/%Y")
                 except (ValueError, TypeError):
                     pass
             previous_report_block = f"""
-VOCE TEM DADOS DA ANALISE ANTERIOR ({prev_date}) para comparar tendencias.
-Use esses dados para identificar evolucoes, consolidacoes ou reversoes.
+VOCE TEM MEMORIA ACUMULATIVA:
+O relatorio anterior contem TODAS as conclusoes e tendencias identificadas ate agora.
+Sua analise atual DEVE:
+- Se basear no relatorio anterior como referencia
+- Confirmar ou revisar tendencias anteriores com numeros
+- Notar evolucoes (ex: "Estrutura X consolida lideranca pela 3a analise consecutiva")
+- Construir em cima, nunca ignorar o historico
+
+RELATORIO ANTERIOR COMPLETO ({prev_date}):
+{prev_report_text}
+FIM DO RELATORIO ANTERIOR.
+"""
+
+        # Montar bloco de contexto incremental (run #2+)
+        incremental_block = ""
+        if is_incremental:
+            incremental_block = f"""
+=== ANALISE INCREMENTAL (Run #{run_number}) ===
+
+Este canal ja foi analisado anteriormente. Voce esta recebendo:
+- DADOS: apenas dos {len(new_video_ids)} videos NOVOS (nao analisados antes)
+- MEDIAS GERAIS: de TODOS os videos do canal (novos + anteriores)
+- RELATORIO ANTERIOR: sua analise completa da ultima vez
+
+Sua analise DEVE cobrir adicionalmente:
+
+1. IMPACTO DOS NOVOS VIDEOS NAS ESTRUTURAS
+   - Para cada estrutura que recebeu videos novos: o score subiu ou caiu?
+   - Approval mudou? Sub ratio mudou? Comment ratio mudou?
+   - O video novo puxou a estrutura pra cima ou pra baixo em satisfacao?
+
+2. EVOLUCAO DO RANKING DE SATISFACAO
+   - Alguma estrutura mudou de posicao no ranking por causa dos novos videos?
+   - Alguma estrutura mudou de status (score passou de <50 para >50 ou vice-versa)?
+   - Movimentos significativos merecem destaque
+
+3. CONFIRMACAO OU REVERSAO DE TENDENCIAS
+   - Tendencias do relatorio anterior que se CONFIRMAM com os novos dados
+   - Tendencias que se REVERTEM (ex: estrutura com approval caindo que voltou a subir)
+   - Padroes novos que surgem pela primeira vez
+
+4. CONSISTENCIA DE SATISFACAO ATUALIZADA
+   - Alguma estrutura tinha approval consistente e agora variou?
+   - Sub ratio de alguma estrutura mudou significativamente?
+   - Videos novos com comment ratio muito diferente do padrao da estrutura?
+
+5. SINAIS DE ATENCAO
+   - Videos novos com approval muito abaixo da media da estrutura
+   - Videos novos com sub ratio excepcional (conversao alta de inscritos)
+   - Divergencias: approval alto mas sub ratio baixo (ou vice-versa) nos novos videos
+   - Estruturas que receberam muitos videos novos vs poucas que ficaram estagnadas
 """
 
         user_prompt = f"""{previous_report_block}
-
+{incremental_block}
 Produza EXATAMENTE 2 blocos:
 
 [OBSERVACOES]
@@ -1443,8 +1526,8 @@ def run_analysis(channel_id: str) -> Dict:
         logger.info(f"Canal {channel_name}: zero videos novos — reutilizando LLM anterior")
         prev_report = prev_run["report_text"]
         llm_insights = {"observacoes": "", "tendencias": ""}
-        if "--- OBSERVACOES (LLM) ---" in prev_report:
-            parts = prev_report.split("--- OBSERVACOES (LLM) ---")
+        if "--- OBSERVACOES (Satisfacao) ---" in prev_report:
+            parts = prev_report.split("--- OBSERVACOES (Satisfacao) ---")
             if len(parts) > 1:
                 obs_block = parts[1]
                 if "---" in obs_block:
@@ -1458,9 +1541,17 @@ def run_analysis(channel_id: str) -> Dict:
                     tend_block = tend_block.split("---")[0]
                 llm_insights["tendencias"] = tend_block.strip()
         if not llm_insights["observacoes"]:
-            llm_insights = generate_llm_insights(channel_name, sat_analysis, sat_comparison)
+            llm_insights = generate_llm_insights(
+                channel_name, sat_analysis, sat_comparison,
+                new_video_ids=new_ids, run_number=run_number,
+                is_first_run=is_first, previous_report=prev_run.get("report_text") if prev_run else None
+            )
     else:
-        llm_insights = generate_llm_insights(channel_name, sat_analysis, sat_comparison)
+        llm_insights = generate_llm_insights(
+            channel_name, sat_analysis, sat_comparison,
+            new_video_ids=new_ids, run_number=run_number,
+            is_first_run=is_first, previous_report=prev_run.get("report_text") if prev_run else None
+        )
 
     # 7. Gerar relatorio
     report = generate_report(channel_name, sat_analysis, sat_comparison, llm_insights)
