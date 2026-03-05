@@ -4298,41 +4298,68 @@ function renderTileGrid(ctx, tileMap, offsetX, offsetY, zoom, floorColor, wallCo
   }
 }
 
-function renderScene(ctx, furniture, characters, offsetX, offsetY, zoom, spriteCache, tileMap, wallColor, selectedCharId) {
-  var drawables = [];
+// -- Static background cache per room --
+// Caches floor + walls + furniture into a single offscreen canvas per room/zoom
+var _roomBgCache = {};
+var _roomBgCacheZoom = -1;
 
-  // Wall instances (z-sorted with furniture when wallSprites loaded)
-  if (wallSprites && tileMap && wallColor) {
-    var wallInstances = getWallInstances(tileMap, wallColor);
+function getRoomBgCanvas(room, roomW, roomH, zoom) {
+  // Invalidate cache if zoom changed
+  var cacheZoom = Math.round(zoom * 2) / 2;
+  if (cacheZoom !== _roomBgCacheZoom) {
+    _roomBgCache = {};
+    _roomBgCacheZoom = cacheZoom;
+  }
+  var key = room.roomIndex;
+  if (_roomBgCache[key]) return _roomBgCache[key];
+
+  var w = Math.ceil(roomW);
+  var h = Math.ceil(roomH);
+  var offCanvas = document.createElement('canvas');
+  offCanvas.width = w;
+  offCanvas.height = h;
+  var offCtx = offCanvas.getContext('2d');
+  offCtx.imageSmoothingEnabled = false;
+
+  // Draw floor tiles
+  renderTileGrid(offCtx, room.tileMap, 0, 0, zoom, room.floorColor, room.wallColor, room.floorSprite);
+
+  // Draw walls + furniture (z-sorted together)
+  var statics = [];
+  if (wallSprites && room.tileMap && room.wallColor) {
+    var wallInstances = getWallInstances(room.tileMap, room.wallColor);
     for (var wi = 0; wi < wallInstances.length; wi++) {
-      var w = wallInstances[wi];
-      var wCached = getCachedSprite(w.sprite, zoom);
-      var wx = offsetX + w.x * zoom;
-      var wy = offsetY + w.y * zoom;
-      (function(cachedRef, wxRef, wyRef) {
-        drawables.push({
-          zY: w.zY,
-          draw: function(c) { c.drawImage(cachedRef, wxRef, wyRef); }
-        });
-      })(wCached, wx, wy);
+      var wl = wallInstances[wi];
+      var wCached = getCachedSprite(wl.sprite, zoom);
+      statics.push({ zY: wl.zY, img: wCached, x: wl.x * zoom, y: wl.y * zoom });
     }
   }
-
-  // Furniture
-  for (var fi = 0; fi < furniture.length; fi++) {
-    var f = furniture[fi];
-    var cached = getCachedSprite(f.sprite, zoom);
-    var fx = offsetX + f.x * zoom;
-    var fy = offsetY + f.y * zoom;
-    (function(cachedRef, fxRef, fyRef) {
-      drawables.push({
-        zY: f.zY,
-        draw: function(c) { c.drawImage(cachedRef, fxRef, fyRef); }
-      });
-    })(cached, fx, fy);
+  for (var fi = 0; fi < room.furniture.length; fi++) {
+    var f = room.furniture[fi];
+    var fCached = getCachedSprite(f.sprite, zoom);
+    statics.push({ zY: f.zY, img: fCached, x: f.x * zoom, y: f.y * zoom });
+  }
+  statics.sort(function(a, b) { return a.zY - b.zY; });
+  for (var si = 0; si < statics.length; si++) {
+    offCtx.drawImage(statics[si].img, statics[si].x, statics[si].y);
   }
 
-  // Characters (with visual effects)
+  _roomBgCache[key] = offCanvas;
+  return offCanvas;
+}
+
+function renderScene(ctx, furniture, characters, offsetX, offsetY, zoom, spriteCache, tileMap, wallColor, selectedCharId, room) {
+  // Draw cached static background (floor + walls + furniture) in 1 call
+  if (room) {
+    var roomW = ROOM_COLS * TILE_SIZE * zoom;
+    var roomH = ROOM_ROWS * TILE_SIZE * zoom;
+    var bgCanvas = getRoomBgCanvas(room, roomW, roomH, zoom);
+    ctx.drawImage(bgCanvas, offsetX, offsetY);
+  }
+
+  // Only characters need per-frame rendering (they move)
+  var drawables = [];
+
   for (var ci = 0; ci < characters.length; ci++) {
     var ch = characters[ci];
     var sprites = spriteCache[ch.palette];
@@ -4343,9 +4370,7 @@ function renderScene(ctx, furniture, characters, offsetX, offsetY, zoom, spriteC
     var isSitting = ch.state === CharState.TYPE || ch.state === CharState.READ || ch.state === CharState.SLEEP;
     var sittingOffset = isSitting ? SIT_OFFSET : 0;
     var drawX = Math.round(offsetX + ch.x * zoom - charCached.width / 2);
-    var drawY = Math.round(offsetX + (ch.y + sittingOffset) * zoom - charCached.height);
-    // Fix: use offsetY not offsetX for Y calculation
-    drawY = Math.round(offsetY + (ch.y + sittingOffset) * zoom - charCached.height);
+    var drawY = Math.round(offsetY + (ch.y + sittingOffset) * zoom - charCached.height);
     var charZY = ch.y + TILE_SIZE / 2 + Z_SORT_OFFSET;
 
     // Screen center of character (for effects)
@@ -4400,13 +4425,12 @@ function renderScene(ctx, furniture, characters, offsetX, offsetY, zoom, spriteC
             var showBubble = Math.sin(gameTime * 1.5 + chRef.id) > 0;
             drawSpeechBubble(c, cx, topY, '...', gameTime, zoom, showBubble);
           }
-          // (placeholder effects removed)
         }
       });
     })(ch, charCenterX, charTopY);
   }
 
-  // Z-sort
+  // Z-sort only characters (much smaller array than before)
   drawables.sort(function(a, b) { return a.zY - b.zY; });
 
   for (var di = 0; di < drawables.length; di++) {
@@ -4684,13 +4708,10 @@ function renderAllRooms(ctx, canvasW, canvasH) {
     ctx.textAlign = 'center';
     ctx.fillText(lang, Math.round(roomX + roomW - langW / 2 - 4), Math.round(npY + barH / 2 + langFont * 0.35 + 1));
 
-    // -- Render room tiles (disable smoothing for pixel art) --
+    // -- Render room background (cached) + characters (dynamic) --
     ctx.imageSmoothingEnabled = false;
-    renderTileGrid(ctx, room.tileMap, roomX, roomY, zoom, room.floorColor, room.wallColor, room.floorSprite);
-
-    // -- Render furniture + characters (z-sorted) --
     var selCharId = (selectedAgent && selectedAgent.character) ? selectedAgent.character.id : null;
-    renderScene(ctx, room.furniture, room.characters, roomX, roomY, zoom, spritesByPalette, room.tileMap, room.wallColor, selCharId);
+    renderScene(ctx, room.furniture, room.characters, roomX, roomY, zoom, spritesByPalette, room.tileMap, room.wallColor, selCharId, room);
 
     // -- Render particles for this room --
     renderParticlesForRoom(ctx, roomX, roomY, zoom, room.roomIndex);
