@@ -6295,6 +6295,53 @@ DASH_UPLOAD_HTML = '''
         .btn-start-batch { padding: 10px 24px; background: var(--success); color: #000; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
         .btn-start-batch:hover { background: #16a34a; }
         .btn-start-batch:disabled { background: var(--border-secondary); color: var(--text-tertiary); cursor: not-allowed; }
+
+        /* ===== RESPONSIVE MOBILE ===== */
+        @media (max-width: 768px) {
+            .page-header { padding: 14px 16px 12px; flex-wrap: wrap; gap: 10px; }
+            .header-title { font-size: 18px; }
+            .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 12px; margin-bottom: 20px; }
+            .stat-card { padding: 14px 12px; min-height: 72px; }
+            .stat-value { font-size: 24px; }
+            .stat-value--historico { font-size: 24px; }
+            .stat-label { font-size: 10px; }
+            .content { padding: 0 8px; }
+            .section-header { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 14px; }
+            .section-pills { flex-wrap: wrap; }
+            .channel-table th, .channel-table td { padding: 8px 10px; font-size: 12px; }
+            .channel-table th:nth-child(3), .channel-table td:nth-child(3),
+            .channel-table th:nth-child(4), .channel-table td:nth-child(4) { display: none; }
+            .channel-table th:nth-child(1) { width: auto !important; }
+            .channel-table th:nth-child(5) { width: auto !important; }
+            .channel-name { font-size: 12px; white-space: normal; word-break: break-word; }
+            .video-title { max-width: 150px; }
+            .btn-icon { width: 32px; height: 32px; font-size: 16px; }
+            .status-bar { padding: 8px 12px; font-size: 11px; }
+            .modal-panel { width: 96%; max-height: 85vh; }
+            .modal-header { padding: 14px 16px; }
+            .modal-body { padding: 14px 12px; }
+            .modal-summary { flex-wrap: wrap; gap: 8px; padding: 10px 12px; font-size: 12px; }
+            .modal-table th, .modal-table td { padding: 6px 8px; font-size: 12px; }
+            .modal-table th:nth-child(4), .modal-table td:nth-child(4) { display: none; }
+            .batch-channel-row { padding: 8px 12px; gap: 8px; }
+            .batch-video-hint { max-width: 120px; font-size: 11px; }
+            .batch-footer { padding: 12px 14px; flex-wrap: wrap; gap: 10px; }
+            .accordion-trigger { padding: 10px 12px; }
+        }
+        @media (max-width: 480px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .stat-card--historico { grid-column: span 2; }
+            .page-header > div:last-child { width: 100%; justify-content: space-between; }
+            .channel-table th:nth-child(2), .channel-table td:nth-child(2) { display: none; }
+            .cell-channel { flex-wrap: wrap; gap: 3px; }
+            .channel-name { font-size: 11px; }
+            .cell-actions { gap: 2px; }
+            .btn-icon { width: 28px; height: 28px; font-size: 14px; }
+            .status-bar-left { flex-wrap: wrap; gap: 8px; }
+            .status-bar-sep { display: none; }
+            .modal-panel { width: 100%; border-radius: var(--radius-md) var(--radius-md) 0 0; max-height: 90vh; }
+            .batch-footer { justify-content: center; }
+        }
     </style>
 </head>
 <body>
@@ -8779,15 +8826,82 @@ body {
 .hist-back-btn { background: none; border: none; color: var(--blue); font-size: 0.8rem; cursor: pointer; font-family: inherit; padding: 0.3rem 0; margin-bottom: 0.5rem; }
 .hist-back-btn:hover { text-decoration: underline; }
 
+/* Mobile menu toggle */
+.mobile-header {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 50px;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border);
+    z-index: 20;
+    align-items: center;
+    padding: 0 1rem;
+    justify-content: space-between;
+}
+.mobile-header .sidebar-title { margin: 0; }
+.hamburger {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0.3rem;
+    line-height: 1;
+}
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 14;
+}
+.sidebar-overlay.active { display: block; }
+
 @media (max-width: 1024px) {
-    .sidebar { display: none; }
-    .main { margin-left: 0; padding: 1.5rem; }
+    .mobile-header { display: flex; }
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        z-index: 15;
+    }
+    .sidebar.open { transform: translateX(0); }
+    .main { margin-left: 0; padding: 1rem; padding-top: 60px; }
+    .main-header { flex-direction: column; align-items: flex-start; gap: 0.8rem; }
+    .main-title { font-size: 1rem; }
+    .main-actions { width: 100%; }
+    .main-actions .btn { flex: 1; font-size: 0.75rem; padding: 0.4rem 0.5rem; }
+    .tabs-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-wrap: nowrap; }
+    .tabs-bar::-webkit-scrollbar { display: none; }
+    .tab-btn { font-size: 0.7rem; padding: 0.5rem 0.8rem; white-space: nowrap; flex-shrink: 0; }
+    .report-container { padding: 1rem; font-size: 0.75rem; line-height: 1.6; }
+    .modal { padding: 1.2rem; max-width: 95%; }
+    .sidebar-actions { flex-wrap: wrap; }
+    .sidebar-actions .btn { font-size: 0.7rem; padding: 0.4rem 0.6rem; }
+}
+
+@media (max-width: 480px) {
+    .main { padding: 0.6rem; padding-top: 56px; }
+    .main-title { font-size: 0.9rem; }
+    .report-container { padding: 0.8rem; font-size: 0.7rem; }
+    .channel-name { max-width: 120px; }
+    .tab-btn { font-size: 0.65rem; padding: 0.4rem 0.6rem; }
 }
 </style>
 </head>
 <body>
+
+<div class="mobile-header">
+    <div>
+        <div class="sidebar-title">Dashboard</div>
+        <div style="font-size:0.8rem;font-weight:700;color:var(--text-primary);">Central de Agentes</div>
+    </div>
+    <button class="hamburger" onclick="toggleSidebar()" id="hamburgerBtn">&#9776;</button>
+</div>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
 <div class="container">
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebarEl">
         <div class="sidebar-header">
             <div class="sidebar-title">Dashboard</div>
             <div class="sidebar-subtitle">Central de Agentes</div>
@@ -8949,6 +9063,12 @@ function selectChannel(channelId) {
     document.getElementById('mainTitle').textContent = ch.channel_name || channelId;
     document.getElementById('mainActions').style.display = 'flex';
     document.getElementById('tabsArea').style.display = 'block';
+
+    // Close sidebar on mobile
+    if (window.innerWidth <= 1024) {
+        document.getElementById('sidebarEl').classList.remove('open');
+        document.getElementById('sidebarOverlay').classList.remove('active');
+    }
 
     loadAllAgents(channelId);
 }
@@ -9504,6 +9624,13 @@ function escHtml(s) {
 }
 
 function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+function toggleSidebar() {
+    var sb = document.getElementById('sidebarEl');
+    var ov = document.getElementById('sidebarOverlay');
+    sb.classList.toggle('open');
+    ov.classList.toggle('active');
+}
 
 // Init
 loadChannels();
