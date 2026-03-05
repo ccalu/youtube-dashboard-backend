@@ -970,13 +970,30 @@ def generate_report(
     merged_data: List[Dict],
     avg_ctr_pct: Optional[float],
     run_number: int,
-    themes_json: Optional[Dict] = None
+    themes_json: Optional[Dict] = None,
+    new_count: int = -1,
+    updated_count: int = -1
 ) -> str:
     """Gera relatorio do Agente 4 (Temas): ranking + temas + catalogo + anti-padroes."""
     now = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
     avg_ctr_str = f"{avg_ctr_pct:.1f}" if avg_ctr_pct is not None else "N/A"
 
     report = []
+
+    # === BANNER INCREMENTAL ===
+    if run_number > 1 and new_count == 0 and updated_count == 0:
+        report.append(f">> Run #{run_number} -- Nenhum video novo/atualizado detectado desde a ultima analise.")
+        report.append(">> Relatorio anterior reutilizado. Proxima analise com dados novos gerara atualizacao completa.")
+        report.append("")
+    elif run_number > 1 and (new_count > 0 or updated_count > 0):
+        parts = []
+        if new_count > 0:
+            parts.append(f"{new_count} novo(s)")
+        if updated_count > 0:
+            parts.append(f"{updated_count} atualizado(s)")
+        report.append(f">> Run #{run_number} -- {' + '.join(parts)} (de {len(merged_data)} total). Analise focada nas mudancas.")
+        report.append("")
+
     report.append("=" * 70)
     report.append(f"AGENTE 4 — TEMAS | {channel_name}")
     report.append(f"Relatorio #{run_number} | {now}")
@@ -1354,11 +1371,13 @@ def run_analysis(channel_id: str) -> Dict:
     # 10. Gera relatorio
     motor_counts = _count_motors(merged)
     if skip_llm:
-        # Reutilizar report anterior
-        report = prev_run.get("report_text", "")
-        logger.info("Reutilizando report_text do run anterior")
+        # Reutilizar report anterior com banner
+        report = generate_report(channel_name, merged, avg_ctr_pct, run_number, llm_temas,
+                                 new_count=0, updated_count=0)
+        logger.info("Reutilizando report com banner de zero novos")
     else:
-        report = generate_report(channel_name, merged, avg_ctr_pct, run_number, llm_temas)
+        report = generate_report(channel_name, merged, avg_ctr_pct, run_number, llm_temas,
+                                 new_count=new_count, updated_count=updated_count)
 
     # 11. Salva
     run_id = save_analysis(

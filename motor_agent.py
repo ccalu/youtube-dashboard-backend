@@ -788,7 +788,9 @@ def run_analysis(channel_id: str) -> Dict:
             skip_llm = True
 
     if skip_llm:
-        llm_output = prev_report
+        banner = (f">> Run #{run_number} -- Nenhum video novo/atualizado detectado desde a ultima analise.\n"
+                  f">> Relatorio anterior reutilizado. Proxima analise com dados novos gerara atualizacao completa.\n\n")
+        llm_output = banner + prev_report if prev_report else prev_report
     else:
         llm_output = _call_llm(
             merged_data=merged_data,
@@ -803,6 +805,16 @@ def run_analysis(channel_id: str) -> Dict:
             run_number=run_number,
             prev_date=prev_date_str,
         )
+        # Banner para runs incrementais com dados novos
+        if not is_first and llm_output and changes:
+            parts = []
+            if new_count > 0:
+                parts.append(f"{new_count} novo(s)")
+            if updated_count > 0:
+                parts.append(f"{updated_count} atualizado(s)")
+            if parts:
+                banner = f">> Run #{run_number} -- {' + '.join(parts)} (de {len(merged_data)} total). Analise focada nas mudancas.\n\n"
+                llm_output = banner + llm_output
 
     if not llm_output:
         msg = "LLM MOTORES nao retornou output"
