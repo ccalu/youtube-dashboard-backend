@@ -1121,7 +1121,9 @@ def generate_report(
     channel_name: str,
     sat_analysis: Dict,
     sat_comparison: Optional[Dict],
-    llm_insights: Optional[Dict] = None
+    llm_insights: Optional[Dict] = None,
+    run_number: int = 1,
+    new_count: int = -1
 ) -> str:
     """Gera relatorio formatado de satisfacao."""
     now = datetime.now().strftime("%d-%m-%Y")
@@ -1135,6 +1137,15 @@ def generate_report(
     has_subs = sat_analysis.get("has_subs", False)
 
     lines = []
+
+    # === BANNER INCREMENTAL ===
+    if run_number > 1 and new_count == 0:
+        lines.append(f">> Run #{run_number} -- Nenhum video novo detectado desde a ultima analise.")
+        lines.append(">> Relatorio anterior reutilizado. Proxima analise com dados novos gerara atualizacao completa.")
+        lines.append("")
+    elif run_number > 1 and new_count > 0:
+        lines.append(f">> Run #{run_number} -- {new_count} video(s) novo(s) detectado(s) (de {len(all_videos)} total). Analise focada nos novos.")
+        lines.append("")
 
     # === HEADER ===
     lines.append("=" * 60)
@@ -1554,7 +1565,8 @@ def run_analysis(channel_id: str) -> Dict:
         )
 
     # 7. Gerar relatorio
-    report = generate_report(channel_name, sat_analysis, sat_comparison, llm_insights)
+    report = generate_report(channel_name, sat_analysis, sat_comparison, llm_insights,
+                             run_number=run_number, new_count=new_count)
 
     # 8. Salvar
     run_id = save_analysis(

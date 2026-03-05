@@ -1300,7 +1300,9 @@ def generate_report(
     comparison: Optional[Dict],
     total_sheet_videos: int,
     total_no_match: int,
-    llm_insights: Optional[Dict] = None
+    llm_insights: Optional[Dict] = None,
+    run_number: int = 1,
+    new_count: int = -1
 ) -> str:
     """
     Gera relatorio formatado no estilo EXATO do HTML spec.
@@ -1341,6 +1343,15 @@ def generate_report(
         periodo_str = f"{min_date} a {max_date}"
 
     lines = []
+
+    # === BANNER INCREMENTAL ===
+    if run_number > 1 and new_count == 0:
+        lines.append(f">> Run #{run_number} -- Nenhum video novo detectado desde a ultima analise.")
+        lines.append(">> Relatorio anterior reutilizado. Proxima analise com dados novos gerara atualizacao completa.")
+        lines.append("")
+    elif run_number > 1 and new_count > 0:
+        lines.append(f">> Run #{run_number} -- {new_count} video(s) novo(s) detectado(s) (de {total_analyzed} total). Analise focada nos novos.")
+        lines.append("")
 
     # === HEADER ===
     lines.append("=" * 60)
@@ -1682,7 +1693,8 @@ def run_analysis(channel_id: str) -> Dict:
             )
 
     # 7. Gerar relatorio
-    report = generate_report(channel_name, analysis, comparison, len(sheet_data), total_no_match, llm_insights)
+    report = generate_report(channel_name, analysis, comparison, len(sheet_data), total_no_match, llm_insights,
+                             run_number=run_number, new_count=new_count)
 
     # 8. Salvar
     run_id = save_analysis(

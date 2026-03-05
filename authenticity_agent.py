@@ -1019,7 +1019,9 @@ def generate_report(
     total_sheet: int,
     alerts: List[Dict],
     llm_insights: Optional[Dict],
-    comparison: Optional[Dict]
+    comparison: Optional[Dict],
+    run_number: int = 1,
+    new_count: int = -1
 ) -> str:
     """Gera relatorio formatado de autenticidade."""
     now = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
@@ -1035,6 +1037,16 @@ def generate_report(
     }
 
     report = []
+
+    # === BANNER INCREMENTAL ===
+    if run_number > 1 and new_count == 0:
+        report.append(f">> Run #{run_number} -- Nenhum titulo novo detectado desde a ultima analise.")
+        report.append(">> Relatorio anterior reutilizado. Proxima analise com dados novos gerara atualizacao completa.")
+        report.append("")
+    elif run_number > 1 and new_count > 0:
+        report.append(f">> Run #{run_number} -- {new_count} titulo(s) novo(s) detectado(s) (de {total_sheet} total). Analise focada nos novos.")
+        report.append("")
+
     report.append("=" * 60)
     report.append(f"SCORE DE AUTENTICIDADE | {channel_name} | {now}")
     report.append("=" * 60)
@@ -1349,7 +1361,8 @@ def run_analysis(channel_id: str) -> Dict:
     # 8. Gerar relatorio
     report = generate_report(
         channel_name, composite, structure_result, title_result,
-        len(sheet_data), alerts, llm_insights, comparison
+        len(sheet_data), alerts, llm_insights, comparison,
+        run_number=run_number, new_count=new_count
     )
 
     # 9. Salvar (com snapshot e run_number)
