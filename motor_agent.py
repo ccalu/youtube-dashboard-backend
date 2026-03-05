@@ -428,23 +428,31 @@ CTR MEDIO DO CANAL: {avg_ctr_str}%
 RELATORIO NUMERO: #{run_number} (anterior: #{run_number - 1}, {prev_date})
 IDIOMA DOS TITULOS-EXEMPLO: {lingua}
 
-{catalog_text}
+=== BLOCO 1: RELATORIO ANTERIOR (#{run_number - 1}) ===
 
-=== NOVOS VIDEOS ({len(new_videos)} videos) ===
+{previous_report or 'Nenhum relatorio anterior disponivel.'}
+
+=== BLOCO 2: O QUE MUDOU ===
+
+{len(new_videos)} videos NOVOS:
 
 {new_text}
 
-=== VIDEOS COM MUDANCA SIGNIFICATIVA ({len(updated_videos)} videos) ===
+{len(updated_videos)} videos com mudanca significativa:
 
 {updated_text}
 
-=== TOP 5 VIDEOS ATUAIS (para contexto) ===
+=== BLOCO 3: DADOS GERAIS ===
+
+{catalog_text}
+
+TOP 5 VIDEOS ATUAIS (para contexto):
 
 {top5}
 
-=== RELATORIO ANTERIOR (#{run_number - 1}) ===
+BOTTOM 3 VIDEOS ATUAIS (para contexto):
 
-{previous_report or 'Nenhum relatorio anterior disponivel.'}
+{bottom3}
 
 Gere o relatorio ESTRATEGICO. FOCO: Formula atualizada, Evolucao dos motores, Hipoteses anteriores (status), Recomendacoes com titulos no idioma {lingua}, Prioridades."""
 
@@ -597,6 +605,53 @@ def get_analysis_history(channel_id: str, limit: int = 20, offset: int = 0) -> D
 
 
 # =============================================================================
+# DETECCAO INCREMENTAL
+# =============================================================================
+
+def _detect_changes(
+    merged_data: List[Dict],
+    prev_snapshot: List[Dict]
+) -> Dict[str, List[Dict]]:
+    """
+    Compara videos atuais com snapshot do run anterior.
+    Return: {new: [...], updated: [...]}
+    """
+    if not prev_snapshot:
+        return {"new": merged_data, "updated": []}
+
+    prev_map = {}
+    for v in prev_snapshot:
+        vid = v.get("video_id")
+        if vid:
+            prev_map[vid] = v
+
+    new_videos = []
+    updated_videos = []
+
+    for v in merged_data:
+        vid = v.get("video_id")
+        prev = prev_map.get(vid)
+
+        if prev is None:
+            new_videos.append(v)
+        else:
+            views_changed = (
+                prev.get("views") and v.get("views")
+                and v["views"] > prev["views"] * 1.2
+            )
+            ctr_changed = (
+                v.get("ctr") is not None and prev.get("ctr") is not None
+                and abs(v["ctr"] - prev["ctr"]) >= 2.0
+            )
+            if views_changed or ctr_changed:
+                v["_prev_views"] = prev.get("views", 0)
+                v["_prev_ctr"] = prev.get("ctr")
+                updated_videos.append(v)
+
+    return {"new": new_videos, "updated": updated_videos}
+
+
+# =============================================================================
 # ORQUESTRACAO PRINCIPAL
 # =============================================================================
 
@@ -702,7 +757,7 @@ def run_analysis(channel_id: str) -> Dict:
             except (ValueError, TypeError):
                 prev_date_str = str(prev_motor_run.get("run_date", ""))
 
-    # Detectar changes para prompt #2+ (novos vs existentes no ranking)
+    # Detectar changes para prompt #2+
     changes = None
     if not is_first and prev_motor_run:
         prev_snapshot = prev_motor_run.get("ranking_snapshot") or []
@@ -711,31 +766,7 @@ def run_analysis(channel_id: str) -> Dict:
                 prev_snapshot = json.loads(prev_snapshot)
             except (json.JSONDecodeError, TypeError):
                 prev_snapshot = []
-
-        prev_ids = {v.get("video_id") for v in prev_snapshot if v.get("video_id")}
-        new_videos = [v for v in merged_data if v.get("video_id") not in prev_ids]
-        updated_videos = []  # Mudancas de views/CTR detectadas pelo Agente 3
-
-        # Para updated, comparar com snapshot anterior
-        prev_map = {v.get("video_id"): v for v in prev_snapshot}
-        for v in merged_data:
-            vid = v.get("video_id")
-            if vid in prev_ids and vid in prev_map:
-                pv = prev_map[vid]
-                views_changed = False
-                ctr_changed = False
-                if pv.get("views") and v.get("views"):
-                    if v["views"] > pv["views"] * 1.2:
-                        views_changed = True
-                if pv.get("ctr") is not None and v.get("ctr") is not None:
-                    if abs(v["ctr"] - pv["ctr"]) >= 2.0:
-                        ctr_changed = True
-                if views_changed or ctr_changed:
-                    v["_prev_views"] = pv.get("views", 0)
-                    v["_prev_ctr"] = pv.get("ctr")
-                    updated_videos.append(v)
-
-        changes = {"new": new_videos, "updated": updated_videos}
+        changes = _detect_changes(merged_data, prev_snapshot)
 
     # 6. Carregar themes_json (catalogo + anti-patterns + correlacoes)
     themes_json = theme_run.get("themes_json") or {}
@@ -745,22 +776,33 @@ def run_analysis(channel_id: str) -> Dict:
         except (json.JSONDecodeError, TypeError):
             themes_json = {}
 
-    # 7. Chamar LLM MOTORES
+    # 7. Chamar LLM MOTORES (ou skip se zero novos)
     logger.info(f"Agente 5: {channel_name} | run #{run_number} | {len(merged_data)} videos | first={is_first}")
 
-    llm_output = _call_llm(
-        merged_data=merged_data,
-        channel_info=channel_info,
-        avg_ctr_pct=avg_ctr_pct,
-        is_first_analysis=is_first,
-        themes_json=themes_json,
-        changes=changes,
-        motor_counts=motor_counts,
-        prev_motor_counts=prev_motor_counts,
-        previous_report=prev_report,
-        run_number=run_number,
-        prev_date=prev_date_str,
-    )
+    skip_llm = False
+    if not is_first and changes is not None:
+        new_count = len(changes.get("new", []))
+        updated_count = len(changes.get("updated", []))
+        if new_count == 0 and updated_count == 0:
+            logger.info("Zero videos novos/atualizados — reutilizando relatorio anterior (skip LLM)")
+            skip_llm = True
+
+    if skip_llm:
+        llm_output = prev_report
+    else:
+        llm_output = _call_llm(
+            merged_data=merged_data,
+            channel_info=channel_info,
+            avg_ctr_pct=avg_ctr_pct,
+            is_first_analysis=is_first,
+            themes_json=themes_json,
+            changes=changes,
+            motor_counts=motor_counts,
+            prev_motor_counts=prev_motor_counts,
+            previous_report=prev_report,
+            run_number=run_number,
+            prev_date=prev_date_str,
+        )
 
     if not llm_output:
         msg = "LLM MOTORES nao retornou output"

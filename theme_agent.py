@@ -633,15 +633,57 @@ Responda APENAS com JSON valido no formato abaixo. Sem markdown, sem comentarios
 }"""
 
 
+def _format_videos_for_prompt(ranking: List[Dict], avg_ctr_str: str) -> str:
+    """Formata lista de videos para inclusao no prompt."""
+    lines = []
+    for v in ranking:
+        ctr_str = ""
+        if v.get("ctr") is not None:
+            ctr_str = f" | CTR: {v['ctr']:.1f}%"
+            if v.get("ctr_diff") is not None:
+                sign = "+" if v["ctr_diff"] >= 0 else ""
+                ctr_str += f" (canal: {avg_ctr_str}% | {sign}{v['ctr_diff']:.1f}pp)"
+        lines.append(
+            f"#{v['rank']} | video_id: {v['video_id']} | \"{v['title']}\" | "
+            f"Views: {v['views']:,}{ctr_str} | Score: {v['score']:.0f}/100"
+        )
+    return "\n".join(lines)
+
+
+def _format_updated_videos(updated: List[Dict]) -> str:
+    """Formata videos com mudanca significativa (delta views/CTR)."""
+    lines = []
+    for v in updated:
+        prev_views = v.get("_prev_views", 0)
+        prev_ctr = v.get("_prev_ctr")
+        views_pct = round((v["views"] - prev_views) / prev_views * 100, 0) if prev_views > 0 else 0
+        ctr_str = ""
+        if v.get("ctr") is not None and prev_ctr is not None:
+            delta = round(v["ctr"] - prev_ctr, 1)
+            sign = "+" if delta >= 0 else ""
+            ctr_str = f" | CTR: {prev_ctr:.1f}% -> {v['ctr']:.1f}% ({sign}{delta:.1f}pp)"
+        lines.append(
+            f"- video_id: {v['video_id']} | \"{v['title']}\" | "
+            f"Views: {prev_views:,} -> {v['views']:,} (+{views_pct:.0f}%){ctr_str} | Score: {v['score']:.0f}/100"
+        )
+    return "\n".join(lines) if lines else "Nenhum video com mudanca significativa."
+
+
 def call_llm_temas(
     ranking: List[Dict],
     channel_info: Dict,
     avg_ctr_pct: Optional[float],
-    previous_themes: Optional[List[str]] = None
+    is_first: bool = True,
+    previous_report: Optional[str] = None,
+    changes: Optional[Dict] = None
 ) -> Optional[Dict]:
     """
     LLM TEMAS: extrai tema concreto + hipoteses de motores de cada video.
-    Returns: {"videos": [{"video_id", "titulo", "tema", "hipoteses": [{"motor", "explicacao"}]}]}
+
+    Run #1: Analisa todos os videos.
+    Run #2+: Prompt 3-block (relatorio anterior + mudancas + dados gerais).
+
+    Returns: {"videos": [...], "catalogo_motores": [...], "anti_patterns": [...], "interacoes_motores": [...]}
     """
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
@@ -657,28 +699,17 @@ def call_llm_temas(
 
     model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
-    # Formatar videos para o prompt
     channel_name = channel_info.get("channel_name", "Desconhecido")
     lingua = channel_info.get("lingua", "Portugues")
     subnicho = channel_info.get("subnicho", "Geral")
     avg_ctr_str = f"{avg_ctr_pct:.1f}" if avg_ctr_pct is not None else "N/A"
 
-    videos_lines = []
-    for v in ranking:
-        ctr_str = ""
-        if v.get("ctr") is not None:
-            ctr_str = f" | CTR: {v['ctr']:.1f}%"
-            if v.get("ctr_diff") is not None:
-                sign = "+" if v["ctr_diff"] >= 0 else ""
-                ctr_str += f" (canal: {avg_ctr_str}% | {sign}{v['ctr_diff']:.1f}pp)"
-        videos_lines.append(
-            f"#{v['rank']} | video_id: {v['video_id']} | \"{v['title']}\" | "
-            f"Views: {v['views']:,}{ctr_str} | Score: {v['score']:.0f}/100"
-        )
+    # Ranking completo formatado (data_block — TODOS os videos)
+    videos_text = _format_videos_for_prompt(ranking, avg_ctr_str)
 
-    videos_text = "\n".join(videos_lines)
-
-    user_prompt = f"""CANAL: {channel_name} ({lingua})
+    if is_first:
+        # === RUN #1: prompt simples, todos os videos ===
+        user_prompt = f"""CANAL: {channel_name} ({lingua})
 NICHO: {channel_info.get('nicho', 'Geral')}
 SUBNICHO: {subnicho}
 CTR MEDIO DO CANAL: {avg_ctr_str}%
@@ -692,6 +723,50 @@ Analise TODOS os videos e retorne:
 2. Catalogo completo dos motores identificados (com descricao, vocabulario no idioma {lingua}, insight)
 3. Anti-patterns (padroes que matam performance, minimo 2 exemplos cada)
 4. Interacoes entre motores (combinacoes que amplificam ou neutralizam)
+
+Responda com JSON no formato especificado no system prompt (videos + catalogo_motores + anti_patterns + interacoes_motores)."""
+
+    else:
+        # === RUN #2+: prompt 3-block incremental ===
+        new_videos = changes.get("new", []) if changes else []
+        updated_videos = changes.get("updated", []) if changes else []
+
+        # Bloco 1: Relatorio anterior
+        prev_block = previous_report or "Nenhum relatorio anterior disponivel."
+
+        # Bloco 2: O que mudou
+        new_text = _format_videos_for_prompt(new_videos, avg_ctr_str) if new_videos else "Nenhum video novo."
+        updated_text = _format_updated_videos(updated_videos)
+
+        user_prompt = f"""CANAL: {channel_name} ({lingua})
+NICHO: {channel_info.get('nicho', 'Geral')}
+SUBNICHO: {subnicho}
+CTR MEDIO DO CANAL: {avg_ctr_str}%
+
+=== BLOCO 1: RELATORIO ANTERIOR ===
+
+{prev_block}
+
+=== BLOCO 2: O QUE MUDOU ===
+
+{len(new_videos)} videos NOVOS no ranking (nao existiam na analise anterior):
+
+{new_text}
+
+{len(updated_videos)} videos com mudanca significativa (views +20% ou CTR +2pp):
+
+{updated_text}
+
+=== BLOCO 3: DADOS GERAIS (TODOS OS {len(ranking)} VIDEOS) ===
+
+{videos_text}
+
+INSTRUCOES:
+- Analise os {len(new_videos)} videos NOVOS individualmente (tema + hipoteses de motores)
+- Para videos existentes, MANTENHA as analises do relatorio anterior (mesmo video_id = mesmo tema + hipoteses)
+- Se algum video teve mudanca significativa, REVISE a analise dele
+- Atualize catalogo de motores, anti-patterns e interacoes considerando o panorama COMPLETO
+- Vocabulario no idioma {lingua} + traducao em portugues
 
 Responda com JSON no formato especificado no system prompt (videos + catalogo_motores + anti_patterns + interacoes_motores)."""
 
@@ -1212,34 +1287,46 @@ def run_analysis(channel_id: str) -> Dict:
     # 6. Deteccao incremental
     if is_first:
         changes = {"new": ranking, "updated": [], "unchanged": []}
-        videos_for_llm = ranking
     else:
         changes = _detect_changes(ranking, prev_run.get("analyzed_video_data", {}))
-        videos_for_llm = changes["new"]
 
-        if not videos_for_llm and not changes["updated"]:
-            logger.info("Nenhum video novo ou atualizado — gerando relatorio de comparacao apenas")
-            # Mesmo sem novos, podemos gerar relatorio de comparacao
-            # Usar temas do snapshot anterior para os unchanged
-            for v in changes["unchanged"]:
-                v["tema"] = v.get("_prev_tema", v["title"][:80])
-                v["hipoteses"] = v.get("_prev_hipoteses", [])
-                v["motores"] = [h.get("motor", "") for h in v.get("hipoteses", [])]
+    new_count = len(changes["new"])
+    updated_count = len(changes["updated"])
+    skip_llm = False
 
-    # 7. LLM TEMAS (so novos videos, ou todos se primeira)
-    if videos_for_llm:
-        llm_temas = call_llm_temas(videos_for_llm, channel_info, avg_ctr_pct, prev_run.get("themes_list") if prev_run else None)
-        if llm_temas is None:
-            llm_temas = _fallback_temas(videos_for_llm)
+    if not is_first and new_count == 0 and updated_count == 0:
+        logger.info("Zero videos novos/atualizados — reutilizando relatorio anterior (skip LLM)")
+        skip_llm = True
+
+    # 7. LLM TEMAS
+    if skip_llm:
+        # Reutilizar themes_json do run anterior
+        llm_temas = prev_run.get("themes_json") or {"videos": [], "catalogo_motores": [], "anti_patterns": [], "interacoes_motores": []}
+        if isinstance(llm_temas, str):
+            try:
+                llm_temas = json.loads(llm_temas)
+            except (json.JSONDecodeError, TypeError):
+                llm_temas = {"videos": [], "catalogo_motores": [], "anti_patterns": [], "interacoes_motores": []}
     else:
-        llm_temas = {"videos": []}
+        previous_report = prev_run.get("report_text") if prev_run else None
+        llm_temas = call_llm_temas(
+            ranking=ranking,
+            channel_info=channel_info,
+            avg_ctr_pct=avg_ctr_pct,
+            is_first=is_first,
+            previous_report=previous_report,
+            changes=changes,
+        )
+        if llm_temas is None:
+            llm_temas = _fallback_temas(ranking if is_first else changes["new"])
 
     # 8. Merge: novos (com temas da LLM) + existentes (com temas do snapshot)
+    new_videos = changes["new"]
     if is_first:
         merged = _merge_ranking_with_themes(ranking, llm_temas, avg_ctr_pct)
     else:
         # Merge novos com temas da LLM
-        new_merged = _merge_ranking_with_themes(videos_for_llm, llm_temas, avg_ctr_pct) if videos_for_llm else []
+        new_merged = _merge_ranking_with_themes(new_videos, llm_temas, avg_ctr_pct) if new_videos else []
 
         # Unchanged e updated manteem temas do snapshot
         existing_merged = []
@@ -1257,23 +1344,21 @@ def run_analysis(channel_id: str) -> Dict:
 
         merged = all_merged
 
-        # Re-rank novos tambem (para formato do prompt)
-        for i, v in enumerate(new_merged):
-            v["rank"] = i + 1
-
-        # Atualizar changes com dados de temas
-        changes["new"] = new_merged
-
-    # 9. Compute correlacoes COM vs SEM (Python, preciso)
+    # 9. Compute correlacoes COM vs SEM (Python — SEMPRE recalcular)
     catalogo = llm_temas.get("catalogo_motores", [])
     correlations = compute_motor_correlations(merged, catalogo) if catalogo else {}
     if correlations:
         llm_temas["correlacoes"] = correlations
         logger.info(f"Correlacoes calculadas para {len(correlations)} motores")
 
-    # 10. Gera relatorio (ranking + temas + hipoteses + catalogo + anti-padroes)
+    # 10. Gera relatorio
     motor_counts = _count_motors(merged)
-    report = generate_report(channel_name, merged, avg_ctr_pct, run_number, llm_temas)
+    if skip_llm:
+        # Reutilizar report anterior
+        report = prev_run.get("report_text", "")
+        logger.info("Reutilizando report_text do run anterior")
+    else:
+        report = generate_report(channel_name, merged, avg_ctr_pct, run_number, llm_temas)
 
     # 11. Salva
     run_id = save_analysis(
@@ -1284,9 +1369,6 @@ def run_analysis(channel_id: str) -> Dict:
         themes_json=llm_temas,
         run_number=run_number,
     )
-
-    new_count = len(changes.get("new", []))
-    updated_count = len(changes.get("updated", []))
 
     if run_id is None:
         logger.warning(f"Agente 3: {channel_name} — analise ok mas save falhou!")

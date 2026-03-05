@@ -8362,13 +8362,13 @@ async def dash_copy_analysis_channels():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-DASH_COPY_ANALYSIS_HTML = '''<!DOCTYPE html>
+DASH_AGENTES_HTML = '''<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect rx='20' width='100' height='100' fill='%230a0a0f'/><path d='M25 70L40 45L55 55L75 30' stroke='%2300d4aa' stroke-width='7' stroke-linecap='round' stroke-linejoin='round' fill='none'/><circle cx='75' cy='30' r='6' fill='%2300d4aa'/></svg>">
-<title>Analise Completa - Dashboard</title>
+<title>Central de Agentes - Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -8711,6 +8711,57 @@ body {
 .history-date { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-weight: 600; }
 .history-info { color: var(--text-muted); font-size: 0.8rem; }
 
+/* Tabs */
+.tabs-bar {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 1.5rem;
+}
+.tab-btn {
+    padding: 0.6rem 1.2rem;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.tab-btn:hover { color: var(--text-secondary); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    opacity: 0.3;
+}
+.tab-dot.has-data { background: var(--accent); opacity: 1; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.tab-run-btn {
+    margin-top: 1rem;
+    padding: 0.4rem 0.8rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+.tab-run-btn:hover { border-color: var(--accent); color: var(--accent); }
+.tab-run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
 @media (max-width: 1024px) {
     .sidebar { display: none; }
     .main { margin-left: 0; padding: 1.5rem; }
@@ -8722,7 +8773,7 @@ body {
     <aside class="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-title">Dashboard</div>
-            <div class="sidebar-subtitle">Copy + Autenticidade</div>
+            <div class="sidebar-subtitle">Central de Agentes</div>
             <div class="sidebar-stats" id="sidebarStats">Carregando...</div>
         </div>
         <div class="sidebar-actions">
@@ -8740,10 +8791,19 @@ body {
                 <button class="btn btn-secondary" onclick="showHistory()" id="btnHistory">Historico</button>
             </div>
         </div>
+        <div id="tabsArea" style="display:none">
+            <div class="tabs-bar">
+                <button class="tab-btn active" onclick="switchTab('copy')"><span class="tab-dot" id="dot-copy"></span>Copy</button>
+                <button class="tab-btn" onclick="switchTab('satisfacao')"><span class="tab-dot" id="dot-satisfacao"></span>Satisfacao</button>
+                <button class="tab-btn" onclick="switchTab('autenticidade')"><span class="tab-dot" id="dot-autenticidade"></span>Autenticidade</button>
+                <button class="tab-btn" onclick="switchTab('temas')"><span class="tab-dot" id="dot-temas"></span>Temas</button>
+                <button class="tab-btn" onclick="switchTab('motores')"><span class="tab-dot" id="dot-motores"></span>Motores</button>
+            </div>
+        </div>
         <div id="reportArea">
             <div class="empty-state">
-                <h2>Analise Completa</h2>
-                <p>Selecione um canal na sidebar para visualizar o relatorio<br>ou clique em "Rodar Todos" para gerar analises de performance + autenticidade.</p>
+                <h2>Central de Agentes</h2>
+                <p>Selecione um canal na sidebar para visualizar os relatorios dos 5 agentes<br>ou clique em "Rodar Todos" para gerar analises de todos os canais.</p>
             </div>
         </div>
     </main>
@@ -8762,6 +8822,16 @@ body {
 <script>
 var _selectedChannel = null;
 var _channelsData = {};
+var _agentData = {};
+var _activeTab = 'copy';
+
+var AGENTS = [
+    {key:'copy', label:'Copy', getUrl:'/api/analise-copy/{id}/latest', postUrl:'/api/analise-copy/{id}', histUrl:'/api/analise-copy/{id}/historico'},
+    {key:'satisfacao', label:'Satisfacao', getUrl:'/api/analise-satisfacao/{id}/latest', postUrl:'/api/analise-satisfacao/{id}', histUrl:'/api/analise-satisfacao/{id}/historico'},
+    {key:'autenticidade', label:'Autenticidade', getUrl:'/api/analise-autenticidade/{id}/latest', postUrl:'/api/analise-autenticidade/{id}', histUrl:'/api/analise-autenticidade/{id}/historico'},
+    {key:'temas', label:'Temas', getUrl:'/api/analise-temas/{id}/latest', postUrl:'/api/analise-temas/{id}', histUrl:'/api/analise-temas/{id}/historico'},
+    {key:'motores', label:'Motores', getUrl:'/api/analise-motores/{id}/latest', postUrl:'/api/analise-motores/{id}', histUrl:'/api/analise-motores/{id}/historico'}
+];
 
 function getSubnichoStyle(sub) {
     var map = {
@@ -8856,6 +8926,7 @@ function loadChannels() {
 
 function selectChannel(channelId) {
     _selectedChannel = channelId;
+    _agentData = {};
     var items = document.querySelectorAll('.channel-item');
     for (var i = 0; i < items.length; i++) items[i].classList.remove('active');
     var el = document.getElementById('ch-' + channelId);
@@ -8864,213 +8935,195 @@ function selectChannel(channelId) {
     var ch = _channelsData[channelId] || {};
     document.getElementById('mainTitle').textContent = ch.channel_name || channelId;
     document.getElementById('mainActions').style.display = 'flex';
+    document.getElementById('tabsArea').style.display = 'block';
 
-    loadLatestReport(channelId);
+    loadAllAgents(channelId);
 }
 
-function loadLatestReport(channelId) {
+function switchTab(tabKey) {
+    _activeTab = tabKey;
+    var btns = document.querySelectorAll('.tab-btn');
+    for (var i = 0; i < btns.length; i++) {
+        btns[i].classList.remove('active');
+        if (btns[i].getAttribute('onclick').indexOf("'" + tabKey + "'") > -1) btns[i].classList.add('active');
+    }
+    renderActiveTab();
+}
+
+function loadAllAgents(channelId) {
     var area = document.getElementById('reportArea');
-    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando relatorio...</div>';
+    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando dados dos 5 agentes...</div>';
 
-    // Buscar performance e autenticidade em paralelo
-    var copyPromise = fetch('/api/analise-copy/' + channelId + '/latest')
-        .then(function(r) { return r.status === 404 ? null : r.json(); })
-        .catch(function() { return null; });
+    for (var i = 0; i < AGENTS.length; i++) {
+        var dot = document.getElementById('dot-' + AGENTS[i].key);
+        if (dot) dot.classList.remove('has-data');
+    }
 
-    var authPromise = fetch('/api/analise-autenticidade/' + channelId + '/latest')
-        .then(function(r) { return r.status === 404 ? null : r.json(); })
-        .catch(function() { return null; });
+    var promises = AGENTS.map(function(ag) {
+        var url = ag.getUrl.replace('{id}', channelId);
+        return fetch(url)
+            .then(function(r) { return r.status === 404 ? null : r.json(); })
+            .then(function(data) {
+                _agentData[ag.key] = data;
+                var dot = document.getElementById('dot-' + ag.key);
+                if (dot && data) dot.classList.add('has-data');
+            })
+            .catch(function() { _agentData[ag.key] = null; });
+    });
 
-    Promise.all([copyPromise, authPromise])
-        .then(function(results) {
-            var copyData = results[0];
-            var authData = results[1];
-
-            if (!copyData && !authData) {
-                area.innerHTML = '<div class="empty-state"><h2>Nenhuma analise encontrada</h2><p>Clique em "Gerar Relatorio" para criar a primeira analise deste canal.</p></div>';
-                return;
-            }
-
-            renderCombinedReport(copyData, authData, area);
-        })
-        .catch(function(e) {
-            area.innerHTML = '<div class="empty-state"><p>Erro ao carregar relatorio: ' + escHtml(e.message) + '</p></div>';
-        });
+    Promise.all(promises).then(function() { renderActiveTab(); });
 }
 
-function renderReport(data, container) {
-    var text = data.report_text || '';
-    if (!text) {
-        container.innerHTML = '<div class="empty-state"><p>Relatorio sem conteudo</p></div>';
+function renderActiveTab() {
+    var area = document.getElementById('reportArea');
+    var data = _agentData[_activeTab];
+    var agentInfo = AGENTS.filter(function(a) { return a.key === _activeTab; })[0];
+
+    if (!data) {
+        area.innerHTML = '<div class="empty-state"><h2>Sem dados de ' + agentInfo.label + '</h2><p>Clique no botao abaixo para gerar a analise ou use "Gerar Relatorio" para rodar todos os agentes.</p></div>' +
+            '<div style="text-align:center;margin-top:1rem;"><button class="tab-run-btn" onclick="runSingleAgent(\\'' + _activeTab + '\\')">Rodar ' + agentInfo.label + '</button></div>';
         return;
     }
 
-    var runDate = data.run_date ? new Date(data.run_date).toLocaleString('pt-BR') : '';
-    var infoHtml = runDate ? '<div style="color:var(--text-muted);font-size:0.75rem;margin-bottom:1rem;font-family:sans-serif;">Gerado em: ' + runDate + '</div>' : '';
-
-    var lines = text.split('\\n');
     var html = '';
-    var inSection = '';
+    var runDate = data.run_date ? new Date(data.run_date).toLocaleString('pt-BR') : '';
+    if (runDate) html += '<div style="color:var(--text-muted);font-size:0.75rem;margin-bottom:1rem;font-family:sans-serif;">Ultimo relatorio: ' + runDate + '</div>';
 
-    for (var i = 0; i < lines.length; i++) {
-        var line = lines[i];
-        var trimmed = line.trim();
+    html += renderSummaryCards(_activeTab, data);
 
-        // Header lines (====)
-        if (/^={10,}/.test(trimmed)) {
-            html += '<div class="report-header-line">' + escHtml(line) + '</div>';
-            continue;
-        }
-
-        // Report title (RELATORIO ...)
-        if (/^RELATORIO /.test(trimmed)) {
-            html += '<div class="report-title">' + escHtml(line) + '</div>';
-            continue;
-        }
-
-        // Section headers (--- NAME ---)
-        if (/^---\\s+(.+?)\\s+---/.test(trimmed)) {
-            var secName = trimmed.replace(/^---\\s+/, '').replace(/\\s+---$/, '');
-            var secClass = 'section-header';
-            if (/OBSERVAC/.test(secName)) { secClass += ' obs'; inSection = 'obs'; }
-            else if (/ANOMAL/.test(secName)) { secClass += ' anom'; inSection = 'anom'; }
-            else if (/INSUFICIENTE/.test(secName)) { secClass += ' insuf'; inSection = 'insuf'; }
-            else if (/ANTERIOR/.test(secName)) { secClass += ' comp'; inSection = 'comp'; }
-            else { inSection = 'ranking'; }
-            html += '<div class="' + secClass + '">' + escHtml(line) + '</div>';
-            continue;
-        }
-
-        // Empty line
-        if (trimmed === '') {
-            html += '<br>';
-            continue;
-        }
-
-        // Anomaly line (! Estrutura ...)
-        if (/^!\\s+Estrutura/.test(trimmed)) {
-            html += '<div class="anomaly-line">' + escHtml(line) + '</div>';
-            continue;
-        }
-
-        // Anomaly detail (   Retencao: ... / Views: ... / Publicado: ... / NOTA: ...)
-        if (inSection === 'anom' && /^\\s{2,}/.test(line)) {
-            html += '<div class="anomaly-detail">' + escHtml(line) + '</div>';
-            continue;
-        }
-
-        // Meta lines (Videos analisados / Periodo / Media geral)
-        if (/^Videos analisados/.test(trimmed) || /^Periodo:/.test(trimmed) || /^Media geral/.test(trimmed)) {
-            var metaHtml = escHtml(line);
-            metaHtml = metaHtml.replace(/(\\d+\\.?\\d*%)/g, '<span class="val">$1</span>');
-            metaHtml = metaHtml.replace(/(\\d+\\.?\\d* min)/g, '<span class="val">$1</span>');
-            metaHtml = metaHtml.replace(/(\\d[\\d,]+ views)/g, '<span class="val">$1</span>');
-            html += '<div class="report-meta">' + metaHtml + '</div>';
-            continue;
-        }
-
-        // Table header line (# / Estr. / dashes)
-        if (/^\\s*#\\s+Estr/.test(trimmed) || /^\\s*Estr\\.?\\s+/.test(trimmed) || /^\\s*[─-]{3,}/.test(trimmed)) {
-            html += '<div class="table-header-line">' + escHtml(line) + '</div>';
-            continue;
-        }
-
-        // Ranking lines (contain Acima/Media/Abaixo)
-        if (/Acima|Media|Abaixo/.test(trimmed) && inSection === 'ranking') {
-            var rLine = escHtml(line);
-            rLine = rLine.replace(/Acima(\\s*\\([^)]*\\))?/g, '<span class="tag-acima">Acima$1</span>');
-            rLine = rLine.replace(/Media(\\s*\\([^)]*\\))?/g, '<span class="tag-media">Media$1</span>');
-            rLine = rLine.replace(/Abaixo(\\s*\\([^)]*\\))?/g, '<span class="tag-abaixo">Abaixo$1</span>');
-            html += '<div class="ranking-line">' + rLine + '</div>';
-            continue;
-        }
-
-        // Comparison lines (with +X% or -X%)
-        if (inSection === 'comp' && /[+-]\\d+\\.?\\d*%/.test(trimmed)) {
-            var cLine = escHtml(line);
-            cLine = cLine.replace(/(\\+\\d+\\.?\\d*%)/g, '<span class="comp-positive">$1</span>');
-            cLine = cLine.replace(/(\\-\\d+\\.?\\d*%)/g, '<span class="comp-negative">$1</span>');
-            cLine = cLine.replace(/(Subiu[^<]*)/g, '<span class="comp-positive">$1</span>');
-            cLine = cLine.replace(/(Caiu[^<]*)/g, '<span class="comp-negative">$1</span>');
-            html += '<div class="ranking-line">' + cLine + '</div>';
-            continue;
-        }
-
-        // Insufficient data lines
-        if (inSection === 'insuf') {
-            html += '<div class="insuf-line">' + escHtml(line) + '</div>';
-            continue;
-        }
-
-        // Observation/narrative text
-        if (inSection === 'obs' || (inSection === 'comp' && !/^\\s*\\d/.test(trimmed) && !/^\\s*Estr/.test(trimmed) && !/^Estruturas novas/.test(trimmed))) {
-            html += '<div class="narrative">' + escHtml(line) + '</div>';
-            continue;
-        }
-
-        // Default
-        html += '<div>' + escHtml(line) + '</div>';
+    var text = data.report_text || '';
+    if (text) {
+        html += '<div class="report-container">';
+        html += renderReportLines(text);
+        html += '</div>';
     }
 
-    container.innerHTML = infoHtml + '<div class="report-container">' + html + '</div>';
+    html += '<div style="margin-top:1rem;"><button class="tab-run-btn" onclick="runSingleAgent(\\'' + _activeTab + '\\')">Rodar ' + agentInfo.label + '</button></div>';
+    area.innerHTML = html;
 }
 
-function renderCombinedReport(copyData, authData, container) {
+function renderSummaryCards(tabKey, data) {
     var html = '';
-
-    // Header com data mais recente
-    var latestDate = null;
-    if (copyData && copyData.run_date) latestDate = copyData.run_date;
-    if (authData && authData.run_date) {
-        if (!latestDate || new Date(authData.run_date) > new Date(latestDate)) {
-            latestDate = authData.run_date;
+    if (tabKey === 'copy') {
+        var ret = data.channel_avg_retention;
+        var vids = data.total_videos_analyzed;
+        if (ret != null || vids != null) {
+            html += '<div style="display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">';
+            if (ret != null) {
+                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="font-size:1.8rem;font-weight:800;color:var(--accent);font-family:JetBrains Mono,monospace;">' + ret.toFixed(1) + '<span style="font-size:0.8rem;opacity:0.6">%</span></div>';
+                html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Retencao Media</div></div>';
+            }
+            if (vids != null) {
+                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="font-size:1.8rem;font-weight:800;color:var(--highlight);font-family:JetBrains Mono,monospace;">' + vids + '</div>';
+                html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Videos Analisados</div></div>';
+            }
+            html += '</div>';
+        }
+    } else if (tabKey === 'satisfacao') {
+        var appr = data.channel_avg_approval;
+        var subR = data.channel_avg_sub_ratio;
+        var comR = data.channel_avg_comment_ratio;
+        if (appr != null || subR != null) {
+            html += '<div style="display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">';
+            if (appr != null) {
+                var apprColor = appr >= 90 ? '#00d4aa' : appr >= 70 ? '#ffd93d' : '#ff6b6b';
+                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="font-size:1.8rem;font-weight:800;color:' + apprColor + ';font-family:JetBrains Mono,monospace;">' + appr.toFixed(1) + '<span style="font-size:0.8rem;opacity:0.6">%</span></div>';
+                html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Aprovacao Media</div></div>';
+            }
+            if (subR != null) {
+                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="font-size:1.8rem;font-weight:800;color:var(--accent);font-family:JetBrains Mono,monospace;">' + (subR * 100).toFixed(2) + '<span style="font-size:0.8rem;opacity:0.6">%</span></div>';
+                html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Sub Ratio</div></div>';
+            }
+            if (comR != null) {
+                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="font-size:1.8rem;font-weight:800;color:var(--purple);font-family:JetBrains Mono,monospace;">' + (comR * 100).toFixed(2) + '<span style="font-size:0.8rem;opacity:0.6">%</span></div>';
+                html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Comment Ratio</div></div>';
+            }
+            html += '</div>';
+        }
+    } else if (tabKey === 'autenticidade') {
+        if (data.authenticity_score != null) {
+            var aScore = Math.round(data.authenticity_score);
+            var aLevel = (data.authenticity_level || '').toUpperCase();
+            var aColor = aScore >= 80 ? '#00d4aa' : aScore >= 60 ? '#00d4aa' : aScore >= 40 ? '#ffd93d' : aScore >= 20 ? '#ff6b6b' : '#ff3232';
+            html += '<div style="display:flex;gap:1.5rem;align-items:center;margin-bottom:1.5rem;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+            html += '<div style="text-align:center;">';
+            html += '<div style="font-size:2rem;font-weight:800;color:' + aColor + ';font-family:JetBrains Mono,monospace;">' + aScore + '<span style="font-size:0.9rem;opacity:0.6">/100</span></div>';
+            html += '<div style="font-size:0.7rem;font-weight:700;color:' + aColor + ';letter-spacing:0.1em;">' + escHtml(aLevel) + '</div>';
+            html += '</div>';
+            html += '<div style="flex:1;">';
+            html += '<div style="font-size:0.85rem;font-weight:600;color:var(--text-primary);margin-bottom:0.3rem;">Score de Autenticidade</div>';
+            var structScore = data.structure_score != null ? Math.round(data.structure_score) : '--';
+            var titleScore = data.title_score != null ? Math.round(data.title_score) : '--';
+            html += '<div style="font-size:0.75rem;color:var(--text-secondary);">Estruturas: ' + structScore + '/100 | Titulos: ' + titleScore + '/100</div>';
+            if (data.has_alerts) html += '<div style="font-size:0.72rem;color:#ff6b6b;margin-top:0.2rem;">! ' + (data.alert_count || '') + ' alerta(s)</div>';
+            html += '</div></div>';
+        }
+    } else if (tabKey === 'temas') {
+        var tc = data.theme_count;
+        var tv = data.total_videos_analyzed;
+        if (tc != null || tv != null) {
+            html += '<div style="display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">';
+            if (tc != null) {
+                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="font-size:1.8rem;font-weight:800;color:var(--accent);font-family:JetBrains Mono,monospace;">' + tc + '</div>';
+                html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Temas Identificados</div></div>';
+            }
+            if (tv != null) {
+                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="font-size:1.8rem;font-weight:800;color:var(--highlight);font-family:JetBrains Mono,monospace;">' + tv + '</div>';
+                html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Videos Analisados</div></div>';
+            }
+            html += '</div>';
+        }
+    } else if (tabKey === 'motores') {
+        var tv2 = data.total_videos;
+        var rn = data.run_number;
+        if (tv2 != null) {
+            html += '<div style="display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">';
+            html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+            html += '<div style="font-size:1.8rem;font-weight:800;color:var(--purple);font-family:JetBrains Mono,monospace;">' + tv2 + '</div>';
+            html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Videos Analisados</div></div>';
+            if (rn != null) {
+                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="font-size:1.8rem;font-weight:800;color:var(--accent);font-family:JetBrains Mono,monospace;">#' + rn + '</div>';
+                html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Execucao</div></div>';
+            }
+            html += '</div>';
         }
     }
-    var dateHtml = latestDate ? '<div style="color:var(--text-muted);font-size:0.75rem;margin-bottom:1rem;font-family:sans-serif;">Ultimo relatorio: ' + new Date(latestDate).toLocaleString('pt-BR') + '</div>' : '';
+    return html;
+}
 
-    // Auth score summary badge no topo (se disponivel)
-    if (authData && authData.authenticity_score != null) {
-        var aScore = Math.round(authData.authenticity_score);
-        var aLevel = (authData.authenticity_level || '').toUpperCase();
-        var aColor = aScore >= 80 ? '#00d4aa' : aScore >= 60 ? '#00d4aa' : aScore >= 40 ? '#ffd93d' : aScore >= 20 ? '#ff6b6b' : '#ff3232';
-        html += '<div style="display:flex;gap:1.5rem;align-items:center;margin-bottom:1.5rem;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
-        html += '<div style="text-align:center;">';
-        html += '<div style="font-size:2rem;font-weight:800;color:' + aColor + ';font-family:JetBrains Mono,monospace;">' + aScore + '<span style="font-size:0.9rem;opacity:0.6">/100</span></div>';
-        html += '<div style="font-size:0.7rem;font-weight:700;color:' + aColor + ';letter-spacing:0.1em;">' + escHtml(aLevel) + '</div>';
-        html += '</div>';
-        html += '<div style="flex:1;">';
-        html += '<div style="font-size:0.85rem;font-weight:600;color:var(--text-primary);margin-bottom:0.3rem;">Score de Autenticidade</div>';
-        var structScore = authData.structure_score != null ? Math.round(authData.structure_score) : '--';
-        var titleScore = authData.title_score != null ? Math.round(authData.title_score) : '--';
-        html += '<div style="font-size:0.75rem;color:var(--text-secondary);">Estruturas: ' + structScore + '/100 | Titulos: ' + titleScore + '/100</div>';
-        if (authData.has_alerts) {
-            html += '<div style="font-size:0.72rem;color:#ff6b6b;margin-top:0.2rem;">! ' + (authData.alert_count || '') + ' alerta(s)</div>';
-        }
-        html += '</div>';
-        html += '</div>';
-    }
+function runSingleAgent(agentKey) {
+    if (!_selectedChannel) return;
+    var agentInfo = AGENTS.filter(function(a) { return a.key === agentKey; })[0];
+    var ch = _channelsData[_selectedChannel] || {};
+    if (!confirm('Rodar agente ' + agentInfo.label + ' para ' + (ch.channel_name || _selectedChannel) + '?')) return;
 
-    // Secao 1: Performance (copy analysis)
-    if (copyData && copyData.report_text) {
-        html += '<div class="report-section-divider">ANALISE DE PERFORMANCE</div>';
-        html += '<div class="report-container" style="margin-bottom:2rem;">';
-        html += renderReportLines(copyData.report_text);
-        html += '</div>';
-    }
+    var area = document.getElementById('reportArea');
+    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Rodando ' + agentInfo.label + '... (30-60s)</div>';
 
-    // Secao 2: Autenticidade
-    if (authData && authData.report_text) {
-        html += '<div class="report-section-divider" style="border-top-color:var(--orange);color:var(--orange);">SCORE DE AUTENTICIDADE</div>';
-        html += '<div class="report-container">';
-        html += renderReportLines(authData.report_text);
-        html += '</div>';
-    }
-
-    if (!copyData && !authData) {
-        html = '<div class="empty-state"><h2>Nenhuma analise encontrada</h2></div>';
-    }
-
-    container.innerHTML = dateHtml + html;
+    var url = agentInfo.postUrl.replace('{id}', _selectedChannel);
+    fetch(url, { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function() {
+            var getUrl = agentInfo.getUrl.replace('{id}', _selectedChannel);
+            return fetch(getUrl).then(function(r2) { return r2.status === 404 ? null : r2.json(); });
+        })
+        .then(function(freshData) {
+            _agentData[agentKey] = freshData;
+            var dot = document.getElementById('dot-' + agentKey);
+            if (dot && freshData) dot.classList.add('has-data');
+            renderActiveTab();
+        })
+        .catch(function(e) {
+            area.innerHTML = '<div class="empty-state"><p>Erro: ' + escHtml(e.message) + '</p></div>';
+        });
 }
 
 function renderReportLines(text) {
@@ -9208,22 +9261,22 @@ function renderReportLines(text) {
 function runAnalysis() {
     if (!_selectedChannel) return;
     var ch = _channelsData[_selectedChannel] || {};
-    if (!confirm('Gerar relatorio completo (performance + autenticidade) para ' + (ch.channel_name || _selectedChannel) + '?\\n\\nIsso pode demorar 30-60 segundos.')) return;
+    if (!confirm('Rodar todos os 5 agentes para ' + (ch.channel_name || _selectedChannel) + '?\\n\\nIsso pode demorar 2-5 minutos.')) return;
 
     var btn = document.getElementById('btnRun');
     btn.disabled = true;
     btn.textContent = 'Gerando...';
     var area = document.getElementById('reportArea');
-    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Gerando relatorio completo... (30-60s)</div>';
+    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Rodando 5 agentes... (2-5 min)</div>';
 
     fetch('/api/analise-completa/' + _selectedChannel, { method: 'POST' })
         .then(function(r) { return r.json(); })
         .then(function(data) {
             btn.disabled = false;
             btn.textContent = 'Gerar Relatorio';
-            if (data.success && data.report) {
-                renderReport({ report_text: data.report, run_date: new Date().toISOString() }, area);
+            if (data.success) {
                 loadChannels();
+                loadAllAgents(_selectedChannel);
             } else {
                 var errMsg = '';
                 if (data.errors) errMsg = data.errors.join(' | ');
@@ -9238,7 +9291,7 @@ function runAnalysis() {
 }
 
 function runAll() {
-    if (!confirm('Rodar analise completa (performance + autenticidade) de TODOS os canais?\\n\\nIsso pode demorar varios minutos.')) return;
+    if (!confirm('Rodar todos os 5 agentes para TODOS os canais?\\n\\nIsso pode demorar varios minutos.')) return;
     var btn = document.getElementById('btnRunAll');
     btn.disabled = true;
     btn.textContent = 'Rodando...';
@@ -9251,7 +9304,7 @@ function runAll() {
             var msg = 'Concluido! ' + (data.success_count || 0) + ' sucesso, ' + (data.error_count || 0) + ' erros de ' + (data.total_channels || 0) + ' canais.';
             alert(msg);
             loadChannels();
-            if (_selectedChannel) loadLatestReport(_selectedChannel);
+            if (_selectedChannel) loadAllAgents(_selectedChannel);
         })
         .catch(function(e) {
             btn.disabled = false;
@@ -9262,79 +9315,39 @@ function runAll() {
 
 function showHistory() {
     if (!_selectedChannel) return;
+    var agentInfo = AGENTS.filter(function(a) { return a.key === _activeTab; })[0];
     document.getElementById('historyModal').classList.add('active');
     var el = document.getElementById('historyList');
-    el.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando...</div>';
+    el.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando historico de ' + agentInfo.label + '...</div>';
 
-    fetch('/api/analise-copy/' + _selectedChannel + '/historico?limit=30')
+    var url = agentInfo.histUrl.replace('{id}', _selectedChannel) + '?limit=30';
+    fetch(url)
         .then(function(r) { return r.json(); })
         .then(function(data) {
-            var items = data.items || [];
+            var items = data.items || data.runs || [];
             if (items.length === 0) {
-                el.innerHTML = '<div class="empty-state"><p>Nenhum historico encontrado</p></div>';
+                el.innerHTML = '<div class="empty-state"><p>Nenhum historico de ' + agentInfo.label + ' encontrado</p></div>';
                 return;
             }
-            var html = '';
+            var html = '<div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:0.5rem;">Historico: ' + agentInfo.label + '</div>';
             for (var i = 0; i < items.length; i++) {
                 var item = items[i];
                 var d = new Date(item.run_date);
                 var dateStr = pad(d.getDate()) + '/' + pad(d.getMonth()+1) + '/' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-                var ret = item.channel_avg_retention ? item.channel_avg_retention.toFixed(1) + '%' : '--';
-                var vids = item.total_videos_analyzed || '--';
-                html += '<div class="history-item" onclick="loadHistoryReport(' + item.id + ')">';
+                var info = (item.total_videos_analyzed || item.total_videos || '--') + ' videos';
+                if (item.channel_avg_retention) info += ' | ret: ' + item.channel_avg_retention.toFixed(1) + '%';
+                if (item.channel_avg_approval) info += ' | aprov: ' + item.channel_avg_approval.toFixed(1) + '%';
+                if (item.authenticity_score != null) info += ' | score: ' + Math.round(item.authenticity_score);
+                if (item.theme_count != null) info += ' | ' + item.theme_count + ' temas';
+                html += '<div class="history-item" onclick="closeHistory()">';
                 html += '<span class="history-date">' + dateStr + '</span>';
-                html += '<span class="history-info">' + vids + ' videos | ret: ' + ret + '</span>';
+                html += '<span class="history-info">' + info + '</span>';
                 html += '</div>';
             }
             el.innerHTML = html;
         })
         .catch(function(e) {
             el.innerHTML = '<div class="empty-state"><p>Erro: ' + e.message + '</p></div>';
-        });
-}
-
-function loadHistoryReport(runId) {
-    closeHistory();
-    if (!_selectedChannel) return;
-    var area = document.getElementById('reportArea');
-    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando relatorio...</div>';
-
-    fetch('/api/analise-copy/' + _selectedChannel + '/latest')
-        .then(function(r) { return r.json(); })
-        .then(function(latest) {
-            // Se o runId for o mais recente, ja temos
-            if (latest && latest.id === runId) {
-                renderReport(latest, area);
-                return;
-            }
-            // Buscar historico e encontrar o run especifico
-            return fetch('/api/analise-copy/' + _selectedChannel + '/historico?limit=100')
-                .then(function(r2) { return r2.json(); })
-                .then(function(hist) {
-                    var items = hist.items || [];
-                    // Historico nao traz report_text (so sumario)
-                    // Precisamos do report_text - buscar da tabela diretamente
-                    // Como nao temos endpoint por run_id, mostramos o sumario
-                    for (var i = 0; i < items.length; i++) {
-                        if (items[i].id === runId) {
-                            var info = items[i];
-                            var html = '<div class="report-container">';
-                            html += '<div class="report-title">Relatorio de ' + new Date(info.run_date).toLocaleDateString('pt-BR') + '</div><br>';
-                            html += '<div class="report-meta">Videos analisados: <span class="val">' + (info.total_videos_analyzed || '--') + '</span></div>';
-                            html += '<div class="report-meta">Retencao media: <span class="val">' + (info.channel_avg_retention ? info.channel_avg_retention.toFixed(1) + '%' : '--') + '</span></div>';
-                            html += '<div class="report-meta">Watch time medio: <span class="val">' + (info.channel_avg_watch_time ? info.channel_avg_watch_time.toFixed(1) + ' min' : '--') + '</span></div>';
-                            html += '<div class="report-meta">Views media: <span class="val">' + (info.channel_avg_views ? Math.round(info.channel_avg_views).toLocaleString() : '--') + '</span></div>';
-                            html += '<br><div style="color:var(--text-muted)">Relatorio detalhado disponivel apenas para a analise mais recente.</div>';
-                            html += '</div>';
-                            area.innerHTML = html;
-                            return;
-                        }
-                    }
-                    area.innerHTML = '<div class="empty-state"><p>Relatorio nao encontrado</p></div>';
-                });
-        })
-        .catch(function(e) {
-            area.innerHTML = '<div class="empty-state"><p>Erro: ' + e.message + '</p></div>';
         });
 }
 
