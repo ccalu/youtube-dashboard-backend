@@ -7472,41 +7472,143 @@ from theme_agent import (
     delete_analysis as theme_delete_analysis
 )
 
+from satisfaction_agent import (
+    run_analysis as sat_run_analysis,
+    get_latest_analysis as sat_get_latest,
+    get_analysis_history as sat_get_history,
+    delete_analysis as sat_delete_analysis,
+    get_all_channels_for_analysis as sat_get_all_channels
+)
+
+
+# ============================================================================
+# ANALISE DE SATISFACAO
+# ============================================================================
+
+@app.post("/api/analise-satisfacao/{channel_id}")
+async def trigger_satisfaction_analysis(channel_id: str, background_tasks: BackgroundTasks):
+    """Dispara analise de satisfacao para um canal."""
+    try:
+        result = sat_run_analysis(channel_id)
+        return result
+    except Exception as e:
+        logger.error(f"Erro analise satisfacao {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/analise-satisfacao/{channel_id}/latest")
+async def get_latest_satisfaction(channel_id: str):
+    """Retorna ultima analise de satisfacao."""
+    result = sat_get_latest(channel_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Nenhuma analise de satisfacao encontrada")
+    return result
+
+
+@app.get("/api/analise-satisfacao/{channel_id}/historico")
+async def get_satisfaction_history(channel_id: str, limit: int = 20, offset: int = 0):
+    """Retorna historico de analises de satisfacao."""
+    return sat_get_history(channel_id, limit, offset)
+
+
+@app.delete("/api/analise-satisfacao/{channel_id}/run/{run_id}")
+async def delete_satisfaction_run(channel_id: str, run_id: int):
+    """Deleta um run de satisfacao."""
+    result = sat_delete_analysis(channel_id, run_id)
+    if not result.get("success"):
+        raise HTTPException(status_code=500, detail=result.get("error"))
+    return result
+
+
+@app.post("/api/analise-satisfacao/run-all")
+async def run_satisfaction_all():
+    """Roda analise de satisfacao para todos os canais com copy run."""
+    try:
+        channels = sat_get_all_channels()
+        if not channels:
+            return {"success": False, "error": "Nenhum canal encontrado"}
+
+        results = []
+        success_count = 0
+        error_count = 0
+
+        for ch in channels:
+            try:
+                result = sat_run_analysis(ch["channel_id"])
+                results.append({
+                    "channel_id": ch["channel_id"],
+                    "channel_name": ch.get("channel_name", ""),
+                    "success": result.get("success", False),
+                    "summary": result.get("summary"),
+                    "error": result.get("error")
+                })
+                if result.get("success"):
+                    success_count += 1
+                else:
+                    error_count += 1
+            except Exception as e:
+                results.append({
+                    "channel_id": ch["channel_id"],
+                    "channel_name": ch.get("channel_name", ""),
+                    "success": False,
+                    "error": str(e)
+                })
+                error_count += 1
+
+        return {
+            "success": True,
+            "total_channels": len(channels),
+            "success_count": success_count,
+            "error_count": error_count,
+            "results": results
+        }
+    except Exception as e:
+        logger.error(f"Erro run-all satisfacao: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/analise-completa/{channel_id}")
 async def trigger_unified_analysis(channel_id: str):
     """
-    Roda os 3 agentes (performance + autenticidade + temas) e retorna relatorio unificado.
+    Roda os 4 agentes (copy + satisfacao + autenticidade + temas) e retorna relatorio unificado.
     """
     try:
         copy_result = None
+        sat_result = None
         auth_result = None
         theme_result = None
         errors = []
 
-        # 1. Agente de Performance (copy analysis)
+        # 1. Agente de Copy (retencao)
         try:
             copy_result = copy_run_analysis(channel_id)
         except Exception as e:
-            logger.error(f"Erro agente performance {channel_id}: {e}")
-            errors.append(f"Performance: {str(e)}")
+            logger.error(f"Erro agente copy {channel_id}: {e}")
+            errors.append(f"Copy: {str(e)}")
 
-        # 2. Agente de Autenticidade
+        # 2. Agente de Satisfacao (depende do copy ter rodado)
+        try:
+            sat_result = sat_run_analysis(channel_id)
+        except Exception as e:
+            logger.error(f"Erro agente satisfacao {channel_id}: {e}")
+            errors.append(f"Satisfacao: {str(e)}")
+
+        # 3. Agente de Autenticidade
         try:
             auth_result = auth_run_analysis(channel_id)
         except Exception as e:
             logger.error(f"Erro agente autenticidade {channel_id}: {e}")
             errors.append(f"Autenticidade: {str(e)}")
 
-        # 3. Agente de Temas
+        # 4. Agente de Temas
         try:
             theme_result = theme_run_analysis(channel_id)
         except Exception as e:
             logger.error(f"Erro agente temas {channel_id}: {e}")
             errors.append(f"Temas: {str(e)}")
 
-        # 4. Combinar relatorios
-        unified_report = _build_unified_report(copy_result, auth_result, theme_result=theme_result)
+        # 5. Combinar relatorios
+        unified_report = _build_unified_report(copy_result, auth_result, theme_result=theme_result, sat_result=sat_result)
 
         channel_name = ""
         if copy_result and copy_result.get("success"):
@@ -7525,6 +7627,11 @@ async def trigger_unified_analysis(channel_id: str):
                 "success": copy_result.get("success", False) if copy_result else False,
                 "error": copy_result.get("error") if copy_result and not copy_result.get("success") else None,
                 "summary": copy_result.get("summary") if copy_result else None
+            },
+            "satisfacao": {
+                "success": sat_result.get("success", False) if sat_result else False,
+                "error": sat_result.get("error") if sat_result and not sat_result.get("success") else None,
+                "summary": sat_result.get("summary") if sat_result else None
             },
             "authenticity": {
                 "success": auth_result.get("success", False) if auth_result else False,
@@ -7551,7 +7658,7 @@ async def trigger_unified_analysis(channel_id: str):
 @app.post("/api/analise-completa/run-all")
 async def run_unified_analysis_all():
     """
-    Roda analise completa (performance + autenticidade + temas) para TODOS os canais.
+    Roda analise completa (copy + satisfacao + autenticidade + temas) para TODOS os canais.
     Processa 1 por vez em fila. Pula erros e continua.
     """
     try:
@@ -7572,11 +7679,12 @@ async def run_unified_analysis_all():
                 "channel_id": ch_id,
                 "channel_name": ch_name,
                 "performance": {"success": False},
+                "satisfacao": {"success": False},
                 "authenticity": {"success": False},
                 "temas": {"success": False}
             }
 
-            # Agente 1: Performance
+            # Agente 1: Copy (retencao)
             try:
                 copy_res = copy_run_analysis(ch_id)
                 ch_result["performance"] = {
@@ -7586,7 +7694,17 @@ async def run_unified_analysis_all():
             except Exception as e:
                 ch_result["performance"] = {"success": False, "error": str(e)}
 
-            # Agente 2: Autenticidade
+            # Agente 2: Satisfacao (depende do copy)
+            try:
+                sat_res = sat_run_analysis(ch_id)
+                ch_result["satisfacao"] = {
+                    "success": sat_res.get("success", False),
+                    "error": sat_res.get("error") if not sat_res.get("success") else None
+                }
+            except Exception as e:
+                ch_result["satisfacao"] = {"success": False, "error": str(e)}
+
+            # Agente 3: Autenticidade
             try:
                 auth_res = auth_run_analysis(ch_id)
                 ch_result["authenticity"] = {
@@ -7598,7 +7716,7 @@ async def run_unified_analysis_all():
             except Exception as e:
                 ch_result["authenticity"] = {"success": False, "error": str(e)}
 
-            # Agente 3: Temas
+            # Agente 4: Temas
             try:
                 theme_res = theme_run_analysis(ch_id)
                 ch_result["temas"] = {
@@ -7610,8 +7728,8 @@ async def run_unified_analysis_all():
                 ch_result["temas"] = {"success": False, "error": str(e)}
 
             # Contar sucesso se pelo menos 1 agente rodou
-            if (ch_result["performance"]["success"] or ch_result["authenticity"]["success"]
-                    or ch_result["temas"]["success"]):
+            if (ch_result["performance"]["success"] or ch_result["satisfacao"]["success"]
+                    or ch_result["authenticity"]["success"] or ch_result["temas"]["success"]):
                 success_count += 1
             else:
                 error_count += 1
@@ -7630,8 +7748,8 @@ async def run_unified_analysis_all():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def _build_unified_report(copy_result: dict, auth_result: dict, theme_result: dict = None) -> str:
-    """Combina os relatorios dos 3 agentes em 1 texto unificado."""
+def _build_unified_report(copy_result: dict, auth_result: dict, theme_result: dict = None, sat_result: dict = None) -> str:
+    """Combina os relatorios dos 4 agentes em 1 texto unificado."""
     from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
@@ -7676,7 +7794,34 @@ def _build_unified_report(copy_result: dict, auth_result: dict, theme_result: di
         parts.append("  Agente de performance nao executado.")
     parts.append("")
 
-    # Secao 2: Autenticidade
+    # Secao 2: Satisfacao
+    parts.append("=" * 60)
+    parts.append("  ANALISE DE SATISFACAO")
+    parts.append("=" * 60)
+    parts.append("")
+
+    if sat_result and sat_result.get("success") and sat_result.get("report"):
+        sat_lines = sat_result["report"].split("\n")
+        content_lines = []
+        skip_header = True
+        for line in sat_lines:
+            if skip_header:
+                if line.strip().startswith("=") or line.strip().startswith("RELATORIO SATISFACAO"):
+                    continue
+                if line.strip() == "":
+                    continue
+                skip_header = False
+            content_lines.append(line)
+        while content_lines and content_lines[-1].strip().startswith("=" * 10):
+            content_lines.pop()
+        parts.extend(content_lines)
+    elif sat_result and not sat_result.get("success"):
+        parts.append(f"  Erro: {sat_result.get('error', 'desconhecido')}")
+    else:
+        parts.append("  Agente de satisfacao nao executado.")
+    parts.append("")
+
+    # Secao 3: Autenticidade (was 2)
     parts.append("=" * 60)
     parts.append("  SCORE DE AUTENTICIDADE")
     parts.append("=" * 60)
