@@ -6170,7 +6170,8 @@ DASH_UPLOAD_HTML = '''
             border-bottom: 1px solid var(--border-primary);
             margin-bottom: 24px;
         }
-        .header-title { font-size: 22px; font-weight: 600; letter-spacing: -0.025em; color: var(--text-primary); }
+        .header-right { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+        .header-title { font-size: 22px; font-weight: 600; letter-spacing: -0.025em; color: var(--text-primary); white-space: nowrap; }
         .header-subtitle { font-size: 13px; color: var(--text-tertiary); margin-top: 2px; }
         .live-indicator { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
         .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); animation: pulse-live 2s ease-in-out infinite; }
@@ -6303,8 +6304,9 @@ DASH_UPLOAD_HTML = '''
             .btn-batch--desktop { display: none; }
             .btn-batch--mobile { display: inline-flex; align-items: center; justify-content: center; }
             .page-header { padding: 14px 16px 12px; flex-wrap: nowrap; gap: 10px; }
-            .header-title { font-size: 18px; }
+            .header-title { font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .header-subtitle { display: none; }
+            .header-right { gap: 10px; flex-shrink: 0; }
             .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 12px; margin-bottom: 20px; }
             .stat-card { padding: 14px 12px; min-height: 72px; }
             .stat-value { font-size: 24px; }
@@ -6366,7 +6368,7 @@ DASH_UPLOAD_HTML = '''
             <div class="header-title">Upload Dashboard</div>
             <div class="header-subtitle">Sistema de upload automatizado</div>
         </div>
-        <div style="display:flex;align-items:center;gap:16px;">
+        <div class="header-right">
             <button class="btn-batch btn-batch--desktop" onclick="abrirBatchUpload()">Upload em Lote</button>
             <div class="live-indicator"><span class="live-dot"></span><span>Ao vivo</span></div>
             <button class="btn-batch btn-batch--mobile" onclick="abrirBatchUpload()" title="Upload em Lote">&#x1F4E4;</button>
@@ -6560,17 +6562,10 @@ DASH_UPLOAD_HTML = '''
             var totalRegistros = countSucesso + countSemVideo + countErro;
             var mob = isMobile();
             var html = '<div class="modal-summary" style="background:var(--success-muted);border-color:rgba(34,197,94,0.25);">';
-            if (mob) {
-                html += '<span class="modal-summary-stat" style="color:var(--text-primary);font-weight:600;">' + totalRegistros + '</span>';
-                html += '<span class="modal-summary-stat" style="color:var(--success);">&#x2705; ' + countSucesso + '</span>';
-                html += '<span class="modal-summary-stat" style="color:var(--warning);">&#x26A0;&#xFE0F; ' + countSemVideo + '</span>';
-                html += '<span class="modal-summary-stat" style="color:var(--error);">&#x274C; ' + countErro + '</span>';
-            } else {
-                html += '<span class="modal-summary-stat" style="color:var(--text-primary);font-weight:600;">Total de Registros: ' + totalRegistros + ' |</span>';
-                html += '<span class="modal-summary-stat" style="color:var(--success);">&#x2705; ' + countSucesso + ' uploads</span>';
-                html += '<span class="modal-summary-stat" style="color:var(--warning);">&#x26A0;&#xFE0F; ' + countSemVideo + ' sem video</span>';
-                html += '<span class="modal-summary-stat" style="color:var(--error);">&#x274C; ' + countErro + ' erros</span>';
-            }
+            html += '<span class="modal-summary-stat" style="color:var(--text-primary);font-weight:600;">Total de Registros: ' + totalRegistros + (mob ? '' : ' |') + '</span>';
+            html += '<span class="modal-summary-stat" style="color:var(--success);">&#x2705; ' + countSucesso + (mob ? '' : ' uploads') + '</span>';
+            html += '<span class="modal-summary-stat" style="color:var(--warning);">&#x26A0;&#xFE0F; ' + countSemVideo + (mob ? '' : ' sem video') + '</span>';
+            html += '<span class="modal-summary-stat" style="color:var(--error);">&#x274C; ' + countErro + (mob ? '' : ' erros') + '</span>';
             html += '</div>';
             html += '<table class="modal-table"><thead><tr><th>Data</th><th>Video</th><th>Status</th><th>Horario</th></tr></thead><tbody>';
             if (paginaItems.length > 0) {
@@ -6638,17 +6633,10 @@ DASH_UPLOAD_HTML = '''
                     var totalRegistros = totalSucesso + totalSemVideo + totalErro;
                     var mob = isMobile();
                     var html = '<div class="modal-summary" style="background:var(--success-muted);border-color:rgba(34,197,94,0.25);">';
-                    if (mob) {
-                        html += '<span class="modal-summary-stat" style="color:var(--text-primary);font-weight:600;">' + totalRegistros + '</span>';
-                        html += '<span class="modal-summary-stat" style="color:var(--success);">&#x2705; ' + totalSucesso + '</span>';
-                        html += '<span class="modal-summary-stat" style="color:var(--warning);">&#x26A0;&#xFE0F; ' + totalSemVideo + '</span>';
-                        html += '<span class="modal-summary-stat" style="color:var(--error);">&#x274C; ' + totalErro + '</span>';
-                    } else {
-                        html += '<span class="modal-summary-stat" style="color:var(--text-primary);font-weight:600;">Total de Registros: ' + totalRegistros + ' |</span>';
-                        html += '<span class="modal-summary-stat" style="color:var(--success);">&#x2705; ' + totalSucesso + ' uploads</span>';
-                        html += '<span class="modal-summary-stat" style="color:var(--warning);">&#x26A0;&#xFE0F; ' + totalSemVideo + ' sem video</span>';
-                        html += '<span class="modal-summary-stat" style="color:var(--error);">&#x274C; ' + totalErro + ' erros</span>';
-                    }
+                    html += '<span class="modal-summary-stat" style="color:var(--text-primary);font-weight:600;">Total de Registros: ' + totalRegistros + (mob ? '' : ' |') + '</span>';
+                    html += '<span class="modal-summary-stat" style="color:var(--success);">&#x2705; ' + totalSucesso + (mob ? '' : ' uploads') + '</span>';
+                    html += '<span class="modal-summary-stat" style="color:var(--warning);">&#x26A0;&#xFE0F; ' + totalSemVideo + (mob ? '' : ' sem video') + '</span>';
+                    html += '<span class="modal-summary-stat" style="color:var(--error);">&#x274C; ' + totalErro + (mob ? '' : ' erros') + '</span>';
                     html += '</div>';
                     html += '<div style="max-height:450px;overflow-y:auto;">';
                     data.historico_por_data.forEach(function(dia, idx) {
