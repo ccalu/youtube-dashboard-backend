@@ -8,6 +8,7 @@ Agentes implementados mostram dados reais, placeholders mostram "EM BREVE"
 Click no agente abre painel interativo com acoes
 """
 
+import json
 import re
 import time
 import unicodedata
@@ -97,15 +98,15 @@ SETORES_CONFIG = {
 }
 
 # ===========================================================
-# 4 AGENTES DO ECOSSISTEMA
+# 6 AGENTES DO ECOSSISTEMA
 # ===========================================================
 
 AGENTES_V2_TEMPLATE = [
     {
-        'id': 1, 'tipo': 'estrutura_copy', 'nome': 'Copy + Satisfacao',
+        'id': 1, 'tipo': 'estrutura_copy', 'nome': 'Copy',
         'camada': 1, 'cor': '#22c55e',
         'skin': '#ffcc99', 'shirt': '#22c55e', 'hair': '#4a3728',
-        'descricao': 'Copy + Satisfacao - Analisa performance por estrutura A-G + satisfacao do viewer',
+        'descricao': 'Copy - Analisa performance por estrutura A-G (retencao, duracao, formato)',
         'implementado': True,
         'api_run': '/api/analise-completa/{channel_id}',
         'api_latest': '/api/analise-copy/{channel_id}/latest',
@@ -113,7 +114,18 @@ AGENTES_V2_TEMPLATE = [
         'analysis_table': 'copy_analysis_runs',
     },
     {
-        'id': 2, 'tipo': 'autenticidade', 'nome': 'Autenticidade',
+        'id': 2, 'tipo': 'satisfacao', 'nome': 'Satisfacao',
+        'camada': 1, 'cor': '#10b981',
+        'skin': '#ffcc99', 'shirt': '#10b981', 'hair': '#6b4423',
+        'descricao': 'Satisfacao - Aprovacao, ratio subs e comentarios por video',
+        'implementado': True,
+        'api_run': '/api/analise-satisfacao/{channel_id}',
+        'api_latest': '/api/analise-satisfacao/{channel_id}/latest',
+        'api_historico': '/api/analise-satisfacao/{channel_id}/historico',
+        'analysis_table': 'satisfaction_analysis_runs',
+    },
+    {
+        'id': 3, 'tipo': 'autenticidade', 'nome': 'Autenticidade',
         'camada': 1, 'cor': '#ef4444',
         'skin': '#e8b88a', 'shirt': '#ef4444', 'hair': '#1a1a1a',
         'descricao': 'Autenticidade - Score 0-100 contra politica de Inauthentic Content',
@@ -124,10 +136,10 @@ AGENTES_V2_TEMPLATE = [
         'analysis_table': 'authenticity_analysis_runs',
     },
     {
-        'id': 3, 'tipo': 'temas', 'nome': 'Temas + Motores',
+        'id': 4, 'tipo': 'temas', 'nome': 'Temas',
         'camada': 2, 'cor': '#f97316',
         'skin': '#ffcc99', 'shirt': '#f97316', 'hair': '#c0392b',
-        'descricao': 'Temas + Motores Psicologicos - Identifica temas e motores de viralidade (100% LLM)',
+        'descricao': 'Temas - Identifica temas concretos e hipoteses de motores por video (100% LLM)',
         'implementado': True,
         'api_run': '/api/analise-temas/{channel_id}',
         'api_latest': '/api/analise-temas/{channel_id}/latest',
@@ -135,7 +147,18 @@ AGENTES_V2_TEMPLATE = [
         'analysis_table': 'theme_analysis_runs',
     },
     {
-        'id': 4, 'tipo': 'recomendador', 'nome': 'Recomendador',
+        'id': 5, 'tipo': 'motores', 'nome': 'Motores',
+        'camada': 2, 'cor': '#a855f7',
+        'skin': '#e8b88a', 'shirt': '#a855f7', 'hair': '#2c1810',
+        'descricao': 'Motores Psicologicos - Analise narrativa dos padroes de viralidade',
+        'implementado': True,
+        'api_run': '/api/analise-motores/{channel_id}',
+        'api_latest': '/api/analise-motores/{channel_id}/latest',
+        'api_historico': '/api/analise-motores/{channel_id}/historico',
+        'analysis_table': 'motor_analysis_runs',
+    },
+    {
+        'id': 6, 'tipo': 'recomendador', 'nome': 'Recomendador',
         'camada': 3, 'cor': '#eab308',
         'skin': '#e8b88a', 'shirt': '#eab308', 'hair': '#34495e',
         'descricao': 'Recomendador - Cerebro estrategico que cruza tudo e sugere proximos videos',
@@ -164,7 +187,7 @@ def get_lingua_code(lingua):
 
 
 def build_agent_list(canal_id, agent_statuses=None):
-    """Build 7 agents for a room with real or default statuses."""
+    """Build 6 agents for a room with real or default statuses."""
     if agent_statuses is None:
         agent_statuses = {}
 
@@ -233,7 +256,28 @@ async def get_agent_real_status(supabase_client, channel_id):
     except Exception:
         status['estrutura_copy'] = {'status': 'idle', 'last_run': None}
 
-    # Agent 2: Authenticity
+    # Agent 2: Satisfaction
+    try:
+        sat_resp = supabase_client.table('satisfaction_analysis_runs') \
+            .select('id,run_date,total_videos_analyzed,channel_avg_approval') \
+            .eq('channel_id', channel_id) \
+            .order('run_date', desc=True) \
+            .limit(1) \
+            .execute()
+        if sat_resp.data:
+            run = sat_resp.data[0]
+            status['satisfacao'] = {
+                'status': 'done',
+                'last_run': run.get('run_date'),
+                'videos_analyzed': run.get('total_videos_analyzed', 0),
+                'avg_approval': run.get('channel_avg_approval'),
+            }
+        else:
+            status['satisfacao'] = {'status': 'idle', 'last_run': None}
+    except Exception:
+        status['satisfacao'] = {'status': 'idle', 'last_run': None}
+
+    # Agent 3: Authenticity
     try:
         auth_resp = supabase_client.table('authenticity_analysis_runs') \
             .select('id,run_date,authenticity_score,authenticity_level,has_alerts') \
@@ -255,7 +299,7 @@ async def get_agent_real_status(supabase_client, channel_id):
     except Exception:
         status['autenticidade'] = {'status': 'idle', 'last_run': None}
 
-    # Agent 3: Temas
+    # Agent 4: Temas
     try:
         theme_resp = supabase_client.table('theme_analysis_runs') \
             .select('id,run_date,total_videos_analyzed,theme_count,ranking_json') \
@@ -280,7 +324,34 @@ async def get_agent_real_status(supabase_client, channel_id):
     except Exception:
         status['temas'] = {'status': 'idle', 'last_run': None}
 
-    # Agent 4 (Recomendador): Not yet implemented
+    # Agent 5: Motores
+    try:
+        motor_resp = supabase_client.table('motor_analysis_runs') \
+            .select('id,run_date,total_videos,motor_counts_json') \
+            .eq('channel_id', channel_id) \
+            .order('run_date', desc=True) \
+            .limit(1) \
+            .execute()
+        if motor_resp.data:
+            run = motor_resp.data[0]
+            motor_counts = run.get('motor_counts_json') or []
+            if isinstance(motor_counts, str):
+                try:
+                    motor_counts = json.loads(motor_counts)
+                except (json.JSONDecodeError, TypeError):
+                    motor_counts = []
+            status['motores'] = {
+                'status': 'done',
+                'last_run': run.get('run_date'),
+                'total_videos': run.get('total_videos', 0),
+                'motor_count': len(motor_counts),
+            }
+        else:
+            status['motores'] = {'status': 'idle', 'last_run': None}
+    except Exception:
+        status['motores'] = {'status': 'idle', 'last_run': None}
+
+    # Agent 6 (Recomendador): Not yet implemented
     status['recomendador'] = {'status': 'waiting', 'last_run': None}
 
     return status
@@ -306,6 +377,27 @@ async def get_agent_overview_batch(supabase_client):
                 overview[cid]['copy'] = {
                     'status': 'done',
                     'last_run': row.get('run_date'),
+                }
+    except Exception:
+        pass
+
+    # Latest satisfaction analysis per channel
+    try:
+        sat_resp = supabase_client.table('satisfaction_analysis_runs') \
+            .select('channel_id,run_date,total_videos_analyzed,channel_avg_approval') \
+            .order('run_date', desc=True) \
+            .execute()
+        seen = set()
+        for row in (sat_resp.data or []):
+            cid = row.get('channel_id')
+            if cid and cid not in seen:
+                seen.add(cid)
+                if cid not in overview:
+                    overview[cid] = {}
+                overview[cid]['satisfacao'] = {
+                    'status': 'done',
+                    'last_run': row.get('run_date'),
+                    'avg_approval': row.get('channel_avg_approval'),
                 }
     except Exception:
         pass
@@ -353,6 +445,33 @@ async def get_agent_overview_batch(supabase_client):
                     'last_run': row.get('run_date'),
                     'top_theme': top_theme.get('theme', '') if top_theme else None,
                     'top_theme_score': top_theme.get('score', 0) if top_theme else 0,
+                }
+    except Exception:
+        pass
+
+    # Latest motor analysis per channel
+    try:
+        motor_resp = supabase_client.table('motor_analysis_runs') \
+            .select('channel_id,run_date,total_videos,motor_counts_json') \
+            .order('run_date', desc=True) \
+            .execute()
+        seen = set()
+        for row in (motor_resp.data or []):
+            cid = row.get('channel_id')
+            if cid and cid not in seen:
+                seen.add(cid)
+                if cid not in overview:
+                    overview[cid] = {}
+                motor_counts = row.get('motor_counts_json') or []
+                if isinstance(motor_counts, str):
+                    try:
+                        motor_counts = json.loads(motor_counts)
+                    except (json.JSONDecodeError, TypeError):
+                        motor_counts = []
+                overview[cid]['motores'] = {
+                    'status': 'done',
+                    'last_run': row.get('run_date'),
+                    'motor_count': len(motor_counts),
                 }
     except Exception:
         pass

@@ -7473,6 +7473,13 @@ from theme_agent import (
     delete_analysis as theme_delete_analysis
 )
 
+from motor_agent import (
+    run_analysis as motor_run_analysis,
+    get_latest_analysis as motor_get_latest,
+    get_analysis_history as motor_get_history,
+    delete_analysis as motor_delete_analysis
+)
+
 from satisfaction_agent import (
     run_analysis as sat_run_analysis,
     get_latest_analysis as sat_get_latest,
@@ -7571,13 +7578,14 @@ async def run_satisfaction_all():
 @app.post("/api/analise-completa/{channel_id}")
 async def trigger_unified_analysis(channel_id: str):
     """
-    Roda os 4 agentes (copy + satisfacao + autenticidade + temas) e retorna relatorio unificado.
+    Roda os 6 agentes (copy + satisfacao + autenticidade + temas + motores + recomendador) e retorna relatorio unificado.
     """
     try:
         copy_result = None
         sat_result = None
         auth_result = None
         theme_result = None
+        motor_result = None
         errors = []
 
         # 1. Agente de Copy (retencao)
@@ -7608,8 +7616,15 @@ async def trigger_unified_analysis(channel_id: str):
             logger.error(f"Erro agente temas {channel_id}: {e}")
             errors.append(f"Temas: {str(e)}")
 
-        # 5. Combinar relatorios
-        unified_report = _build_unified_report(copy_result, auth_result, theme_result=theme_result, sat_result=sat_result)
+        # 5. Agente de Motores (depende do Agente de Temas ter rodado)
+        try:
+            motor_result = motor_run_analysis(channel_id)
+        except Exception as e:
+            logger.error(f"Erro agente motores {channel_id}: {e}")
+            errors.append(f"Motores: {str(e)}")
+
+        # 6. Combinar relatorios
+        unified_report = _build_unified_report(copy_result, auth_result, theme_result=theme_result, sat_result=sat_result, motor_result=motor_result)
 
         channel_name = ""
         if copy_result and copy_result.get("success"):
@@ -7648,6 +7663,12 @@ async def trigger_unified_analysis(channel_id: str):
                 "theme_count": theme_result.get("theme_count") if theme_result else None,
                 "total_videos": theme_result.get("total_videos") if theme_result else None,
                 "ranking": theme_result.get("ranking") if theme_result else None
+            },
+            "motores": {
+                "success": motor_result.get("success", False) if motor_result else False,
+                "error": motor_result.get("error") if motor_result and not motor_result.get("success") else None,
+                "motor_count": motor_result.get("motor_count") if motor_result else None,
+                "total_videos": motor_result.get("total_videos") if motor_result else None,
             },
             "errors": errors if errors else None
         }
@@ -7749,8 +7770,8 @@ async def run_unified_analysis_all():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def _build_unified_report(copy_result: dict, auth_result: dict, theme_result: dict = None, sat_result: dict = None) -> str:
-    """Combina os relatorios dos 4 agentes em 1 texto unificado."""
+def _build_unified_report(copy_result: dict, auth_result: dict, theme_result: dict = None, sat_result: dict = None, motor_result: dict = None) -> str:
+    """Combina os relatorios dos 6 agentes em 1 texto unificado."""
     from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
@@ -7874,6 +7895,20 @@ def _build_unified_report(copy_result: dict, auth_result: dict, theme_result: di
         parts.append(f"  Erro: {theme_result.get('error', 'desconhecido')}")
     else:
         parts.append("  Agente de temas nao executado.")
+    parts.append("")
+
+    # Secao 5: Motores Psicologicos
+    parts.append("=" * 60)
+    parts.append("  ANALISE DE MOTORES PSICOLOGICOS")
+    parts.append("=" * 60)
+    parts.append("")
+
+    if motor_result and motor_result.get("success") and motor_result.get("report"):
+        parts.append(motor_result["report"])
+    elif motor_result and not motor_result.get("success"):
+        parts.append(f"  Erro: {motor_result.get('error', 'desconhecido')}")
+    else:
+        parts.append("  Agente de motores nao executado.")
     parts.append("")
 
     parts.append("=" * 60)
@@ -8033,6 +8068,92 @@ async def delete_theme_analysis_run(channel_id: str, run_id: int):
         raise
     except Exception as e:
         logger.error(f"Erro deletar temas {channel_id}/{run_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Endpoints individuais de motores (Agente 4 — Motores Psicologicos) ---
+
+@app.post("/api/analise-motores/{channel_id}")
+async def trigger_motor_analysis(channel_id: str):
+    """Roda Agente 4 (Motores Psicologicos) para um canal. Requer Agente 3 (Temas) ja executado."""
+    try:
+        result = motor_run_analysis(channel_id)
+        return result
+    except Exception as e:
+        logger.error(f"Erro agente motores {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/analise-motores/run-all")
+async def run_motor_analysis_all():
+    """Roda Agente 4 (Motores) para todos os canais que ja tem analise de temas."""
+    try:
+        from theme_agent import get_channels_for_themes
+        channels = get_channels_for_themes()
+        if not channels:
+            return {"success": False, "error": "Nenhum canal encontrado"}
+
+        results = []
+        success_count = 0
+        error_count = 0
+        for ch in channels:
+            cid = ch.get("channel_id")
+            try:
+                r = motor_run_analysis(cid)
+                results.append({"channel_id": cid, "channel_name": ch.get("channel_name"), "success": r.get("success", False)})
+                if r.get("success"):
+                    success_count += 1
+                else:
+                    error_count += 1
+            except Exception as e:
+                results.append({"channel_id": cid, "channel_name": ch.get("channel_name"), "success": False, "error": str(e)})
+                error_count += 1
+
+        return {"success": True, "total": len(channels), "success_count": success_count, "error_count": error_count, "results": results}
+    except Exception as e:
+        logger.error(f"Erro run-all motores: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/analise-motores/{channel_id}/latest")
+async def get_latest_motor_analysis(channel_id: str):
+    """Retorna a analise de motores mais recente."""
+    try:
+        result = motor_get_latest(channel_id)
+        if not result:
+            raise HTTPException(status_code=404, detail=f"Nenhuma analise de motores para {channel_id}")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro buscar motores {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/analise-motores/{channel_id}/historico")
+async def get_motor_analysis_history(channel_id: str, limit: int = 20, offset: int = 0):
+    """Retorna historico de analises de motores."""
+    try:
+        limit = min(limit, 100)
+        offset = max(offset, 0)
+        return motor_get_history(channel_id, limit=limit, offset=offset)
+    except Exception as e:
+        logger.error(f"Erro historico motores {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/analise-motores/{channel_id}/run/{run_id}")
+async def delete_motor_analysis_run(channel_id: str, run_id: int):
+    """Deleta um relatorio de motores especifico."""
+    try:
+        result = motor_delete_analysis(channel_id, run_id)
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Erro ao deletar"))
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro deletar motores {channel_id}/{run_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
