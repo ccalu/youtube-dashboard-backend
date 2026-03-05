@@ -8722,7 +8722,7 @@ body {
     <aside class="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-title">Dashboard</div>
-            <div class="sidebar-subtitle">Performance + Autenticidade</div>
+            <div class="sidebar-subtitle">Copy + Autenticidade</div>
             <div class="sidebar-stats" id="sidebarStats">Carregando...</div>
         </div>
         <div class="sidebar-actions">
