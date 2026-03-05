@@ -6303,10 +6303,13 @@ DASH_UPLOAD_HTML = '''
         @media (max-width: 768px) {
             .btn-batch--desktop { display: none; }
             .btn-batch--mobile { display: inline-flex; align-items: center; justify-content: center; }
-            .page-header { padding: 14px 16px 12px; flex-wrap: nowrap; gap: 10px; }
-            .header-title { font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .page-header { padding: 14px 12px 12px; flex-wrap: nowrap; gap: 8px; overflow: hidden; }
+            .page-header > div:first-child { min-width: 0; flex-shrink: 1; }
+            .header-title { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .header-subtitle { display: none; }
-            .header-right { gap: 10px; flex-shrink: 0; }
+            .header-right { gap: 8px; flex-shrink: 0; }
+            .modal-table th:nth-child(1), .modal-table td:nth-child(1) { padding-left: 4px; padding-right: 4px; white-space: nowrap; font-size: 11px; }
+            .modal-table th:nth-child(2), .modal-table td:nth-child(2) { padding-left: 4px; padding-right: 4px; }
             .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 12px; margin-bottom: 20px; }
             .stat-card { padding: 14px 12px; min-height: 72px; }
             .stat-value { font-size: 24px; }
@@ -6345,7 +6348,8 @@ DASH_UPLOAD_HTML = '''
         @media (max-width: 480px) {
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .stat-card--historico { grid-column: span 2; }
-            .page-header > div:last-child { width: 100%; justify-content: space-between; }
+            .header-title { font-size: 15px; }
+            .btn-batch--mobile { width: 32px; height: 32px; font-size: 16px; }
             .channel-table th:nth-child(2), .channel-table td:nth-child(2) { display: none; }
             .cell-channel { flex-wrap: wrap; gap: 3px; }
             .channel-name { font-size: 11px; }
