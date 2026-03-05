@@ -8761,6 +8761,23 @@ body {
 }
 .tab-run-btn:hover { border-color: var(--accent); color: var(--accent); }
 .tab-run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-history { background: var(--bg-tertiary); color: var(--blue); border: 1px solid rgba(84,160,255,0.3); }
+.btn-history:hover { border-color: var(--blue); background: rgba(84,160,255,0.1); }
+.agent-tag { display: inline-block; font-size: 0.6rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; padding: 2px 6px; border-radius: 4px; margin: 1px 2px; }
+.agent-tag.copy { background: rgba(0,212,170,0.2); color: #00d4aa; }
+.agent-tag.satisfacao { background: rgba(255,159,67,0.2); color: #ff9f43; }
+.agent-tag.autenticidade { background: rgba(167,139,250,0.2); color: #a78bfa; }
+.agent-tag.temas { background: rgba(255,217,61,0.2); color: #ffd93d; }
+.agent-tag.motores { background: rgba(84,160,255,0.2); color: #54a0ff; }
+.hist-date-row { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; border-radius: 8px; cursor: pointer; transition: all 0.15s; margin-bottom: 4px; border: 1px solid var(--border); }
+.hist-date-row:hover { border-color: var(--blue); background: rgba(84,160,255,0.08); }
+.hist-date-label { font-family: 'JetBrains Mono', monospace; color: var(--blue); font-weight: 600; font-size: 0.85rem; }
+.hist-count { color: var(--text-muted); font-size: 0.75rem; }
+.hist-channel-row { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.8rem; border-radius: 6px; cursor: pointer; transition: all 0.15s; margin-bottom: 3px; }
+.hist-channel-row:hover { background: var(--bg-tertiary); }
+.hist-channel-name { font-size: 0.82rem; color: var(--text-secondary); }
+.hist-back-btn { background: none; border: none; color: var(--blue); font-size: 0.8rem; cursor: pointer; font-family: inherit; padding: 0.3rem 0; margin-bottom: 0.5rem; }
+.hist-back-btn:hover { text-decoration: underline; }
 
 @media (max-width: 1024px) {
     .sidebar { display: none; }
@@ -8778,6 +8795,7 @@ body {
         </div>
         <div class="sidebar-actions">
             <button class="btn btn-accent" onclick="runAll()" id="btnRunAll">Rodar Todos</button>
+            <button class="btn btn-history" onclick="showGeneralHistory()">Historico</button>
         </div>
         <div id="channelList">
             <div class="loading"><span class="loading-spinner"></span> Carregando canais...</div>
@@ -8788,7 +8806,7 @@ body {
             <div class="main-title" id="mainTitle">Selecione um canal</div>
             <div class="main-actions" id="mainActions" style="display:none">
                 <button class="btn btn-accent" onclick="runAnalysis()" id="btnRun">Gerar Relatorio</button>
-                <button class="btn btn-secondary" onclick="showHistory()" id="btnHistory">Historico</button>
+                <button class="btn btn-history" onclick="showChannelHistory()">Historico</button>
             </div>
         </div>
         <div id="tabsArea" style="display:none">
@@ -8998,7 +9016,10 @@ function renderActiveTab() {
         html += '</div>';
     }
 
-    html += '<div style="margin-top:1rem;"><button class="tab-run-btn" onclick="runSingleAgent(\\'' + _activeTab + '\\')">Rodar ' + agentInfo.label + '</button></div>';
+    html += '<div style="margin-top:1rem;display:flex;gap:0.5rem;">';
+    html += '<button class="tab-run-btn" onclick="runSingleAgent(\\'' + _activeTab + '\\')">Rodar ' + agentInfo.label + '</button>';
+    html += '<button class="tab-run-btn" style="color:var(--blue);border-color:rgba(84,160,255,0.3);" onclick="showAgentHistory(\\'' + _activeTab + '\\')">Historico ' + agentInfo.label + '</button>';
+    html += '</div>';
     area.innerHTML = html;
 }
 
@@ -9313,9 +9334,136 @@ function runAll() {
         });
 }
 
-function showHistory() {
+function agentTag(key) {
+    var labels = {copy:'Copy', satisfacao:'Satisf', autenticidade:'Auth', temas:'Temas', motores:'Mot'};
+    return '<span class="agent-tag ' + key + '">' + (labels[key] || key) + '</span>';
+}
+
+// === HISTORICO GERAL (sidebar) ===
+function showGeneralHistory() {
+    document.getElementById('historyModal').classList.add('active');
+    var el = document.getElementById('historyList');
+    el.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando historico geral...</div>';
+
+    fetch('/api/agents/history/general?days=30')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var history = data.history || [];
+            if (history.length === 0) {
+                el.innerHTML = '<div class="empty-state"><p>Nenhum historico encontrado</p></div>';
+                return;
+            }
+            var html = '<div style="color:var(--blue);font-size:0.75rem;font-weight:600;margin-bottom:0.8rem;">Historico Geral de Analises</div>';
+            for (var i = 0; i < history.length; i++) {
+                var h = history[i];
+                var parts = h.date.split('-');
+                var dateLabel = parts[2] + '/' + parts[1] + '/' + parts[0];
+                var tags = '';
+                var agentKeys = ['copy','satisfacao','autenticidade','temas','motores'];
+                for (var j = 0; j < agentKeys.length; j++) {
+                    if (h.agents[agentKeys[j]]) tags += agentTag(agentKeys[j]);
+                }
+                html += '<div class="hist-date-row" onclick="showGeneralHistoryDate(\\'' + h.date + '\\')">';
+                html += '<div><span class="hist-date-label">' + dateLabel + '</span> <span class="hist-count">' + h.channel_count + ' canais</span></div>';
+                html += '<div>' + tags + '</div>';
+                html += '</div>';
+            }
+            el.innerHTML = html;
+        })
+        .catch(function(e) {
+            el.innerHTML = '<div class="empty-state"><p>Erro: ' + e.message + '</p></div>';
+        });
+}
+
+function showGeneralHistoryDate(date) {
+    var el = document.getElementById('historyList');
+    el.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando...</div>';
+
+    fetch('/api/agents/history/date/' + date)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var channels = data.channels || [];
+            var parts = date.split('-');
+            var dateLabel = parts[2] + '/' + parts[1] + '/' + parts[0];
+            var html = '<button class="hist-back-btn" onclick="showGeneralHistory()">&#8592; Voltar</button>';
+            html += '<div style="color:var(--blue);font-size:0.75rem;font-weight:600;margin-bottom:0.8rem;">' + dateLabel + ' - ' + channels.length + ' canais</div>';
+            for (var i = 0; i < channels.length; i++) {
+                var ch = channels[i];
+                var tags = '';
+                for (var j = 0; j < ch.agents.length; j++) tags += agentTag(ch.agents[j]);
+                html += '<div class="hist-channel-row" onclick="closeHistory();selectChannel(\\'' + ch.channel_id + '\\')">';
+                html += '<span class="hist-channel-name">' + escHtml(ch.channel_name) + '</span>';
+                html += '<div>' + tags + '</div>';
+                html += '</div>';
+            }
+            el.innerHTML = html;
+        })
+        .catch(function(e) {
+            el.innerHTML = '<div class="empty-state"><p>Erro: ' + e.message + '</p></div>';
+        });
+}
+
+// === HISTORICO DO CANAL (header button) ===
+function showChannelHistory() {
     if (!_selectedChannel) return;
-    var agentInfo = AGENTS.filter(function(a) { return a.key === _activeTab; })[0];
+    var ch = _channelsData[_selectedChannel] || {};
+    document.getElementById('historyModal').classList.add('active');
+    var el = document.getElementById('historyList');
+    el.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando historico do canal...</div>';
+
+    // Fetch all 5 agent histories in parallel
+    var promises = AGENTS.map(function(ag) {
+        var url = ag.histUrl.replace('{id}', _selectedChannel) + '?limit=50';
+        return fetch(url)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                return { key: ag.key, items: data.items || data.runs || [] };
+            })
+            .catch(function() { return { key: ag.key, items: [] }; });
+    });
+
+    Promise.all(promises).then(function(results) {
+        // Merge all runs by date (YYYY-MM-DD)
+        var byDate = {};
+        for (var i = 0; i < results.length; i++) {
+            var agKey = results[i].key;
+            var items = results[i].items;
+            for (var j = 0; j < items.length; j++) {
+                var dateKey = items[j].run_date.substring(0, 10);
+                if (!byDate[dateKey]) byDate[dateKey] = {};
+                byDate[dateKey][agKey] = true;
+            }
+        }
+
+        var dates = Object.keys(byDate).sort().reverse();
+        if (dates.length === 0) {
+            el.innerHTML = '<div class="empty-state"><p>Nenhum historico para ' + escHtml(ch.channel_name || _selectedChannel) + '</p></div>';
+            return;
+        }
+
+        var html = '<div style="color:var(--blue);font-size:0.75rem;font-weight:600;margin-bottom:0.8rem;">Historico - ' + escHtml(ch.channel_name || '') + '</div>';
+        for (var k = 0; k < dates.length; k++) {
+            var d = dates[k];
+            var parts = d.split('-');
+            var dateLabel = parts[2] + '/' + parts[1] + '/' + parts[0];
+            var tags = '';
+            var agentKeys = ['copy','satisfacao','autenticidade','temas','motores'];
+            for (var m = 0; m < agentKeys.length; m++) {
+                if (byDate[d][agentKeys[m]]) tags += agentTag(agentKeys[m]);
+            }
+            html += '<div class="hist-date-row" style="cursor:default;">';
+            html += '<span class="hist-date-label">' + dateLabel + '</span>';
+            html += '<div>' + tags + '</div>';
+            html += '</div>';
+        }
+        el.innerHTML = html;
+    });
+}
+
+// === HISTORICO DO AGENTE (dentro da aba) ===
+function showAgentHistory(agentKey) {
+    if (!_selectedChannel) return;
+    var agentInfo = AGENTS.filter(function(a) { return a.key === agentKey; })[0];
     document.getElementById('historyModal').classList.add('active');
     var el = document.getElementById('historyList');
     el.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando historico de ' + agentInfo.label + '...</div>';
@@ -9329,7 +9477,7 @@ function showHistory() {
                 el.innerHTML = '<div class="empty-state"><p>Nenhum historico de ' + agentInfo.label + ' encontrado</p></div>';
                 return;
             }
-            var html = '<div style="color:var(--text-muted);font-size:0.7rem;margin-bottom:0.5rem;">Historico: ' + agentInfo.label + '</div>';
+            var html = '<div style="color:var(--blue);font-size:0.75rem;font-weight:600;margin-bottom:0.8rem;">Historico - ' + agentInfo.label + '</div>';
             for (var i = 0; i < items.length; i++) {
                 var item = items[i];
                 var d = new Date(item.run_date);
@@ -9339,7 +9487,7 @@ function showHistory() {
                 if (item.channel_avg_approval) info += ' | aprov: ' + item.channel_avg_approval.toFixed(1) + '%';
                 if (item.authenticity_score != null) info += ' | score: ' + Math.round(item.authenticity_score);
                 if (item.theme_count != null) info += ' | ' + item.theme_count + ' temas';
-                html += '<div class="history-item" onclick="closeHistory()">';
+                html += '<div class="history-item">';
                 html += '<span class="history-date">' + dateStr + '</span>';
                 html += '<span class="history-info">' + info + '</span>';
                 html += '</div>';
@@ -9378,6 +9526,98 @@ async def dash_agentes_page():
 async def dash_copy_redirect():
     """Redirect para /dash-agentes (backward compat)"""
     return DASH_AGENTES_HTML
+
+
+# =========================================================================
+# HISTORICO DE AGENTES - Endpoints para o dashboard unificado
+# =========================================================================
+
+_AGENT_TABLES = {
+    "copy": "copy_analysis_runs",
+    "satisfacao": "satisfaction_analysis_runs",
+    "autenticidade": "authenticity_analysis_runs",
+    "temas": "theme_analysis_runs",
+    "motores": "motor_analysis_runs",
+}
+
+@app.get("/api/agents/history/general")
+async def agents_history_general(days: int = 30):
+    """Historico geral: datas + qtd canais que rodaram analises nos ultimos N dias."""
+    try:
+        from datetime import datetime, timedelta, timezone
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+        # Coletar run_date + channel_id de cada tabela
+        all_runs = []  # [(date_str, channel_id, agent_key)]
+        for agent_key, table_name in _AGENT_TABLES.items():
+            try:
+                resp = supabase.table(table_name)\
+                    .select("channel_id,run_date")\
+                    .gte("run_date", cutoff)\
+                    .order("run_date", desc=True)\
+                    .execute()
+                for row in resp.data:
+                    date_str = row["run_date"][:10]  # YYYY-MM-DD
+                    all_runs.append((date_str, row["channel_id"], agent_key))
+            except Exception:
+                pass
+
+        # Agrupar por data
+        from collections import defaultdict
+        by_date = defaultdict(lambda: {"channels": set(), "agents": defaultdict(int)})
+        for date_str, channel_id, agent_key in all_runs:
+            by_date[date_str]["channels"].add(channel_id)
+            by_date[date_str]["agents"][agent_key] += 1
+
+        history = []
+        for date_str in sorted(by_date.keys(), reverse=True):
+            info = by_date[date_str]
+            history.append({
+                "date": date_str,
+                "channel_count": len(info["channels"]),
+                "agents": dict(info["agents"])
+            })
+
+        return {"history": history}
+    except Exception as e:
+        logger.error(f"Erro agents history general: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/agents/history/date/{date}")
+async def agents_history_by_date(date: str):
+    """Historico detalhado por data: quais canais + quais agentes rodaram."""
+    try:
+        # date format: YYYY-MM-DD
+        date_start = f"{date}T00:00:00Z"
+        date_end = f"{date}T23:59:59Z"
+
+        channels_map = {}  # channel_id -> {channel_name, agents: set()}
+        for agent_key, table_name in _AGENT_TABLES.items():
+            try:
+                resp = supabase.table(table_name)\
+                    .select("channel_id,channel_name,run_date")\
+                    .gte("run_date", date_start)\
+                    .lte("run_date", date_end)\
+                    .execute()
+                for row in resp.data:
+                    cid = row["channel_id"]
+                    if cid not in channels_map:
+                        channels_map[cid] = {
+                            "channel_id": cid,
+                            "channel_name": row.get("channel_name", ""),
+                            "agents": []
+                        }
+                    if agent_key not in channels_map[cid]["agents"]:
+                        channels_map[cid]["agents"].append(agent_key)
+            except Exception:
+                pass
+
+        channels = sorted(channels_map.values(), key=lambda x: x["channel_name"])
+        return {"date": date, "channels": channels}
+    except Exception as e:
+        logger.error(f"Erro agents history by date: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # =========================================================================
