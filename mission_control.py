@@ -778,9 +778,37 @@ async def get_agent_report(supabase_client, channel_id, agent_type):
         except Exception as e:
             return {'implemented': True, 'error': str(e)}
 
+    elif agent_type == 'satisfacao':
+        try:
+            resp = supabase_client.table('satisfaction_analysis_runs') \
+                .select('*') \
+                .eq('channel_id', channel_id) \
+                .order('run_date', desc=True) \
+                .limit(1) \
+                .execute()
+            if resp.data:
+                return {'implemented': True, 'data': resp.data[0]}
+            return {'implemented': True, 'data': None, 'message': 'Nenhum relatorio encontrado'}
+        except Exception as e:
+            return {'implemented': True, 'error': str(e)}
+
     elif agent_type == 'temas':
         try:
             resp = supabase_client.table('theme_analysis_runs') \
+                .select('*') \
+                .eq('channel_id', channel_id) \
+                .order('run_date', desc=True) \
+                .limit(1) \
+                .execute()
+            if resp.data:
+                return {'implemented': True, 'data': resp.data[0]}
+            return {'implemented': True, 'data': None, 'message': 'Nenhum relatorio encontrado'}
+        except Exception as e:
+            return {'implemented': True, 'error': str(e)}
+
+    elif agent_type == 'motores':
+        try:
+            resp = supabase_client.table('motor_analysis_runs') \
                 .select('*') \
                 .eq('channel_id', channel_id) \
                 .order('run_date', desc=True) \
@@ -2128,10 +2156,12 @@ function flipHorizontal(template) {
 // -- Agent Palettes (Custom for Mission Control) -------------
 
 var AGENT_PALETTES = [
-  {skin:'#FFCC99', shirt:'#22c55e', pants:'#334466', hair:'#4a3728', shoes:'#222222'},  // Ag1 Copy (original #1)
-  {skin:'#e8b88a', shirt:'#ef4444', pants:'#333333', hair:'#1a1a1a', shoes:'#222222'},  // Ag2 Auth (original #2)
-  {skin:'#FFCC99', shirt:'#f97316', pants:'#444433', hair:'#c0392b', shoes:'#333333'},  // Ag3 Temas (original #5)
-  {skin:'#e8b88a', shirt:'#eab308', pants:'#443322', hair:'#34495e', shoes:'#333333'},  // Ag4 Recomendador (original #6)
+  {skin:'#FFCC99', shirt:'#22c55e', pants:'#334466', hair:'#4a3728', shoes:'#222222'},  // Ag1 Copy
+  {skin:'#FFCC99', shirt:'#10b981', pants:'#334444', hair:'#6b4423', shoes:'#222222'},  // Ag2 Satisfacao
+  {skin:'#e8b88a', shirt:'#ef4444', pants:'#333333', hair:'#1a1a1a', shoes:'#222222'},  // Ag3 Autenticidade
+  {skin:'#FFCC99', shirt:'#f97316', pants:'#444433', hair:'#c0392b', shoes:'#333333'},  // Ag4 Temas
+  {skin:'#e8b88a', shirt:'#a855f7', pants:'#443355', hair:'#2c1810', shoes:'#222222'},  // Ag5 Motores
+  {skin:'#e8b88a', shirt:'#eab308', pants:'#443322', hair:'#34495e', shoes:'#333333'},  // Ag6 Recomendador
 ];
 
 // -- Character Sprite Generator ------------------------------
@@ -5028,8 +5058,10 @@ function fetchAgentStatus(channelId, agentType) {
 
   var latestUrlMap = {
     'estrutura_copy': '/api/analise-copy/',
+    'satisfacao': '/api/analise-satisfacao/',
     'autenticidade': '/api/analise-autenticidade/',
-    'temas': '/api/analise-temas/'
+    'temas': '/api/analise-temas/',
+    'motores': '/api/analise-motores/'
   };
   var baseUrl = latestUrlMap[agentType] || '/api/analise-copy/';
 
@@ -5085,6 +5117,17 @@ function renderAgentStatus(data, agentType) {
     if (totalVideos) {
       html += '<div class="sb-status-row"><span class="sb-status-label">Videos analisados</span><span class="sb-status-val">' + totalVideos + '</span></div>';
     }
+  } else if (agentType === 'satisfacao') {
+    var totalVideos = data.total_videos_analyzed;
+    if (totalVideos) {
+      html += '<div class="sb-status-row"><span class="sb-status-label">Videos analisados</span><span class="sb-status-val">' + totalVideos + '</span></div>';
+    }
+    var avgApproval = data.channel_avg_approval;
+    if (avgApproval !== undefined && avgApproval !== null) {
+      var pct = (avgApproval * 100).toFixed(1);
+      var cls = avgApproval >= 0.95 ? 'st-green' : avgApproval >= 0.85 ? 'st-yellow' : 'st-red';
+      html += '<div class="sb-status-row"><span class="sb-status-label">Aprovacao</span><span class="sb-status-val ' + cls + '">' + pct + '%</span></div>';
+    }
   } else if (agentType === 'temas') {
     var themeCount = data.theme_count;
     if (themeCount) {
@@ -5096,6 +5139,11 @@ function renderAgentStatus(data, agentType) {
       if (topTheme.score !== undefined) {
         html += '<div class="sb-status-row"><span class="sb-status-label">Score</span><span class="sb-status-val">' + Math.round(topTheme.score) + '/100</span></div>';
       }
+    }
+  } else if (agentType === 'motores') {
+    var totalVideos = data.total_videos_analyzed;
+    if (totalVideos) {
+      html += '<div class="sb-status-row"><span class="sb-status-label">Videos analisados</span><span class="sb-status-val">' + totalVideos + '</span></div>';
     }
   }
 
@@ -5128,9 +5176,11 @@ function runAgentAnalysis(channelId, agentType) {
   btn.textContent = 'Rodando...';
 
   var runUrlMap = {
-    'estrutura_copy': '/api/analise-completa/',
+    'estrutura_copy': '/api/analise-copy/',
+    'satisfacao': '/api/analise-satisfacao/',
     'autenticidade': '/api/analise-completa/',
-    'temas': '/api/analise-temas/'
+    'temas': '/api/analise-temas/',
+    'motores': '/api/analise-motores/'
   };
   var url = (runUrlMap[agentType] || '/api/analise-completa/') + channelId;
 
@@ -5166,8 +5216,10 @@ function loadAgentReport(channelId, agentType) {
 
   var latestUrlMap = {
     'estrutura_copy': '/api/analise-copy/',
+    'satisfacao': '/api/analise-satisfacao/',
     'autenticidade': '/api/analise-autenticidade/',
-    'temas': '/api/analise-temas/'
+    'temas': '/api/analise-temas/',
+    'motores': '/api/analise-motores/'
   };
   var baseUrl = latestUrlMap[agentType] || '/api/analise-copy/';
 
@@ -5209,15 +5261,20 @@ function showReport(text) {
 var _currentReportAgent = null;
 
 var _agentNames = {
-  'estrutura_copy': 'Copy + Satisfacao',
+  'estrutura_copy': 'Copy',
+  'satisfacao': 'Satisfacao',
   'autenticidade': 'Autenticidade',
-  'temas': 'Temas + Motores'
+  'temas': 'Temas',
+  'motores': 'Motores',
+  'recomendador': 'Recomendador'
 };
 
 var _latestUrlMap = {
   'estrutura_copy': '/api/analise-copy/',
+  'satisfacao': '/api/analise-satisfacao/',
   'autenticidade': '/api/analise-autenticidade/',
-  'temas': '/api/analise-temas/'
+  'temas': '/api/analise-temas/',
+  'motores': '/api/analise-motores/'
 };
 
 function openReportModal(channelId, agentType, channelName) {
@@ -5336,7 +5393,7 @@ function formatReportHtml(text, runDate) {
 
     // Skip === separator lines and title line (already in title box)
     if (/^={4,}/.test(rawTrimmed)) { flushPre(); continue; }
-    if (/^(RELATORIO|SCORE DE AUTENTICIDADE|ANALISE DE TEMAS)\s/.test(rawTrimmed) && rawTrimmed.indexOf('|') > 0) { continue; }
+    if (/^(RELATORIO|SCORE DE AUTENTICIDADE|ANALISE DE TEMAS|ANALISE DE SATISFACAO|ANALISE DE MOTORES)\s/.test(rawTrimmed) && rawTrimmed.indexOf('|') > 0) { continue; }
     // Skip --- separator lines (only dashes/spaces/─)
     if (/^[\s\-─]{3,}$/.test(rawTrimmed) && rawTrimmed.replace(/[\s\-─]/g, '') === '') { continue; }
 
@@ -5479,6 +5536,7 @@ function loadHistoryInModal() {
         var dateStr = date ? new Date(date).toLocaleString('pt-BR') : '?';
         var meta = '';
         if (item.total_videos_analyzed) meta = item.total_videos_analyzed + ' videos analisados';
+        if (item.channel_avg_approval != null) meta = 'Aprovacao: ' + (item.channel_avg_approval * 100).toFixed(1) + '%';
         if (item.authenticity_score != null) meta = 'Score: ' + Math.round(item.authenticity_score) + '/100';
         if (item.theme_count) meta = item.theme_count + ' temas';
 
@@ -5599,9 +5657,11 @@ function setupTabs() {
 // ============================================================
 
 var AGENT_LEGEND_INFO = [
-  { name: 'Copy + Satisfacao', desc: 'Performance por estrutura A-G + satisfacao' },
+  { name: 'Copy', desc: 'Performance por estrutura A-G (retencao, duracao)' },
+  { name: 'Satisfacao', desc: 'Aprovacao, ratio subs e comentarios' },
   { name: 'Autenticidade', desc: 'Score 0-100 contra Inauthentic Content' },
-  { name: 'Temas + Motores', desc: 'Temas e motores psicologicos de viralidade' },
+  { name: 'Temas', desc: 'Temas concretos por video (100% LLM)' },
+  { name: 'Motores', desc: 'Motores psicologicos de viralidade' },
   { name: 'Recomendador', desc: 'Cerebro estrategico - sugere proximos videos' }
 ];
 
