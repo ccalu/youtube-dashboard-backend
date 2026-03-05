@@ -26,6 +26,8 @@ import {
   MessageSquare,
   Kanban,
   CalendarDays,
+  Wallet,
+  ExternalLink,
 } from 'lucide-react';
 import { apiService, NotificacaoStats } from '@/services/api';
 import { kanbanApiService } from '@/services/kanbanApi';
@@ -136,11 +138,13 @@ export function AppSidebar({
     'notifications': 'text-red-500',
     // EMPRESA - Verdes
     'monetization': 'text-green-500',
+    'financeiro-ext': 'text-emerald-500',
   }[itemId] || 'text-muted-foreground');
 
   // Empresa nav items (new category)
   const empresaNavItems: NavigationItem[] = [
     { id: 'monetization', title: 'Monetização', icon: DollarSign, activeColor: 'bg-green-500' },
+    { id: 'financeiro-ext', title: 'Financeiro', icon: Wallet, activeColor: 'bg-emerald-500' },
   ];
 
   const mainNavItems: NavigationItem[] = [
@@ -196,6 +200,10 @@ export function AppSidebar({
   ];
 
   const handleNavClick = (itemId: string) => {
+    if (itemId === 'financeiro-ext') {
+      window.open('https://financeiro-dashboard-production.up.railway.app/', '_blank');
+      return;
+    }
     onTabChange(itemId);
     if (isMobile) {
       setOpenMobile(false);
@@ -217,6 +225,7 @@ export function AppSidebar({
     'notifications': { bg: '#ef4444', hover: 'rgba(239, 68, 68, 0.25)' },
     // EMPRESA - Verdes
     'monetization': { bg: '#22c55e', hover: 'rgba(34, 197, 94, 0.25)' },
+    'financeiro-ext': { bg: '#10b981', hover: 'rgba(16, 185, 129, 0.25)' },
   }[itemId] || { bg: '#6b7280', hover: 'rgba(107, 114, 128, 0.25)' });
 
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
@@ -249,6 +258,9 @@ export function AppSidebar({
             isActive || isHovered ? 'text-white' : iconColor
           } ${isHovered && !isActive ? 'scale-110' : ''}`} />
           <span className={`flex-1 font-medium text-sm ${isActive || isHovered ? 'text-white' : ''}`}>{item.title}</span>
+          {item.id === 'financeiro-ext' && (
+            <ExternalLink className={`h-3.5 w-3.5 ${isActive || isHovered ? 'text-white/70' : 'text-muted-foreground/50'}`} />
+          )}
           {item.badge !== undefined && item.badge > 0 && (
             <Badge className="ml-auto h-5 min-w-5 flex items-center justify-center px-1.5 text-[10px] font-bold bg-red-500 text-white border-none rounded-full animate-pulse-badge">
               {item.badge}
