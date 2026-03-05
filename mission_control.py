@@ -903,7 +903,45 @@ canvas{display:block;cursor:pointer;width:100%}
 .legend-sprite{flex-shrink:0;image-rendering:pixelated}
 .legend-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:1024px){#legend{display:none}#sb{width:300px!important}}
-@media(max-width:768px){#legend{display:none}#header h1{font-size:14px}#stats{font-size:10px}.tab{padding:4px 10px;font-size:10px}#sb{width:100%!important}}
+@media(max-width:768px){
+#legend{display:none}
+#header{flex-wrap:wrap;gap:6px;padding:6px 12px;justify-content:center}
+#header h1{font-size:14px;width:100%;text-align:center}
+#stats{font-size:10px;flex-wrap:wrap;gap:4px;justify-content:center;width:100%;text-align:center}
+#btn-refresh-mv,#btn-run-all{min-height:36px;padding:6px 14px;font-size:11px}
+.tab{padding:6px 12px;font-size:10px;min-height:44px;display:inline-flex;align-items:center}
+#sb{width:100%!important}
+.sb-btn{padding:12px 16px;font-size:13px;min-height:44px}
+.sb-close{font-size:28px;padding:8px 14px}
+#report-modal-content{top:1%;left:2%;right:2%;bottom:1%;border-radius:10px}
+.rm-header{padding:14px 16px}
+.rm-tabs{padding:0 12px}
+.rm-tab{padding:10px 14px;font-size:12px;min-height:44px}
+.rm-body{padding:16px 18px}
+.rpt-pre-block{font-size:11px;padding:10px 12px}
+}
+@media(max-width:480px){
+#header h1{font-size:12px;letter-spacing:1px}
+#stats{font-size:9px}
+#btn-refresh-mv,#btn-run-all{min-height:40px;padding:8px 12px;font-size:10px}
+.tab{padding:4px 10px;font-size:9px;min-height:44px}
+#sb{padding:12px}
+.sb-name{font-size:14px}
+.sb-btn{padding:12px 14px;font-size:12px}
+#report-modal-content{top:0;left:0;right:0;bottom:0;border-radius:0}
+.rm-header{padding:12px 14px}
+.rm-title{font-size:15px}
+.rm-tabs{padding:0 10px}
+.rm-tab{padding:8px 12px;font-size:11px}
+.rm-body{padding:12px 14px;font-size:12.5px}
+.rpt-title-box{padding:10px 14px}
+.rpt-title-box .rpt-main-title{font-size:14px}
+.rpt-score-box .score-value{font-size:22px}
+.rpt-section-title{font-size:13px}
+.rpt-pre-block{font-size:10.5px;padding:8px 10px}
+.rpt-metric,.rpt-line,.rpt-bullet{font-size:12px}
+.rpt-alert,.rpt-anomaly{font-size:11.5px;padding:5px 10px}
+}
 /* Report Modal */
 #report-modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:50;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px)}
 #report-modal-content{position:absolute;top:3%;left:8%;right:8%;bottom:3%;background:#0b0b1e;border:1px solid #1e1e3a;border-radius:14px;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,0.9)}
