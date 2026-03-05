@@ -217,7 +217,7 @@ export function AppSidebar({
       'financeiro-ext': 'https://financeiro-dashboard-production.up.railway.app/',
       'upload-ext': 'https://youtube-dashboard-backend-production.up.railway.app/dash-upload',
       'mission-control-ext': 'https://youtube-dashboard-backend-production.up.railway.app/mission-control',
-      'dash-agentes-ext': 'https://youtube-dashboard-backend-production.up.railway.app/dash-agentes',
+      'dash-agentes-ext': 'https://youtube-dashboard-backend-production.up.railway.app/dash-analise-copy',
     };
     if (externalLinks[itemId]) {
       window.open(externalLinks[itemId], '_blank');
