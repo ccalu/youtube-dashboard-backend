@@ -97,6 +97,70 @@ STOPWORDS = {
 
 
 # =============================================================================
+# INCREMENTAL: SNAPSHOT + DETECCAO DE TITULOS NOVOS
+# =============================================================================
+
+def _get_previous_run(channel_id: str) -> Optional[Dict]:
+    """Busca ultimo run com snapshot e run_number para deteccao incremental."""
+    try:
+        resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/authenticity_analysis_runs",
+            params={
+                "channel_id": f"eq.{channel_id}",
+                "select": "id,run_date,run_number,analyzed_video_data,report_text",
+                "order": "run_date.desc",
+                "limit": "1"
+            },
+            headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            if data:
+                row = data[0]
+                # Parsear analyzed_video_data se for string
+                avd = row.get("analyzed_video_data")
+                if avd and isinstance(avd, str):
+                    try:
+                        avd = json.loads(avd)
+                    except (json.JSONDecodeError, TypeError):
+                        avd = {}
+                if not isinstance(avd, dict):
+                    avd = {}
+                if not avd:
+                    return None  # Sem snapshot = sem incremental
+                row["analyzed_video_data"] = avd
+                row["run_number"] = row.get("run_number") or 1
+                return row
+        return None
+    except Exception as e:
+        logger.warning(f"Erro ao buscar run anterior de autenticidade: {e}")
+        return None
+
+
+def _build_snapshot(sheet_data: List[Dict]) -> Dict:
+    """Constroi snapshot JSONB dos titulos analisados para deteccao incremental."""
+    snapshot = {}
+    for item in sheet_data:
+        title = item.get("title", "")
+        structure = item.get("structure", "")
+        if title:
+            key = title.strip().lower()
+            snapshot[key] = {
+                "structure": structure,
+                "title": title,
+            }
+    return snapshot
+
+
+def _get_new_titles(sheet_data: List[Dict], previous_snapshot: Dict) -> set:
+    """Retorna set de titulos normalizados que sao novos (nao existiam no snapshot anterior)."""
+    if not previous_snapshot:
+        return {s["title"].strip().lower() for s in sheet_data if s.get("title")}
+    return {s["title"].strip().lower() for s in sheet_data
+            if s.get("title") and s["title"].strip().lower() not in previous_snapshot}
+
+
+# =============================================================================
 # ETAPA 1: CALCULO DO SCORE DE ESTRUTURAS
 # =============================================================================
 
@@ -543,10 +607,18 @@ def generate_llm_analysis(
     title_result: Dict,
     titles: List[str],
     alerts: List[Dict],
-    comparison: Optional[Dict]
+    comparison: Optional[Dict],
+    new_titles: Optional[set] = None,
+    run_number: int = 1,
+    is_first_run: bool = True,
+    previous_report: Optional[str] = None
 ) -> Optional[Dict]:
     """
     Envia dados para GPT-4o-mini e recebe diagnostico + recomendacoes.
+
+    Incremental: a partir do run #2, lista apenas titulos NOVOS no data_block,
+    mas metricas gerais (entropia, similaridade, etc.) incluem TODOS os titulos.
+    O relatorio anterior e passado como contexto para comparar evolucao.
 
     Returns:
         {"diagnostico": str, "recomendacoes": str, "tendencias": str}
@@ -595,7 +667,17 @@ def generate_llm_analysis(
     if title_result.get("serial_titles"):
         serial_text = "\n".join([f'  - "{t}"' for t in title_result["serial_titles"][:5]])
 
-    titles_list = "\n".join([f"  {i+1}. {t}" for i, t in enumerate(titles)])
+    # Incremental: filtrar lista de titulos (run #2+)
+    is_incremental = not is_first_run and new_titles and len(new_titles) > 0
+    filter_new = is_incremental
+
+    if filter_new:
+        new_titles_list = [t for t in titles if t.strip().lower() in new_titles]
+        titles_list = "\n".join([f"  {i+1}. {t}" for i, t in enumerate(new_titles_list)])
+        titles_header = f"TITULOS NOVOS ({len(new_titles_list)} novos de {len(titles)} total)"
+    else:
+        titles_list = "\n".join([f"  {i+1}. {t}" for i, t in enumerate(titles)])
+        titles_header = f"LISTA COMPLETA DE TITULOS ({len(titles)} videos)"
 
     alerts_text = ""
     if alerts:
@@ -606,6 +688,8 @@ def generate_llm_analysis(
     data_block = f"""CANAL: {channel_name}
 SUBNICHO: {subnicho}
 LINGUA: {lingua}
+Total titulos no canal: {len(titles)}
+{f'Titulos NOVOS nesta analise: {len(new_titles)}' if filter_new else ''}
 
 SCORE GERAL DE AUTENTICIDADE: {composite['score']}/100 ({composite['level'].upper()})
 
@@ -617,10 +701,10 @@ FATOR 1 - ESTRUTURAS DE COPY (score: {structure_result['score']}/100, peso: 50%)
 {chr(10).join(dist_lines)}
 
 FATOR 2 - TITULOS (score: {title_result['score']}/100, peso: 50%):
-  Similaridade media: {title_metrics['avg_similarity']}%
-  Padrao serial: {title_metrics['serial_count']}/{title_metrics['total_titles']} titulos ({title_metrics['serial_pct']}%)
-  Keyword dominante: "{title_metrics['top_keyword']}" em {title_metrics['top_keyword_pct']}% dos titulos
-  Comprimento: media {title_metrics['avg_length']} chars, desvio {title_metrics['length_stdev']}
+  Similaridade media (TODOS): {title_metrics['avg_similarity']}%
+  Padrao serial (TODOS): {title_metrics['serial_count']}/{title_metrics['total_titles']} titulos ({title_metrics['serial_pct']}%)
+  Keyword dominante (TODOS): "{title_metrics['top_keyword']}" em {title_metrics['top_keyword_pct']}% dos titulos
+  Comprimento (TODOS): media {title_metrics['avg_length']} chars, desvio {title_metrics['length_stdev']}
 
   Pares mais similares:
 {similar_pairs_text}
@@ -630,7 +714,7 @@ FATOR 2 - TITULOS (score: {title_result['score']}/100, peso: 50%):
 ALERTAS:
 {alerts_text}
 
-LISTA COMPLETA DE TITULOS ({len(titles)} videos):
+{titles_header}:
 {titles_list}
 """
 
@@ -784,9 +868,11 @@ incluir 3+ com essas estruturas para subir variedade."
 """
 
     # Montar bloco de memoria acumulativa (relatorio anterior)
+    # Prioridade: previous_report param (do _get_previous_run) > comparison.previous_report
+    prev_report_text = previous_report or (comparison.get("previous_report") if comparison else None)
     previous_report_block = ""
-    if comparison and comparison.get("previous_report"):
-        prev_date = comparison.get("previous_date", "")
+    if prev_report_text:
+        prev_date = comparison.get("previous_date", "") if comparison else ""
         if isinstance(prev_date, str) and "T" in prev_date:
             try:
                 prev_date = datetime.fromisoformat(prev_date.replace("Z", "+00:00")).strftime("%d/%m/%Y")
@@ -802,12 +888,37 @@ Sua analise atual DEVE:
 - Construir em cima, nunca ignorar o historico
 
 RELATORIO ANTERIOR COMPLETO ({prev_date}):
-{comparison['previous_report']}
+{prev_report_text}
 FIM DO RELATORIO ANTERIOR.
 """
 
-    user_prompt = f"""{previous_report_block}
+    # Bloco incremental (run #2+ com titulos novos)
+    incremental_block = ""
+    if not is_first_run and new_titles and len(new_titles) > 0:
+        incremental_block = f"""
+=== ANALISE INCREMENTAL (Run #{run_number}) ===
 
+Esta e a analise #{run_number} deste canal. {len(new_titles)} titulo(s) novo(s) detectado(s).
+As METRICAS GERAIS (entropia, similaridade, keyword stuffing, serial) ja incluem TODOS os titulos.
+A LISTA DE TITULOS mostra apenas os NOVOS.
+
+Sua analise DEVE cobrir estes 4 pontos ADICIONAIS:
+
+1. IMPACTO DOS NOVOS TITULOS: Os novos titulos melhoraram ou pioraram o score?
+   A similaridade media subiu ou caiu? Algum novo titulo e near-duplicate de existente?
+
+2. EVOLUCAO DO RISCO: O nivel de risco mudou vs anterior?
+   (excelente→bom? atencao→risco? etc.) Se mudou, explique o que causou.
+
+3. CONFIRMACAO OU REVERSAO: As tendencias do relatorio anterior se confirmaram
+   ou reverteram com os novos dados? Recomendacoes foram seguidas?
+
+4. SINAIS DE ATENCAO: Algum dos novos titulos e near-duplicate, serial,
+   ou repete keywords em excesso? Se sim, destaque como URGENTE.
+"""
+
+    user_prompt = f"""{previous_report_block}
+{incremental_block}
 Produza EXATAMENTE 3 blocos:
 
 [DIAGNOSTICO]
@@ -1065,7 +1176,9 @@ def save_analysis(
     alerts: List[Dict],
     report_text: str,
     total_videos: int,
-    comparison: Optional[Dict] = None
+    comparison: Optional[Dict] = None,
+    run_number: int = 1,
+    analyzed_video_data: Optional[Dict] = None
 ) -> Optional[int]:
     """Salva analise no banco."""
 
@@ -1106,7 +1219,9 @@ def save_analysis(
             "alerts": alerts,
             "comparison": comparison_serialized
         }),
-        "report_text": report_text
+        "report_text": report_text,
+        "run_number": run_number,
+        "analyzed_video_data": json.dumps(analyzed_video_data) if analyzed_video_data else None
     }
 
     resp = requests.post(
@@ -1186,27 +1301,67 @@ def run_analysis(channel_id: str) -> Dict:
     # 5. Gerar alertas
     alerts = generate_alerts(composite, structure_result, title_result, previous_score)
 
-    # 6. LLM
-    llm_insights = generate_llm_analysis(
-        channel_name, channel_info, composite,
-        structure_result, title_result, titles,
-        alerts, comparison
-    )
+    # 6. Incremental: detectar titulos novos
+    prev_run = _get_previous_run(channel_id)
+    run_number = 1 if not prev_run else prev_run["run_number"] + 1
+    is_first_run = prev_run is None
+    snapshot = _build_snapshot(sheet_data)
+    prev_snapshot = prev_run["analyzed_video_data"] if prev_run else {}
+    new_titles = _get_new_titles(sheet_data, prev_snapshot)
+    new_count = len(new_titles)
 
-    # 7. Gerar relatorio
+    logger.info(f"AUTENTICIDADE INCREMENTAL: Run #{run_number} | Novos: {new_count}/{len(sheet_data)} titulos")
+
+    # 7. LLM — pular se zero novos (reutilizar relatorio anterior)
+    if not is_first_run and new_count == 0 and prev_run and prev_run.get("report_text"):
+        logger.info(f"AUTENTICIDADE: Zero titulos novos — reutilizando relatorio anterior")
+        # Extrair insights do relatorio anterior
+        prev_report = prev_run["report_text"]
+        llm_insights = {"diagnostico": "", "recomendacoes": "", "tendencias": ""}
+
+        for section, key in [("--- DIAGNOSTICO ---", "diagnostico"),
+                             ("--- RECOMENDACOES ---", "recomendacoes"),
+                             ("--- TENDENCIAS ---", "tendencias")]:
+            if section in prev_report:
+                after = prev_report.split(section, 1)[1]
+                # Encontrar proximo header "--- X ---" ou "==="
+                end_markers = ["--- RECOMENDACOES ---", "--- TENDENCIAS ---",
+                               "--- VS ANTERIOR ---", "=" * 60]
+                end_pos = len(after)
+                for marker in end_markers:
+                    if marker != section and marker in after:
+                        pos = after.index(marker)
+                        if pos < end_pos:
+                            end_pos = pos
+                llm_insights[key] = after[:end_pos].strip()
+    else:
+        previous_report_text = prev_run["report_text"] if prev_run and prev_run.get("report_text") else None
+        llm_insights = generate_llm_analysis(
+            channel_name, channel_info, composite,
+            structure_result, title_result, titles,
+            alerts, comparison,
+            new_titles=new_titles,
+            run_number=run_number,
+            is_first_run=is_first_run,
+            previous_report=previous_report_text
+        )
+
+    # 8. Gerar relatorio
     report = generate_report(
         channel_name, composite, structure_result, title_result,
         len(sheet_data), alerts, llm_insights, comparison
     )
 
-    # 8. Salvar
+    # 9. Salvar (com snapshot e run_number)
     run_id = save_analysis(
         channel_id, channel_name, composite,
         structure_result, title_result, alerts,
-        report, len(sheet_data), comparison
+        report, len(sheet_data), comparison,
+        run_number=run_number,
+        analyzed_video_data=snapshot
     )
 
-    logger.info(f"AUTENTICIDADE COMPLETA: {channel_name} | Score: {composite['score']}/100 ({composite['level']})")
+    logger.info(f"AUTENTICIDADE COMPLETA: {channel_name} | Score: {composite['score']}/100 ({composite['level']}) | Run #{run_number} | Novos: {new_count}")
 
     return {
         "success": True,
@@ -1217,13 +1372,18 @@ def run_analysis(channel_id: str) -> Dict:
         "score": composite["score"],
         "level": composite["level"],
         "alerts": alerts,
+        "run_number": run_number,
+        "new_titles_count": new_count,
+        "total_titles": len(sheet_data),
         "summary": {
             "authenticity_score": composite["score"],
             "authenticity_level": composite["level"],
             "structure_score": structure_result["score"],
             "title_score": title_result["score"],
             "total_videos": len(sheet_data),
-            "alert_count": len(alerts)
+            "alert_count": len(alerts),
+            "run_number": run_number,
+            "new_titles_count": new_count
         }
     }
 
