@@ -6556,7 +6556,7 @@ DASH_UPLOAD_HTML = '''
                                 clearInterval(pollInterval);
                                 _uploadingSet.delete(channelId);
                                 delete _statusBeforeUpload[channelId];
-                                if (st === 'sucesso') { _successSet.add(channelId); atualizar(); setTimeout(function() { _successSet.delete(channelId); atualizar(); }, 15000); }
+                                if (st === 'sucesso') { _successSet.add(channelId); fetch('/api/dash-upload/refresh-disp/' + channelId, {method:'POST'}); atualizar(); setTimeout(function() { _successSet.delete(channelId); atualizar(); }, 15000); }
                                 else if (st === 'erro') { _errorSet.add(channelId); atualizar(); setTimeout(function() { _errorSet.delete(channelId); atualizar(); }, 5000); }
                                 else { atualizar(); }
                             }
@@ -6949,7 +6949,12 @@ DASH_UPLOAD_HTML = '''
                                     _uploadingSet.delete(cid);
                                     delete _statusBeforeUpload[cid];
                                     remaining.delete(cid);
-                                    if (st === 'sucesso') { _successSet.add(cid); setTimeout(function() { _successSet.delete(cid); atualizar(); }, 15000); }
+                                    if (st === 'sucesso') {
+                                        _successSet.add(cid);
+                                        // Refetch planilha deste canal para atualizar contagem Disp.
+                                        fetch('/api/dash-upload/refresh-disp/' + cid, {method:'POST'});
+                                        setTimeout(function() { _successSet.delete(cid); atualizar(); }, 15000);
+                                    }
                                     else if (st === 'erro') { _errorSet.add(cid); setTimeout(function() { _errorSet.delete(cid); atualizar(); }, 5000); }
                                     else if (st === 'sem_video') { _errorSet.add(cid); setTimeout(function() { _errorSet.delete(cid); atualizar(); }, 5000); }
                                 }
@@ -7120,6 +7125,56 @@ async def dash_upload_status():
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/dash-upload/refresh-disp/{channel_id}")
+async def refresh_disp_canal(channel_id: str):
+    """Refetch da planilha de um canal especifico para atualizar contagem de videos disponiveis."""
+    try:
+        from daily_uploader import DailyUploader, SPREADSHEET_CACHE
+        import time as _t
+
+        canal = supabase.table('yt_channels')\
+            .select('channel_id, spreadsheet_id, channel_name')\
+            .eq('channel_id', channel_id)\
+            .single()\
+            .execute()
+
+        if not canal.data or not canal.data.get('spreadsheet_id'):
+            return {'ok': False, 'reason': 'no_spreadsheet'}
+
+        sid = canal.data['spreadsheet_id']
+
+        # Invalidar cache existente
+        if sid in SPREADSHEET_CACHE:
+            del SPREADSHEET_CACHE[sid]
+
+        # Fetch fresco da planilha
+        uploader = DailyUploader()
+        if not uploader.sheets_client:
+            return {'ok': False, 'reason': 'no_sheets_client'}
+
+        import asyncio
+        loop = asyncio.get_event_loop()
+        def _fetch_sync():
+            sheet = uploader.sheets_client.open_by_key(sid)
+            worksheet = sheet.get_worksheet(0)
+            return worksheet.get_all_values()
+
+        all_values = await loop.run_in_executor(None, _fetch_sync)
+        SPREADSHEET_CACHE[sid] = (_t.time(), all_values)
+
+        count = uploader.count_available_videos(all_values)
+
+        # Invalidar dash cache para proximo poll pegar dados frescos
+        _dash_cache['data'] = None
+        _dash_cache['timestamp'] = 0
+
+        logger.info(f"[REFRESH-DISP] {canal.data['channel_name']}: {count} videos disponiveis")
+        return {'ok': True, 'videos_disponiveis': count}
+
+    except Exception as e:
+        logger.warning(f"[REFRESH-DISP] Erro {channel_id}: {e}")
+        return {'ok': False, 'reason': str(e)}
 
 @app.get("/api/dash-upload/canais/{channel_id}/historico")
 async def dash_upload_historico(channel_id: str):
