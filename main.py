@@ -8248,6 +8248,43 @@ def _build_unified_report(copy_result: dict, auth_result: dict, theme_result: di
     return "\n".join(parts)
 
 
+# --- Endpoint: Deletar TODOS os runs de um canal por data ---
+
+@app.delete("/api/analise-completa/{channel_id}/date/{date_str}")
+async def delete_all_agents_by_date(channel_id: str, date_str: str):
+    """
+    Deleta todos os runs de TODOS os agentes para um canal em uma data especifica.
+    date_str formato: YYYY-MM-DD
+    """
+    try:
+        tables = [
+            ('motor_analysis_runs', motor_delete_analysis),
+            ('satisfaction_analysis_runs', sat_delete_analysis),
+            ('copy_analysis_runs', copy_delete_analysis),
+            ('authenticity_analysis_runs', auth_delete_analysis),
+            ('theme_analysis_runs', theme_delete_analysis),
+        ]
+
+        deleted = {}
+        for table, delete_fn in tables:
+            try:
+                runs = db.supabase.table(table).select('id').eq('channel_id', channel_id).gte('run_date', f'{date_str}T00:00:00').lt('run_date', f'{date_str}T23:59:59.999999').execute()
+                for r in (runs.data or []):
+                    delete_fn(channel_id, r['id'])
+                deleted[table] = len(runs.data or [])
+            except Exception as e:
+                logger.warning(f"Erro ao deletar {table} para {channel_id} em {date_str}: {e}")
+                deleted[table] = f"erro: {str(e)[:100]}"
+
+        total = sum(v for v in deleted.values() if isinstance(v, int))
+        logger.info(f"Delete completo {channel_id} em {date_str}: {total} runs deletados | {deleted}")
+        return {"success": True, "date": date_str, "deleted": deleted, "total": total}
+
+    except Exception as e:
+        logger.error(f"Erro delete por data {channel_id}/{date_str}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # --- Endpoints individuais de autenticidade ---
 
 @app.post("/api/analise-autenticidade/{channel_id}")
@@ -9927,7 +9964,9 @@ function showChannelHistory() {
             }
             html += '<div class="hist-date-row" style="cursor:default;">';
             html += '<span class="hist-date-label">' + dateLabel + '</span>';
-            html += '<div>' + tags + '</div>';
+            html += '<div style="display:flex;align-items:center;gap:0.4rem;">' + tags;
+            html += '<button class="history-del-btn" onclick="event.stopPropagation();deleteChannelDate(\\'' + d + '\\')">X</button>';
+            html += '</div>';
             html += '</div>';
         }
         el.innerHTML = html;
@@ -9988,6 +10027,23 @@ function deleteAgentRun(agentKey, runId) {
         })
         .then(function(data) {
             showAgentHistory(agentKey);
+            loadAllAgents(_selectedChannel);
+        })
+        .catch(function(e) { alert('Erro ao deletar: ' + e.message); });
+}
+
+function deleteChannelDate(dateStr) {
+    if (!_selectedChannel) return;
+    var parts = dateStr.split('-');
+    var label = parts[2] + '/' + parts[1] + '/' + parts[0];
+    if (!window.confirm('Deletar TODOS os relatorios de ' + label + '?\\n\\nIsso remove runs de todos os 5 agentes nessa data.')) return;
+    fetch('/api/analise-completa/' + _selectedChannel + '/date/' + dateStr, { method: 'DELETE' })
+        .then(function(r) {
+            if (!r.ok) throw new Error('Erro ' + r.status);
+            return r.json();
+        })
+        .then(function(data) {
+            showChannelHistory();
             loadAllAgents(_selectedChannel);
         })
         .catch(function(e) { alert('Erro ao deletar: ' + e.message); });
