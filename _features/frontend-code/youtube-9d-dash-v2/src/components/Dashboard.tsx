@@ -35,7 +35,7 @@ import { apiService } from '@/services/api';
 // Background particles — fewer and more subtle than login page
 function DashboardParticles() {
   const particles = useMemo(() =>
-    Array.from({ length: 30 }, (_, i) => ({
+    Array.from({ length: 80 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
