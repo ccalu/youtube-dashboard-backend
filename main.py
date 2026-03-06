@@ -6721,13 +6721,14 @@ DASH_UPLOAD_HTML = '''
                         if (data.subnichos) {
                             for (var subnicho in data.subnichos) {
                                 var canais = data.subnichos[subnicho];
-                                var ss = {sucesso: 0, erro: 0, sem_video: 0, pendente: 0};
+                                var ss = {sucesso: 0, erro: 0, sem_video: 0, pendente: 0, totalDisp: 0};
                                 for (var i = 0; i < canais.length; i++) {
                                     if (canais[i].is_monetized) totalMonetizados++;
                                     if (canais[i].status === 'sucesso') ss.sucesso++;
                                     else if (canais[i].status === 'erro') ss.erro++;
                                     else if (canais[i].status === 'sem_video') ss.sem_video++;
                                     else ss.pendente++;
+                                    if (canais[i].videos_disponiveis != null) ss.totalDisp += canais[i].videos_disponiveis;
                                 }
                                 var accent = '#3f3f46'; var accentMuted = 'rgba(63,63,70,0.15)'; var icon = '?';
                                 if (subnicho === 'Monetizados') { accent = '#22c55e'; accentMuted = 'rgba(34,197,94,0.12)'; icon = '$'; }
@@ -6736,17 +6737,21 @@ DASH_UPLOAD_HTML = '''
                                 else if (subnicho === 'Guerras e Civilizacoes' || subnicho === 'Guerras e Civiliza\\u00e7\\u00f5es') { accent = '#f97316'; accentMuted = 'rgba(249,115,22,0.12)'; icon = '\\u26E8'; }
                                 else if (subnicho === 'Terror') { accent = '#ef4444'; accentMuted = 'rgba(239,68,68,0.12)'; icon = '\\u2620'; }
                                 else if (subnicho === 'Desmonetizados') { accent = '#71717a'; accentMuted = 'rgba(113,113,122,0.12)'; icon = '\\u25CB'; }
-                                html += '<div class="section" style="--section-accent:' + accent + ';--section-accent-muted:' + accentMuted + ';">';
-                                html += '<div class="section-header"><div class="section-title">';
+                                var isOpen = _openSections.has(subnicho);
+                                html += '<div class="section' + (isOpen ? ' section--open' : '') + '" data-section="' + escapeHtml(subnicho) + '" style="--section-accent:' + accent + ';--section-accent-muted:' + accentMuted + ';">';
+                                html += '<div class="section-header" onclick="toggleSection(\\'' + escapeHtml(subnicho).replace(/'/g, "\\\\'") + '\\')"><div class="section-title">';
+                                html += '<span class="section-toggle">&#x25B6;</span>';
                                 html += '<span class="section-icon">' + icon + '</span>';
                                 html += '<span>' + escapeHtml(subnicho) + '</span>';
                                 html += '<span class="section-count">' + canais.length + ' canais</span></div>';
                                 html += '<div class="section-pills">';
+                                html += '<span class="stat-pill stat-pill--disp">' + ss.totalDisp + ' disp.</span>';
                                 if (ss.sucesso > 0) html += '<span class="stat-pill stat-pill--success">' + ss.sucesso + ' sucesso</span>';
                                 if (ss.sem_video > 0) html += '<span class="stat-pill stat-pill--warning">' + ss.sem_video + ' sem video</span>';
                                 if (ss.erro > 0) html += '<span class="stat-pill stat-pill--error">' + ss.erro + ' erro</span>';
                                 if (ss.pendente > 0) html += '<span class="stat-pill stat-pill--pending">' + ss.pendente + ' pendente</span>';
                                 html += '</div></div>';
+                                html += '<div class="section-body">';
                                 html += '<table class="channel-table"><thead><tr>';
                                 html += '<th style="width:280px">Canal</th><th style="width:120px">Status</th><th style="width:55px;text-align:center">Disp.</th><th>Video Enviado</th><th style="width:80px">Horario</th><th style="width:120px">Acoes</th>';
                                 html += '</tr></thead><tbody>';
@@ -6793,7 +6798,7 @@ DASH_UPLOAD_HTML = '''
                                     html += '</div></td></tr>';
                                 }
                                 if (!temCanais) html += '<tr><td colspan="6" style="text-align:center;color:var(--text-tertiary);padding:20px;">Nenhum canal com este filtro</td></tr>';
-                                html += '</tbody></table></div>';
+                                html += '</tbody></table></div></div>';
                             }
                         }
                         if (html === '') html = '<div class="empty-state">Nenhum canal encontrado</div>';
