@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { ChannelsTable } from './ChannelsTable';
 import { OurChannelsTable } from './OurChannelsTable';
@@ -45,7 +45,6 @@ const DashboardContent = () => {
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
-  const [contentKey, setContentKey] = useState(0);
 
   // Parallax background: track mouse position
   useEffect(() => {
@@ -108,10 +107,9 @@ const DashboardContent = () => {
       setPrevTab(activeTab);
       setIsTransitioning(true);
       
-      // Wait for fade-out, then change tab and trigger stagger
+      // Wait for fade-out, then change tab
       setTimeout(() => {
         setActiveTab(newTab);
-        setContentKey(k => k + 1);
         setIsTransitioning(false);
       }, 150);
     }
@@ -213,7 +211,6 @@ const DashboardContent = () => {
 
           {/* Main Content with tab transition */}
           <div
-            key={contentKey}
             className={`transition-all duration-300 ease-out ${
               isTransitioning
                 ? 'opacity-0 translate-y-3'
