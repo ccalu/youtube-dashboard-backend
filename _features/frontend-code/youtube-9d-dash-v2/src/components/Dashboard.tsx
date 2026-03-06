@@ -44,20 +44,6 @@ const DashboardContent = () => {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
-
-  // Parallax background
-  useEffect(() => {
-    if (isMobile) return;
-    const onMove = (e: MouseEvent) => {
-      setMousePos({
-        x: (e.clientX / window.innerWidth) * 100,
-        y: (e.clientY / window.innerHeight) * 100,
-      });
-    };
-    window.addEventListener('mousemove', onMove);
-    return () => window.removeEventListener('mousemove', onMove);
-  }, [isMobile]);
 
   const handleRefreshData = useCallback(async () => {
     setIsRefreshing(true);
@@ -173,19 +159,8 @@ const DashboardContent = () => {
         onOpenComments={() => handleTabChange('comments')}
       />
       
-      <main className="flex-1 min-h-screen overflow-x-hidden relative">
-        {/* Parallax background */}
-        <div
-          className="fixed inset-0 pointer-events-none"
-          style={{
-            background: `
-              radial-gradient(ellipse 50% 40% at ${mousePos.x}% ${mousePos.y}%, rgba(239, 68, 68, 0.06), transparent),
-              radial-gradient(ellipse 40% 35% at ${100 - mousePos.x}% ${100 - mousePos.y}%, rgba(249, 115, 22, 0.04), transparent)
-            `,
-          }}
-        />
-
-        <div className="container mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-4 sm:pb-8 relative">
+      <main className="flex-1 min-h-screen overflow-x-hidden">
+        <div className="container mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-4 sm:pb-8">
           {/* Header with gradient line */}
           <div className="mb-6 sm:mb-8 flex items-center justify-center relative">
             <SidebarTrigger className="absolute left-0 h-9 w-9 sm:h-10 sm:w-10 rounded-lg glass hover-glow-red transition-all duration-300">
