@@ -6156,7 +6156,7 @@ DASH_UPLOAD_HTML = '''
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <title>Upload Dashboard</title>
+    <title>Upload Control</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect rx='20' width='100' height='100' fill='%230f3460'/><path d='M50 25L50 65M35 40L50 25L65 40' stroke='%2322c55e' stroke-width='8' stroke-linecap='round' stroke-linejoin='round' fill='none'/><rect x='25' y='70' width='50' height='6' rx='3' fill='%2322c55e'/></svg>">
@@ -6205,15 +6205,17 @@ DASH_UPLOAD_HTML = '''
             padding: 20px 32px 16px;
             border-bottom: 1px solid var(--border-primary);
             margin-bottom: 24px;
+            background: linear-gradient(180deg, rgba(249,115,22,0.06) 0%, transparent 100%);
+            box-shadow: 0 1px 0 rgba(249,115,22,0.15);
         }
         .header-right { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
-        .header-title { font-size: 22px; font-weight: 600; letter-spacing: -0.025em; color: var(--text-primary); white-space: nowrap; }
-        .header-subtitle { font-size: 13px; color: var(--text-tertiary); margin-top: 2px; }
-        .live-indicator { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
-        .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); animation: pulse-live 2s ease-in-out infinite; }
+        .header-title { font-size: 22px; font-weight: 700; letter-spacing: 3px; color: var(--accent); font-family: 'Courier New', monospace; text-transform: uppercase; white-space: nowrap; text-shadow: 0 0 20px rgba(249,115,22,0.3), 0 0 40px rgba(249,115,22,0.1); }
+        .header-subtitle { font-size: 12px; color: var(--text-tertiary); margin-top: 3px; letter-spacing: 1px; font-family: 'Courier New', monospace; text-transform: uppercase; }
+        .live-indicator { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--accent); font-family: 'Courier New', monospace; letter-spacing: 1px; text-transform: uppercase; }
+        .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse-live 2s ease-in-out infinite; }
         @keyframes pulse-live {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
-            50% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+            0%, 100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4); }
+            50% { box-shadow: 0 0 0 6px rgba(249, 115, 22, 0); }
         }
         .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; padding: 0 32px; margin-bottom: 28px; }
         .stat-card { background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: var(--radius-md); padding: 20px; cursor: pointer; transition: all 0.15s ease; position: relative; display: flex; flex-direction: column; justify-content: space-between; min-height: 90px; }
@@ -6347,7 +6349,7 @@ DASH_UPLOAD_HTML = '''
         @media (max-width: 768px) {
             .page-header { padding: 14px 12px 12px; flex-wrap: nowrap; gap: 8px; overflow: hidden; }
             .page-header > div:first-child { min-width: 0; flex-shrink: 1; }
-            .header-title { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .header-title { font-size: 16px; letter-spacing: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .header-subtitle { display: none; }
             .header-right { gap: 8px; flex-shrink: 0; }
             .modal-table th:nth-child(1), .modal-table td:nth-child(1) { padding-left: 4px; padding-right: 4px; white-space: nowrap; font-size: 11px; }
@@ -6359,11 +6361,14 @@ DASH_UPLOAD_HTML = '''
             .stat-value--historico { font-size: 24px; }
             .stat-label { font-size: 10px; }
             .content { padding: 0 8px; }
-            .section-header { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 14px; }
-            .section-pills { flex-wrap: wrap; }
+            .section-header { flex-direction: row; align-items: center; gap: 8px; padding: 12px 14px; }
+            .section-title { flex: 1; min-width: 0; overflow: hidden; font-size: 13px; gap: 6px; }
+            .section-title .section-count { display: none; }
+            .section-pills { flex-wrap: wrap; flex-shrink: 0; justify-content: flex-end; gap: 4px; }
+            .stat-pill { font-size: 10px; padding: 2px 7px; }
             .channel-table th, .channel-table td { padding: 8px 10px; font-size: 12px; }
-            .channel-table th:nth-child(3), .channel-table td:nth-child(3),
-            .channel-table th:nth-child(4), .channel-table td:nth-child(4) { display: none; }
+            .channel-table th:nth-child(4), .channel-table td:nth-child(4),
+            .channel-table th:nth-child(5), .channel-table td:nth-child(5) { display: none; }
             .channel-table th:nth-child(1) { width: auto !important; }
             .channel-table th:nth-child(5) { width: auto !important; }
             .channel-name { font-size: 12px; white-space: normal; word-break: break-word; }
@@ -6391,7 +6396,7 @@ DASH_UPLOAD_HTML = '''
         @media (max-width: 480px) {
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .stat-card--historico { grid-column: span 2; }
-            .header-title { font-size: 15px; }
+            .header-title { font-size: 14px; letter-spacing: 2px; }
             .btn-batch { width: 32px; height: 32px; font-size: 16px; }
             .channel-table th:nth-child(2), .channel-table td:nth-child(2) { display: none; }
             .cell-channel { flex-wrap: wrap; gap: 3px; }
@@ -6412,11 +6417,11 @@ DASH_UPLOAD_HTML = '''
 <body>
     <header class="page-header">
         <div>
-            <div class="header-title">Upload Dashboard</div>
-            <div class="header-subtitle">Sistema de upload automatizado</div>
+            <div class="header-title">Upload Control</div>
+            <div class="header-subtitle">Sistema de Upload Automatizado</div>
         </div>
         <div class="header-right">
-            <div class="live-indicator"><span class="live-dot"></span><span>Ao vivo</span></div>
+            <div class="live-indicator"><span class="live-dot"></span><span>Live</span></div>
             <button class="btn-batch" onclick="abrirBatchUpload()" title="Upload em Lote">&#x1F4E4;</button>
         </div>
     </header>
@@ -9037,6 +9042,7 @@ body {
 .history-del-btn:hover { background:rgba(239,68,68,0.15); border-color:#ef4444; }
 
 /* Tabs */
+#tabsArea { margin-top: 0.5rem; }
 .tabs-bar {
     display: flex;
     gap: 0;
@@ -9060,7 +9066,17 @@ body {
     gap: 0.4rem;
 }
 .tab-btn:hover { color: var(--text-secondary); }
+.tab-btn[data-agent="copy"]:hover { color: #00d4aa; }
+.tab-btn[data-agent="satisfacao"]:hover { color: #ff9f43; }
+.tab-btn[data-agent="autenticidade"]:hover { color: #a78bfa; }
+.tab-btn[data-agent="temas"]:hover { color: #ffd93d; }
+.tab-btn[data-agent="motores"]:hover { color: #54a0ff; }
 .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-btn.active[data-agent="copy"] { color: #00d4aa; border-bottom-color: #00d4aa; }
+.tab-btn.active[data-agent="satisfacao"] { color: #ff9f43; border-bottom-color: #ff9f43; }
+.tab-btn.active[data-agent="autenticidade"] { color: #a78bfa; border-bottom-color: #a78bfa; }
+.tab-btn.active[data-agent="temas"] { color: #ffd93d; border-bottom-color: #ffd93d; }
+.tab-btn.active[data-agent="motores"] { color: #54a0ff; border-bottom-color: #54a0ff; }
 .tab-dot {
     width: 6px;
     height: 6px;
@@ -9069,6 +9085,11 @@ body {
     opacity: 0.3;
 }
 .tab-dot.has-data { background: var(--accent); opacity: 1; }
+[data-agent="copy"] .tab-dot.has-data { background: #00d4aa; }
+[data-agent="satisfacao"] .tab-dot.has-data { background: #ff9f43; }
+[data-agent="autenticidade"] .tab-dot.has-data { background: #a78bfa; }
+[data-agent="temas"] .tab-dot.has-data { background: #ffd93d; }
+[data-agent="motores"] .tab-dot.has-data { background: #54a0ff; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 .tab-run-btn {
@@ -9150,6 +9171,7 @@ body {
     .main-title.default-text { display: none; }
     .main-actions { width: 100%; }
     .main-actions .btn { flex: 1; font-size: 0.75rem; padding: 0.4rem 0.5rem; }
+    #tabsArea { margin-top: 0.8rem; }
     .tabs-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-wrap: nowrap; }
     .tabs-bar::-webkit-scrollbar { display: none; }
     .tab-btn { font-size: 0.7rem; padding: 0.5rem 0.8rem; white-space: nowrap; flex-shrink: 0; }
@@ -9201,11 +9223,11 @@ body {
         </div>
         <div id="tabsArea" style="display:none">
             <div class="tabs-bar">
-                <button class="tab-btn active" onclick="switchTab('copy')"><span class="tab-dot" id="dot-copy"></span>Copy</button>
-                <button class="tab-btn" onclick="switchTab('satisfacao')"><span class="tab-dot" id="dot-satisfacao"></span>Satisfacao</button>
-                <button class="tab-btn" onclick="switchTab('autenticidade')"><span class="tab-dot" id="dot-autenticidade"></span>Autenticidade</button>
-                <button class="tab-btn" onclick="switchTab('temas')"><span class="tab-dot" id="dot-temas"></span>Temas</button>
-                <button class="tab-btn" onclick="switchTab('motores')"><span class="tab-dot" id="dot-motores"></span>Motores</button>
+                <button class="tab-btn active" data-agent="copy" onclick="switchTab('copy')"><span class="tab-dot" id="dot-copy"></span>Copy</button>
+                <button class="tab-btn" data-agent="satisfacao" onclick="switchTab('satisfacao')"><span class="tab-dot" id="dot-satisfacao"></span>Satisfacao</button>
+                <button class="tab-btn" data-agent="autenticidade" onclick="switchTab('autenticidade')"><span class="tab-dot" id="dot-autenticidade"></span>Autenticidade</button>
+                <button class="tab-btn" data-agent="temas" onclick="switchTab('temas')"><span class="tab-dot" id="dot-temas"></span>Temas</button>
+                <button class="tab-btn" data-agent="motores" onclick="switchTab('motores')"><span class="tab-dot" id="dot-motores"></span>Motores</button>
             </div>
         </div>
         <div id="reportArea">
