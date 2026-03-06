@@ -8596,13 +8596,13 @@ async def dash_copy_analysis_channels():
     """Lista canais com copy_spreadsheet_id agrupados por subnicho + ultima analise."""
     try:
         # 1. Busca canais com OAuth (mesma fonte de verdade do Mission Control)
-        supa_svc = db.supabase_service or db.supabase
-        oauth_resp = supa_svc.table("yt_oauth_tokens").select("channel_id").execute()
+        # supabase (importado de _features.yt_uploader.database) usa SERVICE_ROLE_KEY
+        oauth_resp = supabase.table("yt_oauth_tokens").select("channel_id").execute()
         oauth_ids = list(set(r["channel_id"] for r in (oauth_resp.data or [])))
         if not oauth_ids:
             return {"subnichos": {}, "stats": {"total": 0, "com_relatorio": 0}}
 
-        ch_resp = db.supabase.table("yt_channels")\
+        ch_resp = supabase.table("yt_channels")\
             .select("channel_id,channel_name,subnicho,is_monetized,lingua")\
             .eq("is_active", True)\
             .in_("channel_id", oauth_ids)\
@@ -8620,7 +8620,7 @@ async def dash_copy_analysis_channels():
         # Buscar em batches de 20
         for i in range(0, len(channel_ids), 20):
             batch = channel_ids[i:i+20]
-            resp = db.supabase.table("copy_analysis_runs")\
+            resp = supabase.table("copy_analysis_runs")\
                 .select("channel_id,run_date,channel_avg_retention")\
                 .in_("channel_id", batch)\
                 .order("run_date", desc=True)\
@@ -8639,7 +8639,7 @@ async def dash_copy_analysis_channels():
         for i in range(0, len(channel_ids), 20):
             batch = channel_ids[i:i+20]
             try:
-                auth_resp = db.supabase.table("authenticity_analysis_runs")\
+                auth_resp = supabase.table("authenticity_analysis_runs")\
                     .select("channel_id,run_date,authenticity_score,authenticity_level,has_alerts")\
                     .in_("channel_id", batch)\
                     .order("run_date", desc=True)\
