@@ -7562,7 +7562,8 @@ from copy_analysis_agent import (
     get_latest_analysis as copy_get_latest,
     get_analysis_history as copy_get_history,
     get_video_mappings as copy_get_mappings,
-    get_all_channels_for_analysis as copy_get_channels
+    get_all_channels_for_analysis as copy_get_channels,
+    delete_analysis as copy_delete_analysis
 )
 
 
@@ -7710,6 +7711,21 @@ async def run_copy_analysis_all():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.delete("/api/analise-copy/{channel_id}/run/{run_id}")
+async def delete_copy_analysis_run(channel_id: str, run_id: int):
+    """Deleta um run de copy analysis."""
+    try:
+        result = copy_delete_analysis(channel_id, run_id)
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error"))
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro deletar copy {channel_id}/{run_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============================================================================
 # ANALISE DE AUTENTICIDADE + RELATORIO UNIFICADO
 # ============================================================================
@@ -7718,7 +7734,8 @@ from authenticity_agent import (
     run_analysis as auth_run_analysis,
     get_latest_analysis as auth_get_latest,
     get_analysis_history as auth_get_history,
-    get_risk_overview as auth_get_overview
+    get_risk_overview as auth_get_overview,
+    delete_analysis as auth_delete_analysis
 )
 
 from theme_agent import (
@@ -8263,6 +8280,21 @@ async def get_auth_overview():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.delete("/api/analise-autenticidade/{channel_id}/run/{run_id}")
+async def delete_authenticity_analysis_run(channel_id: str, run_id: int):
+    """Deleta um run de autenticidade."""
+    try:
+        result = auth_delete_analysis(channel_id, run_id)
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error"))
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro deletar autenticidade {channel_id}/{run_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # --- Endpoints individuais de temas (Agente 3 — Temas + Motores Psicologicos) ---
 
 @app.post("/api/analise-temas/{channel_id}")
@@ -8351,8 +8383,17 @@ async def get_theme_analysis_run(channel_id: str, run_id: int):
 
 @app.delete("/api/analise-temas/{channel_id}/run/{run_id}")
 async def delete_theme_analysis_run(channel_id: str, run_id: int):
-    """Deleta um relatorio especifico. Videos do relatorio voltam a ser 'novos' na proxima analise."""
+    """Deleta um relatorio especifico. Auto-deleta motor runs vinculados (FK)."""
     try:
+        # Deletar motor runs vinculados (FK sem CASCADE)
+        try:
+            motor_runs = db.supabase.table('motor_analysis_runs').select('id').eq('theme_run_id', run_id).execute()
+            for mr in (motor_runs.data or []):
+                motor_delete_analysis(channel_id, mr['id'])
+                logger.info(f"Motor run {mr['id']} deletado (vinculado ao theme {run_id})")
+        except Exception as fk_err:
+            logger.warning(f"Falha ao deletar motor runs vinculados ao theme {run_id}: {fk_err}")
+
         result = theme_delete_analysis(channel_id, run_id)
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error", "Erro ao deletar"))
@@ -8965,6 +9006,8 @@ body {
 .history-item:hover { border-color: var(--accent); background: var(--accent-dim); }
 .history-date { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-weight: 600; }
 .history-info { color: var(--text-muted); font-size: 0.8rem; }
+.history-del-btn { background:none; border:1px solid rgba(239,68,68,0.3); color:#ef4444; font-size:0.7rem; padding:2px 6px; border-radius:4px; cursor:pointer; transition:all 0.15s; margin-left:8px; flex-shrink:0; }
+.history-del-btn:hover { background:rgba(239,68,68,0.15); border-color:#ef4444; }
 
 /* Tabs */
 .tabs-bar {
@@ -9164,11 +9207,11 @@ var _agentData = {};
 var _activeTab = 'copy';
 
 var AGENTS = [
-    {key:'copy', label:'Copy', getUrl:'/api/analise-copy/{id}/latest', postUrl:'/api/analise-copy/{id}', histUrl:'/api/analise-copy/{id}/historico'},
-    {key:'satisfacao', label:'Satisfacao', getUrl:'/api/analise-satisfacao/{id}/latest', postUrl:'/api/analise-satisfacao/{id}', histUrl:'/api/analise-satisfacao/{id}/historico'},
-    {key:'autenticidade', label:'Autenticidade', getUrl:'/api/analise-autenticidade/{id}/latest', postUrl:'/api/analise-autenticidade/{id}', histUrl:'/api/analise-autenticidade/{id}/historico'},
-    {key:'temas', label:'Temas', getUrl:'/api/analise-temas/{id}/latest', postUrl:'/api/analise-temas/{id}', histUrl:'/api/analise-temas/{id}/historico'},
-    {key:'motores', label:'Motores', getUrl:'/api/analise-motores/{id}/latest', postUrl:'/api/analise-motores/{id}', histUrl:'/api/analise-motores/{id}/historico'}
+    {key:'copy', label:'Copy', getUrl:'/api/analise-copy/{id}/latest', postUrl:'/api/analise-copy/{id}', histUrl:'/api/analise-copy/{id}/historico', delUrl:'/api/analise-copy/{id}/run/{runId}'},
+    {key:'satisfacao', label:'Satisfacao', getUrl:'/api/analise-satisfacao/{id}/latest', postUrl:'/api/analise-satisfacao/{id}', histUrl:'/api/analise-satisfacao/{id}/historico', delUrl:'/api/analise-satisfacao/{id}/run/{runId}'},
+    {key:'autenticidade', label:'Autenticidade', getUrl:'/api/analise-autenticidade/{id}/latest', postUrl:'/api/analise-autenticidade/{id}', histUrl:'/api/analise-autenticidade/{id}/historico', delUrl:'/api/analise-autenticidade/{id}/run/{runId}'},
+    {key:'temas', label:'Temas', getUrl:'/api/analise-temas/{id}/latest', postUrl:'/api/analise-temas/{id}', histUrl:'/api/analise-temas/{id}/historico', delUrl:'/api/analise-temas/{id}/run/{runId}'},
+    {key:'motores', label:'Motores', getUrl:'/api/analise-motores/{id}/latest', postUrl:'/api/analise-motores/{id}', histUrl:'/api/analise-motores/{id}/historico', delUrl:'/api/analise-motores/{id}/run/{runId}'}
 ];
 
 function getSubnichoStyle(sub) {
@@ -9811,8 +9854,11 @@ function showAgentHistory(agentKey) {
                 if (item.authenticity_score != null) info += ' | score: ' + Math.round(item.authenticity_score);
                 if (item.theme_count != null) info += ' | ' + item.theme_count + ' temas';
                 html += '<div class="history-item">';
-                html += '<span class="history-date">' + dateStr + '</span>';
+                html += '<div style="flex:1;min-width:0;">';
+                html += '<span class="history-date">' + dateStr + '</span> ';
                 html += '<span class="history-info">' + info + '</span>';
+                html += '</div>';
+                html += '<button class="history-del-btn" onclick="event.stopPropagation();deleteAgentRun(\\'' + agentKey + '\\',' + item.id + ')">X</button>';
                 html += '</div>';
             }
             el.innerHTML = html;
@@ -9820,6 +9866,23 @@ function showAgentHistory(agentKey) {
         .catch(function(e) {
             el.innerHTML = '<div class="empty-state"><p>Erro: ' + e.message + '</p></div>';
         });
+}
+
+function deleteAgentRun(agentKey, runId) {
+    if (!_selectedChannel) return;
+    if (!window.confirm('Deletar run #' + runId + ' de ' + agentKey + '? Videos serao tratados como novos na proxima analise.')) return;
+    var agentInfo = AGENTS.filter(function(a) { return a.key === agentKey; })[0];
+    var url = agentInfo.delUrl.replace('{id}', _selectedChannel).replace('{runId}', runId);
+    fetch(url, { method: 'DELETE' })
+        .then(function(r) {
+            if (!r.ok) throw new Error('Erro ' + r.status);
+            return r.json();
+        })
+        .then(function(data) {
+            showAgentHistory(agentKey);
+            loadAllAgents(_selectedChannel);
+        })
+        .catch(function(e) { alert('Erro ao deletar: ' + e.message); });
 }
 
 function closeHistory() {

@@ -1889,6 +1889,27 @@ def get_video_mappings(
     }
 
 
+def delete_analysis(channel_id: str, run_id: int) -> Dict:
+    """Deleta um run especifico de copy_analysis_runs."""
+    resp = requests.delete(
+        f"{SUPABASE_URL}/rest/v1/copy_analysis_runs",
+        params={
+            "id": f"eq.{run_id}",
+            "channel_id": f"eq.{channel_id}"
+        },
+        headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}"
+        }
+    )
+    if resp.status_code in (200, 204):
+        logger.info(f"Copy run deletado: channel={channel_id}, run_id={run_id}")
+        return {"success": True, "message": f"Run {run_id} deletado"}
+    else:
+        logger.error(f"Erro ao deletar copy run: {resp.status_code} - {resp.text[:200]}")
+        return {"success": False, "error": resp.text[:200]}
+
+
 def get_all_channels_for_analysis() -> List[Dict]:
     """Retorna todos canais nosso com spreadsheet configurado."""
     all_channels = []

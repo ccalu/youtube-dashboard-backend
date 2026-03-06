@@ -1472,6 +1472,27 @@ def get_analysis_history(channel_id: str, limit: int = 20, offset: int = 0) -> D
     }
 
 
+def delete_analysis(channel_id: str, run_id: int) -> Dict:
+    """Deleta um run especifico de authenticity_analysis_runs."""
+    resp = requests.delete(
+        f"{SUPABASE_URL}/rest/v1/authenticity_analysis_runs",
+        params={
+            "id": f"eq.{run_id}",
+            "channel_id": f"eq.{channel_id}"
+        },
+        headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}"
+        }
+    )
+    if resp.status_code in (200, 204):
+        logger.info(f"Autenticidade run deletado: channel={channel_id}, run_id={run_id}")
+        return {"success": True, "message": f"Run {run_id} deletado"}
+    else:
+        logger.error(f"Erro ao deletar autenticidade run: {resp.status_code} - {resp.text[:200]}")
+        return {"success": False, "error": resp.text[:200]}
+
+
 def get_risk_overview() -> Dict:
     """Retorna overview de autenticidade de todos os canais."""
     # Buscar a analise mais recente de cada canal
