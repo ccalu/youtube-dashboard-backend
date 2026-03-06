@@ -2199,7 +2199,7 @@ function flipHorizontal(template) {
 // -- Agent Palettes (Custom for Mission Control) -------------
 
 var AGENT_PALETTES = [
-  {skin:'#FFCC99', shirt:'#3b82f6', pants:'#334466', hair:'#4a3728', shoes:'#222222'},  // Ag1 Copy
+  {skin:'#FFCC99', shirt:'#22c55e', pants:'#334466', hair:'#4a3728', shoes:'#222222'},  // Ag1 Copy
   {skin:'#FFCC99', shirt:'#10b981', pants:'#334444', hair:'#6b4423', shoes:'#222222'},  // Ag2 Satisfacao
   {skin:'#e8b88a', shirt:'#ef4444', pants:'#333333', hair:'#1a1a1a', shoes:'#222222'},  // Ag3 Autenticidade
   {skin:'#FFCC99', shirt:'#f97316', pants:'#444433', hair:'#c0392b', shoes:'#333333'},  // Ag4 Temas
