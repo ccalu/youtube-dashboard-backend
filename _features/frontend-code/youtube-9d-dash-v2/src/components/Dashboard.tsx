@@ -211,11 +211,13 @@ const DashboardContent = () => {
             </div>
           </div>
 
-          {/* Main Content with transition + stagger */}
+          {/* Main Content with tab transition */}
           <div
             key={contentKey}
-            className={`transition-opacity duration-150 ${
-              isTransitioning ? 'opacity-0' : 'opacity-100'
+            className={`transition-all duration-300 ease-out ${
+              isTransitioning
+                ? 'opacity-0 translate-y-3'
+                : 'opacity-100 translate-y-0'
             }`}
           >
             {renderContent()}
