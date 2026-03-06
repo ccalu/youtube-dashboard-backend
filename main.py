@@ -8595,11 +8595,16 @@ except Exception as e:
 async def dash_copy_analysis_channels():
     """Lista canais com copy_spreadsheet_id agrupados por subnicho + ultima analise."""
     try:
-        # 1. Busca canais com copy_spreadsheet_id (direto via supabase client)
+        # 1. Busca canais com OAuth (mesma logica do dash-upload e mission control)
+        from daily_uploader import get_oauth_channel_ids
+        oauth_ids = list(get_oauth_channel_ids())
+        if not oauth_ids:
+            return {"subnichos": {}, "stats": {"total": 0, "com_relatorio": 0}}
+
         ch_resp = supabase.table("yt_channels")\
             .select("channel_id,channel_name,subnicho,is_monetized,lingua")\
             .eq("is_active", True)\
-            .not_.is_("copy_spreadsheet_id", "null")\
+            .in_("channel_id", oauth_ids)\
             .order("is_monetized", desc=True)\
             .order("channel_name")\
             .execute()
@@ -9067,17 +9072,17 @@ body {
     gap: 0.4rem;
 }
 .tab-btn:hover { color: var(--text-secondary); }
-.tab-btn[data-agent="copy"]:hover { color: #00d4aa; }
-.tab-btn[data-agent="satisfacao"]:hover { color: #ff9f43; }
-.tab-btn[data-agent="autenticidade"]:hover { color: #a78bfa; }
-.tab-btn[data-agent="temas"]:hover { color: #ffd93d; }
-.tab-btn[data-agent="motores"]:hover { color: #54a0ff; }
+.tab-btn[data-agent="copy"]:hover { color: #3b82f6; }
+.tab-btn[data-agent="satisfacao"]:hover { color: #0EB981; }
+.tab-btn[data-agent="autenticidade"]:hover { color: #EF4444; }
+.tab-btn[data-agent="temas"]:hover { color: #F87315; }
+.tab-btn[data-agent="motores"]:hover { color: #A855F7; }
 .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
-.tab-btn.active[data-agent="copy"] { color: #00d4aa; border-bottom-color: #00d4aa; }
-.tab-btn.active[data-agent="satisfacao"] { color: #ff9f43; border-bottom-color: #ff9f43; }
-.tab-btn.active[data-agent="autenticidade"] { color: #a78bfa; border-bottom-color: #a78bfa; }
-.tab-btn.active[data-agent="temas"] { color: #ffd93d; border-bottom-color: #ffd93d; }
-.tab-btn.active[data-agent="motores"] { color: #54a0ff; border-bottom-color: #54a0ff; }
+.tab-btn.active[data-agent="copy"] { color: #3b82f6; border-bottom-color: #3b82f6; }
+.tab-btn.active[data-agent="satisfacao"] { color: #0EB981; border-bottom-color: #0EB981; }
+.tab-btn.active[data-agent="autenticidade"] { color: #EF4444; border-bottom-color: #EF4444; }
+.tab-btn.active[data-agent="temas"] { color: #F87315; border-bottom-color: #F87315; }
+.tab-btn.active[data-agent="motores"] { color: #A855F7; border-bottom-color: #A855F7; }
 .tab-dot {
     width: 6px;
     height: 6px;
@@ -9086,11 +9091,11 @@ body {
     opacity: 0.3;
 }
 .tab-dot.has-data { background: var(--accent); opacity: 1; }
-[data-agent="copy"] .tab-dot.has-data { background: #00d4aa; }
-[data-agent="satisfacao"] .tab-dot.has-data { background: #ff9f43; }
-[data-agent="autenticidade"] .tab-dot.has-data { background: #a78bfa; }
-[data-agent="temas"] .tab-dot.has-data { background: #ffd93d; }
-[data-agent="motores"] .tab-dot.has-data { background: #54a0ff; }
+[data-agent="copy"] .tab-dot.has-data { background: #3b82f6; }
+[data-agent="satisfacao"] .tab-dot.has-data { background: #0EB981; }
+[data-agent="autenticidade"] .tab-dot.has-data { background: #EF4444; }
+[data-agent="temas"] .tab-dot.has-data { background: #F87315; }
+[data-agent="motores"] .tab-dot.has-data { background: #A855F7; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 .tab-run-btn {
@@ -9111,11 +9116,11 @@ body {
 .btn-history { background: var(--bg-tertiary); color: var(--blue); border: 1px solid rgba(84,160,255,0.3); }
 .btn-history:hover { border-color: var(--blue); background: rgba(84,160,255,0.1); }
 .agent-tag { display: inline-block; font-size: 0.6rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; padding: 2px 6px; border-radius: 4px; margin: 1px 2px; }
-.agent-tag.copy { background: rgba(0,212,170,0.2); color: #00d4aa; }
-.agent-tag.satisfacao { background: rgba(255,159,67,0.2); color: #ff9f43; }
-.agent-tag.autenticidade { background: rgba(167,139,250,0.2); color: #a78bfa; }
-.agent-tag.temas { background: rgba(255,217,61,0.2); color: #ffd93d; }
-.agent-tag.motores { background: rgba(84,160,255,0.2); color: #54a0ff; }
+.agent-tag.copy { background: rgba(59,130,246,0.2); color: #3b82f6; }
+.agent-tag.satisfacao { background: rgba(14,185,129,0.2); color: #0EB981; }
+.agent-tag.autenticidade { background: rgba(239,68,68,0.2); color: #EF4444; }
+.agent-tag.temas { background: rgba(248,115,21,0.2); color: #F87315; }
+.agent-tag.motores { background: rgba(168,85,247,0.2); color: #A855F7; }
 .hist-date-row { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; border-radius: 8px; cursor: pointer; transition: all 0.15s; margin-bottom: 4px; border: 1px solid var(--border); }
 .hist-date-row:hover { border-color: var(--blue); background: rgba(84,160,255,0.08); }
 .hist-date-label { font-family: 'JetBrains Mono', monospace; color: var(--blue); font-weight: 600; font-size: 0.85rem; }
@@ -9166,6 +9171,8 @@ body {
         z-index: 15;
     }
     .sidebar.open { transform: translateX(0); }
+    .sidebar { padding-top: 60px; }
+    .sidebar-title { display: none; }
     .main { margin-left: 0; padding: 1rem; padding-top: 60px; }
     .main-header { flex-direction: column; align-items: flex-start; gap: 0.8rem; }
     .main-title { font-size: 1rem; }
@@ -9266,15 +9273,27 @@ var AGENTS = [
 
 function getSubnichoStyle(sub) {
     var map = {
-        'Monetizados': {color:'#22c55e', icon:'$'},
-        'Historias Sombrias': {color:'#8b5cf6', icon:'\u265B'},
-        'Relatos de Guerra': {color:'#4a8c50', icon:'\u2694'},
-        'Guerras e Civilizacoes': {color:'#f97316', icon:'\u26E8'},
-        'Guerras e Civiliza\u00e7\u00f5es': {color:'#f97316', icon:'\u26E8'},
-        'Terror': {color:'#7c1d3e', icon:'\u2620'},
-        'Desmonetizados': {color:'#ef4444', icon:'\u25CB'}
+        'Monetizados': {color:'#22c55e', icon:'\uD83D\uDCB8'},
+        'Historias Sombrias': {color:'#7C3AED', icon:'\uD83E\uDD87'},
+        'Relatos de Guerra': {color:'#65A30D', icon:'\u2694\uFE0F'},
+        'Guerras e Civilizacoes': {color:'#EA580C', icon:'\uD83D\uDEE1\uFE0F'},
+        'Guerras e Civiliza\u00e7\u00f5es': {color:'#EA580C', icon:'\uD83D\uDEE1\uFE0F'},
+        'Terror': {color:'#7C2D12', icon:'\uD83D\uDC7B'},
+        'Desmonetizados': {color:'#B91C1C', icon:'\u274C'},
+        'Frentes de Guerra': {color:'#166534', icon:'\uD83D\uDCA3'},
+        'Culturas Macabras': {color:'#831843', icon:'\uD83D\uDC80'},
+        'Reis Perversos': {color:'#581C87', icon:'\uD83D\uDC51'},
+        'Historias Aleatorias': {color:'#E879A0', icon:'\uD83D\uDCDA'},
+        'Misterios': {color:'#4F46E5', icon:'\uD83D\uDC7D'},
+        'Antiguidade': {color:'#D97706', icon:'\uD83C\uDFDB\uFE0F'},
+        'Historias Motivacionais': {color:'#65A30D', icon:'\uD83C\uDF1F'},
+        'Pessoas Desaparecidas': {color:'#0284C7', icon:'\uD83D\uDD0E'},
+        'Conspiracao': {color:'#0891B2', icon:'\uD83D\uDD0D'},
+        'Registros Malditos': {color:'#CA8A04', icon:'\uD83D\uDC7A'},
+        'Empreendedorismo': {color:'#F59E0B', icon:'\uD83D\uDCB0'},
+        'Noticias e Atualidade': {color:'#F43F5E', icon:'\uD83D\uDCF0'}
     };
-    return map[sub] || {color:'#64748b', icon:'\u25C6'};
+    return map[sub] || {color:'#64748b', icon:'\uD83D\uDCFA'};
 }
 
 function getFlag(lingua) {
