@@ -127,7 +127,6 @@
   }
 
   .glass:hover {
-    background: var(--glass-bg-hover);
     border-color: var(--glass-border-hover);
   }
 
