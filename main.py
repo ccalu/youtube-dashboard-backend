@@ -6239,6 +6239,7 @@ DASH_UPLOAD_HTML = '''
         .stat-value--erro { color: var(--error); }
         .stat-value--historico { color: var(--accent); font-size: 32px; }
         .stat-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-tertiary); }
+        .label-short { display: none; }
         .content { padding: 0 32px; }
         .section { background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: var(--radius-lg); margin-bottom: 16px; overflow: hidden; border-left: 3px solid var(--section-accent, var(--border-primary)); }
         .section-header { padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; transition: background 0.15s ease; }
@@ -6367,6 +6368,8 @@ DASH_UPLOAD_HTML = '''
             .stat-value { font-size: 18px; }
             .stat-value--historico { font-size: 18px; }
             .stat-label { font-size: 9px; }
+            .label-full { display: none; }
+            .label-short { display: inline; }
             .content { padding: 0 8px; }
             .section-header { flex-direction: row; align-items: center; gap: 8px; padding: 12px 14px; }
             .section-title { flex: 1; min-width: 0; overflow: hidden; font-size: 13px; gap: 6px; }
@@ -6435,19 +6438,19 @@ DASH_UPLOAD_HTML = '''
     <div class="stats-grid">
         <div class="stat-card stat-card--total" id="card-total" onclick="toggleFiltro(null)">
             <div class="stat-value stat-value--total" id="total">-</div>
-            <div class="stat-label">Total de Canais</div>
+            <div class="stat-label"><span class="label-full">Total de Canais</span><span class="label-short">Total</span></div>
         </div>
         <div class="stat-card stat-card--sucesso" id="card-sucesso" onclick="toggleFiltro('sucesso')">
             <div class="stat-value stat-value--sucesso" id="sucesso">-</div>
-            <div class="stat-label">Upload com Sucesso</div>
+            <div class="stat-label"><span class="label-full">Upload com Sucesso</span><span class="label-short">Sucesso</span></div>
         </div>
         <div class="stat-card stat-card--sem_video" id="card-sem_video" onclick="toggleFiltro('sem_video')">
             <div class="stat-value stat-value--sem_video" id="sem_video">-</div>
-            <div class="stat-label">Sem Video</div>
+            <div class="stat-label"><span class="label-full">Sem Video</span><span class="label-short">S/ Video</span></div>
         </div>
         <div class="stat-card stat-card--erro" id="card-erro" onclick="toggleFiltro('erro')">
             <div class="stat-value stat-value--erro" id="erro">-</div>
-            <div class="stat-label">Com Erro</div>
+            <div class="stat-label"><span class="label-full">Com Erro</span><span class="label-short">Erro</span></div>
         </div>
         <div class="stat-card stat-card--historico" onclick="abrirHistoricoCompleto()">
             <div class="stat-value stat-value--historico">&#x1F4DC;</div>
