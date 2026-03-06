@@ -39,10 +39,10 @@ function DashboardParticles() {
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
-      size: Math.random() * 4 + 2,
-      duration: Math.random() * 14 + 10,
-      delay: Math.random() * -16,
-      opacity: Math.random() * 0.25 + 0.15,
+      size: Math.random() * 5 + 3,
+      duration: Math.random() * 12 + 8,
+      delay: Math.random() * -14,
+      opacity: Math.random() * 0.35 + 0.25,
     })), []);
 
   return (
