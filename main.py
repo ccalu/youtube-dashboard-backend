@@ -6212,7 +6212,13 @@ DASH_UPLOAD_HTML = '''
         .stat-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-tertiary); }
         .content { padding: 0 32px; }
         .section { background: var(--bg-secondary); border: 1px solid var(--border-primary); border-radius: var(--radius-lg); margin-bottom: 16px; overflow: hidden; border-left: 3px solid var(--section-accent, var(--border-primary)); }
-        .section-header { padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-primary); }
+        .section-header { padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; transition: background 0.15s ease; }
+        .section-header:hover { background: rgba(255,255,255,0.03); }
+        .section.section--open .section-header { border-bottom: 1px solid var(--border-primary); }
+        .section-body { display: none; }
+        .section.section--open .section-body { display: block; }
+        .section-toggle { font-size: 10px; color: var(--text-tertiary); transition: transform 0.2s ease; margin-right: 4px; }
+        .section.section--open .section-toggle { transform: rotate(90deg); }
         .section-title { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
         .section-icon { width: 28px; height: 28px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; background: var(--section-accent-muted, var(--bg-tertiary)); color: var(--section-accent, var(--text-secondary)); }
         .section-count { font-size: 12px; font-weight: 400; color: var(--text-tertiary); }
@@ -6222,6 +6228,7 @@ DASH_UPLOAD_HTML = '''
         .stat-pill--warning { background: var(--warning-muted); color: var(--warning); }
         .stat-pill--error { background: var(--error-muted); color: var(--error); }
         .stat-pill--pending { background: var(--pending-muted); color: var(--pending); }
+        .stat-pill--disp { background: var(--info-muted); color: var(--info); }
         .channel-table { width: 100%; border-collapse: collapse; }
         .channel-table th { padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-tertiary); border-bottom: 1px solid var(--border-primary); background: transparent; }
         .channel-table td { padding: 10px 16px; font-size: 13px; border-bottom: 1px solid var(--border-primary); vertical-align: middle; }
@@ -6808,6 +6815,15 @@ DASH_UPLOAD_HTML = '''
             btn = e.target.closest('.btn-icon--upload');
             if (btn) { forcarUpload(btn.getAttribute('data-channel-id'), btn.getAttribute('data-channel-name')); return; }
         });
+
+        /* ========== SECTION TOGGLE ========== */
+        var _openSections = new Set();
+        function toggleSection(subnicho) {
+            if (_openSections.has(subnicho)) _openSections.delete(subnicho);
+            else _openSections.add(subnicho);
+            var el = document.querySelector('[data-section="' + subnicho + '"]');
+            if (el) el.classList.toggle('section--open');
+        }
 
         /* ========== BATCH UPLOAD ========== */
         var _batchSelected = new Set();
@@ -10956,6 +10972,10 @@ _DASH_DIR = pathlib.Path(__file__).resolve().parent / "static" / "dash"
 
 if _DASH_DIR.is_dir():
     app.mount("/dash", StaticFiles(directory=str(_DASH_DIR), html=True), name="react-dashboard")
+
+_DASH_V2_DIR = pathlib.Path(__file__).resolve().parent / "static" / "dash-v2"
+if _DASH_V2_DIR.is_dir():
+    app.mount("/dash-v2", StaticFiles(directory=str(_DASH_V2_DIR), html=True), name="react-dashboard-v2")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
