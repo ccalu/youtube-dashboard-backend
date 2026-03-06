@@ -298,12 +298,12 @@ export function AppSidebar({
       {/* Header com logo */}
       <SidebarHeader className="p-3 sm:p-4 border-b border-white/[0.06] overflow-hidden gradient-line-bottom">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-600 to-violet-500 flex items-center justify-center shadow-md shadow-purple-500/20 shrink-0">
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-red-600 to-red-500 flex items-center justify-center shadow-md shadow-red-500/20 shrink-0">
             <svg viewBox="0 0 24 24" className="h-4 w-4 text-white fill-current">
               <path d="M10 15l5.19-3L10 9v6m11.56-7.83c.13.47.22 1.1.28 1.9.07.8.1 1.49.1 2.09L22 12c0 2.19-.16 3.8-.44 4.83-.25.9-.83 1.48-1.73 1.73-.47.13-1.33.22-2.65.28-1.3.07-2.49.1-3.59.1L12 19c-4.19 0-6.8-.16-7.83-.44-.9-.25-1.48-.83-1.73-1.73-.13-.47-.22-1.1-.28-1.9-.07-.8-.1-1.49-.1-2.09L2 12c0-2.19.16-3.8.44-4.83.25-.9.83-1.48 1.73-1.73.47-.13 1.33-.22 2.65-.28 1.3-.07 2.49-.1 3.59-.1L12 5c4.19 0 6.8.16 7.83.44.9.25 1.48.83 1.73 1.73z"/>
             </svg>
           </div>
-          <h2 className="text-base font-bold text-foreground truncate">YouTube Dashboard</h2>
+          <h2 className="text-base font-bold truncate bg-gradient-to-r from-red-400 via-red-500 to-orange-400 bg-clip-text text-transparent">YouTube Dashboard</h2>
         </div>
       </SidebarHeader>
       

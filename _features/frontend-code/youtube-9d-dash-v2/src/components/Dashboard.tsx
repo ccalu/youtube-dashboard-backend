@@ -168,10 +168,10 @@ const DashboardContent = () => {
             </SidebarTrigger>
 
             <div className="text-center">
-              <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-purple-400 via-violet-400 to-cyan-400 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-red-400 via-red-500 to-orange-400 bg-clip-text text-transparent">
                 YouTube Dashboard
               </h1>
-              <div className="mt-2 h-px w-48 mx-auto bg-gradient-to-r from-transparent via-purple-500/50 to-transparent" />
+              <div className="mt-2 h-px w-48 mx-auto bg-gradient-to-r from-transparent via-red-500/50 to-transparent" />
             </div>
 
             {/* Last update indicator */}
