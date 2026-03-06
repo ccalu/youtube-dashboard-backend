@@ -9072,17 +9072,17 @@ body {
     gap: 0.4rem;
 }
 .tab-btn:hover { color: var(--text-secondary); }
-.tab-btn[data-agent="copy"]:hover { color: #00d4aa; }
-.tab-btn[data-agent="satisfacao"]:hover { color: #ff9f43; }
-.tab-btn[data-agent="autenticidade"]:hover { color: #a78bfa; }
-.tab-btn[data-agent="temas"]:hover { color: #ffd93d; }
-.tab-btn[data-agent="motores"]:hover { color: #54a0ff; }
+.tab-btn[data-agent="copy"]:hover { color: #3b82f6; }
+.tab-btn[data-agent="satisfacao"]:hover { color: #0EB981; }
+.tab-btn[data-agent="autenticidade"]:hover { color: #EF4444; }
+.tab-btn[data-agent="temas"]:hover { color: #F87315; }
+.tab-btn[data-agent="motores"]:hover { color: #A855F7; }
 .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
-.tab-btn.active[data-agent="copy"] { color: #00d4aa; border-bottom-color: #00d4aa; }
-.tab-btn.active[data-agent="satisfacao"] { color: #ff9f43; border-bottom-color: #ff9f43; }
-.tab-btn.active[data-agent="autenticidade"] { color: #a78bfa; border-bottom-color: #a78bfa; }
-.tab-btn.active[data-agent="temas"] { color: #ffd93d; border-bottom-color: #ffd93d; }
-.tab-btn.active[data-agent="motores"] { color: #54a0ff; border-bottom-color: #54a0ff; }
+.tab-btn.active[data-agent="copy"] { color: #3b82f6; border-bottom-color: #3b82f6; }
+.tab-btn.active[data-agent="satisfacao"] { color: #0EB981; border-bottom-color: #0EB981; }
+.tab-btn.active[data-agent="autenticidade"] { color: #EF4444; border-bottom-color: #EF4444; }
+.tab-btn.active[data-agent="temas"] { color: #F87315; border-bottom-color: #F87315; }
+.tab-btn.active[data-agent="motores"] { color: #A855F7; border-bottom-color: #A855F7; }
 .tab-dot {
     width: 6px;
     height: 6px;
@@ -9091,11 +9091,11 @@ body {
     opacity: 0.3;
 }
 .tab-dot.has-data { background: var(--accent); opacity: 1; }
-[data-agent="copy"] .tab-dot.has-data { background: #00d4aa; }
-[data-agent="satisfacao"] .tab-dot.has-data { background: #ff9f43; }
-[data-agent="autenticidade"] .tab-dot.has-data { background: #a78bfa; }
-[data-agent="temas"] .tab-dot.has-data { background: #ffd93d; }
-[data-agent="motores"] .tab-dot.has-data { background: #54a0ff; }
+[data-agent="copy"] .tab-dot.has-data { background: #3b82f6; }
+[data-agent="satisfacao"] .tab-dot.has-data { background: #0EB981; }
+[data-agent="autenticidade"] .tab-dot.has-data { background: #EF4444; }
+[data-agent="temas"] .tab-dot.has-data { background: #F87315; }
+[data-agent="motores"] .tab-dot.has-data { background: #A855F7; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 .tab-run-btn {
@@ -9116,11 +9116,11 @@ body {
 .btn-history { background: var(--bg-tertiary); color: var(--blue); border: 1px solid rgba(84,160,255,0.3); }
 .btn-history:hover { border-color: var(--blue); background: rgba(84,160,255,0.1); }
 .agent-tag { display: inline-block; font-size: 0.6rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; padding: 2px 6px; border-radius: 4px; margin: 1px 2px; }
-.agent-tag.copy { background: rgba(0,212,170,0.2); color: #00d4aa; }
-.agent-tag.satisfacao { background: rgba(255,159,67,0.2); color: #ff9f43; }
-.agent-tag.autenticidade { background: rgba(167,139,250,0.2); color: #a78bfa; }
-.agent-tag.temas { background: rgba(255,217,61,0.2); color: #ffd93d; }
-.agent-tag.motores { background: rgba(84,160,255,0.2); color: #54a0ff; }
+.agent-tag.copy { background: rgba(59,130,246,0.2); color: #3b82f6; }
+.agent-tag.satisfacao { background: rgba(14,185,129,0.2); color: #0EB981; }
+.agent-tag.autenticidade { background: rgba(239,68,68,0.2); color: #EF4444; }
+.agent-tag.temas { background: rgba(248,115,21,0.2); color: #F87315; }
+.agent-tag.motores { background: rgba(168,85,247,0.2); color: #A855F7; }
 .hist-date-row { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; border-radius: 8px; cursor: pointer; transition: all 0.15s; margin-bottom: 4px; border: 1px solid var(--border); }
 .hist-date-row:hover { border-color: var(--blue); background: rgba(84,160,255,0.08); }
 .hist-date-label { font-family: 'JetBrains Mono', monospace; color: var(--blue); font-weight: 600; font-size: 0.85rem; }
