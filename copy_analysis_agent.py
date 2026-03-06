@@ -1741,7 +1741,7 @@ def _get_channel_info(channel_id: str) -> Optional[Dict]:
         f"{SUPABASE_URL}/rest/v1/yt_channels",
         params={
             "channel_id": f"eq.{channel_id}",
-            "select": "channel_id,channel_name,copy_spreadsheet_id,subnicho,lingua,is_monetized"
+            "select": "channel_id,channel_name,spreadsheet_id,copy_spreadsheet_id,subnicho,lingua,is_monetized"
         },
         headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
     )

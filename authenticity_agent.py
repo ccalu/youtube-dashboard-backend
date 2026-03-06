@@ -97,6 +97,60 @@ STOPWORDS = {
 
 
 # =============================================================================
+# FILTRO: SO VIDEOS PUBLICADOS (COL K DA TRACKING PREENCHIDA)
+# =============================================================================
+
+def _get_published_titles_from_tracking(upload_spreadsheet_id: str) -> set:
+    """
+    Le a planilha de upload (tracking) e retorna set de titulos normalizados
+    que tem Col K (Post/published) preenchida.
+
+    Args:
+        upload_spreadsheet_id: spreadsheet_id da planilha de upload
+
+    Returns:
+        Set de titulos (lowercase stripped) que ja foram publicados
+    """
+    from _features.yt_uploader.sheets import get_sheets_client
+
+    try:
+        client = get_sheets_client()
+        spreadsheet = client.open_by_key(upload_spreadsheet_id)
+
+        worksheet = None
+        for name in ['Página1', 'Pagina1', 'Sheet1', 'Planilha1']:
+            try:
+                worksheet = spreadsheet.worksheet(name)
+                break
+            except Exception:
+                continue
+
+        if not worksheet:
+            worksheet = spreadsheet.sheet1
+            logger.warning(f"Tracking: nenhuma aba padrao, usando primeira: {worksheet.title}")
+
+        all_rows = worksheet.get_all_values()
+        published = set()
+
+        for i, row in enumerate(all_rows):
+            if i == 0:
+                continue  # Pula header
+
+            title = row[0].strip() if len(row) > 0 and row[0] else ""
+            post = row[10].strip() if len(row) > 10 and row[10] else ""
+
+            if title and post:
+                published.add(title.lower().strip())
+
+        logger.info(f"Tracking {upload_spreadsheet_id}: {len(published)} videos publicados (Col K preenchida)")
+        return published
+
+    except Exception as e:
+        logger.error(f"Erro ao ler tracking {upload_spreadsheet_id}: {e}")
+        return set()
+
+
+# =============================================================================
 # INCREMENTAL: SNAPSHOT + DETECCAO DE TITULOS NOVOS
 # =============================================================================
 
@@ -1283,20 +1337,37 @@ def run_analysis(channel_id: str) -> Dict:
         return {"success": False, "error": f"Canal {channel_id} nao encontrado em yt_channels"}
 
     channel_name = channel_info.get("channel_name", channel_id)
-    spreadsheet_id = channel_info.get("copy_spreadsheet_id")
+    copy_spreadsheet_id = channel_info.get("copy_spreadsheet_id")
+    upload_spreadsheet_id = channel_info.get("spreadsheet_id")
 
-    if not spreadsheet_id:
+    if not copy_spreadsheet_id:
         return {"success": False, "error": f"Canal {channel_name} nao tem copy_spreadsheet_id configurado"}
 
-    logger.info(f"Canal: {channel_name} | Planilha: {spreadsheet_id}")
+    logger.info(f"Canal: {channel_name} | Producao: {copy_spreadsheet_id} | Tracking: {upload_spreadsheet_id}")
 
-    # 2. Ler planilha (TODAS as linhas com coluna A preenchida)
-    sheet_data = read_copy_structures(spreadsheet_id)
+    # 2. Ler planilha de producao (Col A = estrutura, Col B = titulo)
+    sheet_data = read_copy_structures(copy_spreadsheet_id)
     if not sheet_data:
         return {"success": False, "error": f"Nenhum video com estrutura de copy na planilha"}
 
+    # 2b. Filtrar: so videos publicados (Col K preenchida na tracking)
+    if upload_spreadsheet_id:
+        published_titles = _get_published_titles_from_tracking(upload_spreadsheet_id)
+        if published_titles:
+            before = len(sheet_data)
+            sheet_data = [item for item in sheet_data
+                          if item.get("title", "").lower().strip() in published_titles]
+            logger.info(f"Filtro publicados: {before} -> {len(sheet_data)} videos (descartados {before - len(sheet_data)} nao publicados)")
+        else:
+            logger.warning(f"Nenhum video publicado na tracking — usando todos da producao")
+    else:
+        logger.warning(f"Canal {channel_name} sem spreadsheet_id (tracking) — usando todos da producao")
+
+    if not sheet_data:
+        return {"success": False, "error": f"Nenhum video publicado com estrutura de copy"}
+
     if len(sheet_data) < 3:
-        return {"success": False, "error": f"Minimo 3 videos necessarios, encontrados: {len(sheet_data)}"}
+        return {"success": False, "error": f"Minimo 3 videos publicados necessarios, encontrados: {len(sheet_data)}"}
 
     structures = [item["structure"] for item in sheet_data]
     titles = [item["title"] for item in sheet_data]
