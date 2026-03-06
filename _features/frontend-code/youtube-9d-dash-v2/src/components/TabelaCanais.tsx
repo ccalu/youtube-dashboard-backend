@@ -189,7 +189,7 @@ export function TabelaCanais() {
 
     return (
       <Card 
-        className="overflow-hidden bg-card border-border opacity-0 animate-fade-in-up"
+        className="overflow-hidden bg-card border-border opacity-0 animate-fade-in-up card-glow-pulse"
         style={{ animationDelay: `${animationDelay}ms` }}
       >
         <CardHeader
