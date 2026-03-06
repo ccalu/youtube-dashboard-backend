@@ -9273,15 +9273,27 @@ var AGENTS = [
 
 function getSubnichoStyle(sub) {
     var map = {
-        'Monetizados': {color:'#22c55e', icon:'$'},
-        'Historias Sombrias': {color:'#8b5cf6', icon:'\u265B'},
-        'Relatos de Guerra': {color:'#4a8c50', icon:'\u2694'},
-        'Guerras e Civilizacoes': {color:'#f97316', icon:'\u26E8'},
-        'Guerras e Civiliza\u00e7\u00f5es': {color:'#f97316', icon:'\u26E8'},
-        'Terror': {color:'#7c1d3e', icon:'\u2620'},
-        'Desmonetizados': {color:'#ef4444', icon:'\u25CB'}
+        'Monetizados': {color:'#22c55e', icon:'\uD83D\uDCB8'},
+        'Historias Sombrias': {color:'#7C3AED', icon:'\uD83E\uDD87'},
+        'Relatos de Guerra': {color:'#65A30D', icon:'\u2694\uFE0F'},
+        'Guerras e Civilizacoes': {color:'#EA580C', icon:'\uD83D\uDEE1\uFE0F'},
+        'Guerras e Civiliza\u00e7\u00f5es': {color:'#EA580C', icon:'\uD83D\uDEE1\uFE0F'},
+        'Terror': {color:'#7C2D12', icon:'\uD83D\uDC7B'},
+        'Desmonetizados': {color:'#B91C1C', icon:'\u274C'},
+        'Frentes de Guerra': {color:'#166534', icon:'\uD83D\uDCA3'},
+        'Culturas Macabras': {color:'#831843', icon:'\uD83D\uDC80'},
+        'Reis Perversos': {color:'#581C87', icon:'\uD83D\uDC51'},
+        'Historias Aleatorias': {color:'#E879A0', icon:'\uD83D\uDCDA'},
+        'Misterios': {color:'#4F46E5', icon:'\uD83D\uDC7D'},
+        'Antiguidade': {color:'#D97706', icon:'\uD83C\uDFDB\uFE0F'},
+        'Historias Motivacionais': {color:'#65A30D', icon:'\uD83C\uDF1F'},
+        'Pessoas Desaparecidas': {color:'#0284C7', icon:'\uD83D\uDD0E'},
+        'Conspiracao': {color:'#0891B2', icon:'\uD83D\uDD0D'},
+        'Registros Malditos': {color:'#CA8A04', icon:'\uD83D\uDC7A'},
+        'Empreendedorismo': {color:'#F59E0B', icon:'\uD83D\uDCB0'},
+        'Noticias e Atualidade': {color:'#F43F5E', icon:'\uD83D\uDCF0'}
     };
-    return map[sub] || {color:'#64748b', icon:'\u25C6'};
+    return map[sub] || {color:'#64748b', icon:'\uD83D\uDCFA'};
 }
 
 function getFlag(lingua) {
