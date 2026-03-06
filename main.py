@@ -11127,9 +11127,16 @@ import pathlib
 _DASH_DIR = pathlib.Path(__file__).resolve().parent / "static" / "dash"
 _DASH_V2_DIR = pathlib.Path(__file__).resolve().parent / "static" / "dash-v2"
 
-# Mount /dash-v2 BEFORE /dash — Starlette matches by prefix, so /dash would catch /dash-v2 requests
+# Dash v2: SPA catch-all for client-side routes (e.g. /dash-v2/login)
 if _DASH_V2_DIR.is_dir():
-    app.mount("/dash-v2", StaticFiles(directory=str(_DASH_V2_DIR), html=True), name="react-dashboard-v2")
+    from fastapi.responses import FileResponse as _FileResponse
+
+    @app.get("/dash-v2/{full_path:path}")
+    async def serve_dash_v2_spa(full_path: str):
+        file_path = _DASH_V2_DIR / full_path
+        if full_path and file_path.is_file():
+            return _FileResponse(str(file_path))
+        return _FileResponse(str(_DASH_V2_DIR / "index.html"))
 
 if _DASH_DIR.is_dir():
     app.mount("/dash", StaticFiles(directory=str(_DASH_DIR), html=True), name="react-dashboard")
