@@ -6984,15 +6984,47 @@ async def dash_upload_status():
             .order('subnicho, channel_name')\
             .execute()
 
-        # Contar videos disponiveis por canal via cache das planilhas
+        # Contar videos disponiveis por canal (cache ou fetch real)
         uploader = DailyUploader()
         videos_disp_map = {}
+        canais_sem_cache = []
         for canal in (canais.data or []):
             sid = canal.get('spreadsheet_id')
-            if sid and sid in SPREADSHEET_CACHE:
+            if not sid:
+                continue
+            if sid in SPREADSHEET_CACHE:
                 cache_time, cached_data = SPREADSHEET_CACHE[sid]
                 if _time.time() - cache_time < CACHE_DURATION:
                     videos_disp_map[canal['channel_id']] = uploader.count_available_videos(cached_data)
+                    continue
+            canais_sem_cache.append(canal)
+
+        # Fetch planilhas sem cache em paralelo (max 5 simultaneos)
+        if canais_sem_cache and uploader.sheets_client:
+            import asyncio
+            sheets_sem = asyncio.Semaphore(5)
+            loop = asyncio.get_event_loop()
+
+            def _fetch_sheet_sync(spreadsheet_id):
+                sheet = uploader.sheets_client.open_by_key(spreadsheet_id)
+                worksheet = sheet.get_worksheet(0)
+                return worksheet.get_all_values()
+
+            async def _fetch_and_count(canal):
+                async with sheets_sem:
+                    try:
+                        sid = canal['spreadsheet_id']
+                        all_values = await loop.run_in_executor(None, _fetch_sheet_sync, sid)
+                        SPREADSHEET_CACHE[sid] = (_time.time(), all_values)
+                        return canal['channel_id'], uploader.count_available_videos(all_values)
+                    except Exception as e:
+                        logger.warning(f"[DASH-STATUS] Erro fetch planilha {canal.get('channel_name')}: {e}")
+                        return canal['channel_id'], None
+
+            results = await asyncio.gather(*[_fetch_and_count(c) for c in canais_sem_cache])
+            for cid, count in results:
+                if count is not None:
+                    videos_disp_map[cid] = count
 
         today = datetime.now(timezone.utc).date().isoformat()
         uploads = supabase.table('yt_canal_upload_diario')\
