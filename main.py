@@ -10974,13 +10974,14 @@ async def get_channel_ctr_data(channel_id: str, limit: int = 50):
 import pathlib
 
 _DASH_DIR = pathlib.Path(__file__).resolve().parent / "static" / "dash"
+_DASH_V2_DIR = pathlib.Path(__file__).resolve().parent / "static" / "dash-v2"
+
+# Mount /dash-v2 BEFORE /dash — Starlette matches by prefix, so /dash would catch /dash-v2 requests
+if _DASH_V2_DIR.is_dir():
+    app.mount("/dash-v2", StaticFiles(directory=str(_DASH_V2_DIR), html=True), name="react-dashboard-v2")
 
 if _DASH_DIR.is_dir():
     app.mount("/dash", StaticFiles(directory=str(_DASH_DIR), html=True), name="react-dashboard")
-
-_DASH_V2_DIR = pathlib.Path(__file__).resolve().parent / "static" / "dash-v2"
-if _DASH_V2_DIR.is_dir():
-    app.mount("/dash-v2", StaticFiles(directory=str(_DASH_V2_DIR), html=True), name="react-dashboard-v2")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
