@@ -44,20 +44,6 @@ const DashboardContent = () => {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
-
-  // Parallax background: track mouse position
-  useEffect(() => {
-    if (isMobile) return;
-    const handleMouseMove = (e: MouseEvent) => {
-      setMousePos({
-        x: (e.clientX / window.innerWidth) * 100,
-        y: (e.clientY / window.innerHeight) * 100,
-      });
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [isMobile]);
 
   const handleRefreshData = useCallback(async () => {
     setIsRefreshing(true);
@@ -173,19 +159,8 @@ const DashboardContent = () => {
         onOpenComments={() => handleTabChange('comments')}
       />
       
-      <main className="flex-1 min-h-screen overflow-x-hidden relative">
-        {/* Parallax background gradients */}
-        <div
-          className="fixed inset-0 pointer-events-none transition-[background-position] duration-[800ms] ease-out"
-          style={{
-            background: `
-              radial-gradient(ellipse 50% 40% at ${mousePos.x}% ${mousePos.y}%, rgba(239, 68, 68, 0.06), transparent),
-              radial-gradient(ellipse 40% 35% at ${100 - mousePos.x}% ${100 - mousePos.y}%, rgba(249, 115, 22, 0.04), transparent)
-            `,
-          }}
-        />
-
-        <div className="container mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-4 sm:pb-8 relative">
+      <main className="flex-1 min-h-screen overflow-x-hidden">
+        <div className="container mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-4 sm:pb-8">
           {/* Header with gradient line */}
           <div className="mb-6 sm:mb-8 flex items-center justify-center relative">
             <SidebarTrigger className="absolute left-0 h-9 w-9 sm:h-10 sm:w-10 rounded-lg glass hover:shadow-glow-purple transition-all duration-300">
@@ -209,12 +184,10 @@ const DashboardContent = () => {
             </div>
           </div>
 
-          {/* Main Content with tab transition */}
-          <div
-            className={`transition-all duration-300 ease-out ${
-              isTransitioning
-                ? 'opacity-0 translate-y-3'
-                : 'opacity-100 translate-y-0'
+          {/* Main Content with transition */}
+          <div 
+            className={`transition-opacity duration-150 ${
+              isTransitioning ? 'opacity-0' : 'opacity-100 animate-fade-in'
             }`}
           >
             {renderContent()}

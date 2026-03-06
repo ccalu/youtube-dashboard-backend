@@ -127,6 +127,7 @@
   }
 
   .glass:hover {
+    background: var(--glass-bg-hover);
     border-color: var(--glass-border-hover);
   }
 
@@ -238,27 +239,6 @@
   .scrollbar-track-transparent::-webkit-scrollbar-track {
     background: transparent;
   }
-
-  /* Card stagger fade-in — applies to direct Card children in content area */
-  .stagger-children > * {
-    opacity: 0;
-    animation: stagger-in 0.5s ease-out forwards;
-  }
-  .stagger-children > *:nth-child(1) { animation-delay: 0ms; }
-  .stagger-children > *:nth-child(2) { animation-delay: 60ms; }
-  .stagger-children > *:nth-child(3) { animation-delay: 120ms; }
-  .stagger-children > *:nth-child(4) { animation-delay: 180ms; }
-  .stagger-children > *:nth-child(5) { animation-delay: 240ms; }
-  .stagger-children > *:nth-child(6) { animation-delay: 300ms; }
-  .stagger-children > *:nth-child(7) { animation-delay: 360ms; }
-  .stagger-children > *:nth-child(8) { animation-delay: 420ms; }
-  .stagger-children > *:nth-child(n+9) { animation-delay: 480ms; }
-
-  @keyframes stagger-in {
-    0% { opacity: 0; transform: translateY(16px) scale(0.97); }
-    100% { opacity: 1; transform: translateY(0) scale(1); }
-  }
-
 
   /* Hover effects */
   .hover-lift {
