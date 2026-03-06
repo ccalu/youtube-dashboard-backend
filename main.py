@@ -6361,12 +6361,12 @@ DASH_UPLOAD_HTML = '''
             .modal-table th:nth-child(2), .modal-table td:nth-child(2) { padding-left: 4px; padding-right: 4px; }
             .modal-table th:nth-child(3), .modal-table td:nth-child(3) { text-align: center; }
             .stat-card--historico { display: none; }
-            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 0 12px; margin-bottom: 20px; }
+            .stats-grid { grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 0 8px; margin-bottom: 16px; }
             .btn-historico-mobile { display: inline-flex; }
-            .stat-card { padding: 14px 12px; min-height: 72px; }
-            .stat-value { font-size: 24px; }
-            .stat-value--historico { font-size: 24px; }
-            .stat-label { font-size: 10px; }
+            .stat-card { padding: 10px 8px; min-height: auto; }
+            .stat-value { font-size: 18px; }
+            .stat-value--historico { font-size: 18px; }
+            .stat-label { font-size: 9px; }
             .content { padding: 0 8px; }
             .section-header { flex-direction: row; align-items: center; gap: 8px; padding: 12px 14px; }
             .section-title { flex: 1; min-width: 0; overflow: hidden; font-size: 13px; gap: 6px; }
@@ -9463,6 +9463,8 @@ function loadAllAgents(channelId) {
                 _agentData[ag.key] = data;
                 var dot = document.getElementById('dot-' + ag.key);
                 if (dot && data) dot.classList.add('has-data');
+                // Renderizar imediatamente se esta eh a aba ativa
+                if (ag.key === _activeTab) renderActiveTab();
             })
             .catch(function() { _agentData[ag.key] = null; });
     });
@@ -9609,6 +9611,11 @@ function _runAgent(agentKey, area) {
     return fetch(url, { method: 'POST' })
         .then(function(r) { return r.json(); })
         .then(function(result) {
+            if (result && result.success === false) {
+                var errMsg = result.error || 'Erro desconhecido';
+                if (area) area.innerHTML = '<div class="empty-state" style="color:#ef4444;"><p>' + agentInfo.label + ': ' + escHtml(errMsg) + '</p></div>';
+                throw new Error(errMsg);
+            }
             var getUrl = agentInfo.getUrl.replace('{id}', _selectedChannel);
             return fetch(getUrl).then(function(r2) { return r2.status === 404 ? null : r2.json(); });
         })
