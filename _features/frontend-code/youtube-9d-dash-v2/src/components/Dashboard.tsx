@@ -75,7 +75,7 @@ function DashboardParticles() {
           viewBox="0 0 24 24"
           fill={getColor(p.id)}
         >
-          <path d="M12 0 L13.5 9 L24 12 L13.5 15 L12 24 L10.5 15 L0 12 L10.5 9 Z" />
+          <path d="M11 0 L13 0 L13 11 L24 11 L24 13 L13 13 L13 24 L11 24 L11 13 L0 13 L0 11 L11 11 Z" />
         </svg>
       ))}
     </div>
