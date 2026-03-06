@@ -5100,6 +5100,10 @@ async def force_upload_for_channel(channel_id: str, background_tasks: Background
 
                 logger.info(f"Resultado upload {canal_data['channel_name']}: {resultado}")
 
+                # Invalidar cache do dashboard para atualizar contagem de videos disponiveis
+                _dash_cache['data'] = None
+                _dash_cache['timestamp'] = 0
+
                 if resultado.get('status') == 'sem_video':
                     logger.warning(f"Nenhum video pronto na planilha de {canal_data['channel_name']}")
                 elif resultado.get('status') == 'erro':
@@ -6227,6 +6231,10 @@ DASH_UPLOAD_HTML = '''
         .status-badge--sem_video { background: var(--warning-muted); color: var(--warning); }
         .status-badge--error { background: var(--error-muted); color: var(--error); }
         .status-badge--pending { background: var(--pending-muted); color: var(--pending); }
+        .disp-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 22px; padding: 0 6px; border-radius: 9999px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .disp-badge--ok { background: var(--success-muted); color: var(--success); }
+        .disp-badge--zero { background: var(--warning-muted); color: var(--warning); }
+        .disp-badge--na { background: transparent; color: var(--text-tertiary); font-weight: 400; }
         .video-title { max-width: 350px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: 13px; }
         .cell-time { color: var(--text-tertiary); font-size: 13px; font-variant-numeric: tabular-nums; }
         .cell-actions { display: flex; gap: 4px; }
@@ -6727,7 +6735,7 @@ DASH_UPLOAD_HTML = '''
                                 if (ss.pendente > 0) html += '<span class="stat-pill stat-pill--pending">' + ss.pendente + ' pendente</span>';
                                 html += '</div></div>';
                                 html += '<table class="channel-table"><thead><tr>';
-                                html += '<th style="width:280px">Canal</th><th style="width:120px">Status</th><th>Video Enviado</th><th style="width:80px">Horario</th><th style="width:120px">Acoes</th>';
+                                html += '<th style="width:280px">Canal</th><th style="width:120px">Status</th><th style="width:55px;text-align:center">Disp.</th><th>Video Enviado</th><th style="width:80px">Horario</th><th style="width:120px">Acoes</th>';
                                 html += '</tr></thead><tbody>';
                                 var temCanais = false;
                                 for (var j = 0; j < canais.length; j++) {
@@ -6745,6 +6753,13 @@ DASH_UPLOAD_HTML = '''
                                     if (canal.is_monetized) html += '<span class="monetized-dot"></span>';
                                     html += '</div></td>';
                                     html += '<td><span class="status-badge ' + badgeClass + '">' + badgeText + '</span></td>';
+                                    var vd = canal.videos_disponiveis;
+                                    if (vd != null) {
+                                        var vdClass = vd > 0 ? 'disp-badge disp-badge--ok' : 'disp-badge disp-badge--zero';
+                                        html += '<td style="text-align:center"><span class="' + vdClass + '">' + vd + '</span></td>';
+                                    } else {
+                                        html += '<td style="text-align:center"><span class="disp-badge disp-badge--na">-</span></td>';
+                                    }
                                     html += '<td><span class="video-title">' + escapeHtml(truncarTitulo(canal.video_titulo)) + '</span></td>';
                                     html += '<td><span class="cell-time">' + formatTime(canal.hora_upload) + '</span></td>';
                                     html += '<td><div class="cell-actions">';
@@ -6764,7 +6779,7 @@ DASH_UPLOAD_HTML = '''
                                     } else { html += '<button class="btn-icon" disabled title="Sem planilha">&#x1F4D1;</button>'; }
                                     html += '</div></td></tr>';
                                 }
-                                if (!temCanais) html += '<tr><td colspan="5" style="text-align:center;color:var(--text-tertiary);padding:20px;">Nenhum canal com este filtro</td></tr>';
+                                if (!temCanais) html += '<tr><td colspan="6" style="text-align:center;color:var(--text-tertiary);padding:20px;">Nenhum canal com este filtro</td></tr>';
                                 html += '</tbody></table></div>';
                             }
                         }
@@ -6910,7 +6925,12 @@ DASH_UPLOAD_HTML = '''
             var polls = 0;
             _batchPolling = setInterval(function() {
                 polls++;
-                if (remaining.size === 0 || polls > maxPolls) { clearInterval(_batchPolling); _batchPolling = null; return; }
+                if (remaining.size === 0 || polls > maxPolls) {
+                    clearInterval(_batchPolling); _batchPolling = null;
+                    remaining.forEach(function(cid) { _uploadingSet.delete(cid); delete _statusBeforeUpload[cid]; });
+                    if (remaining.size > 0) atualizar();
+                    return;
+                }
                 var xhr = new XMLHttpRequest();
                 xhr.open('GET', '/api/dash-upload/status', true);
                 xhr.onreadystatechange = function() {
@@ -6919,13 +6939,13 @@ DASH_UPLOAD_HTML = '''
                             var data = JSON.parse(xhr.responseText);
                             remaining.forEach(function(cid) {
                                 var st = _getChannelStatus(data, cid);
-                                var prev = _statusBeforeUpload[cid];
-                                if (st && st !== prev && st !== 'pendente') {
+                                if (st === 'sucesso' || st === 'erro' || st === 'sem_video') {
                                     _uploadingSet.delete(cid);
                                     delete _statusBeforeUpload[cid];
                                     remaining.delete(cid);
                                     if (st === 'sucesso') { _successSet.add(cid); setTimeout(function() { _successSet.delete(cid); atualizar(); }, 15000); }
                                     else if (st === 'erro') { _errorSet.add(cid); setTimeout(function() { _errorSet.delete(cid); atualizar(); }, 5000); }
+                                    else if (st === 'sem_video') { _errorSet.add(cid); setTimeout(function() { _errorSet.delete(cid); atualizar(); }, 5000); }
                                 }
                             });
                             atualizar();
@@ -6950,6 +6970,7 @@ async def dash_upload_status():
     """Status dos canais de upload agrupados por subnicho"""
     import time as _time
     from collections import defaultdict
+    from daily_uploader import DailyUploader, SPREADSHEET_CACHE, CACHE_DURATION
 
     now = _time.time()
     if _dash_cache['data'] and (now - _dash_cache['timestamp']) < _DASH_CACHE_TTL:
@@ -6962,6 +6983,16 @@ async def dash_upload_status():
             .eq('upload_automatico', True)\
             .order('subnicho, channel_name')\
             .execute()
+
+        # Contar videos disponiveis por canal via cache das planilhas
+        uploader = DailyUploader()
+        videos_disp_map = {}
+        for canal in (canais.data or []):
+            sid = canal.get('spreadsheet_id')
+            if sid and sid in SPREADSHEET_CACHE:
+                cache_time, cached_data = SPREADSHEET_CACHE[sid]
+                if _time.time() - cache_time < CACHE_DURATION:
+                    videos_disp_map[canal['channel_id']] = uploader.count_available_videos(cached_data)
 
         today = datetime.now(timezone.utc).date().isoformat()
         uploads = supabase.table('yt_canal_upload_diario')\
@@ -7014,7 +7045,8 @@ async def dash_upload_status():
                 'is_monetized': canal.get('is_monetized', False),
                 'status': status,
                 'video_titulo': video_titulo,
-                'hora_upload': hora_upload
+                'hora_upload': hora_upload,
+                'videos_disponiveis': videos_disp_map.get(canal['channel_id'])
             })
 
         monetizados_forcados = ['UCzfZRuRHSp6erCwzuhjywFw', 'UCWYzVowgJ6LlxCcYlMGcLtA']
@@ -7352,6 +7384,10 @@ async def batch_upload(request: Request, background_tasks: BackgroundTasks):
                     logger.info(f"[BATCH-UPLOAD] {canal['channel_name']}: {status}")
                 except Exception as e:
                     logger.error(f"[BATCH-UPLOAD] Erro {canal['channel_name']}: {e}")
+
+                # Invalidar cache do dashboard apos cada canal
+                _dash_cache['data'] = None
+                _dash_cache['timestamp'] = 0
 
                 await asyncio.sleep(2)
 

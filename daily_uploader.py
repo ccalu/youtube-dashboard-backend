@@ -505,6 +505,27 @@ class DailyUploader:
 
         return None  # Nenhum vídeo pronto
 
+    def count_available_videos(self, all_values: List[List]) -> int:
+        """Conta quantos videos estao prontos para upload na planilha."""
+        count = 0
+        for i, row in enumerate(all_values[1:], start=2):
+            if len(row) < 15:
+                continue
+            name = row[0] if len(row) > 0 else ""
+            status = row[9] if len(row) > 9 else ""
+            post = row[10] if len(row) > 10 else ""
+            published_date = row[11] if len(row) > 11 else ""
+            drive_url = row[12] if len(row) > 12 else ""
+            upload_status = row[14] if len(row) > 14 else ""
+            if status.lower() != "done":
+                continue
+            if post or published_date or not name or not drive_url:
+                continue
+            if upload_status and upload_status.strip() != "" and "erro" not in upload_status.lower():
+                continue
+            count += 1
+        return count
+
     def _ja_fez_upload_hoje(self, channel_id: str, data: Any) -> bool:
         """Verifica se canal já fez upload hoje com sucesso"""
         try:
