@@ -6299,8 +6299,6 @@ DASH_UPLOAD_HTML = '''
         .loading { text-align: center; padding: 60px 20px; color: var(--text-tertiary); font-size: 14px; }
 
         /* Batch Upload */
-        .btn-batch--mobile { display: none; width: 36px; height: 36px; padding: 0; background: var(--info-muted); color: var(--info); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: var(--radius-sm); font-size: 18px; cursor: pointer; transition: all 0.15s ease; line-height: 1; }
-        .btn-batch--mobile:hover { background: rgba(59, 130, 246, 0.25); border-color: var(--info); }
         .btn-batch { width: 38px; height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--info-muted); color: var(--info); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: var(--radius-sm); font-size: 20px; cursor: pointer; transition: all 0.15s ease; }
         .btn-batch:hover { background: rgba(59, 130, 246, 0.25); border-color: var(--info); }
         .batch-loading { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 40px; color: var(--text-tertiary); }
@@ -6322,8 +6320,6 @@ DASH_UPLOAD_HTML = '''
 
         /* ===== RESPONSIVE MOBILE ===== */
         @media (max-width: 768px) {
-            .btn-batch--desktop { display: none; }
-            .btn-batch--mobile { display: inline-flex; align-items: center; justify-content: center; }
             .page-header { padding: 14px 12px 12px; flex-wrap: nowrap; gap: 8px; overflow: hidden; }
             .page-header > div:first-child { min-width: 0; flex-shrink: 1; }
             .header-title { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -6371,7 +6367,7 @@ DASH_UPLOAD_HTML = '''
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .stat-card--historico { grid-column: span 2; }
             .header-title { font-size: 15px; }
-            .btn-batch--mobile { width: 32px; height: 32px; font-size: 16px; }
+            .btn-batch { width: 32px; height: 32px; font-size: 16px; }
             .channel-table th:nth-child(2), .channel-table td:nth-child(2) { display: none; }
             .cell-channel { flex-wrap: wrap; gap: 3px; }
             .channel-name { font-size: 11px; }
@@ -6395,9 +6391,8 @@ DASH_UPLOAD_HTML = '''
             <div class="header-subtitle">Sistema de upload automatizado</div>
         </div>
         <div class="header-right">
-            <button class="btn-batch btn-batch--desktop" onclick="abrirBatchUpload()" title="Upload em Lote">&#x1F4E4;</button>
             <div class="live-indicator"><span class="live-dot"></span><span>Ao vivo</span></div>
-            <button class="btn-batch btn-batch--mobile" onclick="abrirBatchUpload()" title="Upload em Lote">&#x1F4E4;</button>
+            <button class="btn-batch" onclick="abrirBatchUpload()" title="Upload em Lote">&#x1F4E4;</button>
         </div>
     </header>
     <div class="stats-grid">
