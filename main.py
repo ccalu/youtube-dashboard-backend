@@ -7713,8 +7713,17 @@ async def run_copy_analysis_all():
 
 @app.delete("/api/analise-copy/{channel_id}/run/{run_id}")
 async def delete_copy_analysis_run(channel_id: str, run_id: int):
-    """Deleta um run de copy analysis."""
+    """Deleta um run de copy analysis. Auto-deleta satisfaction runs do canal (dependem de copy)."""
     try:
+        # Deletar satisfaction runs do canal (dependem dos dados de copy)
+        try:
+            sat_runs = db.supabase.table('satisfaction_analysis_runs').select('id').eq('channel_id', channel_id).execute()
+            for sr in (sat_runs.data or []):
+                sat_delete_analysis(channel_id, sr['id'])
+                logger.info(f"Satisfaction run {sr['id']} deletado (dependia de copy {run_id})")
+        except Exception as dep_err:
+            logger.warning(f"Falha ao deletar satisfaction runs do canal {channel_id}: {dep_err}")
+
         result = copy_delete_analysis(channel_id, run_id)
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error"))
