@@ -4804,6 +4804,12 @@ async def process_upload_task(upload_id: int, max_retries=3):
                 )
                 logger.info(f"[{channel_id}] ✅ Planilha atualizada: ✅ done")
 
+                # Invalidar cache da planilha para contagem de videos disponiveis atualizar
+                if upload['spreadsheet_id'] in SPREADSHEET_CACHE:
+                    del SPREADSHEET_CACHE[upload['spreadsheet_id']]
+                _dash_cache['data'] = None
+                _dash_cache['timestamp'] = 0
+
                 # FASE 4.5: Registrar no histórico (NOVO)
                 try:
                     from daily_uploader import DailyUploader
