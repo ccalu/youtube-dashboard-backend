@@ -6209,8 +6209,8 @@ DASH_UPLOAD_HTML = '''
             box-shadow: 0 1px 0 rgba(249,115,22,0.15);
         }
         .header-right { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
-        .header-title { font-size: 26px; font-weight: 700; letter-spacing: 1.5px; color: var(--text-primary); font-family: 'Courier New', monospace; text-transform: uppercase; white-space: nowrap; }
-        .header-title .accent { color: var(--accent); text-shadow: 0 0 20px rgba(249,115,22,0.3), 0 0 40px rgba(249,115,22,0.1); }
+        .header-title { font-size: 26px; font-weight: 700; letter-spacing: 3px; color: var(--text-primary); font-family: 'Courier New', monospace; text-transform: uppercase; white-space: nowrap; }
+        .header-title .accent { color: var(--accent); text-shadow: 0 0 20px rgba(249,115,22,0.3), 0 0 40px rgba(249,115,22,0.1); margin-right: -3px; }
         .header-subtitle { font-size: 12px; color: var(--text-tertiary); margin-top: 3px; letter-spacing: 1px; font-family: 'Courier New', monospace; text-transform: uppercase; }
         .live-indicator { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--accent); font-family: 'Courier New', monospace; letter-spacing: 1px; text-transform: uppercase; }
         .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse-live 2s ease-in-out infinite; }
