@@ -283,21 +283,6 @@
     box-shadow: var(--shadow-glow-red);
   }
 
-  /* Card glow pulse — subtle red border breathing */
-  @keyframes card-glow-pulse {
-    0%, 100% {
-      border-color: rgba(239, 68, 68, 0.08);
-      box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(239, 68, 68, 0.05);
-    }
-    50% {
-      border-color: rgba(239, 68, 68, 0.2);
-      box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(239, 68, 68, 0.15), 0 0 20px -4px rgba(239, 68, 68, 0.08);
-    }
-  }
-
-  .card-glow-pulse {
-    animation: card-glow-pulse 4s ease-in-out infinite;
-  }
 
   /* Fade animations */
   .fade-in {
