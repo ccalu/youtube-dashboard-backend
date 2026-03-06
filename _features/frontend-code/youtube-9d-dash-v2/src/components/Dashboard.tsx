@@ -47,31 +47,36 @@ function DashboardParticles() {
       opacity: Math.random() * 0.35 + 0.25,
     })), [count]);
 
+  const getColor = (id: number) =>
+    id % 3 === 0 ? 'rgba(239, 68, 68, 0.6)'
+    : id % 3 === 1 ? 'rgba(249, 115, 22, 0.5)'
+    : 'rgba(255, 255, 255, 0.4)';
+
+  const getGlow = (id: number) =>
+    id % 3 === 0 ? 'drop-shadow(0 0 3px rgba(239, 68, 68, 0.5))'
+    : id % 3 === 1 ? 'drop-shadow(0 0 3px rgba(249, 115, 22, 0.4))'
+    : 'drop-shadow(0 0 2px rgba(255, 255, 255, 0.3))';
+
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
       {particles.map((p) => (
-        <div
+        <svg
           key={p.id}
-          className="absolute rounded-full"
+          className="absolute"
           style={{
             left: `${p.x}%`,
             top: `${p.y}%`,
-            width: `${p.size}px`,
-            height: `${p.size}px`,
-            background: p.id % 3 === 0
-              ? 'rgba(239, 68, 68, 0.6)'
-              : p.id % 3 === 1
-              ? 'rgba(249, 115, 22, 0.5)'
-              : 'rgba(255, 255, 255, 0.4)',
-            boxShadow: p.id % 3 === 0
-              ? '0 0 8px rgba(239, 68, 68, 0.4)'
-              : p.id % 3 === 1
-              ? '0 0 8px rgba(249, 115, 22, 0.3)'
-              : '0 0 5px rgba(255, 255, 255, 0.2)',
+            width: `${p.size * 2.5}px`,
+            height: `${p.size * 2.5}px`,
             opacity: p.opacity,
+            filter: getGlow(p.id),
             animation: `login-float ${p.duration}s ease-in-out ${p.delay}s infinite`,
           }}
-        />
+          viewBox="0 0 24 24"
+          fill={getColor(p.id)}
+        >
+          <path d="M12 0 L13.5 9 L24 12 L13.5 15 L12 24 L10.5 15 L0 12 L10.5 9 Z" />
+        </svg>
       ))}
     </div>
   );
