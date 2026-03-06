@@ -6556,7 +6556,7 @@ DASH_UPLOAD_HTML = '''
                                 clearInterval(pollInterval);
                                 _uploadingSet.delete(channelId);
                                 delete _statusBeforeUpload[channelId];
-                                if (st === 'sucesso') { _successSet.add(channelId); fetch('/api/dash-upload/refresh-disp/' + channelId, {method:'POST'}); atualizar(); setTimeout(function() { _successSet.delete(channelId); atualizar(); }, 15000); }
+                                if (st === 'sucesso') { _successSet.add(channelId); fetch('/api/dash-upload/refresh-disp/' + channelId, {method:'POST'}).then(function() { atualizar(); }); atualizar(); setTimeout(function() { _successSet.delete(channelId); atualizar(); }, 15000); }
                                 else if (st === 'erro') { _errorSet.add(channelId); atualizar(); setTimeout(function() { _errorSet.delete(channelId); atualizar(); }, 5000); }
                                 else { atualizar(); }
                             }
@@ -6951,8 +6951,7 @@ DASH_UPLOAD_HTML = '''
                                     remaining.delete(cid);
                                     if (st === 'sucesso') {
                                         _successSet.add(cid);
-                                        // Refetch planilha deste canal para atualizar contagem Disp.
-                                        fetch('/api/dash-upload/refresh-disp/' + cid, {method:'POST'});
+                                        fetch('/api/dash-upload/refresh-disp/' + cid, {method:'POST'}).then(function() { atualizar(); });
                                         setTimeout(function() { _successSet.delete(cid); atualizar(); }, 15000);
                                     }
                                     else if (st === 'erro') { _errorSet.add(cid); setTimeout(function() { _errorSet.delete(cid); atualizar(); }, 5000); }
