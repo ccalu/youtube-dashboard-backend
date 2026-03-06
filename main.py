@@ -6326,6 +6326,10 @@ DASH_UPLOAD_HTML = '''
         .empty-state { text-align: center; padding: 40px 20px; color: var(--text-tertiary); font-size: 14px; }
         .loading { text-align: center; padding: 60px 20px; color: var(--text-tertiary); font-size: 14px; }
 
+        /* Historico mobile button */
+        .btn-historico-mobile { display: none; width: 38px; height: 38px; padding: 0; align-items: center; justify-content: center; background: var(--accent); background: rgba(249,115,22,0.15); color: var(--accent); border: 1px solid rgba(249,115,22,0.3); border-radius: var(--radius-sm); font-size: 20px; cursor: pointer; transition: all 0.15s ease; }
+        .btn-historico-mobile:hover { background: rgba(249,115,22,0.25); border-color: var(--accent); }
+
         /* Batch Upload */
         .btn-batch { width: 38px; height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--info-muted); color: var(--info); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: var(--radius-sm); font-size: 20px; cursor: pointer; transition: all 0.15s ease; }
         .btn-batch:hover { background: rgba(59, 130, 246, 0.25); border-color: var(--info); }
@@ -6356,7 +6360,9 @@ DASH_UPLOAD_HTML = '''
             .modal-table th:nth-child(1), .modal-table td:nth-child(1) { padding-left: 4px; padding-right: 4px; white-space: nowrap; font-size: 11px; }
             .modal-table th:nth-child(2), .modal-table td:nth-child(2) { padding-left: 4px; padding-right: 4px; }
             .modal-table th:nth-child(3), .modal-table td:nth-child(3) { text-align: center; }
-            .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 12px; margin-bottom: 20px; }
+            .stat-card--historico { display: none; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; padding: 0 12px; margin-bottom: 20px; }
+            .btn-historico-mobile { display: inline-flex; }
             .stat-card { padding: 14px 12px; min-height: 72px; }
             .stat-value { font-size: 24px; }
             .stat-value--historico { font-size: 24px; }
@@ -6395,9 +6401,8 @@ DASH_UPLOAD_HTML = '''
             .accordion-content .modal-table td:nth-child(2) { max-width: 100px !important; }
         }
         @media (max-width: 480px) {
-            .stats-grid { grid-template-columns: repeat(2, 1fr); }
-            .stat-card--historico { grid-column: span 2; }
             .header-title { font-size: 16px; letter-spacing: 2px; }
+            .btn-historico-mobile { width: 32px; height: 32px; font-size: 16px; }
             .btn-batch { width: 32px; height: 32px; font-size: 16px; }
             .channel-table th:nth-child(2), .channel-table td:nth-child(2) { display: none; }
             .cell-channel { flex-wrap: wrap; gap: 3px; }
@@ -6423,6 +6428,7 @@ DASH_UPLOAD_HTML = '''
         </div>
         <div class="header-right">
             <div class="live-indicator"><span class="live-dot"></span><span>Live</span></div>
+            <button class="btn-historico-mobile" onclick="abrirHistoricoCompleto()" title="Historico Completo">&#x1F4DC;</button>
             <button class="btn-batch" onclick="abrirBatchUpload()" title="Upload em Lote">&#x1F4E4;</button>
         </div>
     </header>
