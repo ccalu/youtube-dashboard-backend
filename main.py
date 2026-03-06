@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import uvicorn
@@ -11129,14 +11129,16 @@ _DASH_V2_DIR = pathlib.Path(__file__).resolve().parent / "static" / "dash-v2"
 
 # Dash v2: SPA catch-all for client-side routes (e.g. /dash-v2/login)
 if _DASH_V2_DIR.is_dir():
-    from fastapi.responses import FileResponse as _FileResponse
+    @app.get("/dash-v2")
+    async def serve_dash_v2_root():
+        return FileResponse(str(_DASH_V2_DIR / "index.html"))
 
     @app.get("/dash-v2/{full_path:path}")
     async def serve_dash_v2_spa(full_path: str):
         file_path = _DASH_V2_DIR / full_path
         if full_path and file_path.is_file():
-            return _FileResponse(str(file_path))
-        return _FileResponse(str(_DASH_V2_DIR / "index.html"))
+            return FileResponse(str(file_path))
+        return FileResponse(str(_DASH_V2_DIR / "index.html"))
 
 if _DASH_DIR.is_dir():
     app.mount("/dash", StaticFiles(directory=str(_DASH_DIR), html=True), name="react-dashboard")
