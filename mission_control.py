@@ -4729,42 +4729,34 @@ function formatNumber(n) {
 }
 
 function renderAllRooms(ctx, canvasW, canvasH) {
-  var dpr = window.devicePixelRatio || 1;
-  ctx.clearRect(0, 0, canvasW, canvasH);
-  ctx.save();
-  ctx.scale(dpr, dpr);
-
-  // Use CSS pixel dimensions for all layout
-  var cssW = canvasW / dpr;
-  var cssH = canvasH / dpr;
-
-  if (visibleRooms.length === 0) {
-    ctx.fillStyle = '#888';
-    ctx.font = '14px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('Nenhuma sala encontrada', cssW / 2, cssH / 2);
-    ctx.restore();
-    return;
-  }
-
-  var layout = getRoomLayout(visibleRooms, zoom);
-  var startX = Math.floor((cssW - layout.totalW * zoom) / 2);
-  var startY = 24;
-
-  // Font sizes scale with zoom but clamped (larger minimums for readability)
-  var nameFont = Math.max(13, Math.min(18, Math.round(9 * zoom)));
-  var statsFont = Math.max(11, Math.min(15, Math.round(7 * zoom)));
-  var langFont = Math.max(10, Math.min(13, Math.round(6 * zoom)));
-  var barH = Math.max(22, Math.min(32, Math.round(14 * zoom)));
-
-  // Viewport culling: only render rooms visible on screen
+  // Viewport bounds for culling
   var canvasEl = document.getElementById('cv');
-  var vpTop = 0, vpBottom = cssH;
+  var vpTop = 0, vpBottom = canvasH;
   if (canvasEl) {
     var rect = canvasEl.getBoundingClientRect();
     vpTop = Math.max(0, -rect.top);
     vpBottom = vpTop + window.innerHeight;
   }
+
+  // Only clear the visible portion of the canvas (not the full 15,000px+ height)
+  ctx.clearRect(0, Math.floor(vpTop), canvasW, Math.ceil(vpBottom - vpTop));
+
+  if (visibleRooms.length === 0) {
+    ctx.fillStyle = '#888';
+    ctx.font = '14px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Nenhuma sala encontrada', canvasW / 2, canvasH / 2);
+    return;
+  }
+
+  var layout = getRoomLayout(visibleRooms, zoom);
+  var startX = Math.floor((canvasW - layout.totalW * zoom) / 2);
+  var startY = 24;
+
+  var nameFont = Math.max(13, Math.min(18, Math.round(9 * zoom)));
+  var statsFont = Math.max(11, Math.min(15, Math.round(7 * zoom)));
+  var langFont = Math.max(10, Math.min(13, Math.round(6 * zoom)));
+  var barH = Math.max(22, Math.min(32, Math.round(14 * zoom)));
 
   for (var i = 0; i < visibleRooms.length; i++) {
     var room = visibleRooms[i];
@@ -4800,7 +4792,6 @@ function renderAllRooms(ctx, canvasW, canvasH) {
     var stCanvas = getRoomBarCanvas(room, 'st', roomW, barH, zoom, statsFont, langFont, accentColor);
     ctx.drawImage(stCanvas, Math.round(roomX), Math.round(roomY + roomH));
   }
-  ctx.restore(); // restore DPR scale
 }
 
 // ============================================================
@@ -4822,7 +4813,7 @@ function handleClick(mx, my) {
 
   var layout = getRoomLayout(visibleRooms, zoom);
   var canvas = document.getElementById('cv');
-  var dpr = window.devicePixelRatio || 1;
+  var dpr = 1;
   var cssW = canvas.width / dpr;
   var startX = Math.floor((cssW - layout.totalW * zoom) / 2);
   var startY = 24;
@@ -5816,7 +5807,9 @@ function resizeCanvas() {
   var contentH = 24 + rowCount * rowStep + barH + 60;
   var h = Math.max(contentH, 400);
 
-  var dpr = window.devicePixelRatio || 1;
+  // DPR capped at 1 for pixel art — retina resolution is unnecessary and
+  // creates huge canvases on mobile (e.g. 43 rooms × 3x DPR = 46,000px height)
+  var dpr = 1;
   canvas.width = w * dpr;
   canvas.height = h * dpr;
   canvas.style.width = w + 'px';
@@ -5842,7 +5835,7 @@ function startMCGameLoop(canvas) {
 
       // Viewport-aware update: throttle offscreen rooms to save CPU on mobile
       var canvasEl = document.getElementById('cv');
-      var dpr = window.devicePixelRatio || 1;
+      var dpr = 1;
       var cssH = canvasEl ? canvasEl.height / dpr : 600;
       var vpTop = 0, vpBottom = cssH;
       if (canvasEl) {
