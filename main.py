@@ -6247,7 +6247,6 @@ DASH_UPLOAD_HTML = '''
         .disp-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 22px; padding: 0 6px; border-radius: 9999px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
         .disp-badge--ok { background: var(--success-muted); color: var(--success); }
         .disp-badge--zero { background: var(--warning-muted); color: var(--warning); }
-        .disp-badge--na { background: transparent; color: var(--text-tertiary); font-weight: 400; }
         .video-title { max-width: 350px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-size: 13px; }
         .cell-time { color: var(--text-tertiary); font-size: 13px; font-variant-numeric: tabular-nums; }
         .cell-actions { display: flex; gap: 4px; }
@@ -6766,13 +6765,9 @@ DASH_UPLOAD_HTML = '''
                                     if (canal.is_monetized) html += '<span class="monetized-dot"></span>';
                                     html += '</div></td>';
                                     html += '<td><span class="status-badge ' + badgeClass + '">' + badgeText + '</span></td>';
-                                    var vd = canal.videos_disponiveis;
-                                    if (vd != null) {
-                                        var vdClass = vd > 0 ? 'disp-badge disp-badge--ok' : 'disp-badge disp-badge--zero';
-                                        html += '<td style="text-align:center"><span class="' + vdClass + '">' + vd + '</span></td>';
-                                    } else {
-                                        html += '<td style="text-align:center"><span class="disp-badge disp-badge--na">-</span></td>';
-                                    }
+                                    var vd = canal.videos_disponiveis || 0;
+                                    var vdClass = vd > 0 ? 'disp-badge disp-badge--ok' : 'disp-badge disp-badge--zero';
+                                    html += '<td style="text-align:center"><span class="' + vdClass + '">' + vd + '</span></td>';
                                     html += '<td><span class="video-title">' + escapeHtml(truncarTitulo(canal.video_titulo)) + '</span></td>';
                                     html += '<td><span class="cell-time">' + formatTime(canal.hora_upload) + '</span></td>';
                                     html += '<td><div class="cell-actions">';
@@ -7017,6 +7012,7 @@ async def dash_upload_status():
         for canal in (canais.data or []):
             sid = canal.get('spreadsheet_id')
             if not sid:
+                videos_disp_map[canal['channel_id']] = 0
                 continue
             if sid in SPREADSHEET_CACHE:
                 cache_time, cached_data = SPREADSHEET_CACHE[sid]
@@ -7045,12 +7041,11 @@ async def dash_upload_status():
                         return canal['channel_id'], uploader.count_available_videos(all_values)
                     except Exception as e:
                         logger.warning(f"[DASH-STATUS] Erro fetch planilha {canal.get('channel_name')}: {e}")
-                        return canal['channel_id'], None
+                        return canal['channel_id'], 0
 
             results = await asyncio.gather(*[_fetch_and_count(c) for c in canais_sem_cache])
             for cid, count in results:
-                if count is not None:
-                    videos_disp_map[cid] = count
+                videos_disp_map[cid] = count if count is not None else 0
 
         today = datetime.now(timezone.utc).date().isoformat()
         uploads = supabase.table('yt_canal_upload_diario')\
