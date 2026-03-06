@@ -11191,23 +11191,19 @@ async def auth_change_password(body: ChangePasswordRequest, request: Request):
 import pathlib
 
 _DASH_DIR = pathlib.Path(__file__).resolve().parent / "static" / "dash"
-_DASH_V2_DIR = pathlib.Path(__file__).resolve().parent / "static" / "dash-v2"
 
-# Dash v2: SPA catch-all for client-side routes (e.g. /dash-v2/login)
-if _DASH_V2_DIR.is_dir():
-    @app.get("/dash-v2")
-    async def serve_dash_v2_root():
-        return FileResponse(str(_DASH_V2_DIR / "index.html"))
+# Dash: SPA catch-all for client-side routes (e.g. /dash/login)
+if _DASH_DIR.is_dir():
+    @app.get("/dash")
+    async def serve_dash_root():
+        return FileResponse(str(_DASH_DIR / "index.html"))
 
-    @app.get("/dash-v2/{full_path:path}")
-    async def serve_dash_v2_spa(full_path: str):
-        file_path = _DASH_V2_DIR / full_path
+    @app.get("/dash/{full_path:path}")
+    async def serve_dash_spa(full_path: str):
+        file_path = _DASH_DIR / full_path
         if full_path and file_path.is_file():
             return FileResponse(str(file_path))
-        return FileResponse(str(_DASH_V2_DIR / "index.html"))
-
-if _DASH_DIR.is_dir():
-    app.mount("/dash", StaticFiles(directory=str(_DASH_DIR), html=True), name="react-dashboard")
+        return FileResponse(str(_DASH_DIR / "index.html"))
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))

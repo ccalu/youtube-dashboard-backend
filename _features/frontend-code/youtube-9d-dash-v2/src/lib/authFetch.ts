@@ -33,6 +33,6 @@ export function getAuthHeaders(): Record<string, string> {
 export function handle401(response: Response): void {
   if (response.status === 401) {
     clearAuthToken();
-    window.location.href = '/dash-v2/login';
+    window.location.href = '/dash/login';
   }
 }
