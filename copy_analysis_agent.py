@@ -679,7 +679,7 @@ def analyze_copy_performance(
                     pub_date = datetime.fromisoformat(pub_date.replace("Z", "+00:00"))
                 except (ValueError, TypeError):
                     pub_date = None
-            elif isinstance(pub_date, datetime) and pub_date.tzinfo is None:
+            if isinstance(pub_date, datetime) and pub_date.tzinfo is None:
                 pub_date = pub_date.replace(tzinfo=timezone.utc)
 
             if pub_date and (now - pub_date).days < MIN_MATURITY_DAYS:
