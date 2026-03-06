@@ -32,10 +32,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { apiService } from '@/services/api';
 
-// Background particles — fewer and more subtle than login page
+// Background particles — 80 desktop, 40 mobile
 function DashboardParticles() {
+  const isMobile = useIsMobile();
+  const count = isMobile ? 40 : 80;
   const particles = useMemo(() =>
-    Array.from({ length: 80 }, (_, i) => ({
+    Array.from({ length: count }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
@@ -43,7 +45,7 @@ function DashboardParticles() {
       duration: Math.random() * 12 + 8,
       delay: Math.random() * -14,
       opacity: Math.random() * 0.35 + 0.25,
-    })), []);
+    })), [count]);
 
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
