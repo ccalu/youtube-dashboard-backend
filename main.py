@@ -6301,7 +6301,7 @@ DASH_UPLOAD_HTML = '''
         /* Batch Upload */
         .btn-batch--mobile { display: none; width: 36px; height: 36px; padding: 0; background: var(--info-muted); color: var(--info); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: var(--radius-sm); font-size: 18px; cursor: pointer; transition: all 0.15s ease; line-height: 1; }
         .btn-batch--mobile:hover { background: rgba(59, 130, 246, 0.25); border-color: var(--info); }
-        .btn-batch { padding: 8px 18px; background: var(--info-muted); color: var(--info); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: var(--radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
+        .btn-batch { width: 38px; height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--info-muted); color: var(--info); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: var(--radius-sm); font-size: 20px; cursor: pointer; transition: all 0.15s ease; }
         .btn-batch:hover { background: rgba(59, 130, 246, 0.25); border-color: var(--info); }
         .batch-loading { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 40px; color: var(--text-tertiary); }
         .batch-spinner { width: 32px; height: 32px; border: 3px solid var(--border-secondary); border-top-color: var(--info); border-radius: 50%; animation: upload-spin 0.8s linear infinite; }
@@ -6395,7 +6395,7 @@ DASH_UPLOAD_HTML = '''
             <div class="header-subtitle">Sistema de upload automatizado</div>
         </div>
         <div class="header-right">
-            <button class="btn-batch btn-batch--desktop" onclick="abrirBatchUpload()">Upload em Lote</button>
+            <button class="btn-batch btn-batch--desktop" onclick="abrirBatchUpload()" title="Upload em Lote">&#x1F4E4;</button>
             <div class="live-indicator"><span class="live-dot"></span><span>Ao vivo</span></div>
             <button class="btn-batch btn-batch--mobile" onclick="abrirBatchUpload()" title="Upload em Lote">&#x1F4E4;</button>
         </div>
