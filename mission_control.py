@@ -4318,11 +4318,14 @@ function getRoomBarCanvas(room, type, roomW, barH, zoom, mainFont, langFont, acc
   var key = room.roomIndex + '_' + type + '_v' + _roomBarCacheVer;
   if (_roomBarCache[key]) return _roomBarCache[key];
 
+  var textDpr = Math.min(window.devicePixelRatio || 1, 3);
   var w = Math.ceil(roomW);
   var h = Math.ceil(barH);
   var oc = document.createElement('canvas');
-  oc.width = w; oc.height = h;
+  oc.width = w * textDpr; oc.height = h * textDpr;
+  oc._cssW = w; oc._cssH = h;
   var ctx = oc.getContext('2d');
+  ctx.scale(textDpr, textDpr);
   ctx.imageSmoothingEnabled = true;
 
   if (type === 'np') {
@@ -4777,9 +4780,9 @@ function renderAllRooms(ctx, canvasW, canvasH) {
 
     var accentColor = room.theme.accent || '#888';
 
-    // -- NAMEPLATE (cached) --
+    // -- NAMEPLATE (cached, HiDPI text) --
     var npCanvas = getRoomBarCanvas(room, 'np', roomW, barH, zoom, nameFont, langFont, accentColor);
-    ctx.drawImage(npCanvas, Math.round(roomX), Math.round(roomY - barH));
+    ctx.drawImage(npCanvas, 0, 0, npCanvas.width, npCanvas.height, Math.round(roomX), Math.round(roomY - barH), npCanvas._cssW, npCanvas._cssH);
 
     // -- Render room background (cached) + characters (dynamic) --
     ctx.imageSmoothingEnabled = false;
@@ -4789,9 +4792,9 @@ function renderAllRooms(ctx, canvasW, canvasH) {
     // -- Render particles for this room --
     renderParticlesForRoom(ctx, roomX, roomY, zoom, room.roomIndex);
 
-    // -- STATS BAR (cached) --
+    // -- STATS BAR (cached, HiDPI text) --
     var stCanvas = getRoomBarCanvas(room, 'st', roomW, barH, zoom, statsFont, langFont, accentColor);
-    ctx.drawImage(stCanvas, Math.round(roomX), Math.round(roomY + roomH));
+    ctx.drawImage(stCanvas, 0, 0, stCanvas.width, stCanvas.height, Math.round(roomX), Math.round(roomY + roomH), stCanvas._cssW, stCanvas._cssH);
   }
 }
 
