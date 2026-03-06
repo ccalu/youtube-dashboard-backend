@@ -6718,10 +6718,11 @@ DASH_UPLOAD_HTML = '''
                                 var ss = {sucesso: 0, erro: 0, sem_video: 0, pendente: 0, totalDisp: 0};
                                 for (var i = 0; i < canais.length; i++) {
                                     if (canais[i].is_monetized) totalMonetizados++;
-                                    if (canais[i].status === 'sucesso') ss.sucesso++;
-                                    else if (canais[i].status === 'erro') ss.erro++;
-                                    else if (canais[i].status === 'sem_video') ss.sem_video++;
-                                    else ss.pendente++;
+                                    var uh = canais[i].uploads_hoje || {};
+                                    ss.sucesso += (uh.sucesso || 0);
+                                    ss.erro += (uh.erro || 0);
+                                    ss.sem_video += (uh.sem_video || 0);
+                                    if (canais[i].status === 'pendente') ss.pendente++;
                                     if (canais[i].videos_disponiveis != null) ss.totalDisp += canais[i].videos_disponiveis;
                                 }
                                 var accent = '#3f3f46'; var accentMuted = 'rgba(63,63,70,0.15)'; var icon = '?';
@@ -7057,8 +7058,19 @@ async def dash_upload_status():
         # Quando mesmo status, pega o MAIS RECENTE (created_at maior)
         _status_priority = {'sucesso': 0, 'erro': 1, 'sem_video': 2}
         upload_map = {}
+        # Contar total de uploads realizados por canal (para pills do subnicho)
+        uploads_count_map = {}  # channel_id -> {sucesso: N, erro: N, sem_video: N}
         for u in uploads.data:
             cid = u['channel_id']
+            if cid not in uploads_count_map:
+                uploads_count_map[cid] = {'sucesso': 0, 'erro': 0, 'sem_video': 0}
+            st = u.get('status', '')
+            if u.get('upload_realizado'):
+                uploads_count_map[cid]['sucesso'] += 1
+            elif st == 'sem_video':
+                uploads_count_map[cid]['sem_video'] += 1
+            elif u.get('erro_mensagem'):
+                uploads_count_map[cid]['erro'] += 1
             new_prio = _status_priority.get(u.get('status'), 9)
             if cid not in upload_map:
                 upload_map[cid] = u
@@ -7068,7 +7080,11 @@ async def dash_upload_status():
                     upload_map[cid] = u
 
         subnichos_dict = defaultdict(list)
-        stats = {'total': 0, 'sucesso': 0, 'erro': 0, 'sem_video': 0, 'pendente': 0}
+        # Stats globais: total de uploads realizados (nao canais)
+        total_uploads_sucesso = sum(c['sucesso'] for c in uploads_count_map.values())
+        total_uploads_sem_video = sum(c['sem_video'] for c in uploads_count_map.values())
+        total_uploads_erro = sum(c['erro'] for c in uploads_count_map.values())
+        stats = {'total': 0, 'sucesso': total_uploads_sucesso, 'erro': total_uploads_erro, 'sem_video': total_uploads_sem_video, 'pendente': 0}
 
         for canal in canais.data:
             upload = upload_map.get(canal['channel_id'])
@@ -7087,7 +7103,8 @@ async def dash_upload_status():
                     status = 'erro'
 
             stats['total'] += 1
-            stats[status] += 1
+            if status == 'pendente':
+                stats['pendente'] += 1
 
             subnicho = canal.get('subnicho', 'Sem Categoria')
             subnichos_dict[subnicho].append({
@@ -7099,7 +7116,8 @@ async def dash_upload_status():
                 'status': status,
                 'video_titulo': video_titulo,
                 'hora_upload': hora_upload,
-                'videos_disponiveis': videos_disp_map.get(canal['channel_id'])
+                'videos_disponiveis': videos_disp_map.get(canal['channel_id']),
+                'uploads_hoje': uploads_count_map.get(canal['channel_id'], {'sucesso': 0, 'erro': 0, 'sem_video': 0})
             })
 
         monetizados_forcados = ['UCzfZRuRHSp6erCwzuhjywFw', 'UCWYzVowgJ6LlxCcYlMGcLtA']
