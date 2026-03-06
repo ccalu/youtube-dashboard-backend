@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { ChannelsTable } from './ChannelsTable';
 import { OurChannelsTable } from './OurChannelsTable';
@@ -31,6 +31,49 @@ import { AppSidebar } from './AppSidebar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { apiService } from '@/services/api';
+
+// Background particles — fewer and more subtle than login page
+function DashboardParticles() {
+  const particles = useMemo(() =>
+    Array.from({ length: 30 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 4 + 2,
+      duration: Math.random() * 14 + 10,
+      delay: Math.random() * -16,
+      opacity: Math.random() * 0.25 + 0.15,
+    })), []);
+
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+      {particles.map((p) => (
+        <div
+          key={p.id}
+          className="absolute rounded-full"
+          style={{
+            left: `${p.x}%`,
+            top: `${p.y}%`,
+            width: `${p.size}px`,
+            height: `${p.size}px`,
+            background: p.id % 3 === 0
+              ? 'rgba(239, 68, 68, 0.6)'
+              : p.id % 3 === 1
+              ? 'rgba(249, 115, 22, 0.5)'
+              : 'rgba(255, 255, 255, 0.4)',
+            boxShadow: p.id % 3 === 0
+              ? '0 0 8px rgba(239, 68, 68, 0.4)'
+              : p.id % 3 === 1
+              ? '0 0 8px rgba(249, 115, 22, 0.3)'
+              : '0 0 5px rgba(255, 255, 255, 0.2)',
+            opacity: p.opacity,
+            animation: `login-float ${p.duration}s ease-in-out ${p.delay}s infinite`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 const DashboardContent = () => {
   const queryClient = useQueryClient();
@@ -222,6 +265,7 @@ const Dashboard = () => {
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="flex min-h-screen w-full overflow-x-hidden">
+        <DashboardParticles />
         <DashboardContent />
       </div>
     </SidebarProvider>

@@ -315,6 +315,14 @@
     }
   }
 
+  /* Floating particles animation */
+  @keyframes login-float {
+    0%, 100% { transform: translateY(0px) translateX(0px); }
+    25% { transform: translateY(-20px) translateX(10px); }
+    50% { transform: translateY(-10px) translateX(-10px); }
+    75% { transform: translateY(-30px) translateX(5px); }
+  }
+
   /* Header line breathing animation */
   @keyframes header-line-breathe {
     0%, 100% { opacity: 0.4; width: 12rem; }
