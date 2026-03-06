@@ -109,12 +109,24 @@ import type {
 class ApiService {
   private fetchApi = async <T>(endpoint: string, options?: RequestInit): Promise<T> => {
     try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
-      
+      const { getAuthHeaders, handle401 } = await import('@/lib/authFetch');
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers: {
+          ...getAuthHeaders(),
+          ...(options?.headers as Record<string, string>),
+        },
+      });
+
+      if (response.status === 401) {
+        handle401(response);
+        throw new Error('Session expired');
+      }
+
       if (!response.ok) {
         throw new Error(`API Error: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
       return data;
     } catch (error) {

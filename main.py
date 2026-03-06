@@ -45,6 +45,12 @@ from _features.yt_uploader.sheets import update_upload_status_in_sheet
 # Daily Upload Automation
 from daily_uploader import schedule_daily_uploader, SPREADSHEET_CACHE
 
+# JWT Authentication
+from auth import (
+    create_access_token, decode_token, get_current_user,
+    authenticate_user, hash_password, verify_password
+)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -58,6 +64,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def optional_auth_middleware(request: Request, call_next):
+    """Soft auth: validate JWT if present, pass through if not."""
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header.split(" ", 1)[1]
+        try:
+            request.state.user = decode_token(token)
+        except Exception:
+            request.state.user = None
+    else:
+        request.state.user = None
+    return await call_next(request)
 
 # ========================================
 # 💾 SISTEMA DE CACHE 24H PARA DASHBOARD
@@ -10978,6 +10998,62 @@ async def get_channel_ctr_data(channel_id: str, limit: int = 50):
     except Exception as e:
         logger.error(f"Erro get CTR data: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# =========================================================================
+# AUTH ENDPOINTS
+# =========================================================================
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+@app.post("/api/auth/login")
+async def auth_login(body: LoginRequest):
+    user = authenticate_user(db.supabase, body.username, body.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Credenciais invalidas")
+    token = create_access_token({
+        "sub": user["username"],
+        "user_id": str(user["id"]),
+        "display_name": user["display_name"],
+    })
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "username": user["username"],
+            "display_name": user["display_name"],
+        },
+    }
+
+@app.get("/api/auth/me")
+async def auth_me(request: Request):
+    user = get_current_user(request)
+    return {
+        "username": user["sub"],
+        "display_name": user["display_name"],
+        "user_id": user["user_id"],
+    }
+
+@app.post("/api/auth/change-password")
+async def auth_change_password(body: ChangePasswordRequest, request: Request):
+    user = get_current_user(request)
+    result = db.supabase.table("auth_users").select("*").eq(
+        "username_lower", user["sub"].lower()
+    ).single().execute()
+    if not result.data or not verify_password(body.current_password, result.data["password_hash"]):
+        raise HTTPException(status_code=400, detail="Senha atual incorreta")
+    new_hash = hash_password(body.new_password)
+    db.supabase.table("auth_users").update({
+        "password_hash": new_hash,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", result.data["id"]).execute()
+    return {"message": "Senha alterada com sucesso"}
 
 
 # =========================================================================

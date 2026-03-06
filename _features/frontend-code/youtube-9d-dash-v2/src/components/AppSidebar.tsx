@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -31,10 +32,12 @@ import {
   Rocket,
   Monitor,
   Bot,
+  LogOut,
 } from 'lucide-react';
 import { apiService, NotificacaoStats } from '@/services/api';
 import { kanbanApiService } from '@/services/kanbanApi';
 import { calendarApiService } from '@/services/calendarApi';
+import { useAuth } from '@/contexts/AuthContext';
 
 type NavigationItem = {
   id: string;
@@ -61,6 +64,7 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const queryClient = useQueryClient();
   const { isMobile, setOpenMobile } = useSidebar();
+  const { user, logout } = useAuth();
   const [notificationStats, setNotificationStats] = useState<NotificacaoStats>({
     total: 0,
     nao_vistas: 0,
@@ -399,6 +403,21 @@ export function AppSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      <SidebarFooter className="p-3 border-t border-white/[0.06]">
+        <div className="flex items-center justify-between px-2">
+          <span className="text-xs text-muted-foreground truncate">
+            {user?.display_name}
+          </span>
+          <button
+            onClick={logout}
+            className="text-muted-foreground hover:text-red-400 transition-colors p-1.5 rounded-md hover:bg-white/[0.06]"
+            title="Sair"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
+      </SidebarFooter>
     </Sidebar>
   );
 }

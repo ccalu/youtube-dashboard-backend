@@ -10,7 +10,15 @@ import type {
 
 class CalendarApiService {
   private async fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
+    const { getAuthHeaders, handle401 } = await import('@/lib/authFetch');
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers: {
+        ...getAuthHeaders(),
+        ...(options?.headers as Record<string, string>),
+      },
+    });
+    if (response.status === 401) { handle401(response); throw new Error('Session expired'); }
     if (!response.ok) {
       const errorText = await response.text().catch(() => response.statusText);
       throw new Error(`Calendar API Error: ${errorText}`);

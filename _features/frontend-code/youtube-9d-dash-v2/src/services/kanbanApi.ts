@@ -35,14 +35,17 @@ class KanbanApiService {
   private fetchApi = async <T>(endpoint: string, options?: RequestInit): Promise<T> => {
     try {
       console.log('🎯 Kanban API:', `${API_BASE_URL}${endpoint}`);
+      const { getAuthHeaders, handle401 } = await import('@/lib/authFetch');
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
         headers: {
           'Content-Type': 'application/json',
+          ...getAuthHeaders(),
           ...options?.headers,
         },
       });
 
+      if (response.status === 401) { handle401(response); throw new Error('Session expired'); }
       if (!response.ok) {
         const errorText = await response.text();
         console.error('🎯 Kanban API Error:', response.status, errorText);
