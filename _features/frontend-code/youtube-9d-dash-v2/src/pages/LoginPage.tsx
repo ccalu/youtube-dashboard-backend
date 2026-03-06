@@ -91,7 +91,7 @@ export default function LoginPage() {
                 autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="cellibs"
+                placeholder="Digite aqui..."
                 className="w-full h-10 px-3 rounded-lg border border-white/[0.1] bg-white/[0.04] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all"
                 disabled={submitting}
               />
