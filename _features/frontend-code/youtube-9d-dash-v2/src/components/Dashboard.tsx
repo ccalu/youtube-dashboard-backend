@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { ChannelsTable } from './ChannelsTable';
 import { OurChannelsTable } from './OurChannelsTable';
@@ -44,6 +44,36 @@ const DashboardContent = () => {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
+  const trailRef = useRef<HTMLDivElement>(null);
+
+  // Parallax background + cursor trail
+  useEffect(() => {
+    if (isMobile) return;
+    const onMove = (e: MouseEvent) => {
+      setMousePos({
+        x: (e.clientX / window.innerWidth) * 100,
+        y: (e.clientY / window.innerHeight) * 100,
+      });
+      // Cursor trail
+      const trail = trailRef.current;
+      if (trail) {
+        trail.style.left = `${e.clientX - 1}px`;
+        trail.style.top = `${e.clientY - 4}px`;
+        trail.classList.add('visible');
+      }
+    };
+    const onLeave = () => {
+      const trail = trailRef.current;
+      if (trail) trail.classList.remove('visible');
+    };
+    window.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseleave', onLeave);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseleave', onLeave);
+    };
+  }, [isMobile]);
 
   const handleRefreshData = useCallback(async () => {
     setIsRefreshing(true);
@@ -159,11 +189,25 @@ const DashboardContent = () => {
         onOpenComments={() => handleTabChange('comments')}
       />
       
-      <main className="flex-1 min-h-screen overflow-x-hidden">
-        <div className="container mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-4 sm:pb-8">
+      <main className="flex-1 min-h-screen overflow-x-hidden relative">
+        {/* Cursor trail */}
+        <div ref={trailRef} className="cursor-trail" />
+
+        {/* Parallax background */}
+        <div
+          className="fixed inset-0 pointer-events-none"
+          style={{
+            background: `
+              radial-gradient(ellipse 50% 40% at ${mousePos.x}% ${mousePos.y}%, rgba(239, 68, 68, 0.06), transparent),
+              radial-gradient(ellipse 40% 35% at ${100 - mousePos.x}% ${100 - mousePos.y}%, rgba(249, 115, 22, 0.04), transparent)
+            `,
+          }}
+        />
+
+        <div className="container mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-4 sm:pb-8 relative">
           {/* Header with gradient line */}
           <div className="mb-6 sm:mb-8 flex items-center justify-center relative">
-            <SidebarTrigger className="absolute left-0 h-9 w-9 sm:h-10 sm:w-10 rounded-lg glass hover:shadow-glow-purple transition-all duration-300">
+            <SidebarTrigger className="absolute left-0 h-9 w-9 sm:h-10 sm:w-10 rounded-lg glass hover-glow-red transition-all duration-300">
               <Menu className="h-5 w-5" />
             </SidebarTrigger>
 
@@ -171,7 +215,7 @@ const DashboardContent = () => {
               <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-red-400 via-red-500 to-orange-400 bg-clip-text text-transparent">
                 YouTube Dashboard
               </h1>
-              <div className="mt-2 h-px w-48 mx-auto bg-gradient-to-r from-transparent via-red-500/50 to-transparent" />
+              <div className="mt-2 h-px mx-auto bg-gradient-to-r from-transparent via-red-500/50 to-transparent animate-header-line" />
             </div>
 
             {/* Last update indicator */}
@@ -185,9 +229,9 @@ const DashboardContent = () => {
           </div>
 
           {/* Main Content with transition */}
-          <div 
-            className={`transition-opacity duration-150 ${
-              isTransitioning ? 'opacity-0' : 'opacity-100 animate-fade-in'
+          <div
+            className={`transition-[opacity,transform] duration-300 ease-out ${
+              isTransitioning ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'
             }`}
           >
             {renderContent()}

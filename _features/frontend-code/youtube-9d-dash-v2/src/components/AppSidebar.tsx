@@ -270,13 +270,16 @@ export function AppSidebar({
           onMouseLeave={() => setHoveredItem(null)}
           isActive={isActive}
           className={`rounded-md h-9 sm:h-10 transition-all duration-200 border ${
-            isActive || isHovered
-              ? 'text-white shadow-sm' 
+            isActive
+              ? 'text-white'
+              : isHovered
+              ? 'text-white shadow-sm'
               : 'text-muted-foreground hover:scale-[1.02]'
           }`}
-          style={{ 
+          style={{
             backgroundColor: isActive ? colors.bg : (isHovered ? colors.hover : 'transparent'),
-            borderColor: isHovered || isActive ? colors.bg : 'transparent'
+            borderColor: isHovered || isActive ? colors.bg : 'transparent',
+            boxShadow: isActive ? `0 0 12px -2px ${colors.bg}, inset 3px 0 0 0 ${colors.bg}` : undefined,
           }}
           tooltip={item.title}
         >
