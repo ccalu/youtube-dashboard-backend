@@ -9486,19 +9486,17 @@ function renderSummaryCards(tabKey, data) {
     return html;
 }
 
-function runSingleAgent(agentKey) {
-    if (!_selectedChannel) return;
+var AGENT_DEPS = {
+    'satisfacao': {dep: 'copy', label: 'Satisfacao depende de Copy (usa videos matched).'},
+    'motores': {dep: 'temas', label: 'Motores depende de Temas (usa temas como input).'}
+};
+
+function _runAgent(agentKey, area) {
     var agentInfo = AGENTS.filter(function(a) { return a.key === agentKey; })[0];
-    var ch = _channelsData[_selectedChannel] || {};
-    if (!confirm('Rodar agente ' + agentInfo.label + ' para ' + (ch.channel_name || _selectedChannel) + '?')) return;
-
-    var area = document.getElementById('reportArea');
-    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Rodando ' + agentInfo.label + '... (30-60s)</div>';
-
     var url = agentInfo.postUrl.replace('{id}', _selectedChannel);
-    fetch(url, { method: 'POST' })
+    return fetch(url, { method: 'POST' })
         .then(function(r) { return r.json(); })
-        .then(function() {
+        .then(function(result) {
             var getUrl = agentInfo.getUrl.replace('{id}', _selectedChannel);
             return fetch(getUrl).then(function(r2) { return r2.status === 404 ? null : r2.json(); });
         })
@@ -9506,11 +9504,44 @@ function runSingleAgent(agentKey) {
             _agentData[agentKey] = freshData;
             var dot = document.getElementById('dot-' + agentKey);
             if (dot && freshData) dot.classList.add('has-data');
-            renderActiveTab();
-        })
-        .catch(function(e) {
-            area.innerHTML = '<div class="empty-state"><p>Erro: ' + escHtml(e.message) + '</p></div>';
+            return freshData;
         });
+}
+
+function runSingleAgent(agentKey) {
+    if (!_selectedChannel) return;
+    var agentInfo = AGENTS.filter(function(a) { return a.key === agentKey; })[0];
+    var ch = _channelsData[_selectedChannel] || {};
+    var chName = ch.channel_name || _selectedChannel;
+    var area = document.getElementById('reportArea');
+
+    var depInfo = AGENT_DEPS[agentKey];
+    if (depInfo) {
+        var depAgent = AGENTS.filter(function(a) { return a.key === depInfo.dep; })[0];
+        var hasDep = _agentData[depInfo.dep] != null;
+        if (!hasDep) {
+            var choice = confirm(depInfo.label + '\\n\\nNao ha relatorio de ' + depAgent.label + ' para este canal.\\nDeseja rodar ' + depAgent.label + ' + ' + agentInfo.label + ' em sequencia?');
+            if (!choice) return;
+            area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Rodando ' + depAgent.label + ' primeiro... (30-60s)</div>';
+            _runAgent(depInfo.dep, area)
+                .then(function() {
+                    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Agora rodando ' + agentInfo.label + '... (30-60s)</div>';
+                    return _runAgent(agentKey, area);
+                })
+                .then(function() { renderActiveTab(); })
+                .catch(function(e) { area.innerHTML = '<div class="empty-state"><p>Erro: ' + escHtml(e.message) + '</p></div>'; });
+            return;
+        } else {
+            if (!confirm('Rodar agente ' + agentInfo.label + ' para ' + chName + '?\\n\\n(Usando dados existentes de ' + depAgent.label + ')')) return;
+        }
+    } else {
+        if (!confirm('Rodar agente ' + agentInfo.label + ' para ' + chName + '?')) return;
+    }
+
+    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Rodando ' + agentInfo.label + '... (30-60s)</div>';
+    _runAgent(agentKey, area)
+        .then(function() { renderActiveTab(); })
+        .catch(function(e) { area.innerHTML = '<div class="empty-state"><p>Erro: ' + escHtml(e.message) + '</p></div>'; });
 }
 
 function renderReportLines(text) {
