@@ -35,7 +35,7 @@ import { apiService } from '@/services/api';
 // Background particles — 80 desktop, 40 mobile
 function DashboardParticles() {
   const isMobile = useIsMobile();
-  const count = isMobile ? 40 : 80;
+  const count = isMobile ? 20 : 80;
   const particles = useMemo(() =>
     Array.from({ length: count }, (_, i) => ({
       id: i,
@@ -44,7 +44,7 @@ function DashboardParticles() {
       size: Math.random() * 5 + 3,
       duration: Math.random() * 12 + 8,
       delay: Math.random() * -14,
-      opacity: Math.random() * 0.35 + 0.25,
+      opacity: Math.random() * 0.25 + 0.15,
     })), [count]);
 
   const getColor = (id: number) =>

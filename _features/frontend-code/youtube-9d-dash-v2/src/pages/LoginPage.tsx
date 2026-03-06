@@ -20,28 +20,30 @@ function Particles() {
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none">
       {particles.map((p) => (
-        <div
+        <span
           key={p.id}
-          className="absolute rounded-full"
+          className="absolute select-none"
           style={{
             left: `${p.x}%`,
             top: `${p.y}%`,
-            width: `${p.size}px`,
-            height: `${p.size}px`,
-            background: p.id % 3 === 0
+            fontSize: `${p.size * 2}px`,
+            color: p.id % 3 === 0
               ? 'rgba(239, 68, 68, 0.8)'
               : p.id % 3 === 1
               ? 'rgba(249, 115, 22, 0.7)'
               : 'rgba(255, 255, 255, 0.5)',
-            boxShadow: p.id % 3 === 0
-              ? '0 0 10px rgba(239, 68, 68, 0.6)'
+            filter: p.id % 3 === 0
+              ? 'drop-shadow(0 0 4px rgba(239, 68, 68, 0.6))'
               : p.id % 3 === 1
-              ? '0 0 10px rgba(249, 115, 22, 0.5)'
-              : '0 0 6px rgba(255, 255, 255, 0.3)',
+              ? 'drop-shadow(0 0 4px rgba(249, 115, 22, 0.5))'
+              : 'drop-shadow(0 0 3px rgba(255, 255, 255, 0.3))',
             opacity: p.opacity,
             animation: `login-float ${p.duration}s ease-in-out ${p.delay}s infinite`,
+            lineHeight: 1,
           }}
-        />
+        >
+          $
+        </span>
       ))}
     </div>
   );
