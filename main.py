@@ -9172,7 +9172,7 @@ body {
     }
     .sidebar.open { transform: translateX(0); }
     .sidebar { padding-top: 60px; }
-    .sidebar-header { display: none; }
+    .sidebar-title { display: none; }
     .main { margin-left: 0; padding: 1rem; padding-top: 60px; }
     .main-header { flex-direction: column; align-items: flex-start; gap: 0.8rem; }
     .main-title { font-size: 1rem; }
