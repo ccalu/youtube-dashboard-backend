@@ -180,26 +180,6 @@
     overflow-y: scroll;
   }
 
-  /* Aurora background — CSS-only parallax */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    background:
-      radial-gradient(ellipse 60% 40% at 30% 20%, rgba(239, 68, 68, 0.06), transparent),
-      radial-gradient(ellipse 50% 35% at 70% 80%, rgba(249, 115, 22, 0.04), transparent),
-      radial-gradient(ellipse 80% 60% at 50% 0%, rgba(139, 92, 246, 0.05), transparent);
-    animation: aurora-drift 20s ease-in-out infinite alternate;
-  }
-
-  @keyframes aurora-drift {
-    0% { transform: translate(0, 0) scale(1); }
-    33% { transform: translate(3%, -2%) scale(1.02); }
-    66% { transform: translate(-2%, 3%) scale(0.98); }
-    100% { transform: translate(1%, -1%) scale(1.01); }
-  }
 
   /* Glass-styled scrollbar */
   ::-webkit-scrollbar {
