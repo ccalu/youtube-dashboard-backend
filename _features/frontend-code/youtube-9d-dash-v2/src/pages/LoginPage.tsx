@@ -7,14 +7,14 @@ import { getRememberedUser, setRememberedUser, clearRememberedUser } from '@/lib
 // Floating particles background
 function Particles() {
   const particles = useMemo(() =>
-    Array.from({ length: 30 }, (_, i) => ({
+    Array.from({ length: 60 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
-      size: Math.random() * 5 + 2,
-      duration: Math.random() * 12 + 8,
-      delay: Math.random() * -15,
-      opacity: Math.random() * 0.5 + 0.2,
+      size: Math.random() * 6 + 3,
+      duration: Math.random() * 10 + 6,
+      delay: Math.random() * -12,
+      opacity: Math.random() * 0.4 + 0.4,
     })), []);
 
   return (
@@ -29,15 +29,15 @@ function Particles() {
             width: `${p.size}px`,
             height: `${p.size}px`,
             background: p.id % 3 === 0
-              ? 'rgba(239, 68, 68, 0.6)'
+              ? 'rgba(239, 68, 68, 0.8)'
               : p.id % 3 === 1
-              ? 'rgba(249, 115, 22, 0.5)'
-              : 'rgba(255, 255, 255, 0.3)',
+              ? 'rgba(249, 115, 22, 0.7)'
+              : 'rgba(255, 255, 255, 0.5)',
             boxShadow: p.id % 3 === 0
-              ? '0 0 6px rgba(239, 68, 68, 0.4)'
+              ? '0 0 10px rgba(239, 68, 68, 0.6)'
               : p.id % 3 === 1
-              ? '0 0 6px rgba(249, 115, 22, 0.3)'
-              : 'none',
+              ? '0 0 10px rgba(249, 115, 22, 0.5)'
+              : '0 0 6px rgba(255, 255, 255, 0.3)',
             opacity: p.opacity,
             animation: `login-float ${p.duration}s ease-in-out ${p.delay}s infinite`,
           }}
