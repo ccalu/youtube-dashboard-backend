@@ -7058,19 +7058,23 @@ async def dash_upload_status():
         # Quando mesmo status, pega o MAIS RECENTE (created_at maior)
         _status_priority = {'sucesso': 0, 'erro': 1, 'sem_video': 2}
         upload_map = {}
-        # Contar total de uploads realizados por canal (para pills do subnicho)
+        # Contar uploads UNICOS por canal (deduplicar por channel_id+video_titulo)
         uploads_count_map = {}  # channel_id -> {sucesso: N, erro: N, sem_video: N}
+        _seen_uploads = set()
         for u in uploads.data:
             cid = u['channel_id']
             if cid not in uploads_count_map:
                 uploads_count_map[cid] = {'sucesso': 0, 'erro': 0, 'sem_video': 0}
-            st = u.get('status', '')
-            if u.get('upload_realizado'):
-                uploads_count_map[cid]['sucesso'] += 1
-            elif st == 'sem_video':
-                uploads_count_map[cid]['sem_video'] += 1
-            elif u.get('erro_mensagem'):
-                uploads_count_map[cid]['erro'] += 1
+            # Deduplicar: mesmo canal + mesmo titulo = 1 upload
+            dedup_key = cid + '|' + (u.get('video_titulo') or u.get('status') or '')
+            if dedup_key not in _seen_uploads:
+                _seen_uploads.add(dedup_key)
+                if u.get('upload_realizado'):
+                    uploads_count_map[cid]['sucesso'] += 1
+                elif u.get('status') == 'sem_video':
+                    uploads_count_map[cid]['sem_video'] += 1
+                elif u.get('erro_mensagem'):
+                    uploads_count_map[cid]['erro'] += 1
             new_prio = _status_priority.get(u.get('status'), 9)
             if cid not in upload_map:
                 upload_map[cid] = u
