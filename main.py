@@ -6767,12 +6767,12 @@ DASH_UPLOAD_HTML = '''
                                     if (canais[i].videos_disponiveis != null) ss.totalDisp += canais[i].videos_disponiveis;
                                 }
                                 var accent = '#3f3f46'; var accentMuted = 'rgba(63,63,70,0.15)'; var icon = '?';
-                                if (subnicho === 'Monetizados') { accent = '#22c55e'; accentMuted = 'rgba(34,197,94,0.12)'; icon = '$'; }
-                                else if (subnicho === 'Historias Sombrias') { accent = '#8b5cf6'; accentMuted = 'rgba(139,92,246,0.12)'; icon = '\\u265B'; }
-                                else if (subnicho === 'Relatos de Guerra') { accent = '#4a8c50'; accentMuted = 'rgba(74,140,80,0.18)'; icon = '\\u2694'; }
-                                else if (subnicho === 'Guerras e Civilizacoes' || subnicho === 'Guerras e Civiliza\\u00e7\\u00f5es') { accent = '#f97316'; accentMuted = 'rgba(249,115,22,0.12)'; icon = '\\u26E8'; }
-                                else if (subnicho === 'Terror') { accent = '#ef4444'; accentMuted = 'rgba(239,68,68,0.12)'; icon = '\\u2620'; }
-                                else if (subnicho === 'Desmonetizados') { accent = '#71717a'; accentMuted = 'rgba(113,113,122,0.12)'; icon = '\\u25CB'; }
+                                if (subnicho === 'Monetizados') { accent = '#22c55e'; accentMuted = 'rgba(34,197,94,0.12)'; icon = '\\uD83D\\uDCB8'; }
+                                else if (subnicho === 'Historias Sombrias') { accent = '#8b5cf6'; accentMuted = 'rgba(139,92,246,0.12)'; icon = '\\uD83E\\uDD87'; }
+                                else if (subnicho === 'Relatos de Guerra') { accent = '#4a8c50'; accentMuted = 'rgba(74,140,80,0.18)'; icon = '\\u2694\\uFE0F'; }
+                                else if (subnicho === 'Guerras e Civilizacoes' || subnicho === 'Guerras e Civiliza\\u00e7\\u00f5es') { accent = '#f97316'; accentMuted = 'rgba(249,115,22,0.12)'; icon = '\\uD83D\\uDEE1\\uFE0F'; }
+                                else if (subnicho === 'Terror') { accent = '#ef4444'; accentMuted = 'rgba(239,68,68,0.12)'; icon = '\\uD83D\\uDC7B'; }
+                                else if (subnicho === 'Desmonetizados') { accent = '#71717a'; accentMuted = 'rgba(113,113,122,0.12)'; icon = '\\u274C'; }
                                 var isOpen = _openSections.has(subnicho);
                                 html += '<div class="section' + (isOpen ? ' section--open' : '') + '" data-section="' + escapeHtml(subnicho) + '" style="--section-accent:' + accent + ';--section-accent-muted:' + accentMuted + ';">';
                                 html += '<div class="section-header" onclick="toggleSection(\\'' + escapeHtml(subnicho).replace(/'/g, "\\\\'") + '\\')"><div class="section-title">';
