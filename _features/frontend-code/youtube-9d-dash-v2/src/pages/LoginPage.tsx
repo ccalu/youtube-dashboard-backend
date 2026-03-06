@@ -120,7 +120,7 @@ export default function LoginPage() {
                 type="checkbox"
                 checked={remember}
                 onChange={(e) => setRemember(e.target.checked)}
-                className="h-4 w-4 rounded border-white/20 bg-white/[0.04] text-purple-500 focus:ring-purple-500/50 focus:ring-offset-0"
+                className="h-4 w-4 rounded-full border-white/20 bg-white/[0.04] text-red-500 accent-red-500 focus:ring-red-500/50 focus:ring-offset-0"
               />
               <span className="text-sm text-muted-foreground">Lembrar usuario</span>
             </label>
@@ -128,7 +128,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={submitting || !username.trim() || !password.trim()}
-              className="w-full h-10 rounded-lg bg-gradient-to-r from-purple-600 to-violet-500 text-white font-medium text-sm shadow-md shadow-purple-500/20 hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-10 rounded-lg bg-gradient-to-r from-red-600 to-orange-500 text-white font-medium text-sm shadow-md shadow-red-500/20 hover:shadow-lg hover:shadow-red-500/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {submitting ? (
                 <span className="flex items-center justify-center gap-2">
