@@ -6209,7 +6209,8 @@ DASH_UPLOAD_HTML = '''
             box-shadow: 0 1px 0 rgba(249,115,22,0.15);
         }
         .header-right { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
-        .header-title { font-size: 22px; font-weight: 700; letter-spacing: 3px; color: var(--accent); font-family: 'Courier New', monospace; text-transform: uppercase; white-space: nowrap; text-shadow: 0 0 20px rgba(249,115,22,0.3), 0 0 40px rgba(249,115,22,0.1); }
+        .header-title { font-size: 26px; font-weight: 700; letter-spacing: 3px; color: var(--text-primary); font-family: 'Courier New', monospace; text-transform: uppercase; white-space: nowrap; }
+        .header-title .accent { color: var(--accent); text-shadow: 0 0 20px rgba(249,115,22,0.3), 0 0 40px rgba(249,115,22,0.1); }
         .header-subtitle { font-size: 12px; color: var(--text-tertiary); margin-top: 3px; letter-spacing: 1px; font-family: 'Courier New', monospace; text-transform: uppercase; }
         .live-indicator { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--accent); font-family: 'Courier New', monospace; letter-spacing: 1px; text-transform: uppercase; }
         .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse-live 2s ease-in-out infinite; }
@@ -6349,7 +6350,7 @@ DASH_UPLOAD_HTML = '''
         @media (max-width: 768px) {
             .page-header { padding: 14px 12px 12px; flex-wrap: nowrap; gap: 8px; overflow: hidden; }
             .page-header > div:first-child { min-width: 0; flex-shrink: 1; }
-            .header-title { font-size: 16px; letter-spacing: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .header-title { font-size: 19px; letter-spacing: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .header-subtitle { display: none; }
             .header-right { gap: 8px; flex-shrink: 0; }
             .modal-table th:nth-child(1), .modal-table td:nth-child(1) { padding-left: 4px; padding-right: 4px; white-space: nowrap; font-size: 11px; }
@@ -6396,7 +6397,7 @@ DASH_UPLOAD_HTML = '''
         @media (max-width: 480px) {
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .stat-card--historico { grid-column: span 2; }
-            .header-title { font-size: 14px; letter-spacing: 2px; }
+            .header-title { font-size: 16px; letter-spacing: 2px; }
             .btn-batch { width: 32px; height: 32px; font-size: 16px; }
             .channel-table th:nth-child(2), .channel-table td:nth-child(2) { display: none; }
             .cell-channel { flex-wrap: wrap; gap: 3px; }
@@ -6417,7 +6418,7 @@ DASH_UPLOAD_HTML = '''
 <body>
     <header class="page-header">
         <div>
-            <div class="header-title">Upload Control</div>
+            <div class="header-title"><span class="accent">Upload</span> Control</div>
             <div class="header-subtitle">Sistema de Upload Automatizado</div>
         </div>
         <div class="header-right">
