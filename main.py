@@ -9518,26 +9518,20 @@ function runSingleAgent(agentKey) {
     var depInfo = AGENT_DEPS[agentKey];
     if (depInfo) {
         var depAgent = AGENTS.filter(function(a) { return a.key === depInfo.dep; })[0];
-        var hasDep = _agentData[depInfo.dep] != null;
-        if (!hasDep) {
-            var choice = confirm(depInfo.label + '\\n\\nNao ha relatorio de ' + depAgent.label + ' para este canal.\\nDeseja rodar ' + depAgent.label + ' + ' + agentInfo.label + ' em sequencia?');
-            if (!choice) return;
-            area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Rodando ' + depAgent.label + ' primeiro... (30-60s)</div>';
-            _runAgent(depInfo.dep, area)
-                .then(function() {
-                    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Agora rodando ' + agentInfo.label + '... (30-60s)</div>';
-                    return _runAgent(agentKey, area);
-                })
-                .then(function() { renderActiveTab(); })
-                .catch(function(e) { area.innerHTML = '<div class="empty-state"><p>Erro: ' + escHtml(e.message) + '</p></div>'; });
-            return;
-        } else {
-            if (!confirm('Rodar agente ' + agentInfo.label + ' para ' + chName + '?\\n\\n(Usando dados existentes de ' + depAgent.label + ')')) return;
-        }
-    } else {
-        if (!confirm('Rodar agente ' + agentInfo.label + ' para ' + chName + '?')) return;
+        var choice = confirm(depInfo.label + '\\n\\nRodar ' + depAgent.label + ' (fresh) + ' + agentInfo.label + ' em sequencia para ' + chName + '?');
+        if (!choice) return;
+        area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> 1/2 Rodando ' + depAgent.label + '... (30-60s)</div>';
+        _runAgent(depInfo.dep, area)
+            .then(function() {
+                area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> 2/2 Rodando ' + agentInfo.label + '... (30-60s)</div>';
+                return _runAgent(agentKey, area);
+            })
+            .then(function() { renderActiveTab(); })
+            .catch(function(e) { area.innerHTML = '<div class="empty-state"><p>Erro: ' + escHtml(e.message) + '</p></div>'; });
+        return;
     }
 
+    if (!confirm('Rodar agente ' + agentInfo.label + ' para ' + chName + '?')) return;
     area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Rodando ' + agentInfo.label + '... (30-60s)</div>';
     _runAgent(agentKey, area)
         .then(function() { renderActiveTab(); })
