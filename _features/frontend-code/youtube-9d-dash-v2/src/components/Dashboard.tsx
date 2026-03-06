@@ -138,11 +138,11 @@ const DashboardContent = () => {
       setPrevTab(activeTab);
       setIsTransitioning(true);
       
-      // Wait for fade-out, then change tab
+      // Wait for dissolve-out, then change tab
       setTimeout(() => {
         setActiveTab(newTab);
         setIsTransitioning(false);
-      }, 150);
+      }, 250);
     }
   }, [activeTab]);
 
@@ -231,7 +231,7 @@ const DashboardContent = () => {
 
           {/* Main Content with transition */}
           <div
-            className={`transition-opacity duration-150 ${
+            className={`transition-opacity duration-[400ms] ease-in-out ${
               isTransitioning ? 'opacity-0' : 'opacity-100'
             }`}
           >
