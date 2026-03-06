@@ -110,20 +110,19 @@ def _get_new_video_ids(all_videos: List[Dict], previous_snapshot: Dict) -> set:
 # BUSCAR VIDEOS MATCHED DO COPY
 # =============================================================================
 
-def _get_matched_videos_from_copy(channel_id: str) -> Optional[List[Dict]]:
+def _get_matched_videos_from_copy(channel_id: str) -> tuple:
     """
     Busca videos matched do ultimo copy analysis run.
     O agente de copy faz o match titulo→estrutura. Nos reutilizamos.
 
     Returns:
-        Lista de videos com: video_id, structure, title, published_at, views
-        None se nao existe copy run para esse canal
+        (copy_run_id, matched_videos) ou (None, None) se nao existe
     """
     resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/copy_analysis_runs",
         params={
             "channel_id": f"eq.{channel_id}",
-            "select": "results_json",
+            "select": "id,results_json",
             "order": "created_at.desc",
             "limit": "1"
         },
@@ -131,16 +130,17 @@ def _get_matched_videos_from_copy(channel_id: str) -> Optional[List[Dict]]:
     )
 
     if resp.status_code != 200 or not resp.json():
-        return None
+        return None, None
 
     row = resp.json()[0]
+    copy_run_id = row.get("id")
     results = row.get("results_json") or {}
     if isinstance(results, str):
         results = json.loads(results)
 
     videos = results.get("videos", [])
     if not videos:
-        return None
+        return None, None
 
     # Garantir campos necessarios
     matched = []
@@ -154,7 +154,7 @@ def _get_matched_videos_from_copy(channel_id: str) -> Optional[List[Dict]]:
                 "views": v.get("views") or 0,
             })
 
-    return matched if matched else None
+    return (copy_run_id, matched) if matched else (None, None)
 
 
 def _get_channel_info(channel_id: str) -> Optional[Dict]:
@@ -1314,7 +1314,8 @@ def save_analysis(
     sat_comparison: Optional[Dict],
     report_text: str,
     run_number: int = 1,
-    snapshot: Optional[Dict] = None
+    snapshot: Optional[Dict] = None,
+    copy_run_id: Optional[int] = None
 ) -> Optional[int]:
     """Salva analise no banco."""
     ch_avg = sat_analysis["channel_avg"]
@@ -1356,7 +1357,8 @@ def save_analysis(
         "results_json": json.dumps(results, ensure_ascii=False),
         "report_text": report_text,
         "run_number": run_number,
-        "analyzed_video_data": json.dumps(snapshot, ensure_ascii=False) if snapshot else None
+        "analyzed_video_data": json.dumps(snapshot, ensure_ascii=False) if snapshot else None,
+        "copy_run_id": copy_run_id
     }
 
     resp = requests.post(
@@ -1497,7 +1499,7 @@ def run_analysis(channel_id: str) -> Dict:
     channel_name = channel_info.get("channel_name", channel_id)
 
     # 2. Buscar videos matched do copy
-    matched_videos = _get_matched_videos_from_copy(channel_id)
+    copy_run_id, matched_videos = _get_matched_videos_from_copy(channel_id)
     if not matched_videos:
         return {"success": False, "error": f"Canal {channel_name} nao tem analise de copy. Execute a analise de copy primeiro."}
 
@@ -1575,7 +1577,7 @@ def run_analysis(channel_id: str) -> Dict:
     # 8. Salvar
     run_id = save_analysis(
         channel_id, channel_name, sat_analysis, sat_comparison, report,
-        run_number=run_number, snapshot=snapshot
+        run_number=run_number, snapshot=snapshot, copy_run_id=copy_run_id
     )
 
     logger.info(f"SATISFACAO COMPLETA: {channel_name} | run #{run_number} | run_id={run_id}")

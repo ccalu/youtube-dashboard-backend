@@ -7713,18 +7713,14 @@ async def run_copy_analysis_all():
 
 @app.delete("/api/analise-copy/{channel_id}/run/{run_id}")
 async def delete_copy_analysis_run(channel_id: str, run_id: int):
-    """Deleta um run de copy. Auto-deleta satisfaction run com mesmo run_number."""
+    """Deleta um run de copy. Auto-deleta satisfaction run vinculado (FK copy_run_id)."""
     try:
-        # Buscar run_number do copy sendo deletado
+        # Deletar satisfaction runs vinculados (FK copy_run_id)
         try:
-            copy_row = db.supabase.table('copy_analysis_runs').select('run_number').eq('id', run_id).eq('channel_id', channel_id).limit(1).execute()
-            if copy_row.data:
-                rn = copy_row.data[0].get('run_number')
-                if rn is not None:
-                    sat_runs = db.supabase.table('satisfaction_analysis_runs').select('id').eq('channel_id', channel_id).eq('run_number', rn).execute()
-                    for sr in (sat_runs.data or []):
-                        sat_delete_analysis(channel_id, sr['id'])
-                        logger.info(f"Satisfaction run {sr['id']} (run_number={rn}) deletado junto com copy {run_id}")
+            sat_runs = db.supabase.table('satisfaction_analysis_runs').select('id').eq('copy_run_id', run_id).execute()
+            for sr in (sat_runs.data or []):
+                sat_delete_analysis(channel_id, sr['id'])
+                logger.info(f"Satisfaction run {sr['id']} deletado (copy_run_id={run_id})")
         except Exception as dep_err:
             logger.warning(f"Falha ao deletar satisfaction vinculado ao copy {run_id}: {dep_err}")
 
