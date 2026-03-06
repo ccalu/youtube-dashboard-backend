@@ -5008,13 +5008,17 @@ async def get_queue_status():
 @app.get("/api/yt-upload/channels")
 async def get_upload_channels():
     """
-    Lista canais com upload automático ativado.
-    Útil para ver qual é o último canal adicionado.
+    Lista canais com OAuth configurado (elegíveis para upload).
     """
+    from daily_uploader import get_oauth_channel_ids
+    oauth_ids = list(get_oauth_channel_ids())
+    if not oauth_ids:
+        return {'total': 0, 'channels': []}
+
     result = supabase.table('yt_channels')\
-        .select('channel_id, channel_name, spreadsheet_id, upload_automatico, is_monetized, created_at')\
+        .select('channel_id, channel_name, spreadsheet_id, is_monetized, created_at')\
         .eq('is_active', True)\
-        .eq('upload_automatico', True)\
+        .in_('channel_id', oauth_ids)\
         .order('created_at', desc=True)\
         .execute()
 
@@ -5064,8 +5068,10 @@ async def force_upload_for_channel(channel_id: str, background_tasks: Background
 
         canal_data = canal.data[0]
 
-        if not canal_data.get('upload_automatico'):
-            raise HTTPException(status_code=400, detail=f"Canal {canal_data['channel_name']} nao tem upload automatico ativado")
+        # Verificar se canal tem OAuth configurado
+        from daily_uploader import get_oauth_channel_ids
+        if channel_id not in get_oauth_channel_ids():
+            raise HTTPException(status_code=400, detail=f"Canal {canal_data['channel_name']} nao tem OAuth configurado")
 
         if not canal_data.get('spreadsheet_id'):
             raise HTTPException(status_code=400, detail=f"Canal {canal_data['channel_name']} nao tem planilha configurada")
@@ -7019,10 +7025,14 @@ async def dash_upload_status():
         return _dash_cache['data']
 
     try:
+        from daily_uploader import get_oauth_channel_ids
+        oauth_ids = list(get_oauth_channel_ids())
+        if not oauth_ids:
+            return HTMLResponse(content="<h1>Nenhum canal com OAuth configurado</h1>", status_code=200)
         canais = supabase.table('yt_channels')\
             .select('channel_id, channel_name, spreadsheet_id, lingua, is_monetized, subnicho')\
             .eq('is_active', True)\
-            .eq('upload_automatico', True)\
+            .in_('channel_id', oauth_ids)\
             .order('subnicho, channel_name')\
             .execute()
 
@@ -7372,10 +7382,14 @@ async def batch_check_videos():
         from collections import defaultdict
         import time as _t
 
+        from daily_uploader import get_oauth_channel_ids
+        oauth_ids = list(get_oauth_channel_ids())
+        if not oauth_ids:
+            return {'total_checked': 0, 'total_with_video': 0, 'subnichos': {}}
         canais = supabase.table('yt_channels')\
             .select('channel_id, channel_name, spreadsheet_id, lingua, is_monetized, subnicho')\
             .eq('is_active', True)\
-            .eq('upload_automatico', True)\
+            .in_('channel_id', oauth_ids)\
             .order('channel_name')\
             .execute()
 
@@ -7491,12 +7505,16 @@ async def batch_upload(request: Request, background_tasks: BackgroundTasks):
         if not channel_ids:
             raise HTTPException(status_code=400, detail="Nenhum canal selecionado")
 
-        # Validar canais no DB
+        # Validar canais no DB (devem ter OAuth configurado)
+        from daily_uploader import get_oauth_channel_ids
+        oauth_ids = get_oauth_channel_ids()
+        valid_channel_ids = [cid for cid in channel_ids if cid in oauth_ids]
+        if not valid_channel_ids:
+            raise HTTPException(status_code=400, detail="Nenhum canal selecionado tem OAuth configurado")
         canais = supabase.table('yt_channels')\
             .select('channel_id, channel_name, spreadsheet_id, lingua, is_monetized, subnicho')\
             .eq('is_active', True)\
-            .eq('upload_automatico', True)\
-            .in_('channel_id', channel_ids)\
+            .in_('channel_id', valid_channel_ids)\
             .execute()
 
         valid_channels = [c for c in canais.data if c.get('spreadsheet_id')]

@@ -62,6 +62,16 @@ def limpar_cache_expirado():
             del SPREADSHEET_CACHE[key]
         logger.info(f"Cache reduzido: {entries_to_remove} entradas removidas (limite de tamanho)")
 
+def get_oauth_channel_ids() -> set:
+    """Retorna set de channel_ids que possuem OAuth configurado.
+    Canais com OAuth = passaram pelo wizard completo e podem fazer upload."""
+    try:
+        resp = supabase.table('yt_oauth_tokens').select('channel_id').execute()
+        return set(r['channel_id'] for r in (resp.data or []))
+    except Exception:
+        return set()
+
+
 class DailyUploader:
     """Sistema de upload diário automático"""
 
@@ -203,11 +213,15 @@ class DailyUploader:
         """
         try:
             if retry_attempt == 1:
-                # Primeira execução: todos com upload_automatico=true
+                # Primeira execução: canais ativos com OAuth configurado
+                oauth_ids = list(get_oauth_channel_ids())
+                if not oauth_ids:
+                    logger.warning("Nenhum canal com OAuth configurado")
+                    return []
                 result = self.supabase.table('yt_channels')\
                     .select('*')\
                     .eq('is_active', True)\
-                    .eq('upload_automatico', True)\
+                    .in_('channel_id', oauth_ids)\
                     .execute()
                 return result.data
             else:
