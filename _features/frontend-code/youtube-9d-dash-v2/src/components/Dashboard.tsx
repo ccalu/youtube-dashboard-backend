@@ -35,7 +35,7 @@ import { apiService } from '@/services/api';
 // Background particles — 80 desktop, 40 mobile
 function DashboardParticles() {
   const isMobile = useIsMobile();
-  const count = isMobile ? 30 : 80;
+  const count = isMobile ? 20 : 80;
   const particles = useMemo(() =>
     Array.from({ length: count }, (_, i) => ({
       id: i,
