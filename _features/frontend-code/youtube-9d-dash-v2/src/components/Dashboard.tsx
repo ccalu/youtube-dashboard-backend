@@ -69,7 +69,7 @@ function DashboardParticles() {
             fontSize: `${p.size * 2}px`,
             opacity: p.opacity,
             color: getColor(p.id),
-            filter: getGlow(p.id),
+            filter: isMobile ? 'none' : getGlow(p.id),
             animation: `login-float ${p.duration}s ease-in-out ${p.delay}s infinite`,
             lineHeight: 1,
           }}
