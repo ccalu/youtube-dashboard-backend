@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { ChannelsTable } from './ChannelsTable';
 import { OurChannelsTable } from './OurChannelsTable';
@@ -45,9 +45,8 @@ const DashboardContent = () => {
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
-  const trailRef = useRef<HTMLDivElement>(null);
 
-  // Parallax background + cursor trail
+  // Parallax background
   useEffect(() => {
     if (isMobile) return;
     const onMove = (e: MouseEvent) => {
@@ -55,24 +54,9 @@ const DashboardContent = () => {
         x: (e.clientX / window.innerWidth) * 100,
         y: (e.clientY / window.innerHeight) * 100,
       });
-      // Cursor trail
-      const trail = trailRef.current;
-      if (trail) {
-        trail.style.left = `${e.clientX - 1}px`;
-        trail.style.top = `${e.clientY - 4}px`;
-        trail.classList.add('visible');
-      }
-    };
-    const onLeave = () => {
-      const trail = trailRef.current;
-      if (trail) trail.classList.remove('visible');
     };
     window.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseleave', onLeave);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseleave', onLeave);
-    };
+    return () => window.removeEventListener('mousemove', onMove);
   }, [isMobile]);
 
   const handleRefreshData = useCallback(async () => {
@@ -190,9 +174,6 @@ const DashboardContent = () => {
       />
       
       <main className="flex-1 min-h-screen overflow-x-hidden relative">
-        {/* Cursor trail */}
-        <div ref={trailRef} className="cursor-trail" />
-
         {/* Parallax background */}
         <div
           className="fixed inset-0 pointer-events-none"
@@ -230,8 +211,8 @@ const DashboardContent = () => {
 
           {/* Main Content with transition */}
           <div
-            className={`transition-[opacity,transform] duration-300 ease-out ${
-              isTransitioning ? 'opacity-0 translate-y-2' : 'opacity-100 translate-y-0'
+            className={`transition-opacity duration-150 ${
+              isTransitioning ? 'opacity-0' : 'opacity-100'
             }`}
           >
             {renderContent()}

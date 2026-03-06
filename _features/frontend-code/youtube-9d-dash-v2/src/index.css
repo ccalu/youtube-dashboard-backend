@@ -306,23 +306,6 @@
     animation: header-line-breathe 4s ease-in-out infinite;
   }
 
-  /* Cursor trail */
-  .cursor-trail {
-    position: fixed;
-    pointer-events: none;
-    z-index: 9999;
-    width: 3px;
-    height: 24px;
-    border-radius: 2px;
-    background: linear-gradient(to bottom, rgba(239, 68, 68, 0.4), transparent);
-    opacity: 0;
-    transition: opacity 0.15s ease;
-  }
-
-  .cursor-trail.visible {
-    opacity: 1;
-  }
-
   /* Shimmer / loading effect */
   @keyframes shimmer-glass {
     0% { background-position: -200% 0; }
