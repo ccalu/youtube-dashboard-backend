@@ -7,14 +7,14 @@ import { getRememberedUser, setRememberedUser, clearRememberedUser } from '@/lib
 // Floating particles background
 function Particles() {
   const particles = useMemo(() =>
-    Array.from({ length: 20 }, (_, i) => ({
+    Array.from({ length: 30 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
-      size: Math.random() * 3 + 1,
-      duration: Math.random() * 15 + 10,
-      delay: Math.random() * -20,
-      opacity: Math.random() * 0.3 + 0.1,
+      size: Math.random() * 5 + 2,
+      duration: Math.random() * 12 + 8,
+      delay: Math.random() * -15,
+      opacity: Math.random() * 0.5 + 0.2,
     })), []);
 
   return (
@@ -29,10 +29,15 @@ function Particles() {
             width: `${p.size}px`,
             height: `${p.size}px`,
             background: p.id % 3 === 0
-              ? 'rgba(239, 68, 68, 0.4)'
+              ? 'rgba(239, 68, 68, 0.6)'
               : p.id % 3 === 1
-              ? 'rgba(249, 115, 22, 0.3)'
-              : 'rgba(255, 255, 255, 0.15)',
+              ? 'rgba(249, 115, 22, 0.5)'
+              : 'rgba(255, 255, 255, 0.3)',
+            boxShadow: p.id % 3 === 0
+              ? '0 0 6px rgba(239, 68, 68, 0.4)'
+              : p.id % 3 === 1
+              ? '0 0 6px rgba(249, 115, 22, 0.3)'
+              : 'none',
             opacity: p.opacity,
             animation: `login-float ${p.duration}s ease-in-out ${p.delay}s infinite`,
           }}
@@ -115,8 +120,8 @@ export default function LoginPage() {
           75% { transform: translateY(-30px) translateX(5px); }
         }
         @keyframes login-glow {
-          0%, 100% { box-shadow: 0 4px 24px -4px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05), 0 0 30px -10px rgba(239,68,68,0.0); }
-          50% { box-shadow: 0 4px 24px -4px rgba(0,0,0,0.4), 0 0 0 1px rgba(239,68,68,0.15), 0 0 40px -10px rgba(239,68,68,0.15); }
+          0%, 100% { box-shadow: 0 4px 24px -4px rgba(0,0,0,0.4), 0 0 0 1px rgba(239,68,68,0.1), 0 0 40px -5px rgba(239,68,68,0.05); }
+          50% { box-shadow: 0 4px 24px -4px rgba(0,0,0,0.4), 0 0 0 1px rgba(239,68,68,0.35), 0 0 60px -5px rgba(239,68,68,0.2); }
         }
         @keyframes login-shimmer {
           0% { transform: translateX(-100%); }
@@ -233,7 +238,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={submitting || !username.trim() || !password.trim()}
-                className="w-full h-10 rounded-lg bg-gradient-to-r from-red-600 to-orange-500 text-white font-medium text-sm shadow-md shadow-red-500/20 hover:shadow-lg hover:shadow-red-500/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+                className="w-full h-10 rounded-lg bg-gradient-to-r from-red-500 to-orange-400 text-white font-semibold text-sm shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 hover:brightness-110 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
               >
                 {/* Shimmer effect */}
                 {!submitting && (
