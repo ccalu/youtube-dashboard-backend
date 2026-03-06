@@ -60,23 +60,22 @@ function DashboardParticles() {
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
       {particles.map((p) => (
-        <svg
+        <span
           key={p.id}
-          className="absolute"
+          className="absolute select-none"
           style={{
             left: `${p.x}%`,
             top: `${p.y}%`,
-            width: `${p.size * 2.5}px`,
-            height: `${p.size * 2.5}px`,
+            fontSize: `${p.size * 2}px`,
             opacity: p.opacity,
+            color: getColor(p.id),
             filter: getGlow(p.id),
             animation: `login-float ${p.duration}s ease-in-out ${p.delay}s infinite`,
+            lineHeight: 1,
           }}
-          viewBox="0 0 24 24"
-          fill={getColor(p.id)}
         >
-          <path d="M11 0 L13 0 L13 11 L24 11 L24 13 L13 13 L13 24 L11 24 L11 13 L0 13 L0 11 L11 11 Z" />
-        </svg>
+          $
+        </span>
       ))}
     </div>
   );
