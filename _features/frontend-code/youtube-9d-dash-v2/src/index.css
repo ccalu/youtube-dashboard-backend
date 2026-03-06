@@ -86,7 +86,7 @@
 
     /* Animation */
     --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-glass: border-color 0.3s ease, box-shadow 0.3s ease;
+    --transition-glass: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 
     /* Sidebar — heavier glass */
     --sidebar-background: 225 20% 8%;
