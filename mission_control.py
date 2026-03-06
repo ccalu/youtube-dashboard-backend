@@ -905,10 +905,11 @@ canvas{display:block;cursor:pointer;width:100%}
 @media(max-width:1024px){#legend{display:none}#sb{width:300px!important}}
 @media(max-width:768px){
 #legend{display:none}
-#header{flex-wrap:wrap;gap:6px;padding:6px 12px;justify-content:center}
-#header h1{font-size:14px;width:100%;text-align:center}
-#stats{font-size:10px;flex-wrap:wrap;gap:4px;justify-content:center;width:100%;text-align:center}
-#btn-refresh-mv,#btn-run-all{min-height:36px;padding:6px 14px;font-size:11px}
+#header{flex-wrap:wrap;gap:4px;padding:8px 12px;justify-content:center}
+#header h1{font-size:20px;width:100%;text-align:center;margin-bottom:2px}
+#stats{font-size:11px;gap:6px;justify-content:center;width:100%;text-align:center;white-space:nowrap}
+#btn-refresh-mv{display:none}
+#btn-run-all{min-height:36px;padding:6px 14px;font-size:11px}
 .tab{padding:6px 12px;font-size:10px;min-height:44px;display:inline-flex;align-items:center}
 #sb{width:100%!important}
 .sb-btn{padding:12px 16px;font-size:13px;min-height:44px}
@@ -921,9 +922,9 @@ canvas{display:block;cursor:pointer;width:100%}
 .rpt-pre-block{font-size:11px;padding:10px 12px}
 }
 @media(max-width:480px){
-#header h1{font-size:12px;letter-spacing:1px}
-#stats{font-size:9px}
-#btn-refresh-mv,#btn-run-all{min-height:40px;padding:8px 12px;font-size:10px}
+#header h1{font-size:18px;letter-spacing:1px}
+#stats{font-size:10px;gap:4px}
+#btn-run-all{min-height:40px;padding:8px 12px;font-size:10px}
 .tab{padding:4px 10px;font-size:9px;min-height:44px}
 #sb{padding:12px}
 .sb-name{font-size:14px}
