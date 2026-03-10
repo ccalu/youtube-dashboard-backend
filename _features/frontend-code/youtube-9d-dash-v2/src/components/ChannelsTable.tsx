@@ -55,19 +55,8 @@ export const ChannelsTable = React.memo(() => {
 
   const { data: channels, isLoading, error } = useQuery({
     queryKey: ['channels', 'minerado'],
-    queryFn: () => {
-      console.log('🔍 ChannelsTable: Chamando getChannels com tipo=minerado');
-      return apiService.getChannels({ tipo: 'minerado' });
-    },
+    queryFn: () => apiService.getChannels({ tipo: 'minerado' }),
     staleTime: 5 * 60 * 1000,
-  });
-
-  console.log('🔍 ChannelsTable STATE:', { 
-    isLoading, 
-    error, 
-    hasChannels: !!channels,
-    channelsCount: channels?.canais?.length || 0,
-    totalChannels: channels?.total 
   });
 
   const { data: filterOptions } = useQuery({

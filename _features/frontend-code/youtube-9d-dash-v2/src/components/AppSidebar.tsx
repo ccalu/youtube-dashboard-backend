@@ -105,7 +105,6 @@ export function AppSidebar({
       setNotificationStats(data);
       localStorage.setItem('sidebar_stats_last_refresh', new Date().toISOString());
     } catch (error) {
-      console.error('Erro ao carregar stats de notificações:', error);
     }
   }, []);
 

@@ -34,7 +34,6 @@ export class KanbanApiError extends Error {
 class KanbanApiService {
   private fetchApi = async <T>(endpoint: string, options?: RequestInit): Promise<T> => {
     try {
-      console.log('🎯 Kanban API:', `${API_BASE_URL}${endpoint}`);
       const { getAuthHeaders, handle401 } = await import('@/lib/authFetch');
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         ...options,
@@ -48,7 +47,6 @@ class KanbanApiService {
       if (response.status === 401) { handle401(response); throw new Error('Session expired'); }
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('🎯 Kanban API Error:', response.status, errorText);
         throw new KanbanApiError({
           endpoint,
           status: response.status,
@@ -60,7 +58,6 @@ class KanbanApiService {
       // Some endpoints may return 204 or an envelope like { success, message, data }
       const text = await response.text();
       if (!text) {
-        console.log('🎯 Kanban API Success (empty body):', endpoint);
         return undefined as T;
       }
 
@@ -73,14 +70,11 @@ class KanbanApiService {
         'success' in json &&
         'data' in json
       ) {
-        console.log('🎯 Kanban API Success (enveloped):', endpoint);
         return (json as any).data as T;
       }
 
-      console.log('🎯 Kanban API Success:', endpoint);
       return json as T;
     } catch (error) {
-      console.error('🎯 Kanban Fetch failed:', endpoint, error);
       throw error;
     }
   };

@@ -73,7 +73,6 @@ export function CalendarSearchModal({ open, onOpenChange, onSelectDate }: Calend
       });
       setResults(res.events || res.results || []);
     } catch (error) {
-      console.error('Erro na busca:', error);
       setResults([]);
     } finally {
       setLoading(false);

@@ -137,14 +137,11 @@ class FinanceiroApiService {
 
       if (response.status === 401) { handle401(response); throw new Error('Session expired'); }
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Financeiro API Error:', response.status, errorText);
         throw new Error(`API Error: ${response.statusText}`);
       }
 
       return response.json();
     } catch (error) {
-      console.error('Financeiro fetch failed:', endpoint, error);
       throw error;
     }
   };

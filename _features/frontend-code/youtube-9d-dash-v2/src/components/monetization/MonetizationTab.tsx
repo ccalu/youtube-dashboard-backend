@@ -163,7 +163,6 @@ const fetchMonetizationData = async (filters: FilterState) => {
     try {
       analytics = await analyticsRes.json();
     } catch (e) {
-      console.warn('Failed to parse analytics data:', e);
     }
   }
 
@@ -171,7 +170,6 @@ const fetchMonetizationData = async (filters: FilterState) => {
     try {
       topPerformers = await topPerformersRes.json();
     } catch (e) {
-      console.warn('Failed to parse top performers data:', e);
     }
   }
 
@@ -179,7 +177,6 @@ const fetchMonetizationData = async (filters: FilterState) => {
     try {
       revenue24h = await revenue24hRes.json();
     } catch (e) {
-      console.warn('Failed to parse revenue 24h data:', e);
     }
   }
 

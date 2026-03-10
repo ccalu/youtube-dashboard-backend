@@ -425,7 +425,6 @@ const OverallMonetizationChart: React.FC<OverallChartProps> = ({ month, period }
       const avgDaily = totalDays > 0 ? totalRevenue / totalDays : 0;
       setStats({ totalRevenue, totalDays, avgDaily });
     } catch (err) {
-      console.error('Error fetching overall data:', err);
     } finally {
       setLoading(false);
     }

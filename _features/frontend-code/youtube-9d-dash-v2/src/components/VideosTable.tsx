@@ -514,21 +514,15 @@ export const VideosTable = React.memo(() => {
                 </div>
               </div>
 
-              {(() => {
-                const videoUrl = video.url_video || `https://www.youtube.com/watch?v=${video.video_id}`;
-                console.log('🎥 Mobile Video URL:', { id: video.id, url_video: video.url_video, video_id: video.video_id, final: videoUrl });
-                return (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full justify-center"
-                    onClick={() => window.open(videoUrl, '_blank')}
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Assistir
-                  </Button>
-                );
-              })()}
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-center"
+                onClick={() => window.open(video.url_video || `https://www.youtube.com/watch?v=${video.video_id}`, '_blank')}
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Assistir
+              </Button>
             </div>
           );
         })}

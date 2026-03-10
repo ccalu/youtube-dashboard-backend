@@ -122,7 +122,6 @@ export const MonetizationChannelHistoryModal: React.FC<ChannelHistoryModalProps>
       const result = await response.json();
       setData(result);
     } catch (err) {
-      console.error('Erro ao buscar histórico:', err);
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
       setLoading(false);

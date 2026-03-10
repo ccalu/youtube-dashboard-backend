@@ -89,7 +89,6 @@ export default function NotificationRulesPanel() {
       const data = await response.json();
       setSubnichos(data.subnichos || []);
     } catch (error) {
-      console.error("Erro ao buscar subnichos:", error);
     }
   };
 
@@ -100,7 +99,6 @@ export default function NotificationRulesPanel() {
       const data = await response.json();
       setRegras(data.regras || []);
     } catch (error) {
-      console.error("Erro ao buscar regras:", error);
       toast({
         title: "Erro",
         description: "Não foi possível carregar as regras",
@@ -222,7 +220,6 @@ export default function NotificationRulesPanel() {
         throw new Error("Erro ao deletar regra");
       }
     } catch (error) {
-      console.error("Erro ao deletar regra:", error);
       toast({
         title: "Erro",
         description: "Não foi possível deletar a regra",
@@ -251,7 +248,6 @@ export default function NotificationRulesPanel() {
         throw new Error("Erro ao alterar status da regra");
       }
     } catch (error) {
-      console.error("Erro ao toggle regra:", error);
       toast({
         title: "Erro",
         description: "Não foi possível alterar o status da regra",

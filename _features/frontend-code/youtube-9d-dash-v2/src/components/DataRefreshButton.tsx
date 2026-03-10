@@ -42,7 +42,6 @@ export const DataRefreshButton = ({ className }: DataRefreshButtonProps) => {
         description: "As informações mais recentes foram carregadas."
       });
     } catch (error) {
-      console.error('Erro ao coletar dados:', error);
       toast({
         title: "Erro ao atualizar dados",
         description: "Não foi possível coletar os dados. Tente novamente mais tarde.",

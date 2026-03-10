@@ -49,7 +49,7 @@ export function usePullToRefresh({
       try {
         await onRefresh();
       } catch (error) {
-        console.error('Refresh failed:', error);
+        // refresh failed silently
       } finally {
         setIsRefreshing(false);
       }

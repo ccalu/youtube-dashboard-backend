@@ -116,7 +116,6 @@ export function CalendarEventModal({
       await queryClient.invalidateQueries({ queryKey: ['calendar-events'] });
       onOpenChange(false);
     } catch (error) {
-      console.error('Erro ao salvar evento:', error);
       toast({
         title: 'Erro ao salvar evento',
         description: error instanceof Error ? error.message : 'Tente novamente',

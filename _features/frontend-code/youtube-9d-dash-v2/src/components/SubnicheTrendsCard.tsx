@@ -53,7 +53,6 @@ export function SubnicheTrendsCard() {
         setError('Erro ao carregar tendências');
       }
     } catch (err) {
-      console.error('Erro ao carregar trends:', err);
       setError('Erro ao conectar com o servidor');
     } finally {
       setLoading(false);

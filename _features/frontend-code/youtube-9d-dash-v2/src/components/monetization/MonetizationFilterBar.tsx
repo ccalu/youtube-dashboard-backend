@@ -167,7 +167,6 @@ export const MonetizationFilterBar: React.FC<FilterBarProps> = ({
       ]);
 
     } catch (error) {
-      console.error('Erro ao buscar configuração:', error);
     } finally {
       setLoadingSubnichos(false);
     }

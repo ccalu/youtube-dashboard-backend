@@ -154,7 +154,6 @@ export const AddEditCanalModal = ({
       onSuccess();
       onClose();
     } catch (error) {
-      console.error('Error submitting canal:', error);
       toast({
         title: 'Erro',
         description: 'Erro ao salvar canal. Tente novamente.',

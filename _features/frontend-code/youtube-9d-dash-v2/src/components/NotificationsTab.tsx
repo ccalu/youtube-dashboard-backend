@@ -83,7 +83,6 @@ const setCachedData = <T,>(key: string, data: T): void => {
   try {
     localStorage.setItem(key, JSON.stringify({ data, expiresAt: getNext6AMBrasilia() }));
   } catch (e) {
-    console.warn('Failed to cache data:', e);
   }
 };
 
@@ -124,7 +123,6 @@ export function NotificationsTab() {
     try {
       const saved = localStorage.getItem('transcriptionStatus');
       const parsed = saved ? JSON.parse(saved) : {};
-      console.log('📦 Carregando transcriptionStatus do localStorage:', parsed);
       return parsed;
     } catch {
       return {};
@@ -134,7 +132,6 @@ export function NotificationsTab() {
     try {
       const saved = localStorage.getItem('transcriptions');
       const parsed = saved ? JSON.parse(saved) : {};
-      console.log('📦 Carregando transcriptions do localStorage:', Object.keys(parsed));
       return parsed;
     } catch {
       return {};
@@ -144,7 +141,6 @@ export function NotificationsTab() {
     try {
       const saved = localStorage.getItem('transcriptionMessages');
       const parsed = saved ? JSON.parse(saved) : {};
-      console.log('📦 Carregando transcriptionMessages do localStorage:', parsed);
       return parsed;
     } catch {
       return {};
@@ -154,7 +150,6 @@ export function NotificationsTab() {
     try {
       const saved = localStorage.getItem('transcriptionJobIds');
       const parsed = saved ? JSON.parse(saved) : {};
-      console.log('📦 Carregando jobIds do localStorage:', parsed);
       return parsed;
     } catch {
       return {};
@@ -219,7 +214,6 @@ export function NotificationsTab() {
         setCachedData(cacheKey, data.notificacoes);
       }
     } catch (error) {
-      console.error('Erro ao carregar notificações:', error);
       toastOld({
         title: 'Erro',
         description: 'Não foi possível carregar as notificações',
@@ -243,7 +237,6 @@ export function NotificationsTab() {
       setStats(data);
       setCachedData('notif_stats_cache', data);
     } catch (error) {
-      console.error('Erro ao carregar stats:', error);
     }
   };
 
@@ -261,7 +254,6 @@ export function NotificationsTab() {
       setRegrasDisponiveis(regras);
       setCachedData('notif_regras_cache', regras);
     } catch (error) {
-      console.error('Erro ao carregar regras:', error);
     }
   };
 
@@ -279,7 +271,6 @@ export function NotificationsTab() {
       setSubnichosDisponiveis(subnichos);
       setCachedData('notif_subnichos_cache', subnichos);
     } catch (error) {
-      console.error('Erro ao carregar subnichos:', error);
     }
   };
 
@@ -297,7 +288,6 @@ export function NotificationsTab() {
       setLinguasDisponiveis(linguas);
       setCachedData('notif_linguas_cache', linguas);
     } catch (error) {
-      console.error('Erro ao carregar linguas:', error);
     }
   };
 
@@ -316,7 +306,6 @@ export function NotificationsTab() {
     try {
       localStorage.setItem('transcriptionStatus', JSON.stringify(transcriptionStatus));
     } catch (error) {
-      console.error('Erro ao salvar transcriptionStatus:', error);
     }
   }, [transcriptionStatus]);
 
@@ -324,7 +313,6 @@ export function NotificationsTab() {
     try {
       localStorage.setItem('transcriptions', JSON.stringify(transcriptions));
     } catch (error) {
-      console.error('Erro ao salvar transcriptions:', error);
     }
   }, [transcriptions]);
 
@@ -332,7 +320,6 @@ export function NotificationsTab() {
     try {
       localStorage.setItem('transcriptionMessages', JSON.stringify(transcriptionMessages));
     } catch (error) {
-      console.error('Erro ao salvar transcriptionMessages:', error);
     }
   }, [transcriptionMessages]);
 
@@ -340,24 +327,18 @@ export function NotificationsTab() {
     try {
       localStorage.setItem('transcriptionJobIds', JSON.stringify(jobIds));
     } catch (error) {
-      console.error('Erro ao salvar jobIds:', error);
     }
   }, [jobIds]);
 
   // Retomar polling de transcrições em andamento
   useEffect(() => {
-    console.log('🔄 Verificando transcrições em andamento...');
-    console.log('📊 Status atuais:', transcriptionStatus);
-    console.log('🆔 JobIds disponíveis:', jobIds);
     
     const resumePolling = () => {
       Object.entries(transcriptionStatus).forEach(([videoId, status]) => {
-        console.log(`📹 Verificando vídeo ${videoId}: status=${status}`);
         
         if (status === 'loading') {
           const jobId = jobIds[videoId];
           if (jobId && !pollingIntervals[videoId]) {
-            console.log(`▶️ Retomando polling para vídeo ${videoId} com job ${jobId}`);
             
             // Retomar polling
             const interval = setInterval(() => {
@@ -369,11 +350,9 @@ export function NotificationsTab() {
             // Fazer primeira verificação imediatamente
             pollTranscriptionStatus(videoId, jobId);
           } else if (!jobId) {
-            console.warn(`⚠️ Vídeo ${videoId} está em 'loading' mas não tem jobId. Resetando para idle.`);
             setTranscriptionStatus(prev => ({ ...prev, [videoId]: 'idle' }));
           }
         } else if (status === 'success') {
-          console.log(`✅ Vídeo ${videoId} já foi transcrito com sucesso`);
         }
       });
     };
@@ -437,7 +416,6 @@ export function NotificationsTab() {
       await loadNotificacoes(true);
       await loadStats(true);
     } catch (error) {
-      console.error('Erro ao marcar notificação:', error);
       toast.error('Não foi possível marcar a notificação');
     }
   };
@@ -450,7 +428,6 @@ export function NotificationsTab() {
       await loadNotificacoes(true);
       await loadStats(true);
     } catch (error) {
-      console.error('Erro:', error);
       toast.error('Erro ao desmarcar notificação');
     }
   };
@@ -463,7 +440,6 @@ export function NotificationsTab() {
       await loadNotificacoes(true);
       await loadStats(true);
     } catch (error) {
-      console.error('Erro ao marcar todas:', error);
       toast.error('Não foi possível marcar as notificações');
     }
   };
@@ -504,7 +480,6 @@ export function NotificationsTab() {
       await loadNotificacoes(true);
       await loadStats(true);
     } catch (error) {
-      console.error('Erro ao marcar filtradas:', error);
       toast.error('Erro ao marcar notificações');
     }
   };
@@ -605,7 +580,6 @@ export function NotificationsTab() {
         });
       }
     } catch (error) {
-      console.error('Erro no polling:', error);
       
       // Parar polling em caso de erro
       const interval = pollingIntervals[videoId];
@@ -695,7 +669,6 @@ export function NotificationsTab() {
       }
       
     } catch (error) {
-      console.error('Erro transcrição:', error);
       
       setTranscriptionStatus(prev => ({ ...prev, [videoId]: 'error' }));
       setTranscriptionMessages(prev => {
@@ -749,12 +722,10 @@ export function NotificationsTab() {
   };
 
   const addFilter = (type: 'regra' | 'subnicho' | 'lingua' | 'periodo' | 'status' | 'tipo_canal', value: any) => {
-    console.log('🔍 addFilter chamado:', { type, value });
     
     if (type === 'regra') {
       setActiveFilters(prev => {
         const newFilters = { ...prev, regra: value };
-        console.log('🔍 Novos filtros (regra):', newFilters);
         return newFilters;
       });
       setShowFiltersDropdown(false);
@@ -762,34 +733,29 @@ export function NotificationsTab() {
       // Para múltiplos subnichos
       setActiveFilters(prev => {
         const newFilters = { ...prev, subnichos: value };
-        console.log('🔍 Novos filtros (subnicho):', newFilters);
         return newFilters;
       });
     } else if (type === 'lingua') {
       // Para múltiplas línguas
       setActiveFilters(prev => {
         const newFilters = { ...prev, linguas: value };
-        console.log('🔍 Novos filtros (lingua):', newFilters);
         return newFilters;
       });
     } else if (type === 'periodo') {
       setActiveFilters(prev => {
         const newFilters = { ...prev, periodo: value };
-        console.log('🔍 Novos filtros (periodo):', newFilters);
         return newFilters;
       });
       setShowFiltersDropdown(false);
     } else if (type === 'status') {
       setActiveFilters(prev => {
         const newFilters = { ...prev, status: value };
-        console.log('🔍 Novos filtros (status):', newFilters);
         return newFilters;
       });
       setShowFiltersDropdown(false);
     } else if (type === 'tipo_canal') {
       setActiveFilters(prev => {
         const newFilters = { ...prev, tipo_canal: value };
-        console.log('🔍 Novos filtros (tipo_canal):', newFilters);
         return newFilters;
       });
       setShowFiltersDropdown(false);
@@ -825,32 +791,17 @@ export function NotificationsTab() {
 
   // Aplicar filtros
   const notificacoesFiltradas = notificacoes.filter(notif => {
-    // DEBUG: Log para ver o que está sendo filtrado
-    console.log('🔍 Filtrando notificação:', {
-      video: notif.nome_video.substring(0, 50),
-      periodo_dias: notif.periodo_dias,
-      views: notif.views_atingidas,
-      tipo_alerta: notif.tipo_alerta,
-      subnicho: notif.subnicho,
-      vista: notif.vista,
-      activeFilters: activeFilters
-    });
-
     // Filtro por regra
     if (activeFilters.regra) {
-      console.log('🔍 Aplicando filtro por regra:', activeFilters.regra);
       const periodoMatch = notif.periodo_dias === activeFilters.regra.periodo;
       const viewsMatch = notif.views_atingidas >= (activeFilters.regra.views || 0);
-      console.log('🔍 Resultado:', { periodoMatch, viewsMatch });
       if (!periodoMatch || !viewsMatch) return false;
     }
 
     // Filtro por subnichos
     if (activeFilters.subnichos.length > 0) {
-      console.log('🔍 Aplicando filtro por subnichos:', activeFilters.subnichos);
       const subnichoNormalizado = notif.subnicho?.replace(' (Dark History)', '');
       const match = activeFilters.subnichos.some(s => s.replace(' (Dark History)', '') === subnichoNormalizado);
-      console.log('🔍 Subnicho match:', match);
       if (!match) {
         return false;
       }
@@ -858,9 +809,7 @@ export function NotificationsTab() {
 
     // Filtro por línguas
     if (activeFilters.linguas.length > 0) {
-      console.log('🔍 Aplicando filtro por linguas:', activeFilters.linguas);
       const match = activeFilters.linguas.includes(notif.lingua || '');
-      console.log('🔍 Lingua match:', match);
       if (!match) {
         return false;
       }
@@ -868,11 +817,9 @@ export function NotificationsTab() {
 
     // Filtro por período
     if (activeFilters.periodo) {
-      console.log('🔍 Aplicando filtro por período:', activeFilters.periodo);
       const now = new Date();
       const notifDate = new Date(notif.data_disparo);
       const diffDays = Math.floor((now.getTime() - notifDate.getTime()) / (1000 * 60 * 60 * 24));
-      console.log('🔍 Diff dias:', diffDays);
       
       if (activeFilters.periodo === 'hoje' && diffDays !== 0) return false;
       if (activeFilters.periodo === 'semana' && (diffDays < 1 || diffDays > 7)) return false;  // ✅ Consistente com agrupamento visual
@@ -881,22 +828,18 @@ export function NotificationsTab() {
 
     // Filtro por status
     if (activeFilters.status) {
-      console.log('🔍 Aplicando filtro por status:', activeFilters.status);
       if (activeFilters.status === 'novas' && notif.vista) return false;
       if (activeFilters.status === 'vistas' && !notif.vista) return false;
     }
 
     // Filtro por tipo de canal
     if (activeFilters.tipo_canal) {
-      console.log('🔍 Aplicando filtro por tipo_canal:', activeFilters.tipo_canal);
       const match = notif.tipo_canal === activeFilters.tipo_canal;
-      console.log('🔍 Tipo canal match:', match, 'notif.tipo_canal:', notif.tipo_canal);
       if (!match) return false;
     }
 
     // Filtro por busca
     if (searchTerm.trim()) {
-      console.log('🔍 Aplicando filtro por busca:', searchTerm);
       const searchLower = searchTerm.toLowerCase();
       const tituloMatch = notif.nome_video?.toLowerCase().includes(searchLower);
       const canalMatch = notif.nome_canal?.toLowerCase().includes(searchLower);

@@ -99,8 +99,6 @@ const DashboardContent = () => {
     try {
       // 1. Limpar cache do backend
       await apiService.clearCache();
-      console.log('Cache do backend limpo com sucesso');
-      
       // 2. Invalidar queries do React Query
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['channels'] }),
@@ -119,7 +117,6 @@ const DashboardContent = () => {
         description: "Cache limpo e dados atualizados com sucesso",
       });
     } catch (error) {
-      console.error('Erro ao atualizar:', error);
       toast({
         title: "Erro ao atualizar",
         description: "Não foi possível atualizar o dashboard",

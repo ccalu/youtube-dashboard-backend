@@ -30,7 +30,6 @@ export function FinanceiroOverviewCards({ data, isLoading }: FinanceiroOverviewC
       const taxaData = await financeiroApi.getTaxaCambio();
       setTaxaCambio(taxaData);
     } catch (error) {
-      console.error('Erro ao carregar taxa de câmbio:', error);
     }
   }, []);
 

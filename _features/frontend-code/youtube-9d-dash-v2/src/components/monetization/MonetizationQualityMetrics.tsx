@@ -140,7 +140,6 @@ export const MonetizationQualityMetrics: React.FC<MonetizationQualityMetricsProp
       const result = await response.json();
       setData(result);
     } catch (err) {
-      console.error('Error fetching quality metrics:', err);
       setError('Erro ao carregar métricas de qualidade');
     } finally {
       setLoading(false);
