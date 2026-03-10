@@ -298,7 +298,7 @@ def match_videos(channel_id: str, sheet_data: List[Dict]) -> List[Dict]:
                 "structure": structure,
                 "video_id": video_data.get("video_id", ""),
                 "title": sheet_title,
-                "published_at": published_at,
+                "published_at": published_at.isoformat() if isinstance(published_at, datetime) else published_at,
                 "duration_sec": video_data.get("duracao"),
                 "views": video_data.get("views_atuais")
             })
