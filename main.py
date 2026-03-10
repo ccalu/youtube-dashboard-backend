@@ -9116,6 +9116,43 @@ body {
 .insuf-line { color: var(--text-muted); }
 .table-header-line { color: var(--text-muted); font-size: 0.78rem; }
 
+/* Ordenador (Agente 7) report styles */
+.ord-section-header {
+    color: #06b6d4;
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-top: 2rem;
+    margin-bottom: 0.8rem;
+    padding: 0.5rem 0.8rem;
+    background: rgba(6,182,212,0.08);
+    border-left: 3px solid #06b6d4;
+    border-radius: 0 6px 6px 0;
+    letter-spacing: 0.5px;
+}
+.ord-table-header {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0.2rem;
+}
+.ord-table-row {
+    padding: 0.3rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 0.8rem;
+}
+.ord-table-row.tier-alta { border-left: 3px solid #00d4aa; padding-left: 0.5rem; }
+.ord-table-row.tier-normal { border-left: 3px solid #ffd93d; padding-left: 0.5rem; }
+.ord-table-row.tier-baixa { border-left: 3px solid #ff6b6b; padding-left: 0.5rem; }
+.ord-table-sep { color: var(--border); font-size: 0.7rem; }
+.ord-move-line { padding: 0.2rem 0; font-size: 0.82rem; }
+.ord-move-line.muted { color: var(--text-muted); }
+.ord-move-tag { color: #06b6d4; font-weight: 700; }
+.ord-keep-tag { color: var(--text-muted); font-weight: 600; }
+.ord-alert-line { padding: 0.4rem 0; font-size: 0.82rem; }
+.ord-alert-tag { color: #ff6b6b; font-weight: 700; }
+
 /* Auth score badge in sidebar */
 .auth-badge {
     font-size: 0.6rem;
@@ -10040,6 +10077,71 @@ function renderReportLines(text) {
 
         // Narrative text (obs, diag, rec, tend)
         if (inSection === 'obs' || inSection === 'diag' || inSection === 'rec' || inSection === 'tend' || (inSection === 'comp' && !/^\\s*\\d/.test(trimmed) && !/^\\s*Estr/.test(trimmed) && !/^Estruturas novas/.test(trimmed))) {
+            html += '<div class="narrative">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Ordenador: section headers [SECAO]
+        if (/^\[.+\]$/.test(trimmed)) {
+            var secLabel = trimmed.replace(/^\[/, '').replace(/\]$/, '');
+            inSection = secLabel.toLowerCase().indexOf('tabela') >= 0 ? 'ord-table' :
+                         secLabel.toLowerCase().indexOf('alerta') >= 0 ? 'ord-alert' :
+                         secLabel.toLowerCase().indexOf('instruc') >= 0 ? 'ord-move' : 'ord-text';
+            html += '<div class="ord-section-header">' + escHtml(secLabel) + '</div>';
+            continue;
+        }
+
+        // Ordenador: table header line (Pos | Tier | ...)
+        if (inSection === 'ord-table' && /^Pos\s*\|/.test(trimmed)) {
+            html += '<div class="ord-table-header">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Ordenador: table data rows (number | ALTA/NORMAL/BAIXA | ...)
+        if (inSection === 'ord-table' && /^\d+\s*\|/.test(trimmed)) {
+            var rowClass = 'ord-table-row';
+            if (/ALTA/.test(trimmed)) rowClass += ' tier-alta';
+            else if (/NORMAL/.test(trimmed)) rowClass += ' tier-normal';
+            else if (/BAIXA/.test(trimmed)) rowClass += ' tier-baixa';
+            html += '<div class="' + rowClass + '">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Ordenador: table separator (dashes/dots)
+        if (inSection === 'ord-table' && /^[-\.]{3,}/.test(trimmed)) {
+            html += '<div class="ord-table-sep">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Ordenador: MOVER / MANTER lines
+        if (inSection === 'ord-move') {
+            var mLine = escHtml(line);
+            if (/^MOVER/.test(trimmed)) {
+                mLine = mLine.replace(/^(MOVER)/, '<span class="ord-move-tag">$1</span>');
+                html += '<div class="ord-move-line">' + mLine + '</div>';
+            } else if (/^MANTER/.test(trimmed)) {
+                mLine = mLine.replace(/^(MANTER)/, '<span class="ord-keep-tag">$1</span>');
+                html += '<div class="ord-move-line muted">' + mLine + '</div>';
+            } else {
+                html += '<div class="narrative">' + mLine + '</div>';
+            }
+            continue;
+        }
+
+        // Ordenador: ALERTA lines
+        if (inSection === 'ord-alert') {
+            var aLine = escHtml(line);
+            if (/^ALERTA/.test(trimmed)) {
+                aLine = aLine.replace(/^(ALERTA:?)/, '<span class="ord-alert-tag">$1</span>');
+                html += '<div class="ord-alert-line">' + aLine + '</div>';
+            } else {
+                html += '<div class="narrative">' + aLine + '</div>';
+            }
+            continue;
+        }
+
+        // Ordenador: narrative in justificativa
+        if (inSection === 'ord-text') {
             html += '<div class="narrative">' + escHtml(line) + '</div>';
             continue;
         }
