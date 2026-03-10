@@ -109,6 +109,8 @@ NAO FACA ISSO (superficial):
   Posicao #2: "Titulo Y" — Motor presente
 
 FACA ISSO (profissional — com dados e raciocinio):
+(EXEMPLO FICTICIO — use os dados REAIS do canal fornecido, nao estes)
+
   Posicao #1: "To, Chto Konkistadory Delali s Zhenshchinami..." (Estrutura E, Linha 39)
     Motores: Curiosidade Proibida + Revelacao (Motor #1 + #3 da hierarquia)
     Justificativa: Ativa os 2 motores mais fortes do canal. "Curiosidade Proibida" aparece
@@ -122,12 +124,15 @@ FACA ISSO (profissional — com dados e raciocinio):
     por intercalacao — canal em nivel ATENCAO com 40% de Estrutura A nos ultimos 15 videos.
     Ja ha 1 script Estrutura A na posicao #4, proximo Estrutura A so apos posicao #7.
 
+(FIM DO EXEMPLO FICTICIO)
+
 === FORMATO DE RESPOSTA ===
 
 PRIMEIRO emita o bloco JSON entre [JSON_START] e [JSON_END].
 DEPOIS emita as 4 secoes de texto do relatorio.
 O JSON DEVE ser valido e parseable. TODOS os scripts pendentes devem estar no JSON.
 
+(EXEMPLO FICTICIO DE JSON — use os dados REAIS do canal, nao estes)
 [JSON_START]
 {
   "ordered_scripts": [
@@ -162,6 +167,7 @@ O JSON DEVE ser valido e parseable. TODOS os scripts pendentes devem estar no JS
   ]
 }
 [JSON_END]
+(FIM DO EXEMPLO FICTICIO DE JSON)
 
 [JUSTIFICATIVA DA ORDENACAO]
 Paragrafo(s) explicando:
@@ -170,7 +176,7 @@ Paragrafo(s) explicando:
 - Quantos scripts em cada tier e por que
 - Se algum script foi rebaixado, mencione aqui brevemente (detalhe na Secao 4)
 
-Exemplo:
+(EXEMPLO FICTICIO — use os dados REAIS do canal)
   Ordenacao baseada na hierarquia de motores psicologicos do canal (CTR + Views dos
   ultimos 20 videos). Os motores dominantes sao "Curiosidade Proibida" (Motor #1, 40%
   dos videos, score medio 78) e "Grotesco Corporal" (Motor #2, 35%, score 72).
@@ -181,10 +187,12 @@ Exemplo:
 
   Distribuicao: 4 scripts ALTA prioridade (ativam motores top), 6 NORMAL, 4 BAIXA.
   2 scripts rebaixados por intercalacao de estrutura (detalhes na Secao 4).
+(FIM DO EXEMPLO FICTICIO)
 
 [TABELA DE PRODUCAO]
 Tabela texto puro com TODOS os scripts ordenados. Formato:
 
+(EXEMPLO FICTICIO DE TABELA — use os dados REAIS do canal)
 Pos | Tier   | Estr | Linha | Titulo                                          | Motores Detectados              | Justificativa
 1   | ALTA   | E    | 39    | To, Chto Konkistadory Delali s Zhenshchinami...  | Curiosidade Proibida, Revelacao  | Alinhado com Motor #1 e #3
 2   | ALTA   | B    | 42    | Proklyatie Tutankhamona: 22 Cheloveka Pogibli... | Maldicao, Misterio Historico     | Motor #1 dominante
@@ -194,12 +202,14 @@ Pos | Tier   | Estr | Linha | Titulo                                          | 
 ...
 13  | BAIXA  | E    | 48    | Chto Stalo s Zhenshchinami Konstantinopolya...   | —                                | Sem alinhamento com motores atuais
 14  | BAIXA  | A    | 50    | Kak Zhili Prostye Lyudi v Srednevekovye...       | —                                | Sem alinhamento com motores atuais
+(FIM DO EXEMPLO FICTICIO DE TABELA)
 
 (TODOS os scripts devem aparecer. Truncar titulos longos com ... mas manter legivel)
 
 [INSTRUCOES DE MOVIMENTACAO]
 Instrucoes praticas para o operador reorganizar a planilha. Formato:
 
+(EXEMPLO FICTICIO — use os dados REAIS do canal)
 MOVER linha 39 para posicao 1 (subir — ativa Motor #1 + #3)
 MOVER linha 42 para posicao 2 (subir — Motor #1 dominante)
 MOVER linha 40 para posicao 3 (subir — Motor #2 + combinacao forte)
@@ -207,6 +217,7 @@ MOVER linha 41 para posicao 4 (subir — rebaixado de #2 por intercalacao)
 MOVER linha 46 para posicao 5 (subir)
 MANTER linha 45 na posicao atual
 MOVER linha 48 para posicao 13 (descer — sem motores atuais)
+(FIM DO EXEMPLO FICTICIO)
 
 (Incluir TODOS os scripts que mudam de posicao. Scripts que ficam no lugar = MANTER)
 
@@ -216,6 +227,7 @@ Se canal SAUDAVEL:
   Ordenacao baseada exclusivamente em potencial de viralizacao."
 
 Se canal EM RISCO, para CADA script rebaixado:
+(EXEMPLO FICTICIO — use os dados REAIS do canal)
   ALERTA: Script "Noga Genrikha VIII Gnila Zazhivo..." (Estrutura A) rebaixado de #2 para #4
   Motivo: Canal em nivel ATENCAO com 40% de Estrutura A nos ultimos 15 videos.
   Diversificacao necessaria — posicao #2 ocupada por Estrutura B para quebrar sequencia.
@@ -223,6 +235,7 @@ Se canal EM RISCO, para CADA script rebaixado:
   ALERTA: Script "To, Chto Genrikh VIII Delal..." (Estrutura A) rebaixado de #5 para #9
   Motivo: Ja ha 1 script de Estrutura A nos tiers superiores (posicao #4).
   Maximo de 1 Estrutura A a cada 4 posicoes para diluir concentracao.
+(FIM DO EXEMPLO FICTICIO)
 
 (Cada alerta com: titulo entre aspas, estrutura, posicao original vs nova, motivo especifico)
 
