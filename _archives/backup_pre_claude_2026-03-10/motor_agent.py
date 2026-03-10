@@ -23,23 +23,6 @@ from theme_agent import _count_motors, _format_motor_counts
 logger = logging.getLogger("motor_agent")
 
 
-def _create_agent_job(channel_id: str, agent_type: str):
-    """Cria job na fila agent_jobs para processamento pelo worker local."""
-    resp = requests.post(
-        f"{SUPABASE_URL}/rest/v1/agent_jobs",
-        json={"channel_id": channel_id, "agent_type": agent_type, "status": "pending"},
-        headers={
-            "apikey": SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
-            "Content-Type": "application/json",
-            "Prefer": "return=minimal",
-        },
-    )
-    if resp.status_code not in (200, 201):
-        raise RuntimeError(f"Falha ao criar job: {resp.status_code} {resp.text}")
-    logger.info(f"Job criado: {agent_type} para {channel_id}")
-
-
 # =============================================================================
 # SYSTEM PROMPT — LLM MOTORES
 # =============================================================================
@@ -371,28 +354,19 @@ def _call_llm(
     LLM MOTORES: gera analise estrategica (formula, recomendacoes, hipoteses, prioridades).
     Returns: texto completo do relatorio.
     """
-    from claude_llm_client import is_claude_cli_available, call_claude_cli
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        logger.warning("OPENAI_API_KEY nao configurada")
+        return None
 
-    use_claude = is_claude_cli_available()
-    claude_model = os.environ.get("CLAUDE_MODEL", "claude-opus-4-6")
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key)
+    except ImportError:
+        logger.error("openai nao instalado")
+        return None
 
-    if not use_claude:
-        # Fallback OpenAI (Railway)
-        api_key = os.environ.get("OPENAI_API_KEY")
-        if not api_key:
-            logger.warning("OPENAI_API_KEY nao configurada e Claude CLI nao disponivel")
-            return None
-        try:
-            from openai import OpenAI
-            client = OpenAI(api_key=api_key)
-        except ImportError:
-            logger.error("openai nao instalado e Claude CLI nao disponivel")
-            return None
-        model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
-    else:
-        client = None
-        model = claude_model
-        logger.info(f"[MOTORES] Usando Claude CLI modelo={claude_model}")
+    model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
     channel_name = channel_info.get("channel_name", "Desconhecido")
     lingua = channel_info.get("lingua", "Portugues")
@@ -485,27 +459,17 @@ Gere o relatorio ESTRATEGICO. FOCO: Formula atualizada, Evolucao dos motores, Hi
     # Chamada LLM com retry
     for attempt in range(2):
         try:
-            if use_claude:
-                # === Claude CLI ===
-                text = call_claude_cli(
-                    system_prompt=SYSTEM_PROMPT_MOTORES,
-                    user_prompt=user_prompt,
-                    model=claude_model,
-                )
-            else:
-                # === OpenAI API (fallback) ===
-                response = client.chat.completions.create(
-                    model=model,
-                    temperature=0.4,
-                    messages=[
-                        {"role": "system", "content": SYSTEM_PROMPT_MOTORES},
-                        {"role": "user", "content": user_prompt}
-                    ]
-                )
-                text = response.choices[0].message.content
+            response = client.chat.completions.create(
+                model=model,
+                temperature=0.4,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT_MOTORES},
+                    {"role": "user", "content": user_prompt}
+                ]
+            )
 
-            provider = "Claude" if use_claude else "OpenAI"
-            logger.info(f"LLM MOTORES OK [{provider}]: {len(text)} chars (tentativa {attempt+1})")
+            text = response.choices[0].message.content
+            logger.info(f"LLM MOTORES OK: {len(text)} chars (tentativa {attempt+1})")
             return text
 
         except Exception as e:
@@ -707,19 +671,6 @@ def run_analysis(channel_id: str) -> Dict:
     """
     logger.info(f"=== INICIO Agente 5 (Motores): {channel_id} ===")
 
-    # Verificar se Claude CLI esta disponivel
-    from claude_llm_client import is_claude_cli_available
-    if not is_claude_cli_available():
-        # Railway: criar job na fila para processamento via worker local
-        logger.info(f"Claude CLI nao disponivel — criando job na fila para {channel_id}")
-        try:
-            _create_agent_job(channel_id, "motores")
-            return {"success": True, "queued": True,
-                    "message": f"Analise de motores enfileirada para processamento via Claude Opus 4.6"}
-        except Exception as e:
-            logger.error(f"Erro ao criar job: {e}")
-            return {"success": False, "error": f"Falha ao enfileirar job: {e}"}
-
     # 1. Carregar ultimo theme run
     theme_run = _load_theme_run(channel_id)
     if not theme_run:
@@ -873,12 +824,6 @@ def run_analysis(channel_id: str) -> Dict:
         msg = "LLM MOTORES nao retornou output"
         logger.error(msg)
         return {"success": False, "error": msg}
-
-    # Injetar modelo usado no cabecalho do relatorio
-    from claude_llm_client import is_claude_cli_available
-    _used_model = os.environ.get("CLAUDE_MODEL", "claude-opus-4-6") if is_claude_cli_available() else os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
-    model_header = f"Modelo LLM: {_used_model}\n"
-    llm_output = model_header + llm_output
 
     # 8. Salvar
     run_id = save_analysis(

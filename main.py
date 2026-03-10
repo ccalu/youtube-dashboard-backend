@@ -8003,6 +8003,7 @@ async def trigger_unified_analysis(channel_id: str):
             },
             "temas": {
                 "success": theme_result.get("success", False) if theme_result else False,
+                "queued": theme_result.get("queued", False) if theme_result else False,
                 "error": theme_result.get("error") if theme_result and not theme_result.get("success") else None,
                 "theme_count": theme_result.get("theme_count") if theme_result else None,
                 "total_videos": theme_result.get("total_videos") if theme_result else None,
@@ -8010,6 +8011,7 @@ async def trigger_unified_analysis(channel_id: str):
             },
             "motores": {
                 "success": motor_result.get("success", False) if motor_result else False,
+                "queued": motor_result.get("queued", False) if motor_result else False,
                 "error": motor_result.get("error") if motor_result and not motor_result.get("success") else None,
                 "motor_count": motor_result.get("motor_count") if motor_result else None,
                 "total_videos": motor_result.get("total_videos") if motor_result else None,
@@ -9684,6 +9686,43 @@ function updateRunningBanner() {
     banner.classList.add('active');
 }
 
+function _pollForResult(agentKey, area, queuedAt) {
+    var agentInfo = AGENTS.filter(function(a) { return a.key === agentKey; })[0];
+    var chId = _selectedChannel;
+    return new Promise(function(resolve) {
+        var pollCount = 0;
+        var maxPolls = 60;  // 60 x 10s = 10 min max
+        var interval = setInterval(function() {
+            pollCount++;
+            if (pollCount > maxPolls || _selectedChannel !== chId) {
+                clearInterval(interval);
+                delete _runningAgents[agentKey];
+                updateRunningBanner();
+                if (area) area.innerHTML = '<div class="empty-state" style="color:#ef4444;"><p>' + agentInfo.label + ': timeout aguardando Claude</p></div>';
+                resolve(null);
+                return;
+            }
+            var getUrl = agentInfo.getUrl.replace('{id}', chId);
+            fetch(getUrl).then(function(r) {
+                if (r.status === 404) return null;
+                return r.json();
+            }).then(function(data) {
+                if (data && data.run_date && data.run_date > queuedAt) {
+                    // Resultado novo (posterior ao momento do enfileiramento)
+                    clearInterval(interval);
+                    delete _runningAgents[agentKey];
+                    updateRunningBanner();
+                    _agentData[agentKey] = data;
+                    var dot = document.getElementById('dot-' + agentKey);
+                    if (dot) dot.classList.add('has-data');
+                    if (agentKey === _activeTab) renderActiveTab();
+                    resolve(data);
+                }
+            }).catch(function() {});
+        }, 10000);  // poll a cada 10s
+    });
+}
+
 function _runAgent(agentKey, area) {
     var agentInfo = AGENTS.filter(function(a) { return a.key === agentKey; })[0];
     var url = agentInfo.postUrl.replace('{id}', _selectedChannel);
@@ -9698,6 +9737,13 @@ function _runAgent(agentKey, area) {
                 var errMsg = result.error || 'Erro desconhecido';
                 if (area) area.innerHTML = '<div class="empty-state" style="color:#ef4444;"><p>' + agentInfo.label + ': ' + escHtml(errMsg) + '</p></div>';
                 throw new Error(errMsg);
+            }
+            if (result && result.queued) {
+                // Job enfileirado para Claude worker — iniciar polling
+                if (area) area.innerHTML = '<div class="empty-state" style="color:var(--blue);"><p>' + agentInfo.label + ': aguardando Claude Opus 4.6...</p><span class="loading-spinner"></span></div>';
+                _runningAgents[agentKey] = true;
+                updateRunningBanner();
+                return _pollForResult(agentKey, area, new Date().toISOString());
             }
             var getUrl = agentInfo.getUrl.replace('{id}', _selectedChannel);
             return fetch(getUrl).then(function(r2) { return r2.status === 404 ? null : r2.json(); });

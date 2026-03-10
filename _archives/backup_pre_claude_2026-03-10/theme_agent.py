@@ -25,24 +25,6 @@ from copy_analysis_agent import (
 
 logger = logging.getLogger("theme_agent")
 
-
-def _create_agent_job(channel_id: str, agent_type: str):
-    """Cria job na fila agent_jobs para processamento pelo worker local."""
-    resp = requests.post(
-        f"{SUPABASE_URL}/rest/v1/agent_jobs",
-        json={"channel_id": channel_id, "agent_type": agent_type, "status": "pending"},
-        headers={
-            "apikey": SUPABASE_KEY,
-            "Authorization": f"Bearer {SUPABASE_KEY}",
-            "Content-Type": "application/json",
-            "Prefer": "return=minimal",
-        },
-    )
-    if resp.status_code not in (200, 201):
-        raise RuntimeError(f"Falha ao criar job: {resp.status_code} {resp.text}")
-    logger.info(f"Job criado: {agent_type} para {channel_id}")
-
-
 # =============================================================================
 # CONSTANTES
 # =============================================================================
@@ -703,28 +685,19 @@ def call_llm_temas(
 
     Returns: {"videos": [...], "catalogo_motores": [...], "anti_patterns": [...], "interacoes_motores": [...]}
     """
-    from claude_llm_client import is_claude_cli_available, call_claude_cli
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        logger.warning("OPENAI_API_KEY nao configurada")
+        return None
 
-    use_claude = is_claude_cli_available()
-    claude_model = os.environ.get("CLAUDE_MODEL", "claude-opus-4-6")
+    try:
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key)
+    except ImportError:
+        logger.error("openai nao instalado")
+        return None
 
-    if not use_claude:
-        # Fallback OpenAI (Railway)
-        api_key = os.environ.get("OPENAI_API_KEY")
-        if not api_key:
-            logger.warning("OPENAI_API_KEY nao configurada e Claude CLI nao disponivel")
-            return None
-        try:
-            from openai import OpenAI
-            client = OpenAI(api_key=api_key)
-        except ImportError:
-            logger.error("openai nao instalado e Claude CLI nao disponivel")
-            return None
-        model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
-    else:
-        client = None
-        model = claude_model
-        logger.info(f"[TEMAS] Usando Claude CLI modelo={claude_model}")
+    model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 
     channel_name = channel_info.get("channel_name", "Desconhecido")
     lingua = channel_info.get("lingua", "Portugues")
@@ -797,38 +770,19 @@ INSTRUCOES:
 
 Responda com JSON no formato especificado no system prompt (videos + catalogo_motores + anti_patterns + interacoes_motores)."""
 
-    # Adicionar instrucao de JSON no prompt para Claude (nao tem response_format)
-    json_instruction = "\n\nIMPORTANTE: Responda APENAS com JSON valido. Sem markdown, sem ```json, sem texto antes ou depois do JSON."
-
     for attempt in range(2):
         try:
-            if use_claude:
-                # === Claude CLI ===
-                claude_user_prompt = user_prompt + json_instruction
-                raw_text = call_claude_cli(
-                    system_prompt=SYSTEM_PROMPT_TEMAS,
-                    user_prompt=claude_user_prompt,
-                    model=claude_model,
-                )
-                # Limpar possivel markdown wrapper
-                text = raw_text.strip()
-                if text.startswith("```"):
-                    text = text.split("\n", 1)[1] if "\n" in text else text
-                    if text.endswith("```"):
-                        text = text[:-3].strip()
-            else:
-                # === OpenAI API (fallback) ===
-                response = client.chat.completions.create(
-                    model=model,
-                    temperature=0.3,
-                    response_format={"type": "json_object"},
-                    messages=[
-                        {"role": "system", "content": SYSTEM_PROMPT_TEMAS},
-                        {"role": "user", "content": user_prompt}
-                    ]
-                )
-                text = response.choices[0].message.content
+            response = client.chat.completions.create(
+                model=model,
+                temperature=0.3,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT_TEMAS},
+                    {"role": "user", "content": user_prompt}
+                ]
+            )
 
+            text = response.choices[0].message.content
             result = json.loads(text)
             llm_videos = result.get("videos", [])
 
@@ -843,11 +797,7 @@ Responda com JSON no formato especificado no system prompt (videos + catalogo_mo
             n_cat = len(result["catalogo_motores"])
             n_anti = len(result["anti_patterns"])
             n_inter = len(result["interacoes_motores"])
-            provider = "Claude" if use_claude else "OpenAI"
-            logger.info(f"LLM TEMAS OK [{provider}]: {len(llm_videos)} videos, {n_cat} motores catalogados, {n_anti} anti-patterns, {n_inter} interacoes (tentativa {attempt+1})")
-
-            # Marcar modelo usado no resultado
-            result["_model"] = claude_model if use_claude else model
+            logger.info(f"LLM TEMAS OK: {len(llm_videos)} videos, {n_cat} motores catalogados, {n_anti} anti-patterns, {n_inter} interacoes (tentativa {attempt+1})")
             return result
 
         except json.JSONDecodeError as e:
@@ -1022,8 +972,7 @@ def generate_report(
     run_number: int,
     themes_json: Optional[Dict] = None,
     new_count: int = -1,
-    updated_count: int = -1,
-    llm_model: str = ""
+    updated_count: int = -1
 ) -> str:
     """Gera relatorio do Agente 4 (Temas): ranking + temas + catalogo + anti-padroes."""
     now = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M UTC")
@@ -1050,8 +999,6 @@ def generate_report(
     report.append(f"Relatorio #{run_number} | {now}")
     report.append(f"Score: 50% CTR + 50% Views (normalizado 0-100)")
     report.append(f"CTR medio do canal: {avg_ctr_str}%")
-    if llm_model:
-        report.append(f"Modelo LLM: {llm_model}")
     report.append("=" * 70)
     report.append("")
 
@@ -1320,19 +1267,6 @@ def run_analysis(channel_id: str) -> Dict:
     """
     logger.info(f"=== INICIO Agente 3 (Temas + Motores) para {channel_id} ===")
 
-    # Verificar se Claude CLI esta disponivel
-    from claude_llm_client import is_claude_cli_available
-    if not is_claude_cli_available():
-        # Railway: criar job na fila para processamento via worker local
-        logger.info(f"Claude CLI nao disponivel — criando job na fila para {channel_id}")
-        try:
-            _create_agent_job(channel_id, "temas")
-            return {"success": True, "queued": True,
-                    "message": f"Analise de temas enfileirada para processamento via Claude Opus 4.6"}
-        except Exception as e:
-            logger.error(f"Erro ao criar job: {e}")
-            return {"success": False, "error": f"Falha ao enfileirar job: {e}"}
-
     # 1. Info do canal
     channel_info = _get_channel_info(channel_id)
     if not channel_info:
@@ -1438,15 +1372,14 @@ def run_analysis(channel_id: str) -> Dict:
 
     # 10. Gera relatorio
     motor_counts = _count_motors(merged)
-    used_model = llm_temas.get("_model", "") if llm_temas else ""
     if skip_llm:
         # Reutilizar report anterior com banner
         report = generate_report(channel_name, merged, avg_ctr_pct, run_number, llm_temas,
-                                 new_count=0, updated_count=0, llm_model=used_model)
+                                 new_count=0, updated_count=0)
         logger.info("Reutilizando report com banner de zero novos")
     else:
         report = generate_report(channel_name, merged, avg_ctr_pct, run_number, llm_temas,
-                                 new_count=new_count, updated_count=updated_count, llm_model=used_model)
+                                 new_count=new_count, updated_count=updated_count)
 
     # 11. Salva
     run_id = save_analysis(
