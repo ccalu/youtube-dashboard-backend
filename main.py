@@ -6777,12 +6777,17 @@ DASH_UPLOAD_HTML = '''
                                     if (canais[i].videos_disponiveis != null) ss.totalDisp += canais[i].videos_disponiveis;
                                 }
                                 var accent = '#3f3f46'; var accentMuted = 'rgba(63,63,70,0.15)'; var icon = '?';
-                                if (subnicho === 'Monetizados') { accent = '#22c55e'; accentMuted = 'rgba(34,197,94,0.12)'; icon = '\\uD83D\\uDCB8'; }
-                                else if (subnicho === 'Historias Sombrias') { accent = '#8b5cf6'; accentMuted = 'rgba(139,92,246,0.12)'; icon = '\\uD83E\\uDD87'; }
-                                else if (subnicho === 'Relatos de Guerra') { accent = '#4a8c50'; accentMuted = 'rgba(74,140,80,0.18)'; icon = '\\u2694\\uFE0F'; }
-                                else if (subnicho === 'Guerras e Civilizacoes' || subnicho === 'Guerras e Civiliza\\u00e7\\u00f5es') { accent = '#f97316'; accentMuted = 'rgba(249,115,22,0.12)'; icon = '\\uD83D\\uDEE1\\uFE0F'; }
-                                else if (subnicho === 'Terror') { accent = '#ef4444'; accentMuted = 'rgba(239,68,68,0.12)'; icon = '\\uD83D\\uDC7B'; }
-                                else if (subnicho === 'Desmonetizados') { accent = '#71717a'; accentMuted = 'rgba(113,113,122,0.12)'; icon = '\\u274C'; }
+                                if (subnicho === 'Monetizados') { accent = '#22C55E'; accentMuted = 'rgba(34,197,94,0.12)'; icon = '\\uD83D\\uDCB8'; }
+                                else if (subnicho === 'Reis Perversos') { accent = '#581C87'; accentMuted = 'rgba(88,28,135,0.12)'; icon = '\\uD83D\\uDC51'; }
+                                else if (subnicho === 'Historias Sombrias') { accent = '#7C3AED'; accentMuted = 'rgba(124,58,237,0.12)'; icon = '\\uD83E\\uDD87'; }
+                                else if (subnicho === 'Culturas Macabras') { accent = '#831843'; accentMuted = 'rgba(131,24,67,0.12)'; icon = '\\uD83D\\uDC80'; }
+                                else if (subnicho === 'Relatos de Guerra') { accent = '#65A30D'; accentMuted = 'rgba(101,163,13,0.12)'; icon = '\\u2694\\uFE0F'; }
+                                else if (subnicho === 'Frentes de Guerra') { accent = '#166534'; accentMuted = 'rgba(22,101,52,0.12)'; icon = '\\uD83D\\uDCA3'; }
+                                else if (subnicho === 'Guerras e Civilizacoes' || subnicho === 'Guerras e Civiliza\\u00e7\\u00f5es') { accent = '#EA580C'; accentMuted = 'rgba(234,88,12,0.12)'; icon = '\\uD83D\\uDEE1\\uFE0F'; }
+                                else if (subnicho === 'Li\\u00e7\\u00f5es de Vida' || subnicho === 'Licoes de Vida') { accent = '#0E7C93'; accentMuted = 'rgba(14,124,147,0.12)'; icon = '\\uD83D\\uDC74\\uD83C\\uDFFB'; }
+                                else if (subnicho === 'Registros Malditos') { accent = '#CA8A04'; accentMuted = 'rgba(202,138,4,0.12)'; icon = '\\uD83D\\uDC7A'; }
+                                else if (subnicho === 'Terror') { accent = '#7C2D12'; accentMuted = 'rgba(124,45,18,0.12)'; icon = '\\uD83D\\uDC7B'; }
+                                else if (subnicho === 'Desmonetizados') { accent = '#B91C1C'; accentMuted = 'rgba(185,28,28,0.12)'; icon = '\\u274C'; }
                                 var isOpen = _openSections.has(subnicho);
                                 html += '<div class="section' + (isOpen ? ' section--open' : '') + '" data-section="' + escapeHtml(subnicho) + '" style="--section-accent:' + accent + ';--section-accent-muted:' + accentMuted + ';">';
                                 html += '<div class="section-header" onclick="toggleSection(\\'' + escapeHtml(subnicho).replace(/'/g, "\\\\'") + '\\')"><div class="section-title">';
@@ -9346,8 +9351,8 @@ function getSubnichoStyle(sub) {
         'Pessoas Desaparecidas': {color:'#0284C7', icon:'\\uD83D\\uDD0E'},
         'Conspiracao': {color:'#0891B2', icon:'\\uD83D\\uDD0D'},
         'Registros Malditos': {color:'#CA8A04', icon:'\\uD83D\\uDC7A'},
-        'Li\\u00e7\\u00f5es de Vida': {color:'#10B981', icon:'\\uD83C\\uDF31'},
-        'Licoes de Vida': {color:'#10B981', icon:'\\uD83C\\uDF31'},
+        'Li\\u00e7\\u00f5es de Vida': {color:'#0E7C93', icon:'\\uD83D\\uDC74\\uD83C\\uDFFB'},
+        'Licoes de Vida': {color:'#0E7C93', icon:'\\uD83D\\uDC74\\uD83C\\uDFFB'},
         'Empreendedorismo': {color:'#F59E0B', icon:'\\uD83D\\uDCB0'},
         'Noticias e Atualidade': {color:'#F43F5E', icon:'\\uD83D\\uDCF0'}
     };
@@ -10742,20 +10747,19 @@ var _channels = {};
 
 function getSubnichoStyle(sub) {
     var map = {
-        'Monetizados': {color:'#00d4aa',icon:'$'},
-        'Historias Sombrias': {color:'#a78bfa',icon:'Q'},
-        'Relatos de Guerra': {color:'#2d8a6e',icon:'W'},
-        'Guerras e Civilizacoes': {color:'#ff9f43',icon:'F'},
-        'Terror': {color:'#7c1d3e',icon:'S'},
-        'Desmonetizados': {color:'#ef4444',icon:'O'},
-        'Curiosidades Historicas': {color:'#54a0ff',icon:'?'},
-        'Economia e Financas': {color:'#ffd93d',icon:'$'},
-        'Biografias e Personalidades': {color:'#f97316',icon:'P'},
-        'Misterios e Sobrenatural': {color:'#8b5cf6',icon:'M'},
-        'Ciencia e Tecnologia': {color:'#06b6d4',icon:'C'},
-        'Crimes Reais': {color:'#dc2626',icon:'!'},
-        'Cultura e Sociedade': {color:'#ec4899',icon:'C'},
-        'Natureza e Animais': {color:'#22c55e',icon:'N'}
+        'Monetizados': {color:'#22C55E',icon:'$'},
+        'Reis Perversos': {color:'#581C87',icon:'K'},
+        'Historias Sombrias': {color:'#7C3AED',icon:'Q'},
+        'Culturas Macabras': {color:'#831843',icon:'X'},
+        'Relatos de Guerra': {color:'#65A30D',icon:'W'},
+        'Frentes de Guerra': {color:'#166534',icon:'B'},
+        'Guerras e Civilizacoes': {color:'#EA580C',icon:'F'},
+        'Guerras e Civiliza\u00e7\u00f5es': {color:'#EA580C',icon:'F'},
+        'Li\u00e7\u00f5es de Vida': {color:'#0E7C93',icon:'V'},
+        'Licoes de Vida': {color:'#0E7C93',icon:'V'},
+        'Registros Malditos': {color:'#CA8A04',icon:'R'},
+        'Terror': {color:'#7C2D12',icon:'S'},
+        'Desmonetizados': {color:'#B91C1C',icon:'O'}
     };
     return map[sub] || {color:'#6b6b7b',icon:'#'};
 }
