@@ -1827,7 +1827,7 @@ def get_analysis_history(
         f"{SUPABASE_URL}/rest/v1/copy_analysis_runs",
         params={
             "channel_id": f"eq.{channel_id}",
-            "select": "id,channel_name,run_date,total_videos_analyzed,"
+            "select": "id,channel_name,run_date,run_number,total_videos_analyzed,"
                       "channel_avg_retention,channel_avg_watch_time,channel_avg_views",
             "order": "run_date.desc",
             "limit": str(limit),

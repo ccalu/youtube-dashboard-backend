@@ -10112,7 +10112,7 @@ function showAgentHistory(agentKey) {
                 html += '<span class="history-date">' + dateStr + '</span> ';
                 html += '<span class="history-info">' + info + '</span>';
                 html += '</div>';
-                html += '<button class="history-del-btn" onclick="event.stopPropagation();deleteAgentRun(\\'' + agentKey + '\\',' + item.id + ')">X</button>';
+                html += '<button class="history-del-btn" onclick="event.stopPropagation();deleteAgentRun(\\'' + agentKey + '\\',' + item.id + ',' + (item.run_number || 1) + ')">X</button>';
                 html += '</div>';
             }
             el.innerHTML = html;
@@ -10122,9 +10122,9 @@ function showAgentHistory(agentKey) {
         });
 }
 
-function deleteAgentRun(agentKey, runId) {
+function deleteAgentRun(agentKey, runId, runNumber) {
     if (!_selectedChannel) return;
-    if (!window.confirm('Deletar run #' + runId + ' de ' + agentKey + '? Videos serao tratados como novos na proxima analise.')) return;
+    if (!window.confirm('Deletar run #' + (runNumber || '?') + ' de ' + agentKey + '? Videos serao tratados como novos na proxima analise.')) return;
     var agentInfo = AGENTS.filter(function(a) { return a.key === agentKey; })[0];
     var url = agentInfo.delUrl.replace('{id}', _selectedChannel).replace('{runId}', runId);
     fetch(url, { method: 'DELETE' })

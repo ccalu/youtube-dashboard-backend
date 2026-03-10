@@ -1523,7 +1523,7 @@ def get_analysis_history(channel_id: str, limit: int = 20, offset: int = 0) -> D
         f"{SUPABASE_URL}/rest/v1/authenticity_analysis_runs",
         params={
             "channel_id": f"eq.{channel_id}",
-            "select": "id,channel_name,run_date,authenticity_score,authenticity_level,"
+            "select": "id,channel_name,run_date,run_number,authenticity_score,authenticity_level,"
                       "structure_score,title_score,total_videos_analyzed,has_alerts,alert_count",
             "order": "run_date.desc",
             "limit": str(limit),

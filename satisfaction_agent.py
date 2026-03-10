@@ -1408,7 +1408,7 @@ def get_analysis_history(channel_id: str, limit: int = 20, offset: int = 0) -> D
         f"{SUPABASE_URL}/rest/v1/satisfaction_analysis_runs",
         params={
             "channel_id": f"eq.{channel_id}",
-            "select": "id,channel_id,channel_name,run_date,total_videos_analyzed,channel_avg_approval,channel_avg_sub_ratio",
+            "select": "id,channel_id,channel_name,run_date,run_number,total_videos_analyzed,channel_avg_approval,channel_avg_sub_ratio",
             "order": "run_date.desc",
             "limit": min(limit, 100),
             "offset": offset
