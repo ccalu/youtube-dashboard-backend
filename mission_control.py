@@ -166,6 +166,17 @@ AGENTES_V2_TEMPLATE = [
         'api_run': None, 'api_latest': None, 'api_historico': None,
         'analysis_table': None,
     },
+    {
+        'id': 7, 'tipo': 'ordenador', 'nome': 'Ordenador',
+        'camada': 3, 'cor': '#06b6d4',
+        'skin': '#e8b88a', 'shirt': '#06b6d4', 'hair': '#34495e',
+        'descricao': 'Ordenador - Prioriza fila de producao por motores + saude do canal',
+        'implementado': True,
+        'api_run': '/api/analise-ordenador/{channel_id}',
+        'api_latest': '/api/analise-ordenador/{channel_id}/latest',
+        'api_historico': '/api/analise-ordenador/{channel_id}/historico',
+        'analysis_table': 'production_order_runs',
+    },
 ]
 
 
@@ -354,6 +365,27 @@ async def get_agent_real_status(supabase_client, channel_id):
     # Agent 6 (Recomendador): Not yet implemented
     status['recomendador'] = {'status': 'waiting', 'last_run': None}
 
+    # Agent 7: Ordenador de Producao
+    try:
+        order_resp = supabase_client.table('production_order_runs') \
+            .select('id,run_date,total_scripts,channel_health') \
+            .eq('channel_id', channel_id) \
+            .order('run_date', desc=True) \
+            .limit(1) \
+            .execute()
+        if order_resp.data:
+            run = order_resp.data[0]
+            status['ordenador'] = {
+                'status': 'done',
+                'last_run': run.get('run_date'),
+                'total_scripts': run.get('total_scripts', 0),
+                'channel_health': run.get('channel_health', ''),
+            }
+        else:
+            status['ordenador'] = {'status': 'idle', 'last_run': None}
+    except Exception:
+        status['ordenador'] = {'status': 'idle', 'last_run': None}
+
     return status
 
 
@@ -472,6 +504,28 @@ async def get_agent_overview_batch(supabase_client):
                     'status': 'done',
                     'last_run': row.get('run_date'),
                     'motor_count': len(motor_counts),
+                }
+    except Exception:
+        pass
+
+    # Latest production order analysis per channel
+    try:
+        order_resp = supabase_client.table('production_order_runs') \
+            .select('channel_id,run_date,total_scripts,channel_health') \
+            .order('run_date', desc=True) \
+            .execute()
+        seen = set()
+        for row in (order_resp.data or []):
+            cid = row.get('channel_id')
+            if cid and cid not in seen:
+                seen.add(cid)
+                if cid not in overview:
+                    overview[cid] = {}
+                overview[cid]['ordenador'] = {
+                    'status': 'done',
+                    'last_run': row.get('run_date'),
+                    'total_scripts': row.get('total_scripts', 0),
+                    'channel_health': row.get('channel_health', ''),
                 }
     except Exception:
         pass
@@ -2205,6 +2259,7 @@ var AGENT_PALETTES = [
   {skin:'#FFCC99', shirt:'#f97316', pants:'#444433', hair:'#c0392b', shoes:'#333333'},  // Ag4 Temas
   {skin:'#e8b88a', shirt:'#a855f7', pants:'#443355', hair:'#2c1810', shoes:'#222222'},  // Ag5 Motores
   {skin:'#e8b88a', shirt:'#eab308', pants:'#443322', hair:'#34495e', shoes:'#333333'},  // Ag6 Recomendador
+  {skin:'#e8b88a', shirt:'#06b6d4', pants:'#334455', hair:'#34495e', shoes:'#222222'},  // Ag7 Ordenador
 ];
 
 // -- Character Sprite Generator ------------------------------
@@ -5115,7 +5170,8 @@ function fetchAgentStatus(channelId, agentType) {
     'satisfacao': '/api/analise-satisfacao/',
     'autenticidade': '/api/analise-autenticidade/',
     'temas': '/api/analise-temas/',
-    'motores': '/api/analise-motores/'
+    'motores': '/api/analise-motores/',
+    'ordenador': '/api/analise-ordenador/'
   };
   var baseUrl = latestUrlMap[agentType] || '/api/analise-copy/';
 
@@ -5199,6 +5255,16 @@ function renderAgentStatus(data, agentType) {
     if (totalVideos) {
       html += '<div class="sb-status-row"><span class="sb-status-label">Videos analisados</span><span class="sb-status-val">' + totalVideos + '</span></div>';
     }
+  } else if (agentType === 'ordenador') {
+    var totalScripts = data.total_scripts;
+    if (totalScripts) {
+      html += '<div class="sb-status-row"><span class="sb-status-label">Scripts</span><span class="sb-status-val">' + totalScripts + '</span></div>';
+    }
+    var health = data.channel_health;
+    if (health) {
+      var hCls = (health === 'excelente' || health === 'bom') ? 'st-green' : (health === 'atencao') ? 'st-yellow' : 'st-red';
+      html += '<div class="sb-status-row"><span class="sb-status-label">Saude</span><span class="sb-status-val ' + hCls + '">' + health + '</span></div>';
+    }
   }
 
   div.innerHTML = html || '<div class="sb-loading">Dados disponiveis</div>';
@@ -5234,7 +5300,8 @@ function runAgentAnalysis(channelId, agentType) {
     'satisfacao': '/api/analise-satisfacao/',
     'autenticidade': '/api/analise-autenticidade/',
     'temas': '/api/analise-temas/',
-    'motores': '/api/analise-motores/'
+    'motores': '/api/analise-motores/',
+    'ordenador': '/api/analise-ordenador/'
   };
   var url = (runUrlMap[agentType] || '/api/analise-completa/') + channelId;
 
@@ -5273,7 +5340,8 @@ function loadAgentReport(channelId, agentType) {
     'satisfacao': '/api/analise-satisfacao/',
     'autenticidade': '/api/analise-autenticidade/',
     'temas': '/api/analise-temas/',
-    'motores': '/api/analise-motores/'
+    'motores': '/api/analise-motores/',
+    'ordenador': '/api/analise-ordenador/'
   };
   var baseUrl = latestUrlMap[agentType] || '/api/analise-copy/';
 
@@ -5320,7 +5388,8 @@ var _agentNames = {
   'autenticidade': 'Autenticidade',
   'temas': 'Temas',
   'motores': 'Motores',
-  'recomendador': 'Recomendador'
+  'recomendador': 'Recomendador',
+  'ordenador': 'Ordenador'
 };
 
 var _latestUrlMap = {
@@ -5328,7 +5397,8 @@ var _latestUrlMap = {
   'satisfacao': '/api/analise-satisfacao/',
   'autenticidade': '/api/analise-autenticidade/',
   'temas': '/api/analise-temas/',
-  'motores': '/api/analise-motores/'
+  'motores': '/api/analise-motores/',
+  'ordenador': '/api/analise-ordenador/'
 };
 
 function openReportModal(channelId, agentType, channelName) {

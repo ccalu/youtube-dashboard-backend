@@ -7974,7 +7974,15 @@ async def trigger_unified_analysis(channel_id: str):
             logger.error(f"Erro agente motores {channel_id}: {e}")
             errors.append(f"Motores: {str(e)}")
 
-        # 6. Combinar relatorios
+        # 6. Agente Ordenador de Producao (depende de Motores + Autenticidade)
+        order_result = None
+        try:
+            order_result = order_run_analysis(channel_id)
+        except Exception as e:
+            logger.error(f"Erro agente ordenador {channel_id}: {e}")
+            errors.append(f"Ordenador: {str(e)}")
+
+        # 7. Combinar relatorios
         unified_report = _build_unified_report(copy_result, auth_result, theme_result=theme_result, sat_result=sat_result, motor_result=motor_result)
 
         channel_name = ""
@@ -8023,6 +8031,13 @@ async def trigger_unified_analysis(channel_id: str):
                 "motor_count": motor_result.get("motor_count") if motor_result else None,
                 "total_videos": motor_result.get("total_videos") if motor_result else None,
             },
+            "ordenador": {
+                "success": order_result.get("success", False) if order_result else False,
+                "queued": order_result.get("queued", False) if order_result else False,
+                "error": order_result.get("error") if order_result and not order_result.get("success") else None,
+                "total_scripts": order_result.get("total_scripts") if order_result else None,
+                "channel_health": order_result.get("channel_health") if order_result else None,
+            },
             "errors": errors if errors else None
         }
     except Exception as e:
@@ -8057,7 +8072,8 @@ async def run_unified_analysis_all():
                 "satisfacao": {"success": False},
                 "authenticity": {"success": False},
                 "temas": {"success": False},
-                "motores": {"success": False}
+                "motores": {"success": False},
+                "ordenador": {"success": False}
             }
 
             # Agente 1: Copy (retencao)
@@ -8112,6 +8128,16 @@ async def run_unified_analysis_all():
                 }
             except Exception as e:
                 ch_result["motores"] = {"success": False, "error": str(e)}
+
+            # Agente 7: Ordenador de Producao (depende de motores + autenticidade)
+            try:
+                order_res = order_run_analysis(ch_id)
+                ch_result["ordenador"] = {
+                    "success": order_res.get("success", False),
+                    "error": order_res.get("error") if not order_res.get("success") else None
+                }
+            except Exception as e:
+                ch_result["ordenador"] = {"success": False, "error": str(e)}
 
             # Contar sucesso se pelo menos 1 agente rodou
             if (ch_result["performance"]["success"] or ch_result["satisfacao"]["success"]
@@ -8291,6 +8317,7 @@ async def delete_all_agents_by_date(channel_id: str, date_str: str):
     """
     try:
         tables = [
+            ('production_order_runs', order_delete_analysis),
             ('motor_analysis_runs', motor_delete_analysis),
             ('satisfaction_analysis_runs', sat_delete_analysis),
             ('copy_analysis_runs', copy_delete_analysis),
@@ -9292,6 +9319,7 @@ body {
 .agent-tag.autenticidade { background: rgba(239,68,68,0.2); color: #EF4444; }
 .agent-tag.temas { background: rgba(248,115,21,0.2); color: #F87315; }
 .agent-tag.motores { background: rgba(168,85,247,0.2); color: #A855F7; }
+.agent-tag.ordenador { background: rgba(6,182,212,0.2); color: #06b6d4; }
 .hist-date-row { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; border-radius: 8px; cursor: pointer; transition: all 0.15s; margin-bottom: 4px; border: 1px solid var(--border); }
 .hist-date-row:hover { border-color: var(--blue); background: rgba(84,160,255,0.08); }
 .hist-date-label { font-family: 'JetBrains Mono', monospace; color: var(--blue); font-weight: 600; font-size: 0.85rem; }
@@ -9441,7 +9469,8 @@ var AGENTS = [
     {key:'satisfacao', label:'Satisfacao', getUrl:'/api/analise-satisfacao/{id}/latest', postUrl:'/api/analise-satisfacao/{id}', histUrl:'/api/analise-satisfacao/{id}/historico', delUrl:'/api/analise-satisfacao/{id}/run/{runId}'},
     {key:'autenticidade', label:'Autenticidade', getUrl:'/api/analise-autenticidade/{id}/latest', postUrl:'/api/analise-autenticidade/{id}', histUrl:'/api/analise-autenticidade/{id}/historico', delUrl:'/api/analise-autenticidade/{id}/run/{runId}'},
     {key:'temas', label:'Temas', getUrl:'/api/analise-temas/{id}/latest', postUrl:'/api/analise-temas/{id}', histUrl:'/api/analise-temas/{id}/historico', delUrl:'/api/analise-temas/{id}/run/{runId}'},
-    {key:'motores', label:'Motores', getUrl:'/api/analise-motores/{id}/latest', postUrl:'/api/analise-motores/{id}', histUrl:'/api/analise-motores/{id}/historico', delUrl:'/api/analise-motores/{id}/run/{runId}'}
+    {key:'motores', label:'Motores', getUrl:'/api/analise-motores/{id}/latest', postUrl:'/api/analise-motores/{id}', histUrl:'/api/analise-motores/{id}/historico', delUrl:'/api/analise-motores/{id}/run/{runId}'},
+    {key:'ordenador', label:'Ordenador', getUrl:'/api/analise-ordenador/{id}/latest', postUrl:'/api/analise-ordenador/{id}', histUrl:'/api/analise-ordenador/{id}/historico', delUrl:'/api/analise-ordenador/{id}/run/{runId}'}
 ];
 
 function getSubnichoStyle(sub) {
@@ -9580,7 +9609,7 @@ function switchTab(tabKey) {
 
 function loadAllAgents(channelId) {
     var area = document.getElementById('reportArea');
-    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando dados dos 5 agentes...</div>';
+    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando dados dos agentes...</div>';
 
     for (var i = 0; i < AGENTS.length; i++) {
         var dot = document.getElementById('dot-' + AGENTS[i].key);
@@ -9728,13 +9757,30 @@ function renderSummaryCards(tabKey, data) {
             }
             html += '</div>';
         }
+    } else if (tabKey === 'ordenador') {
+        var ts = data.total_scripts;
+        var ch = data.channel_health;
+        html += '<div style="display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">';
+        if (ts != null) {
+            html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+            html += '<div style="font-size:1.8rem;font-weight:800;color:#06b6d4;font-family:JetBrains Mono,monospace;">' + ts + '</div>';
+            html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Scripts Pendentes</div></div>';
+        }
+        if (ch) {
+            var hColor = (ch === 'excelente' || ch === 'bom') ? 'var(--green)' : (ch === 'atencao') ? 'var(--yellow)' : 'var(--red)';
+            html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+            html += '<div style="font-size:1.4rem;font-weight:800;color:' + hColor + ';font-family:JetBrains Mono,monospace;">' + ch.toUpperCase() + '</div>';
+            html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Saude do Canal</div></div>';
+        }
+        html += '</div>';
     }
     return html;
 }
 
 var AGENT_DEPS = {
     'satisfacao': {dep: 'copy', label: 'Satisfacao depende de Copy (usa videos matched).'},
-    'motores': {dep: 'temas', label: 'Motores depende de Temas (usa temas como input).'}
+    'motores': {dep: 'temas', label: 'Motores depende de Temas (usa temas como input).'},
+    'ordenador': {dep: 'motores', label: 'Ordenador depende de Motores + Autenticidade.'}
 };
 
 function updateRunningBanner() {
@@ -10063,7 +10109,7 @@ function runAll() {
 }
 
 function agentTag(key) {
-    var labels = {copy:'Copy', satisfacao:'Satisf', autenticidade:'Auth', temas:'Temas', motores:'Mot'};
+    var labels = {copy:'Copy', satisfacao:'Satisf', autenticidade:'Auth', temas:'Temas', motores:'Mot', ordenador:'Ord'};
     return '<span class="agent-tag ' + key + '">' + (labels[key] || key) + '</span>';
 }
 
@@ -10087,7 +10133,7 @@ function showGeneralHistory() {
                 var parts = h.date.split('-');
                 var dateLabel = parts[2] + '/' + parts[1] + '/' + parts[0];
                 var tags = '';
-                var agentKeys = ['copy','satisfacao','autenticidade','temas','motores'];
+                var agentKeys = ['copy','satisfacao','autenticidade','temas','motores','ordenador'];
                 for (var j = 0; j < agentKeys.length; j++) {
                     if (h.agents[agentKeys[j]]) tags += agentTag(agentKeys[j]);
                 }
@@ -10175,7 +10221,7 @@ function showChannelHistory() {
             var parts = d.split('-');
             var dateLabel = parts[2] + '/' + parts[1] + '/' + parts[0];
             var tags = '';
-            var agentKeys = ['copy','satisfacao','autenticidade','temas','motores'];
+            var agentKeys = ['copy','satisfacao','autenticidade','temas','motores','ordenador'];
             for (var m = 0; m < agentKeys.length; m++) {
                 if (byDate[d][agentKeys[m]]) tags += agentTag(agentKeys[m]);
             }
@@ -10312,6 +10358,7 @@ _AGENT_TABLES = {
     "autenticidade": "authenticity_analysis_runs",
     "temas": "theme_analysis_runs",
     "motores": "motor_analysis_runs",
+    "ordenador": "production_order_runs",
 }
 
 @app.get("/api/agents/history/general")
