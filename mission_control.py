@@ -675,6 +675,8 @@ async def get_mission_control_data(db):
                     ag_statuses['temas'] = ov['temas']
                 if 'motores' in ov:
                     ag_statuses['motores'] = ov['motores']
+                if 'ordenador' in ov:
+                    ag_statuses['ordenador'] = ov['ordenador']
 
             agentes = build_agent_list(cid, ag_statuses)
             active = sum(1 for a in agentes if a['status'] in ('done', 'working'))
@@ -867,6 +869,20 @@ async def get_agent_report(supabase_client, channel_id, agent_type):
     elif agent_type == 'motores':
         try:
             resp = supabase_client.table('motor_analysis_runs') \
+                .select('*') \
+                .eq('channel_id', channel_id) \
+                .order('run_date', desc=True) \
+                .limit(1) \
+                .execute()
+            if resp.data:
+                return {'implemented': True, 'data': resp.data[0]}
+            return {'implemented': True, 'data': None, 'message': 'Nenhum relatorio encontrado'}
+        except Exception as e:
+            return {'implemented': True, 'error': str(e)}
+
+    elif agent_type == 'ordenador':
+        try:
+            resp = supabase_client.table('production_order_runs') \
                 .select('*') \
                 .eq('channel_id', channel_id) \
                 .order('run_date', desc=True) \
@@ -5793,7 +5809,8 @@ var AGENT_LEGEND_INFO = [
   { name: 'Autenticidade', desc: 'Score 0-100 contra Inauthentic Content' },
   { name: 'Temas', desc: 'Temas concretos por video (100% LLM)' },
   { name: 'Motores', desc: 'Motores psicologicos de viralidade' },
-  { name: 'Recomendador', desc: 'Cerebro estrategico - sugere proximos videos' }
+  { name: 'Recomendador', desc: 'Cerebro estrategico - sugere proximos videos' },
+  { name: 'Ordenador', desc: 'Prioriza fila de producao por motores + saude' }
 ];
 
 function buildLegend() {
