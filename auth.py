@@ -21,7 +21,7 @@ if not JWT_SECRET_KEY:
     logger.warning("JWT_SECRET_KEY not set — using random key (tokens won't survive restart)")
 
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_DAYS = 7
+JWT_EXPIRATION_DAYS = 30
 
 
 # ---------- Password hashing ----------
