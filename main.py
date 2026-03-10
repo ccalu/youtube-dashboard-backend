@@ -9275,12 +9275,14 @@ body {
 .tab-btn[data-agent="autenticidade"]:hover { color: #EF4444; }
 .tab-btn[data-agent="temas"]:hover { color: #F87315; }
 .tab-btn[data-agent="motores"]:hover { color: #A855F7; }
+.tab-btn[data-agent="ordenador"]:hover { color: #06b6d4; }
 .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 .tab-btn.active[data-agent="copy"] { color: #3b82f6; border-bottom-color: #3b82f6; }
 .tab-btn.active[data-agent="satisfacao"] { color: #0EB981; border-bottom-color: #0EB981; }
 .tab-btn.active[data-agent="autenticidade"] { color: #EF4444; border-bottom-color: #EF4444; }
 .tab-btn.active[data-agent="temas"] { color: #F87315; border-bottom-color: #F87315; }
 .tab-btn.active[data-agent="motores"] { color: #A855F7; border-bottom-color: #A855F7; }
+.tab-btn.active[data-agent="ordenador"] { color: #06b6d4; border-bottom-color: #06b6d4; }
 .tab-dot {
     width: 6px;
     height: 6px;
@@ -9435,6 +9437,7 @@ body {
                 <button class="tab-btn" data-agent="autenticidade" onclick="switchTab('autenticidade')"><span class="tab-dot" id="dot-autenticidade"></span>Autenticidade</button>
                 <button class="tab-btn" data-agent="temas" onclick="switchTab('temas')"><span class="tab-dot" id="dot-temas"></span>Temas</button>
                 <button class="tab-btn" data-agent="motores" onclick="switchTab('motores')"><span class="tab-dot" id="dot-motores"></span>Motores</button>
+                <button class="tab-btn" data-agent="ordenador" onclick="switchTab('ordenador')"><span class="tab-dot" id="dot-ordenador"></span>Ordenador</button>
             </div>
         </div>
         <div class="running-banner" id="runningBanner"><span class="loading-spinner"></span><span id="runningText"></span></div>
