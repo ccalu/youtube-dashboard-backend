@@ -648,7 +648,16 @@ Responda APENAS com JSON valido no formato abaixo. Sem markdown, sem comentarios
       "explicacao": "Por que esses motores se potencializam juntos"
     }
   ]
-}"""
+}
+
+=== FORMATACAO ===
+
+NUNCA use markdown nos campos de texto (descricao, insight, explicacao, impacto).
+- NAO use ** (negrito markdown)
+- NAO use ### (headers markdown)
+- NAO use --- (linhas horizontais markdown)
+- NAO use ` (code blocks)
+- Use texto puro simples."""
 
 
 def _format_videos_for_prompt(ranking: List[Dict], avg_ctr_str: str) -> str:

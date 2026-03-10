@@ -23,6 +23,17 @@ from theme_agent import _count_motors, _format_motor_counts
 logger = logging.getLogger("motor_agent")
 
 
+import re
+
+def _strip_markdown(text: str) -> str:
+    """Remove formatacao markdown do texto (**, ###, ---, `)."""
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)  # **bold** -> bold
+    text = re.sub(r'^\s*#{1,6}\s+', '', text, flags=re.MULTILINE)  # ### header -> header
+    text = re.sub(r'^\s*---+\s*$', '', text, flags=re.MULTILINE)  # --- -> remove
+    text = re.sub(r'`([^`]+)`', r'\1', text)  # `code` -> code
+    return text
+
+
 def _create_agent_job(channel_id: str, agent_type: str):
     """Cria job na fila agent_jobs para processamento pelo worker local."""
     resp = requests.post(
@@ -181,7 +192,18 @@ ESTRATEGICO (proximo mes): direcao do canal baseada nos padroes
 (hipoteses geradas pelos novos padroes observados)
 
 [PRIORIDADES PRATICAS]
-(atualizadas com base na evolucao)"""
+(atualizadas com base na evolucao)
+
+=== FORMATACAO ===
+
+NUNCA use markdown. O relatorio e exibido em texto puro (pre-formatted).
+- NAO use ** (negrito markdown)
+- NAO use ### (headers markdown)
+- NAO use --- (linhas horizontais markdown)
+- NAO use ` (code blocks)
+- Use MAIUSCULAS para enfase em vez de **negrito**
+- Use os marcadores [ENTRE COLCHETES] conforme especificado acima
+- Use indentacao com espacos para hierarquia"""
 
 
 # =============================================================================
@@ -503,6 +525,9 @@ Gere o relatorio ESTRATEGICO. FOCO: Formula atualizada, Evolucao dos motores, Hi
                     ]
                 )
                 text = response.choices[0].message.content
+
+            # Limpar markdown residual
+            text = _strip_markdown(text)
 
             provider = "Claude" if use_claude else "OpenAI"
             logger.info(f"LLM MOTORES OK [{provider}]: {len(text)} chars (tentativa {attempt+1})")
