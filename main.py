@@ -9082,39 +9082,224 @@ body {
     white-space: pre-wrap;
     word-break: break-word;
 }
+/* === Report Header & Title === */
 .report-header-line {
     color: var(--accent);
     font-weight: 600;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    letter-spacing: 1px;
 }
 .report-title {
     color: var(--accent);
-    font-size: 1rem;
+    font-size: 1.1rem;
     font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 0.3rem 0;
 }
-.report-meta { color: var(--text-secondary); }
+.report-meta { color: var(--text-secondary); font-size: 0.8rem; }
 .report-meta .val { color: var(--highlight); font-weight: 600; }
+.report-banner {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-style: italic;
+    padding: 0.2rem 0;
+}
+.report-score-formula {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    padding: 0.1rem 0;
+}
+
+/* === Section Headers (--- NAME ---) === */
 .section-header {
     color: var(--accent);
-    font-weight: 600;
-    margin-top: 1.5rem;
-    margin-bottom: 0.5rem;
-    font-size: 0.9rem;
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-top: 2rem;
+    margin-bottom: 0.8rem;
+    padding: 0.5rem 0.8rem;
+    background: rgba(0,212,170,0.08);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+    letter-spacing: 0.5px;
 }
-.section-header.obs { color: var(--purple); }
-.section-header.anom { color: var(--warning); }
-.section-header.insuf { color: var(--text-muted); }
-.section-header.comp { color: var(--blue); }
-.ranking-line { color: var(--text-primary); }
-.tag-acima { color: var(--accent); font-weight: 700; }
-.tag-media { color: var(--highlight); font-weight: 600; }
-.tag-abaixo { color: var(--warning); font-weight: 700; }
+.section-header.obs {
+    color: var(--purple);
+    background: rgba(168,85,247,0.08);
+    border-left-color: var(--purple);
+}
+.section-header.anom {
+    color: var(--warning);
+    background: rgba(255,107,107,0.08);
+    border-left-color: var(--warning);
+}
+.section-header.insuf {
+    color: var(--text-muted);
+    background: rgba(255,255,255,0.03);
+    border-left-color: var(--text-muted);
+}
+.section-header.comp {
+    color: var(--blue);
+    background: rgba(96,165,250,0.08);
+    border-left-color: var(--blue);
+}
+.section-header.diag {
+    color: var(--orange);
+    background: rgba(251,146,60,0.08);
+    border-left-color: var(--orange);
+}
+.section-header.rec {
+    color: var(--accent);
+    background: rgba(0,212,170,0.08);
+    border-left-color: var(--accent);
+}
+.section-header.tend {
+    color: var(--blue);
+    background: rgba(96,165,250,0.08);
+    border-left-color: var(--blue);
+}
+.section-header.alert {
+    color: var(--warning);
+    background: rgba(255,107,107,0.08);
+    border-left-color: var(--warning);
+}
+.section-header.struct {
+    color: var(--purple);
+    background: rgba(168,85,247,0.08);
+    border-left-color: var(--purple);
+}
+.section-header.title-sec {
+    color: var(--highlight);
+    background: rgba(255,217,61,0.08);
+    border-left-color: var(--highlight);
+}
+.section-header.auth-main {
+    color: var(--orange);
+    font-size: 1rem;
+    background: rgba(251,146,60,0.08);
+    border-left-color: var(--orange);
+}
+.section-header.perf-main {
+    color: var(--accent);
+    font-size: 1rem;
+    background: rgba(0,212,170,0.08);
+    border-left-color: var(--accent);
+}
+
+/* === Ranking & Tables === */
+.ranking-line {
+    color: var(--text-primary);
+    padding: 0.15rem 0;
+}
+.tag-acima { color: var(--accent); font-weight: 700; background: rgba(0,212,170,0.12); padding: 1px 6px; border-radius: 4px; }
+.tag-media { color: var(--highlight); font-weight: 600; background: rgba(255,217,61,0.12); padding: 1px 6px; border-radius: 4px; }
+.tag-abaixo { color: var(--warning); font-weight: 700; background: rgba(255,107,107,0.12); padding: 1px 6px; border-radius: 4px; }
+.table-header-line {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0.2rem;
+    letter-spacing: 0.3px;
+}
+
+/* === Anomalies & Alerts === */
 .anomaly-line { color: var(--warning); font-weight: 600; }
-.anomaly-detail { color: var(--text-secondary); padding-left: 0.5rem; }
-.narrative { color: var(--purple); }
-.comp-positive { color: var(--accent); }
-.comp-negative { color: var(--warning); }
-.insuf-line { color: var(--text-muted); }
-.table-header-line { color: var(--text-muted); font-size: 0.78rem; }
+.anomaly-detail { color: var(--text-secondary); padding-left: 1rem; border-left: 2px solid rgba(255,107,107,0.2); margin-left: 0.3rem; }
+.alert-line {
+    color: var(--warning);
+    font-weight: 600;
+    padding: 0.2rem 0;
+    padding-left: 0.5rem;
+    border-left: 2px solid var(--warning);
+}
+
+/* === Narrative & Content === */
+.narrative { color: var(--text-secondary); line-height: 1.9; }
+.comp-positive { color: var(--accent); font-weight: 600; }
+.comp-negative { color: var(--warning); font-weight: 600; }
+.insuf-line { color: var(--text-muted); font-style: italic; }
+.distribution-bar { color: var(--text-secondary); }
+
+/* === Score & Level === */
+.score-line { color: var(--highlight); font-weight: 700; font-size: 1rem; padding: 0.3rem 0; }
+.score-level-excelente { color: #00d4aa; }
+.score-level-bom { color: #00d4aa; }
+.score-level-atencao { color: #ffd93d; }
+.score-level-risco { color: #ff6b6b; }
+.score-level-critico { color: #ff3232; }
+
+/* === Temas Agent (Agente 4) === */
+.temas-separator { color: var(--border); font-size: 0.7rem; margin: 0.5rem 0; }
+.temas-section-header {
+    color: var(--orange);
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-top: 2rem;
+    margin-bottom: 0.8rem;
+    padding: 0.5rem 0.8rem;
+    border-radius: 0 6px 6px 0;
+    letter-spacing: 0.5px;
+}
+.temas-section-header.ranking { background: rgba(0,212,170,0.08); border-left: 3px solid var(--accent); color: var(--accent); }
+.temas-section-header.catalogo { background: rgba(251,146,60,0.08); border-left: 3px solid var(--orange); color: var(--orange); }
+.temas-section-header.antipadrao { background: rgba(255,107,107,0.08); border-left: 3px solid var(--warning); color: var(--warning); }
+.temas-section-header.interacoes { background: rgba(96,165,250,0.08); border-left: 3px solid var(--blue); color: var(--blue); }
+.temas-video-entry {
+    padding: 0.4rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.temas-video-rank { color: var(--accent); font-weight: 700; }
+.temas-video-score { color: var(--highlight); font-weight: 600; }
+.temas-video-ctr-above { color: var(--accent); }
+.temas-video-ctr-below { color: var(--warning); }
+.temas-tema-line { color: var(--text-primary); padding-left: 1rem; }
+.temas-motor-line { color: var(--text-secondary); padding-left: 1rem; }
+.temas-motor-detail { color: var(--text-muted); padding-left: 2rem; font-size: 0.78rem; }
+.temas-motor-catalog {
+    padding: 0.5rem 0;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.temas-motor-name { color: var(--orange); font-weight: 700; }
+.temas-motor-stat { color: var(--text-secondary); padding-left: 1.5rem; font-size: 0.8rem; }
+.temas-motor-insight { color: var(--purple); padding-left: 1.5rem; font-size: 0.8rem; font-style: italic; }
+.temas-killer { color: var(--warning); }
+.temas-killer-detail { color: var(--text-secondary); padding-left: 1.5rem; }
+.temas-interaction { color: var(--blue); }
+.temas-amplifier { color: var(--accent); font-weight: 600; }
+.temas-neutralizer { color: var(--warning); font-weight: 600; }
+
+/* === Motores Agent (Agente 5) === */
+.mot-section-header {
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-top: 2rem;
+    margin-bottom: 0.8rem;
+    padding: 0.5rem 0.8rem;
+    border-radius: 0 6px 6px 0;
+    letter-spacing: 0.5px;
+}
+.mot-section-header.formula { color: var(--accent); background: rgba(0,212,170,0.08); border-left: 3px solid var(--accent); }
+.mot-section-header.rec { color: var(--orange); background: rgba(251,146,60,0.08); border-left: 3px solid var(--orange); }
+.mot-section-header.hipoteses { color: var(--blue); background: rgba(96,165,250,0.08); border-left: 3px solid var(--blue); }
+.mot-section-header.prioridades { color: var(--purple); background: rgba(168,85,247,0.08); border-left: 3px solid var(--purple); }
+.mot-section-header.evolucao { color: var(--highlight); background: rgba(255,217,61,0.08); border-left: 3px solid var(--highlight); }
+.mot-formula-winner { color: var(--accent); font-weight: 700; padding: 0.3rem 0; }
+.mot-formula-toxic { color: var(--warning); font-weight: 700; padding: 0.3rem 0; }
+.mot-formula-dna { color: var(--highlight); font-weight: 700; padding: 0.3rem 0; }
+.mot-produzir { color: var(--accent); font-weight: 600; padding: 0.2rem 0; }
+.mot-diversificar { color: var(--blue); font-weight: 600; padding: 0.2rem 0; }
+.mot-evitar { color: var(--warning); font-weight: 600; padding: 0.2rem 0; }
+.mot-reformular { color: var(--orange); font-weight: 600; padding: 0.2rem 0; }
+.mot-imediato { color: var(--accent); font-weight: 700; padding: 0.3rem 0; }
+.mot-curto-prazo { color: var(--blue); font-weight: 600; padding: 0.3rem 0; }
+.mot-estrategico { color: var(--purple); font-weight: 600; padding: 0.3rem 0; }
+.mot-status-confirmada { color: var(--accent); font-weight: 600; }
+.mot-status-teste { color: var(--highlight); font-weight: 600; }
+.mot-status-refutada { color: var(--warning); font-weight: 600; }
 
 /* Ordenador (Agente 7) report styles */
 .ord-section-header {
@@ -9170,18 +9355,7 @@ body {
 .auth-badge.critico { background: rgba(255,50,50,0.3); color: #ff3232; }
 .auth-alert-dot { color: #ff6b6b; margin-left: 2px; font-size: 0.6rem; }
 
-/* Authenticity report sections */
-.section-header.diag { color: var(--orange); }
-.section-header.rec { color: var(--accent); }
-.section-header.tend { color: var(--blue); }
-.section-header.alert { color: var(--warning); }
-.section-header.struct { color: var(--purple); }
-.section-header.title-sec { color: var(--highlight); }
-.section-header.auth-main { color: var(--orange); font-size: 1rem; }
-.section-header.perf-main { color: var(--accent); font-size: 1rem; }
-.alert-line { color: var(--warning); font-weight: 600; }
-.score-line { color: var(--highlight); font-weight: 700; font-size: 0.95rem; }
-.distribution-bar { color: var(--text-secondary); }
+/* (authenticity section-header styles moved to main report CSS block above) */
 
 /* Report section divider */
 .report-section-divider {
@@ -9971,15 +10145,33 @@ function renderReportLines(text) {
             continue;
         }
 
-        // Report title (RELATORIO ... / SCORE DE AUTENTICIDADE ... / RELATORIO COMPLETO ...)
-        if (/^(RELATORIO |SCORE DE AUTENTICIDADE )/.test(trimmed)) {
+        // Run banner (>> Run #N -- ...)
+        if (/^>>\\s+Run\\s+#/.test(trimmed)) {
+            html += '<div class="report-banner">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Report title (RELATORIO ... / SCORE DE AUTENTICIDADE ... / AGENTE ...)
+        if (/^(RELATORIO |SCORE DE AUTENTICIDADE |AGENTE \\d)/.test(trimmed)) {
             html += '<div class="report-title">' + escHtml(line) + '</div>';
             continue;
         }
 
-        // Score geral line
+        // Score formula / model info lines
+        if (/^(Score:|Modelo LLM:|CTR medio)/.test(trimmed)) {
+            html += '<div class="report-score-formula">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Score geral line (auth)
         if (/^SCORE GERAL:/.test(trimmed)) {
-            html += '<div class="score-line">' + escHtml(line) + '</div>';
+            var sLine = escHtml(line);
+            sLine = sLine.replace(/EXCELENTE/, '<span class="score-level-excelente">EXCELENTE</span>');
+            sLine = sLine.replace(/BOM/, '<span class="score-level-bom">BOM</span>');
+            sLine = sLine.replace(/ATENCAO/, '<span class="score-level-atencao">ATENCAO</span>');
+            sLine = sLine.replace(/RISCO/, '<span class="score-level-risco">RISCO</span>');
+            sLine = sLine.replace(/CRITICO/, '<span class="score-level-critico">CRITICO</span>');
+            html += '<div class="score-line">' + sLine + '</div>';
             continue;
         }
 
@@ -9990,21 +10182,220 @@ function renderReportLines(text) {
             if (/OBSERVAC/.test(secName)) { secClass += ' obs'; inSection = 'obs'; }
             else if (/ANOMAL/.test(secName)) { secClass += ' anom'; inSection = 'anom'; }
             else if (/INSUFICIENTE/.test(secName)) { secClass += ' insuf'; inSection = 'insuf'; }
-            else if (/ANTERIOR/.test(secName)) { secClass += ' comp'; inSection = 'comp'; }
+            else if (/ANTERIOR/.test(secName) || /^vs\\./.test(secName)) { secClass += ' comp'; inSection = 'comp'; }
             else if (/DIAGNOSTICO/.test(secName)) { secClass += ' diag'; inSection = 'diag'; }
             else if (/RECOMENDAC/.test(secName)) { secClass += ' rec'; inSection = 'rec'; }
             else if (/TENDENCIA/.test(secName)) { secClass += ' tend'; inSection = 'tend'; }
             else if (/ALERTA/.test(secName)) { secClass += ' alert'; inSection = 'alert'; }
-            else if (/ESTRUTURA/.test(secName)) { secClass += ' struct'; inSection = 'struct'; }
-            else if (/TITULO/.test(secName)) { secClass += ' title-sec'; inSection = 'title-sec'; }
+            else if (/ESTRUTURA/.test(secName) && /\\(/.test(secName)) { secClass += ' struct'; inSection = 'struct'; }
+            else if (/TITULO/.test(secName) && /\\(/.test(secName)) { secClass += ' title-sec'; inSection = 'title-sec'; }
+            else if (/LIKE|SUB RATIO|COMMENT RATIO/.test(secName)) { secClass += ' comp'; inSection = 'metric-table'; }
+            else if (/RANKING/.test(secName)) { secClass += ''; inSection = 'ranking'; }
             else { inSection = 'ranking'; }
-            html += '<div class="' + secClass + '">' + escHtml(line) + '</div>';
+            html += '<div class="' + secClass + '">' + escHtml(secName) + '</div>';
+            continue;
+        }
+
+        // Temas agent: separator lines (------ 70 dashes)
+        if (/^-{20,}$/.test(trimmed)) {
+            html += '<div class="temas-separator"></div>';
+            continue;
+        }
+
+        // Temas agent: section headers (ALL CAPS section names after separator)
+        if (/^(RANKING COM TEMAS|CATALOGO DE MOTORES|ANTI-PADROES|INTERACOES ENTRE)/.test(trimmed)) {
+            var tSecClass = 'temas-section-header';
+            if (/RANKING/.test(trimmed)) { tSecClass += ' ranking'; inSection = 'temas-ranking'; }
+            else if (/CATALOGO/.test(trimmed)) { tSecClass += ' catalogo'; inSection = 'temas-catalogo'; }
+            else if (/ANTI-PADROES/.test(trimmed)) { tSecClass += ' antipadrao'; inSection = 'temas-killer'; }
+            else if (/INTERACOES/.test(trimmed)) { tSecClass += ' interacoes'; inSection = 'temas-interact'; }
+            html += '<div class="' + tSecClass + '">' + escHtml(trimmed) + '</div>';
+            continue;
+        }
+
+        // Temas agent: video entry (#N | Score: ...)
+        if (inSection === 'temas-ranking' && /^#\\d+\\s*\\|\\s*Score:/.test(trimmed)) {
+            var vLine = escHtml(line);
+            vLine = vLine.replace(/(#\\d+)/, '<span class="temas-video-rank">$1</span>');
+            vLine = vLine.replace(/(Score:\\s*\\d+\\/100)/, '<span class="temas-video-score">$1</span>');
+            vLine = vLine.replace(/(\\+\\d+\\.?\\d*pp)/, '<span class="temas-video-ctr-above">$1</span>');
+            vLine = vLine.replace(/(\\-\\d+\\.?\\d*pp)/, '<span class="temas-video-ctr-below">$1</span>');
+            html += '<div class="temas-video-entry">' + vLine + '</div>';
+            continue;
+        }
+
+        // Temas agent: Titulo / Tema / Motores lines (indented under video entry)
+        if (inSection === 'temas-ranking' && /^\\s+Titulo:/.test(line)) {
+            html += '<div class="temas-tema-line">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (inSection === 'temas-ranking' && /^\\s+Tema:/.test(line)) {
+            var temaLine = escHtml(line);
+            temaLine = temaLine.replace(/(Tema:)/, '<span class="temas-motor-name">$1</span>');
+            html += '<div class="temas-tema-line">' + temaLine + '</div>';
+            continue;
+        }
+        if (inSection === 'temas-ranking' && /^\\s+Motores:/.test(line)) {
+            html += '<div class="temas-motor-line">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (inSection === 'temas-ranking' && /^\\s{4,}-\\s/.test(line)) {
+            html += '<div class="temas-motor-detail">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Temas agent: Motor catalog entry (Motor #N: ...)
+        if (inSection === 'temas-catalogo' && /^\\s+Motor\\s+#\\d+:/.test(line)) {
+            var motorLine = escHtml(line);
+            motorLine = motorLine.replace(/(Motor\\s+#\\d+:\\s*)(.+)/, '$1<span class="temas-motor-name">$2</span>');
+            html += '<div class="temas-motor-catalog">' + motorLine + '</div>';
+            continue;
+        }
+        if (inSection === 'temas-catalogo' && /^\\s+(Vocabulario|COM motor|SEM motor|Insight):?/.test(line)) {
+            var statLine = escHtml(line);
+            if (/Insight/.test(line)) {
+                html += '<div class="temas-motor-insight">' + statLine + '</div>';
+            } else {
+                html += '<div class="temas-motor-stat">' + statLine + '</div>';
+            }
+            continue;
+        }
+
+        // Temas agent: Killer entry
+        if (inSection === 'temas-killer' && /^\\s+Killer\\s+#\\d+:/.test(line)) {
+            html += '<div class="temas-killer">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (inSection === 'temas-killer' && /^\\s{4,}/.test(line)) {
+            html += '<div class="temas-killer-detail">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Temas agent: Interaction entries
+        if (inSection === 'temas-interact') {
+            var iLine = escHtml(line);
+            iLine = iLine.replace(/\\[AMPLIFICADOR\\]/, '<span class="temas-amplifier">[AMPLIFICADOR]</span>');
+            iLine = iLine.replace(/\\[NEUTRALIZADOR\\]/, '<span class="temas-neutralizer">[NEUTRALIZADOR]</span>');
+            html += '<div class="temas-interaction">' + iLine + '</div>';
+            continue;
+        }
+
+        // Motores agent: section headers [SECAO] (also Ordenador)
+        if (/^\\[.+\\]$/.test(trimmed)) {
+            var secLabel = trimmed.replace(/^\\[/, '').replace(/\\]$/, '');
+            var secLow = secLabel.toLowerCase();
+            // Ordenador sections
+            if (secLow.indexOf('tabela') >= 0) {
+                inSection = 'ord-table';
+                html += '<div class="ord-section-header">' + escHtml(secLabel) + '</div>';
+            } else if (secLow.indexOf('instruc') >= 0 && secLow.indexOf('moviment') >= 0) {
+                inSection = 'ord-move';
+                html += '<div class="ord-section-header">' + escHtml(secLabel) + '</div>';
+            } else if (secLow.indexOf('alerta') >= 0 && secLow.indexOf('inautenticidade') >= 0) {
+                inSection = 'ord-alert';
+                html += '<div class="ord-section-header">' + escHtml(secLabel) + '</div>';
+            } else if (secLow.indexOf('justificativa') >= 0) {
+                inSection = 'ord-text';
+                html += '<div class="ord-section-header">' + escHtml(secLabel) + '</div>';
+            }
+            // Motores sections
+            else if (/formula/i.test(secLow) || /performance/i.test(secLow)) {
+                inSection = 'mot-formula';
+                html += '<div class="mot-section-header formula">' + escHtml(secLabel) + '</div>';
+            } else if (/recomendac/i.test(secLow)) {
+                inSection = 'mot-rec';
+                html += '<div class="mot-section-header rec">' + escHtml(secLabel) + '</div>';
+            } else if (/hipotese/i.test(secLow)) {
+                inSection = 'mot-hipoteses';
+                html += '<div class="mot-section-header hipoteses">' + escHtml(secLabel) + '</div>';
+            } else if (/prioridade/i.test(secLow)) {
+                inSection = 'mot-prioridades';
+                html += '<div class="mot-section-header prioridades">' + escHtml(secLabel) + '</div>';
+            } else if (/evoluc/i.test(secLow)) {
+                inSection = 'mot-evolucao';
+                html += '<div class="mot-section-header evolucao">' + escHtml(secLabel) + '</div>';
+            } else if (/novas hipotese/i.test(secLow)) {
+                inSection = 'mot-hipoteses';
+                html += '<div class="mot-section-header hipoteses">' + escHtml(secLabel) + '</div>';
+            } else if (/anteriores/i.test(secLow)) {
+                inSection = 'mot-evolucao';
+                html += '<div class="mot-section-header evolucao">' + escHtml(secLabel) + '</div>';
+            } else {
+                inSection = 'mot-text';
+                html += '<div class="mot-section-header formula">' + escHtml(secLabel) + '</div>';
+            }
             continue;
         }
 
         // Empty line
         if (trimmed === '') {
             html += '<br>';
+            continue;
+        }
+
+        // Motores: FORMULA VENCEDORA / TOXICA / DNA
+        if (/^FORMULA VENCEDORA:/.test(trimmed)) {
+            html += '<div class="mot-formula-winner">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (/^FORMULA TOXICA:/.test(trimmed)) {
+            html += '<div class="mot-formula-toxic">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (/^DNA DO CANAL:/.test(trimmed)) {
+            html += '<div class="mot-formula-dna">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Motores: recommendation keywords
+        if (/^PRODUZIR MAIS/.test(trimmed)) {
+            html += '<div class="mot-produzir">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (/^DIVERSIFICAR/.test(trimmed)) {
+            html += '<div class="mot-diversificar">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (/^EVITAR/.test(trimmed)) {
+            html += '<div class="mot-evitar">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (/^REFORMULAR/.test(trimmed)) {
+            html += '<div class="mot-reformular">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Motores: priority keywords
+        if (/^IMEDIATO/.test(trimmed)) {
+            html += '<div class="mot-imediato">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (/^CURTO PRAZO/.test(trimmed)) {
+            html += '<div class="mot-curto-prazo">' + escHtml(line) + '</div>';
+            continue;
+        }
+        if (/^ESTRATEGICO/.test(trimmed)) {
+            html += '<div class="mot-estrategico">' + escHtml(line) + '</div>';
+            continue;
+        }
+
+        // Motores: hypothesis status
+        if (/CONFIRMADA/.test(trimmed) && (inSection === 'mot-evolucao' || inSection === 'mot-hipoteses')) {
+            var hLine = escHtml(line);
+            hLine = hLine.replace(/CONFIRMADA/g, '<span class="mot-status-confirmada">CONFIRMADA</span>');
+            html += '<div>' + hLine + '</div>';
+            continue;
+        }
+        if (/EM TESTE/.test(trimmed) && (inSection === 'mot-evolucao' || inSection === 'mot-hipoteses')) {
+            var hLine2 = escHtml(line);
+            hLine2 = hLine2.replace(/EM TESTE/g, '<span class="mot-status-teste">EM TESTE</span>');
+            html += '<div>' + hLine2 + '</div>';
+            continue;
+        }
+        if (/REFUTADA/.test(trimmed) && (inSection === 'mot-evolucao' || inSection === 'mot-hipoteses')) {
+            var hLine3 = escHtml(line);
+            hLine3 = hLine3.replace(/REFUTADA/g, '<span class="mot-status-refutada">REFUTADA</span>');
+            html += '<div>' + hLine3 + '</div>';
             continue;
         }
 
@@ -10026,8 +10417,8 @@ function renderReportLines(text) {
             continue;
         }
 
-        // Meta lines (Videos analisados / Periodo / Media geral)
-        if (/^Videos analisados/.test(trimmed) || /^Periodo:/.test(trimmed) || /^Media geral/.test(trimmed)) {
+        // Meta lines (Videos analisados / Periodo / Media geral / NOTA / AVISO)
+        if (/^(Videos analisados|Periodo:|Media geral|NOTA:|AVISO:)/.test(trimmed)) {
             var metaHtml = escHtml(line);
             metaHtml = metaHtml.replace(/(\\d+\\.?\\d*%)/g, '<span class="val">$1</span>');
             metaHtml = metaHtml.replace(/(\\d+\\.?\\d* min)/g, '<span class="val">$1</span>');
@@ -10036,20 +10427,20 @@ function renderReportLines(text) {
             continue;
         }
 
-        // Distribution bars (A: XX videos ...)
+        // Auth: distribution bars (A: XX videos ...)
         if (/^\\s+[A-G]:\\s+\\d+\\s+videos/.test(line)) {
             html += '<div class="distribution-bar">' + escHtml(line) + '</div>';
             continue;
         }
 
-        // Table header line (# / Estr. / dashes)
+        // Table header line (# / Estr. / dashes / Fator / Pos)
         if (/^\\s*#\\s+Estr/.test(trimmed) || /^\\s*Estr\\.?\\s+/.test(trimmed) || /^\\s*[\\u2500-]{3,}/.test(trimmed) || /^\\s+Fator/.test(trimmed)) {
             html += '<div class="table-header-line">' + escHtml(line) + '</div>';
             continue;
         }
 
         // Ranking lines (contain Acima/Media/Abaixo)
-        if (/Acima|Media|Abaixo/.test(trimmed) && inSection === 'ranking') {
+        if (/Acima|Abaixo/.test(trimmed) && (inSection === 'ranking' || inSection === 'metric-table')) {
             var rLine = escHtml(line);
             rLine = rLine.replace(/Acima(\\s*\\([^)]*\\))?/g, '<span class="tag-acima">Acima$1</span>');
             rLine = rLine.replace(/Media(\\s*\\([^)]*\\))?/g, '<span class="tag-media">Media$1</span>');
@@ -10058,7 +10449,17 @@ function renderReportLines(text) {
             continue;
         }
 
-        // Comparison lines (with +X or -X)
+        // Auth: priority markers [ALTA] [MEDIA] [BAIXA]
+        if (/\\[ALTA\\]|\\[MEDIA\\]|\\[BAIXA\\]/.test(trimmed)) {
+            var pLine = escHtml(line);
+            pLine = pLine.replace(/\\[ALTA\\]/g, '<span class="tag-abaixo">[ALTA]</span>');
+            pLine = pLine.replace(/\\[MEDIA\\]/g, '<span class="tag-media">[MEDIA]</span>');
+            pLine = pLine.replace(/\\[BAIXA\\]/g, '<span class="tag-acima">[BAIXA]</span>');
+            html += '<div class="narrative">' + pLine + '</div>';
+            continue;
+        }
+
+        // Comparison lines (with +X or -X in comp section)
         if (inSection === 'comp' && /[+-]\\d+\\.?\\d*/.test(trimmed)) {
             var cLine = escHtml(line);
             cLine = cLine.replace(/(\\+\\d+\\.?\\d*)/g, '<span class="comp-positive">$1</span>');
@@ -10075,30 +10476,20 @@ function renderReportLines(text) {
             continue;
         }
 
-        // Narrative text (obs, diag, rec, tend)
-        if (inSection === 'obs' || inSection === 'diag' || inSection === 'rec' || inSection === 'tend' || (inSection === 'comp' && !/^\\s*\\d/.test(trimmed) && !/^\\s*Estr/.test(trimmed) && !/^Estruturas novas/.test(trimmed))) {
+        // Narrative text (obs, diag, rec, tend, metric-table, struct, title-sec)
+        if (inSection === 'obs' || inSection === 'diag' || inSection === 'rec' || inSection === 'tend' || inSection === 'metric-table' || inSection === 'struct' || inSection === 'title-sec' || (inSection === 'comp' && !/^\\s*\\d/.test(trimmed) && !/^\\s*Estr/.test(trimmed) && !/^Estruturas novas/.test(trimmed))) {
             html += '<div class="narrative">' + escHtml(line) + '</div>';
             continue;
         }
 
-        // Ordenador: section headers [SECAO]
-        if (/^\[.+\]$/.test(trimmed)) {
-            var secLabel = trimmed.replace(/^\[/, '').replace(/\]$/, '');
-            inSection = secLabel.toLowerCase().indexOf('tabela') >= 0 ? 'ord-table' :
-                         secLabel.toLowerCase().indexOf('alerta') >= 0 ? 'ord-alert' :
-                         secLabel.toLowerCase().indexOf('instruc') >= 0 ? 'ord-move' : 'ord-text';
-            html += '<div class="ord-section-header">' + escHtml(secLabel) + '</div>';
-            continue;
-        }
-
         // Ordenador: table header line (Pos | Tier | ...)
-        if (inSection === 'ord-table' && /^Pos\s*\|/.test(trimmed)) {
+        if (inSection === 'ord-table' && /^Pos\\s*\\|/.test(trimmed)) {
             html += '<div class="ord-table-header">' + escHtml(line) + '</div>';
             continue;
         }
 
         // Ordenador: table data rows (number | ALTA/NORMAL/BAIXA | ...)
-        if (inSection === 'ord-table' && /^\d+\s*\|/.test(trimmed)) {
+        if (inSection === 'ord-table' && /^\\d+\\s*\\|/.test(trimmed)) {
             var rowClass = 'ord-table-row';
             if (/ALTA/.test(trimmed)) rowClass += ' tier-alta';
             else if (/NORMAL/.test(trimmed)) rowClass += ' tier-normal';
@@ -10108,40 +10499,40 @@ function renderReportLines(text) {
         }
 
         // Ordenador: table separator (dashes/dots)
-        if (inSection === 'ord-table' && /^[-\.]{3,}/.test(trimmed)) {
+        if (inSection === 'ord-table' && /^[-\\.]{3,}/.test(trimmed)) {
             html += '<div class="ord-table-sep">' + escHtml(line) + '</div>';
             continue;
         }
 
         // Ordenador: MOVER / MANTER lines
         if (inSection === 'ord-move') {
-            var mLine = escHtml(line);
+            var mLine2 = escHtml(line);
             if (/^MOVER/.test(trimmed)) {
-                mLine = mLine.replace(/^(MOVER)/, '<span class="ord-move-tag">$1</span>');
-                html += '<div class="ord-move-line">' + mLine + '</div>';
+                mLine2 = mLine2.replace(/^(MOVER)/, '<span class="ord-move-tag">$1</span>');
+                html += '<div class="ord-move-line">' + mLine2 + '</div>';
             } else if (/^MANTER/.test(trimmed)) {
-                mLine = mLine.replace(/^(MANTER)/, '<span class="ord-keep-tag">$1</span>');
-                html += '<div class="ord-move-line muted">' + mLine + '</div>';
+                mLine2 = mLine2.replace(/^(MANTER)/, '<span class="ord-keep-tag">$1</span>');
+                html += '<div class="ord-move-line muted">' + mLine2 + '</div>';
             } else {
-                html += '<div class="narrative">' + mLine + '</div>';
+                html += '<div class="narrative">' + mLine2 + '</div>';
             }
             continue;
         }
 
         // Ordenador: ALERTA lines
         if (inSection === 'ord-alert') {
-            var aLine = escHtml(line);
+            var aLine2 = escHtml(line);
             if (/^ALERTA/.test(trimmed)) {
-                aLine = aLine.replace(/^(ALERTA:?)/, '<span class="ord-alert-tag">$1</span>');
-                html += '<div class="ord-alert-line">' + aLine + '</div>';
+                aLine2 = aLine2.replace(/^(ALERTA:?)/, '<span class="ord-alert-tag">$1</span>');
+                html += '<div class="ord-alert-line">' + aLine2 + '</div>';
             } else {
-                html += '<div class="narrative">' + aLine + '</div>';
+                html += '<div class="narrative">' + aLine2 + '</div>';
             }
             continue;
         }
 
-        // Ordenador: narrative in justificativa
-        if (inSection === 'ord-text') {
+        // Ordenador / Motores: narrative in text sections
+        if (inSection === 'ord-text' || inSection === 'mot-formula' || inSection === 'mot-rec' || inSection === 'mot-hipoteses' || inSection === 'mot-prioridades' || inSection === 'mot-evolucao' || inSection === 'mot-text') {
             html += '<div class="narrative">' + escHtml(line) + '</div>';
             continue;
         }
