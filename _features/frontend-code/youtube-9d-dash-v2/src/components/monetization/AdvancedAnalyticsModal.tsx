@@ -1000,8 +1000,7 @@ export const AdvancedAnalyticsModal: React.FC<AdvancedAnalyticsModalProps> = ({
 
       setAnalyticsData(analyticsResult);
       setChannelsData(channelsResult.subnichos || []);
-    } catch (error) {
-      console.error('Erro ao buscar dados:', error);
+    } catch {
     } finally {
       setLoading(false);
     }
@@ -1036,8 +1035,7 @@ export const AdvancedAnalyticsModal: React.FC<AdvancedAnalyticsModalProps> = ({
       };
       
       setChannelDetails(channelData);
-    } catch (error) {
-      console.error('Erro ao buscar detalhes do canal:', error);
+    } catch {
       setChannelDetails(null);
     } finally {
       setLoadingDetails(false);
