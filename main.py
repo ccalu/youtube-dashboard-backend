@@ -3869,7 +3869,7 @@ async def run_collection_job():
         # 🚀 REFRESH AUTOMÁTICO DAS MATERIALIZED VIEWS + CACHE
         # Atualiza TODAS as MVs e limpa cache após cada coleta
         try:
-            logger.info("")  # Linha em branco para melhor visualização
+            logger.info("")
             logger.info("=" * 60)
             logger.info("🔄 ATUALIZANDO MATERIALIZED VIEWS E CACHE")
             logger.info("=" * 60)
@@ -3877,20 +3877,30 @@ async def run_collection_job():
             # 1. Atualizar TODAS as Materialized Views
             mv_results = await db.refresh_all_dashboard_mvs()
 
-            # 2. Limpar todo o cache do dashboard (será renovado no próximo acesso)
+            # 2. Verificar se refresh realmente funcionou
+            if 'error' in mv_results:
+                logger.critical(f"🚨 MV REFRESH FALHOU: {mv_results}")
+                logger.critical("🚨 Dashboard mostrara dados DESATUALIZADOS ate proximo refresh!")
+            else:
+                logger.info("✅ Materialized Views atualizadas com sucesso!")
+
+            # 3. Limpar todo o cache do dashboard (sempre, mesmo se MV falhar)
             cache_stats = clear_all_cache()
             logger.info(f"🧹 Cache limpo: {cache_stats['entries_cleared']} entradas removidas")
             logger.info(f"💾 Memória liberada: ~{cache_stats['approx_size_kb']}KB")
 
             logger.info("✅ Dashboard pronto com dados frescos e cache renovado!")
-            logger.info("⚡ Próximo acesso será instantâneo (< 1ms)")
             logger.info("=" * 60)
-            logger.info("")  # Linha em branco para melhor visualização
+            logger.info("")
 
         except Exception as mv_error:
-            # Não é crítico - apenas log de warning
-            logger.warning(f"⚠️ Falha ao atualizar MVs/Cache: {mv_error}")
-            logger.warning("Dashboard continuará funcionando com dados anteriores")
+            logger.critical(f"🚨 FALHA CRITICA ao atualizar MVs/Cache: {mv_error}")
+            logger.critical("🚨 Dashboard mostrara dados DESATUALIZADOS!")
+            # Limpar cache mesmo assim para forcar fallback
+            try:
+                clear_all_cache()
+            except Exception:
+                pass
 
         # =====================================================================
         # ANÁLISE DIÁRIA DESATIVADA (aba removida do dashboard)

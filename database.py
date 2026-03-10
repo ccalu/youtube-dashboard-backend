@@ -1028,28 +1028,61 @@ class SupabaseClient:
             logger.warning("=" * 60)
             return False
 
+    def _get_pg_connection(self):
+        """
+        Conexao direta ao PostgreSQL via psycopg2.
+        Usado para DDL (REFRESH MATERIALIZED VIEW) que nao funciona via PostgREST/RPC.
+        """
+        import psycopg2
+        supabase_url = os.environ.get("SUPABASE_URL", "")
+        # Extrair project ref da URL: https://XXXX.supabase.co -> XXXX
+        project_ref = supabase_url.replace("https://", "").split(".")[0] if supabase_url else ""
+
+        # Tentar DATABASE_URL primeiro (Railway pode ter), senao construir do Supabase
+        db_url = os.environ.get("DATABASE_URL")
+        if db_url:
+            return psycopg2.connect(db_url, connect_timeout=15)
+
+        db_password = os.environ.get("SUPABASE_DB_PASSWORD", "")
+        if not db_password or not project_ref:
+            raise ValueError("SUPABASE_DB_PASSWORD e SUPABASE_URL necessarios para conexao direta PostgreSQL")
+
+        return psycopg2.connect(
+            host=f"db.{project_ref}.supabase.co",
+            database="postgres",
+            user=f"postgres.{project_ref}",
+            password=db_password,
+            port="5432",
+            connect_timeout=15
+        )
+
     async def refresh_all_dashboard_mvs(self) -> dict:
         """
         Atualiza TODAS as Materialized Views do dashboard.
-        Chamado após coleta diária às 5h AM.
+        Chamado apos coleta diaria as 5h AM.
+
+        Estrategia de 3 camadas (nunca falha silenciosamente):
+        1. Tenta via RPC (rapido, se function SQL estiver atualizada)
+        2. Fallback: conexao direta PostgreSQL via psycopg2
+        3. Se tudo falhar: log CRITICAL (nao engole erro)
 
         Returns:
-            Dicionário com estatísticas do refresh
+            Dicionario com estatisticas do refresh
         """
+        logger.info("=" * 60)
+        logger.info("🔄 REFRESH DE TODAS AS MATERIALIZED VIEWS")
+        logger.info("=" * 60)
+
+        start_time = datetime.now()
+        results = {}
+
+        # ===== TENTATIVA 1: Via RPC =====
         try:
-            logger.info("=" * 60)
-            logger.info("🔄 REFRESH DE TODAS AS MATERIALIZED VIEWS")
-            logger.info("=" * 60)
-
-            start_time = datetime.now()
-            results = {}
-
-            # Chamar função SQL que faz refresh de TODAS as MVs
-            # MUST use service_role client - anon key doesn't have permission for REFRESH MATERIALIZED VIEW
             sr_client = getattr(self, 'supabase_service', None) or self.supabase
             response = sr_client.rpc("refresh_all_dashboard_mvs").execute()
 
             if response.data:
+                all_success = True
                 for mv in response.data:
                     mv_name = mv.get('mv_name', 'unknown')
                     status = mv.get('status', 'UNKNOWN')
@@ -1066,16 +1099,97 @@ class SupabaseClient:
                         logger.info(f"✅ {mv_name}: {rows} linhas, tempo: {exec_time}")
                     else:
                         logger.warning(f"⚠️ {mv_name}: {status}")
+                        all_success = False
+
+                if all_success:
+                    elapsed = (datetime.now() - start_time).total_seconds()
+                    logger.info(f"⏱️  Tempo total de refresh (RPC): {elapsed:.1f} segundos")
+                    logger.info("=" * 60)
+                    return results
+
+            # RPC retornou vazio ou teve falhas — tentar fallback
+            logger.warning("⚠️ RPC retornou sem dados ou com falhas, tentando fallback psycopg2...")
+
+        except Exception as rpc_error:
+            logger.warning(f"⚠️ RPC refresh falhou: {rpc_error}")
+            logger.info("🔄 Tentando fallback via conexao direta PostgreSQL...")
+
+        # ===== TENTATIVA 2: Conexao direta PostgreSQL =====
+        try:
+            conn = self._get_pg_connection()
+            cursor = conn.cursor()
+
+            # Garantir que unique index existe (necessario para CONCURRENTLY)
+            cursor.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_dashboard_canal_id_unique "
+                "ON mv_dashboard_completo(canal_id);"
+            )
+            conn.commit()
+
+            # Tentar CONCURRENTLY primeiro (nao bloqueia leituras)
+            mv_start = datetime.now()
+            try:
+                # CONCURRENTLY requer estar fora de transaction block
+                conn.autocommit = True
+                cursor.execute("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_dashboard_completo;")
+            except Exception:
+                # Fallback: refresh normal (bloqueia leituras por ~2s mas SEMPRE funciona)
+                logger.warning("⚠️ CONCURRENTLY falhou, usando refresh normal...")
+                conn.autocommit = True
+                cursor.execute("REFRESH MATERIALIZED VIEW mv_dashboard_completo;")
+
+            mv_elapsed = (datetime.now() - mv_start).total_seconds()
+
+            # Contar linhas
+            cursor.execute("SELECT COUNT(*) FROM mv_dashboard_completo;")
+            row_count = cursor.fetchone()[0]
+
+            results['mv_dashboard_completo'] = {
+                'status': 'SUCCESS',
+                'rows': row_count,
+                'time': f"{mv_elapsed:.2f}s",
+                'method': 'psycopg2_direct'
+            }
+            logger.info(f"✅ mv_dashboard_completo: {row_count} linhas, tempo: {mv_elapsed:.2f}s (via psycopg2)")
+
+            # Refresh mv_canal_video_stats tambem
+            try:
+                mv2_start = datetime.now()
+                cursor.execute("REFRESH MATERIALIZED VIEW mv_canal_video_stats;")
+                mv2_elapsed = (datetime.now() - mv2_start).total_seconds()
+                cursor.execute("SELECT COUNT(*) FROM mv_canal_video_stats;")
+                row_count2 = cursor.fetchone()[0]
+                results['mv_canal_video_stats'] = {
+                    'status': 'SUCCESS',
+                    'rows': row_count2,
+                    'time': f"{mv2_elapsed:.2f}s",
+                    'method': 'psycopg2_direct'
+                }
+                logger.info(f"✅ mv_canal_video_stats: {row_count2} linhas, tempo: {mv2_elapsed:.2f}s")
+            except Exception as e2:
+                logger.warning(f"⚠️ mv_canal_video_stats refresh falhou (nao critico): {e2}")
+
+            cursor.close()
+            conn.close()
 
             elapsed = (datetime.now() - start_time).total_seconds()
-            logger.info(f"⏱️  Tempo total de refresh: {elapsed:.1f} segundos")
+            logger.info(f"⏱️  Tempo total de refresh (psycopg2): {elapsed:.1f} segundos")
             logger.info("=" * 60)
-
             return results
 
-        except Exception as e:
-            logger.error(f"❌ Erro ao atualizar MVs: {e}")
-            return {'error': str(e)}
+        except Exception as pg_error:
+            logger.error(f"❌ Fallback psycopg2 tambem falhou: {pg_error}")
+
+        # ===== TUDO FALHOU — LOG CRITICAL =====
+        elapsed = (datetime.now() - start_time).total_seconds()
+        logger.critical("=" * 60)
+        logger.critical("🚨 MATERIALIZED VIEW NAO FOI ATUALIZADA!")
+        logger.critical("🚨 Dashboard mostrara dados DESATUALIZADOS!")
+        logger.critical(f"🚨 Tempo gasto tentando: {elapsed:.1f}s")
+        logger.critical("🚨 Verificar: SUPABASE_DB_PASSWORD env var no Railway")
+        logger.critical("🚨 Verificar: unique index na MV (idx_mv_dashboard_canal_id_unique)")
+        logger.critical("=" * 60)
+        return {'error': 'ALL_REFRESH_METHODS_FAILED', 'details': 'RPC e psycopg2 falharam'}
 
     async def get_dashboard_from_mv(self, tipo: str = None, subnicho: str = None,
                                    lingua: str = None, limit: int = 100,
