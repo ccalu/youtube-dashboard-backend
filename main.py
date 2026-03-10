@@ -9088,6 +9088,22 @@ body {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Running banner */
+.running-banner {
+    display: none;
+    background: rgba(84,160,255,0.1);
+    border: 1px solid rgba(84,160,255,0.3);
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    margin-bottom: 0.8rem;
+    font-size: 0.75rem;
+    color: var(--blue);
+    align-items: center;
+    gap: 0.5rem;
+}
+.running-banner.active { display: flex; }
+.running-banner .loading-spinner { width: 14px; height: 14px; border-width: 2px; }
+
 /* Modal */
 .modal-overlay {
     display: none;
@@ -9327,6 +9343,7 @@ body {
                 <button class="tab-btn" data-agent="motores" onclick="switchTab('motores')"><span class="tab-dot" id="dot-motores"></span>Motores</button>
             </div>
         </div>
+        <div class="running-banner" id="runningBanner"><span class="loading-spinner"></span><span id="runningText"></span></div>
         <div id="reportArea">
             <div class="empty-state">
                 <h2>Central de Agentes</h2>
@@ -9351,6 +9368,7 @@ var _selectedChannel = null;
 var _channelsData = {};
 var _agentData = {};
 var _activeTab = 'copy';
+var _runningAgents = {};  // {agentKey: true} enquanto rodando
 
 var AGENTS = [
     {key:'copy', label:'Copy', getUrl:'/api/analise-copy/{id}/latest', postUrl:'/api/analise-copy/{id}', histUrl:'/api/analise-copy/{id}/historico', delUrl:'/api/analise-copy/{id}/run/{runId}'},
@@ -9653,12 +9671,29 @@ var AGENT_DEPS = {
     'motores': {dep: 'temas', label: 'Motores depende de Temas (usa temas como input).'}
 };
 
+function updateRunningBanner() {
+    var keys = Object.keys(_runningAgents);
+    var banner = document.getElementById('runningBanner');
+    var text = document.getElementById('runningText');
+    if (keys.length === 0) {
+        banner.classList.remove('active');
+        return;
+    }
+    var labels = keys.map(function(k) { var a = AGENTS.filter(function(x){return x.key===k;})[0]; return a ? a.label : k; });
+    text.textContent = 'Rodando: ' + labels.join(', ') + '...';
+    banner.classList.add('active');
+}
+
 function _runAgent(agentKey, area) {
     var agentInfo = AGENTS.filter(function(a) { return a.key === agentKey; })[0];
     var url = agentInfo.postUrl.replace('{id}', _selectedChannel);
+    _runningAgents[agentKey] = true;
+    updateRunningBanner();
     return fetch(url, { method: 'POST' })
         .then(function(r) { return r.json(); })
         .then(function(result) {
+            delete _runningAgents[agentKey];
+            updateRunningBanner();
             if (result && result.success === false) {
                 var errMsg = result.error || 'Erro desconhecido';
                 if (area) area.innerHTML = '<div class="empty-state" style="color:#ef4444;"><p>' + agentInfo.label + ': ' + escHtml(errMsg) + '</p></div>';
@@ -9672,6 +9707,11 @@ function _runAgent(agentKey, area) {
             var dot = document.getElementById('dot-' + agentKey);
             if (dot && freshData) dot.classList.add('has-data');
             return freshData;
+        })
+        .catch(function(e) {
+            delete _runningAgents[agentKey];
+            updateRunningBanner();
+            throw e;
         });
 }
 
@@ -9861,12 +9901,16 @@ function runAnalysis() {
     btn.textContent = 'Gerando...';
     var area = document.getElementById('reportArea');
     area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Rodando 5 agentes... (2-5 min)</div>';
+    _runningAgents = {copy:true, satisfacao:true, autenticidade:true, temas:true, motores:true};
+    updateRunningBanner();
 
     fetch('/api/analise-completa/' + _selectedChannel, { method: 'POST' })
         .then(function(r) { return r.json(); })
         .then(function(data) {
             btn.disabled = false;
             btn.textContent = 'Gerar Relatorio';
+            _runningAgents = {};
+            updateRunningBanner();
             if (data.success) {
                 loadChannels();
                 loadAllAgents(_selectedChannel);
@@ -9879,6 +9923,8 @@ function runAnalysis() {
         .catch(function(e) {
             btn.disabled = false;
             btn.textContent = 'Gerar Relatorio';
+            _runningAgents = {};
+            updateRunningBanner();
             area.innerHTML = '<div class="empty-state"><p>Erro: ' + escHtml(e.message) + '</p></div>';
         });
 }
