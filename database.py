@@ -1031,30 +1031,14 @@ class SupabaseClient:
     def _get_pg_connection(self):
         """
         Conexao direta ao PostgreSQL via psycopg2.
-        Usado para DDL (REFRESH MATERIALIZED VIEW) que nao funciona via PostgREST/RPC.
+        Usado como fallback para REFRESH MATERIALIZED VIEW quando RPC falha.
+        Requer DATABASE_URL (Railway injeta automaticamente se tiver Postgres addon).
         """
         import psycopg2
-        supabase_url = os.environ.get("SUPABASE_URL", "")
-        # Extrair project ref da URL: https://XXXX.supabase.co -> XXXX
-        project_ref = supabase_url.replace("https://", "").split(".")[0] if supabase_url else ""
-
-        # Tentar DATABASE_URL primeiro (Railway pode ter), senao construir do Supabase
         db_url = os.environ.get("DATABASE_URL")
-        if db_url:
-            return psycopg2.connect(db_url, connect_timeout=15)
-
-        db_password = os.environ.get("SUPABASE_DB_PASSWORD", "")
-        if not db_password or not project_ref:
-            raise ValueError("SUPABASE_DB_PASSWORD e SUPABASE_URL necessarios para conexao direta PostgreSQL")
-
-        return psycopg2.connect(
-            host=f"db.{project_ref}.supabase.co",
-            database="postgres",
-            user=f"postgres.{project_ref}",
-            password=db_password,
-            port="5432",
-            connect_timeout=15
-        )
+        if not db_url:
+            raise ValueError("DATABASE_URL nao configurado - fallback psycopg2 indisponivel")
+        return psycopg2.connect(db_url, connect_timeout=15)
 
     async def refresh_all_dashboard_mvs(self) -> dict:
         """
@@ -1186,8 +1170,8 @@ class SupabaseClient:
         logger.critical("🚨 MATERIALIZED VIEW NAO FOI ATUALIZADA!")
         logger.critical("🚨 Dashboard mostrara dados DESATUALIZADOS!")
         logger.critical(f"🚨 Tempo gasto tentando: {elapsed:.1f}s")
-        logger.critical("🚨 Verificar: SUPABASE_DB_PASSWORD env var no Railway")
         logger.critical("🚨 Verificar: unique index na MV (idx_mv_dashboard_canal_id_unique)")
+        logger.critical("🚨 Verificar: function refresh_all_dashboard_mvs() no Supabase")
         logger.critical("=" * 60)
         return {'error': 'ALL_REFRESH_METHODS_FAILED', 'details': 'RPC e psycopg2 falharam'}
 
