@@ -33,6 +33,8 @@ import {
   Monitor,
   Bot,
   LogOut,
+  Image,
+  Key,
 } from 'lucide-react';
 import { apiService, NotificacaoStats } from '@/services/api';
 import { kanbanApiService } from '@/services/kanbanApi';
@@ -149,6 +151,8 @@ export function AppSidebar({
     'upload-ext': 'text-purple-500',
     'mission-control-ext': 'text-purple-500',
     'dash-agentes-ext': 'text-purple-500',
+    'thumb-ext': 'text-purple-500',
+    'chaves-api-ext': 'text-purple-500',
   }[itemId] || 'text-muted-foreground');
 
   // Empresa nav items (new category)
@@ -206,6 +210,8 @@ export function AppSidebar({
     { id: 'upload-ext', title: 'Upload', icon: Rocket, activeColor: 'bg-purple-500' },
     { id: 'mission-control-ext', title: 'Mission Control', icon: Monitor, activeColor: 'bg-purple-500' },
     { id: 'dash-agentes-ext', title: 'Dash Agentes', icon: Bot, activeColor: 'bg-purple-500' },
+    { id: 'thumb-ext', title: 'Thumb', icon: Image, activeColor: 'bg-purple-500' },
+    { id: 'chaves-api-ext', title: 'Chaves API', icon: Key, activeColor: 'bg-purple-500' },
   ];
 
   const toolsItems = [
@@ -222,6 +228,8 @@ export function AppSidebar({
       'upload-ext': 'https://youtube-dashboard-backend-production.up.railway.app/dash-upload',
       'mission-control-ext': 'https://youtube-dashboard-backend-production.up.railway.app/mission-control',
       'dash-agentes-ext': 'https://youtube-dashboard-backend-production.up.railway.app/dash-analise-copy',
+      'thumb-ext': 'https://web-production-1293.up.railway.app/',
+      'chaves-api-ext': 'https://dashboard-next-production-2ea8.up.railway.app/',
     };
     if (externalLinks[itemId]) {
       window.open(externalLinks[itemId], '_blank');
@@ -252,6 +260,8 @@ export function AppSidebar({
     'upload-ext': { bg: '#a855f7', hover: 'rgba(168, 85, 247, 0.25)' },
     'mission-control-ext': { bg: '#a855f7', hover: 'rgba(168, 85, 247, 0.25)' },
     'dash-agentes-ext': { bg: '#a855f7', hover: 'rgba(168, 85, 247, 0.25)' },
+    'thumb-ext': { bg: '#a855f7', hover: 'rgba(168, 85, 247, 0.25)' },
+    'chaves-api-ext': { bg: '#a855f7', hover: 'rgba(168, 85, 247, 0.25)' },
   }[itemId] || { bg: '#6b7280', hover: 'rgba(107, 114, 128, 0.25)' });
 
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
