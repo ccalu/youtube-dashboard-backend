@@ -9346,6 +9346,8 @@ function getSubnichoStyle(sub) {
         'Pessoas Desaparecidas': {color:'#0284C7', icon:'\\uD83D\\uDD0E'},
         'Conspiracao': {color:'#0891B2', icon:'\\uD83D\\uDD0D'},
         'Registros Malditos': {color:'#CA8A04', icon:'\\uD83D\\uDC7A'},
+        'Li\\u00e7\\u00f5es de Vida': {color:'#10B981', icon:'\\uD83C\\uDF31'},
+        'Licoes de Vida': {color:'#10B981', icon:'\\uD83C\\uDF31'},
         'Empreendedorismo': {color:'#F59E0B', icon:'\\uD83D\\uDCB0'},
         'Noticias e Atualidade': {color:'#F43F5E', icon:'\\uD83D\\uDCF0'}
     };
@@ -9383,7 +9385,7 @@ function loadChannels() {
 
             var html = '';
             var subnichos = data.subnichos || {};
-            var order = ['Monetizados','Relatos de Guerra','Historias Sombrias','Terror','Guerras e Civilizacoes','Desmonetizados'];
+            var order = ['Monetizados','Reis Perversos','Culturas Macabras','Relatos de Guerra','Frentes de Guerra','Guerras e Civilizacoes','Guerras e Civiliza\\u00e7\\u00f5es','Registros Malditos','Li\\u00e7\\u00f5es de Vida','Licoes de Vida','Historias Sombrias','Desmonetizados'];
             var keys = Object.keys(subnichos).sort(function(a,b) {
                 var ia = order.indexOf(a), ib = order.indexOf(b);
                 if (ia === -1) ia = 99; if (ib === -1) ib = 99;
