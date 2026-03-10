@@ -99,6 +99,17 @@ def process_motores_job(job):
     return result
 
 
+def process_ordenador_job(job):
+    """Processa job de ordenacao de producao via Claude CLI."""
+    from production_order_agent import run_analysis as order_run_analysis
+
+    channel_id = job["channel_id"]
+    logger.info(f"Processando ORDENADOR para {channel_id}")
+
+    result = order_run_analysis(channel_id)
+    return result
+
+
 def process_job(job):
     """Processa um job pendente."""
     job_id = job["id"]
@@ -117,6 +128,8 @@ def process_job(job):
             result = process_temas_job(job)
         elif agent_type == "motores":
             result = process_motores_job(job)
+        elif agent_type == "ordenador":
+            result = process_ordenador_job(job)
         else:
             raise ValueError(f"Tipo de agente desconhecido: {agent_type}")
 

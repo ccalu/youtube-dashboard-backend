@@ -7817,6 +7817,13 @@ from satisfaction_agent import (
     get_all_channels_for_analysis as sat_get_all_channels
 )
 
+from production_order_agent import (
+    run_analysis as order_run_analysis,
+    get_latest_analysis as order_get_latest,
+    get_analysis_history as order_get_history,
+    delete_analysis as order_delete_analysis
+)
+
 
 # ============================================================================
 # ANALISE DE SATISFACAO
@@ -8599,6 +8606,63 @@ async def delete_motor_analysis_run(channel_id: str, run_id: int):
         raise
     except Exception as e:
         logger.error(f"Erro deletar motores {channel_id}/{run_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =========================================================================
+# ENDPOINTS AGENTE 7 — ORDENADOR DE PRODUCAO
+# =========================================================================
+
+@app.post("/api/analise-ordenador/{channel_id}")
+async def trigger_order_analysis(channel_id: str):
+    """Roda Agente 7 (Ordenador de Producao) para um canal."""
+    try:
+        result = order_run_analysis(channel_id)
+        return result
+    except Exception as e:
+        logger.error(f"Erro agente ordenador {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/analise-ordenador/{channel_id}/latest")
+async def get_latest_order_analysis(channel_id: str):
+    """Retorna analise de ordenacao mais recente."""
+    try:
+        result = order_get_latest(channel_id)
+        if not result:
+            raise HTTPException(status_code=404, detail=f"Nenhuma analise de ordenacao para {channel_id}")
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro buscar ordenacao {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/analise-ordenador/{channel_id}/historico")
+async def get_order_analysis_history(channel_id: str, limit: int = 20, offset: int = 0):
+    """Retorna historico de analises de ordenacao."""
+    try:
+        limit = min(limit, 100)
+        offset = max(offset, 0)
+        return order_get_history(channel_id, limit=limit, offset=offset)
+    except Exception as e:
+        logger.error(f"Erro historico ordenacao {channel_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/analise-ordenador/{channel_id}/run/{run_id}")
+async def delete_order_analysis_run(channel_id: str, run_id: int):
+    """Deleta um run de ordenacao."""
+    try:
+        result = order_delete_analysis(channel_id, run_id)
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Erro ao deletar"))
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro deletar ordenacao {channel_id}/{run_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
