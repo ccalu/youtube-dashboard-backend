@@ -88,7 +88,7 @@ export default function NotificationRulesPanel() {
       const response = await fetch(`${API_URL}/api/filtros`);
       const data = await response.json();
       setSubnichos(data.subnichos || []);
-    } catch (error) {
+    } catch {
     }
   };
 

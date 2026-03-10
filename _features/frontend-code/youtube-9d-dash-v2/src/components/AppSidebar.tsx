@@ -104,7 +104,7 @@ export function AppSidebar({
       const data = await apiService.getNotificacoesStats();
       setNotificationStats(data);
       localStorage.setItem('sidebar_stats_last_refresh', new Date().toISOString());
-    } catch (error) {
+    } catch {
     }
   }, []);
 

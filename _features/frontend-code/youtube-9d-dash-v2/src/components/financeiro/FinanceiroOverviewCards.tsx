@@ -29,7 +29,7 @@ export function FinanceiroOverviewCards({ data, isLoading }: FinanceiroOverviewC
     try {
       const taxaData = await financeiroApi.getTaxaCambio();
       setTaxaCambio(taxaData);
-    } catch (error) {
+    } catch {
     }
   }, []);
 

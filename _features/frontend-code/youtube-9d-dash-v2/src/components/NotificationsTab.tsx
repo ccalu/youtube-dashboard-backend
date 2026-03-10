@@ -236,7 +236,7 @@ export function NotificationsTab() {
       const data = await apiService.getNotificacoesStats();
       setStats(data);
       setCachedData('notif_stats_cache', data);
-    } catch (error) {
+    } catch {
     }
   };
 
@@ -253,7 +253,7 @@ export function NotificationsTab() {
       const regras = data.regras || [];
       setRegrasDisponiveis(regras);
       setCachedData('notif_regras_cache', regras);
-    } catch (error) {
+    } catch {
     }
   };
 
@@ -270,7 +270,7 @@ export function NotificationsTab() {
       const subnichos = data.subnichos || [];
       setSubnichosDisponiveis(subnichos);
       setCachedData('notif_subnichos_cache', subnichos);
-    } catch (error) {
+    } catch {
     }
   };
 
@@ -287,7 +287,7 @@ export function NotificationsTab() {
       const linguas = data.linguas || [];
       setLinguasDisponiveis(linguas);
       setCachedData('notif_linguas_cache', linguas);
-    } catch (error) {
+    } catch {
     }
   };
 
@@ -305,28 +305,28 @@ export function NotificationsTab() {
   useEffect(() => {
     try {
       localStorage.setItem('transcriptionStatus', JSON.stringify(transcriptionStatus));
-    } catch (error) {
+    } catch {
     }
   }, [transcriptionStatus]);
 
   useEffect(() => {
     try {
       localStorage.setItem('transcriptions', JSON.stringify(transcriptions));
-    } catch (error) {
+    } catch {
     }
   }, [transcriptions]);
 
   useEffect(() => {
     try {
       localStorage.setItem('transcriptionMessages', JSON.stringify(transcriptionMessages));
-    } catch (error) {
+    } catch {
     }
   }, [transcriptionMessages]);
 
   useEffect(() => {
     try {
       localStorage.setItem('transcriptionJobIds', JSON.stringify(jobIds));
-    } catch (error) {
+    } catch {
     }
   }, [jobIds]);
 
