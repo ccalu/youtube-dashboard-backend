@@ -291,6 +291,8 @@ def match_videos(channel_id: str, sheet_data: List[Dict]) -> List[Dict]:
                     published_at = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
                 except (ValueError, TypeError):
                     published_at = None
+            if isinstance(published_at, datetime) and published_at.tzinfo is None:
+                published_at = published_at.replace(tzinfo=timezone.utc)
 
             matched.append({
                 "structure": structure,
@@ -1336,6 +1338,8 @@ def generate_report(
                 except (ValueError, TypeError):
                     continue
             if isinstance(pub, datetime):
+                if pub.tzinfo is None:
+                    pub = pub.replace(tzinfo=timezone.utc)
                 dates.append(pub)
 
     periodo_str = ""
@@ -1444,6 +1448,8 @@ def generate_report(
                     except (ValueError, TypeError):
                         pub = None
                 if isinstance(pub, datetime):
+                    if pub.tzinfo is None:
+                        pub = pub.replace(tzinfo=timezone.utc)
                     lines.append(f"   Publicado: {pub.strftime('%d-%m-%Y')}")
 
             # Reasons detalhados

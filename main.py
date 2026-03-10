@@ -8716,6 +8716,25 @@ async def dash_copy_analysis_channels():
             except Exception:
                 pass  # Tabela pode nao existir ainda
 
+        # 2b. Buscar datas mais recentes de temas/motores/satisfacao para sidebar
+        last_other_dates = {}  # channel_id -> max run_date
+        for table_name in ["theme_analysis_runs", "motor_analysis_runs", "satisfaction_analysis_runs"]:
+            for i in range(0, len(channel_ids), 20):
+                batch = channel_ids[i:i+20]
+                try:
+                    tbl_resp = supabase.table(table_name)\
+                        .select("channel_id,run_date")\
+                        .in_("channel_id", batch)\
+                        .order("run_date", desc=True)\
+                        .execute()
+                    for row in tbl_resp.data:
+                        cid = row["channel_id"]
+                        rd = row["run_date"]
+                        if cid not in last_other_dates or rd > last_other_dates[cid]:
+                            last_other_dates[cid] = rd
+                except Exception:
+                    pass
+
         # 3. Agrupa por subnicho
         subnichos = {}
         com_relatorio = 0
@@ -8731,6 +8750,15 @@ async def dash_copy_analysis_channels():
             if analysis:
                 last_date = analysis["last_date"]
                 avg_ret = analysis["avg_retention"]
+            # Usar data mais recente entre todos os agentes
+            if auth and auth.get("auth_date"):
+                if not last_date or auth["auth_date"] > last_date:
+                    last_date = auth["auth_date"]
+            other_date = last_other_dates.get(ch["channel_id"])
+            if other_date:
+                if not last_date or other_date > last_date:
+                    last_date = other_date
+            if last_date:
                 com_relatorio += 1
 
             subnichos[sub].append({
