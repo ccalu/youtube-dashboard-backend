@@ -11,8 +11,11 @@ Click no agente abre painel interativo com acoes
 import json
 import re
 import time
+import logging
 import unicodedata
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 # ===========================================================
 # MAPEAMENTOS
@@ -393,11 +396,12 @@ async def get_agent_overview_batch(supabase_client):
     """Batch query agent status for ALL channels. Returns dict keyed by channel_id."""
     overview = {}
 
-    # Latest copy analysis per channel
+    # Latest copy analysis per channel (limit 100 = margem para ~43 canais)
     try:
         copy_resp = supabase_client.table('copy_analysis_runs') \
             .select('channel_id,run_date,total_videos_analyzed') \
             .order('run_date', desc=True) \
+            .limit(100) \
             .execute()
         seen = set()
         for row in (copy_resp.data or []):
@@ -410,14 +414,15 @@ async def get_agent_overview_batch(supabase_client):
                     'status': 'done',
                     'last_run': row.get('run_date'),
                 }
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[MC] Query falhou: {e}")
 
     # Latest satisfaction analysis per channel
     try:
         sat_resp = supabase_client.table('satisfaction_analysis_runs') \
             .select('channel_id,run_date,total_videos_analyzed,channel_avg_approval') \
             .order('run_date', desc=True) \
+            .limit(100) \
             .execute()
         seen = set()
         for row in (sat_resp.data or []):
@@ -431,14 +436,15 @@ async def get_agent_overview_batch(supabase_client):
                     'last_run': row.get('run_date'),
                     'avg_approval': row.get('channel_avg_approval'),
                 }
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[MC] Query falhou: {e}")
 
     # Latest auth analysis per channel
     try:
         auth_resp = supabase_client.table('authenticity_analysis_runs') \
             .select('channel_id,run_date,authenticity_score,authenticity_level,has_alerts') \
             .order('run_date', desc=True) \
+            .limit(100) \
             .execute()
         seen = set()
         for row in (auth_resp.data or []):
@@ -454,14 +460,15 @@ async def get_agent_overview_batch(supabase_client):
                     'level': row.get('authenticity_level'),
                     'has_alerts': row.get('has_alerts', False),
                 }
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[MC] Query falhou: {e}")
 
     # Latest theme analysis per channel
     try:
         theme_resp = supabase_client.table('theme_analysis_runs') \
             .select('channel_id,run_date,total_videos_analyzed,ranking_json') \
             .order('run_date', desc=True) \
+            .limit(100) \
             .execute()
         seen = set()
         for row in (theme_resp.data or []):
@@ -478,14 +485,15 @@ async def get_agent_overview_batch(supabase_client):
                     'top_theme': top_theme.get('theme', '') if top_theme else None,
                     'top_theme_score': top_theme.get('score', 0) if top_theme else 0,
                 }
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[MC] Query falhou: {e}")
 
     # Latest motor analysis per channel
     try:
         motor_resp = supabase_client.table('motor_analysis_runs') \
             .select('channel_id,run_date,total_videos,motor_counts_json') \
             .order('run_date', desc=True) \
+            .limit(100) \
             .execute()
         seen = set()
         for row in (motor_resp.data or []):
@@ -505,14 +513,15 @@ async def get_agent_overview_batch(supabase_client):
                     'last_run': row.get('run_date'),
                     'motor_count': len(motor_counts),
                 }
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[MC] Query falhou: {e}")
 
     # Latest production order analysis per channel
     try:
         order_resp = supabase_client.table('production_order_runs') \
             .select('channel_id,run_date,total_scripts,channel_health') \
             .order('run_date', desc=True) \
+            .limit(100) \
             .execute()
         seen = set()
         for row in (order_resp.data or []):
@@ -527,8 +536,8 @@ async def get_agent_overview_batch(supabase_client):
                     'total_scripts': row.get('total_scripts', 0),
                     'channel_health': row.get('channel_health', ''),
                 }
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[MC] Query falhou: {e}")
 
     return overview
 
@@ -548,8 +557,8 @@ async def get_mission_control_data(db):
     try:
         oauth_resp = sr_client.table('yt_oauth_tokens').select('channel_id').execute()
         oauth_channel_ids = set(r['channel_id'] for r in (oauth_resp.data or []))
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[MC] Query falhou: {e}")
 
     # Get yt_channels mapping (channel_name -> channel_id + copy_spreadsheet_id + avg_ctr)
     # Filter to only OAuth channels
@@ -574,8 +583,8 @@ async def get_mission_control_data(db):
                 actr = row.get('avg_ctr')
                 if actr is not None:
                     ctr_map[chname] = actr
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[MC] Query falhou: {e}")
 
     # Get avg_retention per channel from yt_video_metrics (fonte: YouTube Analytics API)
     retention_map = {}  # channel_id -> avg_retention
@@ -594,8 +603,8 @@ async def get_mission_control_data(db):
                 ret_by_channel[chid].append(ret_val)
         for chid, vals in ret_by_channel.items():
             retention_map[chid] = round(sum(vals) / len(vals), 2)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[MC] Query falhou: {e}")
 
     # Batch get agent overview
     agent_overview = await get_agent_overview_batch(db.supabase)
@@ -608,26 +617,34 @@ async def get_mission_control_data(db):
         for row in (vc_resp.data or []):
             if row.get('video_count'):
                 video_count_map[row['id']] = row['video_count']
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[MC] Query falhou: {e}")
 
     comments_count_map = {}  # canal_id -> count
     try:
-        all_comment_ids = []
-        _offset = 0
-        _batch = 1000
-        while True:
-            _cr = db.supabase.table('video_comments').select('canal_id').range(_offset, _offset + _batch - 1).execute()
-            if not _cr.data:
-                break
-            all_comment_ids.extend(r['canal_id'] for r in _cr.data)
-            if len(_cr.data) < _batch:
-                break
-            _offset += _batch
-        from collections import Counter
-        comments_count_map = dict(Counter(all_comment_ids))
-    except Exception:
-        pass
+        _cr = db.supabase.rpc('count_comments_by_canal').execute()
+        if _cr.data:
+            for row in _cr.data:
+                comments_count_map[row['canal_id']] = row['count']
+    except Exception as e:
+        # Fallback: query simples com agrupamento manual
+        logger.warning(f"[MC] RPC count_comments falhou ({e}), usando fallback")
+        try:
+            all_comment_ids = []
+            _offset = 0
+            _batch = 1000
+            while True:
+                _cr2 = db.supabase.table('video_comments').select('canal_id').range(_offset, _offset + _batch - 1).execute()
+                if not _cr2.data:
+                    break
+                all_comment_ids.extend(r['canal_id'] for r in _cr2.data)
+                if len(_cr2.data) < _batch:
+                    break
+                _offset += _batch
+            from collections import Counter
+            comments_count_map = dict(Counter(all_comment_ids))
+        except Exception as e2:
+            logger.warning(f"[MC] Fallback comments count falhou: {e2}")
 
     grupos = {}
     for canal in canais:
@@ -770,8 +787,8 @@ async def get_sala_detail(db, canal_id):
         if yt_resp.data:
             yt_channel_id = yt_resp.data[0].get('channel_id')
             copy_spreadsheet_id = yt_resp.data[0].get('copy_spreadsheet_id')
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[MC] Query falhou: {e}")
 
     # Get real agent statuses
     agent_statuses = {}
@@ -806,8 +823,8 @@ async def get_sala_detail(db, canal_id):
     try:
         cr = db.supabase.table('video_comments').select('id', count='exact').eq('canal_id', canal_id).execute()
         result['canal']['total_comentarios'] = cr.count or 0
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[MC] Query falhou: {e}")
     _mc_sala_cache[ck] = {'data': result, 'timestamp': now}
     return result
 
