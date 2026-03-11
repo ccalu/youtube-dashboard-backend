@@ -10692,7 +10692,7 @@ function _finishCTRCollection(result) {
     localStorage.setItem('ctrHistory', JSON.stringify(hist));
 }
 
-// Ao carregar: verificar se coleta esta rodando no backend
+// Ao carregar: verificar se coleta esta rodando no backend + sync historico
 (function() {
     fetch('/api/ctr/status')
         .then(function(r) { return r.json(); })
@@ -10700,6 +10700,17 @@ function _finishCTRCollection(result) {
             if (data.running) {
                 _showCTRInProgress();
                 _startCTRPolling();
+            } else if (data.finished_at && data.result) {
+                // Se tem resultado no backend, garantir que esta no historico local
+                var fin = new Date(data.finished_at);
+                var ts = fin.toLocaleDateString('pt-BR') + ' ' + fin.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+                var hist = JSON.parse(localStorage.getItem('ctrHistory') || '[]');
+                var exists = hist.some(function(h) { return h.date === ts; });
+                if (!exists) {
+                    hist.unshift({ date: ts, success: data.result.success || 0, records: data.result.total_records || 0, errors: data.result.errors || 0 });
+                    if (hist.length > 50) hist = hist.slice(0, 50);
+                    localStorage.setItem('ctrHistory', JSON.stringify(hist));
+                }
             }
         })
         .catch(function() {});
