@@ -9643,7 +9643,8 @@ body {
             <div class="main-title default-text" id="mainTitle">Selecione um canal</div>
             <div class="main-actions" id="mainActions" style="display:none">
                 <button class="btn btn-accent" onclick="runAnalysis()" id="btnRun">Gerar Relatorio</button>
-                <button class="btn btn-history" onclick="showChannelHistory()">Historico</button>
+                <button class="btn btn-ctr" onclick="showChannelCTR()" id="btnChannelCTR">CTR</button>
+                <button class="btn btn-history" onclick="showChannelHistory()" title="Historico" style="margin-left:auto">&#128203;</button>
             </div>
         </div>
         <div id="tabsArea" style="display:none">
@@ -10656,6 +10657,69 @@ function collectCTR() {
         if (el) { el.style.display = 'block'; el.textContent = 'Ultima geracao: ' + last; }
     }
 })();
+
+function showChannelCTR() {
+    if (!_selectedChannel) return;
+    var area = document.getElementById('reportArea');
+    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando CTR...</div>';
+
+    fetch('/api/ctr/' + _selectedChannel + '/latest')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) {
+                area.innerHTML = '<div class="empty-state"><h2>CTR</h2><p>Sem dados de CTR para este canal.<br><small>Use o botao "CTR" na sidebar para coletar dados de todos os canais.</small></p></div>';
+                return;
+            }
+            var stats = data.channel_stats || {};
+            var videos = data.videos || [];
+            var html = '<div class="report-content" style="padding:1.5rem">';
+            html += '<h2 style="color:var(--text-primary);margin:0 0 4px">CTR - Impressoes e Click-Through Rate</h2>';
+            html += '<p style="color:var(--text-secondary);margin:0 0 1.5rem;font-size:13px">' + (data.total_videos || 0) + ' videos com dados de CTR</p>';
+
+            // Stats cards
+            html += '<div style="display:flex;gap:12px;margin-bottom:1.5rem;flex-wrap:wrap">';
+            html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
+            html += '<div style="font-size:24px;font-weight:700;color:#f59e0b">' + (stats.avg_ctr_percent || 0).toFixed(2) + '%</div>';
+            html += '<div style="font-size:11px;color:var(--text-secondary)">CTR Medio</div></div>';
+            html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
+            html += '<div style="font-size:24px;font-weight:700;color:var(--blue)">' + (stats.total_impressions || 0).toLocaleString() + '</div>';
+            html += '<div style="font-size:11px;color:var(--text-secondary)">Total Impressoes</div></div>';
+            html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
+            html += '<div style="font-size:24px;font-weight:700;color:var(--green)">' + (data.total_videos || 0) + '</div>';
+            html += '<div style="font-size:11px;color:var(--text-secondary)">Videos</div></div>';
+            html += '</div>';
+
+            // Table
+            if (videos.length > 0) {
+                html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+                html += '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text-secondary)">';
+                html += '<th style="text-align:left;padding:8px 6px">Video ID</th>';
+                html += '<th style="text-align:right;padding:8px 6px">Views</th>';
+                html += '<th style="text-align:right;padding:8px 6px">Impressoes</th>';
+                html += '<th style="text-align:right;padding:8px 6px">CTR</th>';
+                html += '<th style="text-align:right;padding:8px 6px">Retencao</th>';
+                html += '</tr></thead><tbody>';
+                videos.forEach(function(v) {
+                    var ctrVal = ((v.ctr || 0) * 100).toFixed(2);
+                    var ctrColor = ctrVal >= 8 ? '#22c55e' : ctrVal >= 5 ? '#f59e0b' : '#ef4444';
+                    var retVal = v.avg_retention_pct ? v.avg_retention_pct.toFixed(1) + '%' : '-';
+                    html += '<tr style="border-bottom:1px solid var(--border)">';
+                    html += '<td style="padding:6px;color:var(--text-primary);font-family:monospace;font-size:11px">' + escHtml(v.video_id || '') + '</td>';
+                    html += '<td style="text-align:right;padding:6px;color:var(--text-primary)">' + (v.views || 0).toLocaleString() + '</td>';
+                    html += '<td style="text-align:right;padding:6px;color:var(--text-primary)">' + (v.impressions || 0).toLocaleString() + '</td>';
+                    html += '<td style="text-align:right;padding:6px;font-weight:600;color:' + ctrColor + '">' + ctrVal + '%</td>';
+                    html += '<td style="text-align:right;padding:6px;color:var(--text-secondary)">' + retVal + '</td>';
+                    html += '</tr>';
+                });
+                html += '</tbody></table></div>';
+            }
+            html += '</div>';
+            area.innerHTML = html;
+        })
+        .catch(function(e) {
+            area.innerHTML = '<div class="empty-state"><p>Erro ao carregar CTR: ' + escHtml(e.message) + '</p></div>';
+        });
+}
 
 function agentTag(key) {
     var labels = {copy:'Copy', satisfacao:'Satisf', autenticidade:'Auth', temas:'Temas', motores:'Mot', ordenador:'Ord'};
