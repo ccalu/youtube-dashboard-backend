@@ -11,12 +11,22 @@ Depende do Agente de Copy ter rodado antes (busca videos matched do ultimo run).
 """
 
 import os
+import re
 import json
 import logging
 import statistics
 import requests
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Optional
+
+
+def _strip_markdown(text: str) -> str:
+    """Remove formatacao markdown do texto (**, ###, ---, `)."""
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+    text = re.sub(r'^\s*#{1,6}\s+', '', text, flags=re.MULTILINE)
+    text = re.sub(r'`([^`]+)`', r'\1', text)
+    return text
+
 
 logger = logging.getLogger(__name__)
 
@@ -1219,8 +1229,8 @@ def generate_report(
     obs_text = ""
     tend_text = ""
     if llm_insights and isinstance(llm_insights, dict):
-        obs_text = llm_insights.get("observacoes", "")
-        tend_text = llm_insights.get("tendencias", "")
+        obs_text = _strip_markdown(llm_insights.get("observacoes", ""))
+        tend_text = _strip_markdown(llm_insights.get("tendencias", ""))
 
     if obs_text:
         lines.append("--- OBSERVACOES (Satisfacao) ---")

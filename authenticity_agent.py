@@ -31,6 +31,14 @@ from collections import Counter
 from datetime import datetime, timezone
 from typing import List, Dict, Optional, Any
 
+def _strip_markdown(text: str) -> str:
+    """Remove formatacao markdown do texto (**, ###, ---, `)."""
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+    text = re.sub(r'^\s*#{1,6}\s+', '', text, flags=re.MULTILINE)
+    text = re.sub(r'`([^`]+)`', r'\1', text)
+    return text
+
+
 # Importar funcoes reutilizaveis do copy analysis agent
 from copy_analysis_agent import (
     read_copy_structures,
@@ -1051,9 +1059,9 @@ DADOS:
             diagnostico = text
 
         return {
-            "diagnostico": diagnostico,
-            "recomendacoes": recomendacoes,
-            "tendencias": tendencias
+            "diagnostico": _strip_markdown(diagnostico),
+            "recomendacoes": _strip_markdown(recomendacoes),
+            "tendencias": _strip_markdown(tendencias)
         }
 
     except Exception as e:
