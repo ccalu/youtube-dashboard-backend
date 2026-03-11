@@ -6562,17 +6562,17 @@ DASH_UPLOAD_HTML = '''
             var msg = 'Forcar upload do canal ' + channelName + '?\\n\\nO proximo video "done" da planilha sera enviado.';
             if (!confirm(msg)) return;
             var botao = event.target.closest('.btn-icon');
+            if (_uploadingSet.has(channelId)) return;
             _uploadingSet.add(channelId);
+            botao.innerHTML = '\\u23F3';
+            botao.classList.add('btn-icon--uploading');
+            atualizar();
             try {
-                var preXhr = new XMLHttpRequest();
-                preXhr.open('GET', '/api/dash-upload/status', false);
-                preXhr.send();
-                if (preXhr.status === 200) {
-                    _statusBeforeUpload[channelId] = _getChannelStatus(JSON.parse(preXhr.responseText), channelId);
+                var preResp = await fetch('/api/dash-upload/status');
+                if (preResp.ok) {
+                    var preData = await preResp.json();
+                    _statusBeforeUpload[channelId] = _getChannelStatus(preData, channelId);
                 }
-                botao.innerHTML = '\\u23F3';
-                botao.classList.add('btn-icon--uploading');
-                atualizar();
                 var response = await fetch('/api/yt-upload/force/' + channelId, { method: 'POST' });
                 var result = await response.json();
                 if (response.ok && result.status !== 'sem_video' && result.status !== 'no_video') {
@@ -6589,6 +6589,7 @@ DASH_UPLOAD_HTML = '''
             } catch (error) {
                 alert('Erro de conexao: ' + error.message);
                 _uploadingSet.delete(channelId);
+                atualizar();
             }
         }
         function _startSinglePoll(channelId) {
@@ -6597,25 +6598,21 @@ DASH_UPLOAD_HTML = '''
             var pollInterval = setInterval(function() {
                 tentativas++;
                 if (tentativas > maxTentativas) { clearInterval(pollInterval); _uploadingSet.delete(channelId); delete _statusBeforeUpload[channelId]; atualizar(); return; }
-                var xhr = new XMLHttpRequest();
-                xhr.open('GET', '/api/dash-upload/status', true);
-                xhr.onreadystatechange = function() {
-                    if (xhr.readyState === 4 && xhr.status === 200) {
-                        try {
-                            var data = JSON.parse(xhr.responseText);
-                            var st = _getChannelStatus(data, channelId);
-                            if (st && st !== _statusBeforeUpload[channelId]) {
-                                clearInterval(pollInterval);
-                                _uploadingSet.delete(channelId);
-                                delete _statusBeforeUpload[channelId];
-                                if (st === 'sucesso') { _successSet.add(channelId); fetch('/api/dash-upload/refresh-disp/' + channelId, {method:'POST'}).then(function() { atualizar(); }); atualizar(); setTimeout(function() { _successSet.delete(channelId); atualizar(); }, 15000); }
-                                else if (st === 'erro') { _errorSet.add(channelId); atualizar(); setTimeout(function() { _errorSet.delete(channelId); atualizar(); }, 5000); }
-                                else { atualizar(); }
-                            }
-                        } catch(e) {}
-                    }
-                };
-                xhr.send();
+                fetch('/api/dash-upload/status')
+                    .then(function(r) { return r.ok ? r.json() : null; })
+                    .then(function(data) {
+                        if (!data) return;
+                        var st = _getChannelStatus(data, channelId);
+                        if (st && st !== _statusBeforeUpload[channelId]) {
+                            clearInterval(pollInterval);
+                            _uploadingSet.delete(channelId);
+                            delete _statusBeforeUpload[channelId];
+                            if (st === 'sucesso') { _successSet.add(channelId); fetch('/api/dash-upload/refresh-disp/' + channelId, {method:'POST'}).then(function() { atualizar(); }); atualizar(); setTimeout(function() { _successSet.delete(channelId); atualizar(); }, 15000); }
+                            else if (st === 'erro') { _errorSet.add(channelId); atualizar(); setTimeout(function() { _errorSet.delete(channelId); atualizar(); }, 5000); }
+                            else { atualizar(); }
+                        }
+                    })
+                    .catch(function(err) { console.error('[Upload] Poll error:', err); });
             }, 3000);
         }
         var _historicoData = [];
@@ -6964,14 +6961,12 @@ DASH_UPLOAD_HTML = '''
             btn.disabled = true;
             btn.textContent = 'Iniciando...';
             try {
-                // Captura status ANTES para cada canal selecionado
-                var preXhr = new XMLHttpRequest();
-                preXhr.open('GET', '/api/dash-upload/status', false);
-                preXhr.send();
-                var preData = null;
-                if (preXhr.status === 200) preData = JSON.parse(preXhr.responseText);
                 var selectedIds = Array.from(_batchSelected);
-                if (preData) { selectedIds.forEach(function(cid) { _statusBeforeUpload[cid] = _getChannelStatus(preData, cid); }); }
+                var preResp = await fetch('/api/dash-upload/status');
+                if (preResp.ok) {
+                    var preData = await preResp.json();
+                    selectedIds.forEach(function(cid) { _statusBeforeUpload[cid] = _getChannelStatus(preData, cid); });
+                }
                 var response = await fetch('/api/dash-upload/batch-upload', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({channel_ids: selectedIds}) });
                 var result = await response.json();
                 if (response.ok && result.status === 'processing') {
@@ -7005,32 +7000,30 @@ DASH_UPLOAD_HTML = '''
                     if (remaining.size > 0) atualizar();
                     return;
                 }
-                var xhr = new XMLHttpRequest();
-                xhr.open('GET', '/api/dash-upload/status', true);
-                xhr.onreadystatechange = function() {
-                    if (xhr.readyState === 4 && xhr.status === 200) {
-                        try {
-                            var data = JSON.parse(xhr.responseText);
-                            remaining.forEach(function(cid) {
-                                var st = _getChannelStatus(data, cid);
-                                if (st === 'sucesso' || st === 'erro' || st === 'sem_video') {
-                                    _uploadingSet.delete(cid);
-                                    delete _statusBeforeUpload[cid];
-                                    remaining.delete(cid);
-                                    if (st === 'sucesso') {
-                                        _successSet.add(cid);
-                                        fetch('/api/dash-upload/refresh-disp/' + cid, {method:'POST'}).then(function() { atualizar(); });
-                                        setTimeout(function() { _successSet.delete(cid); atualizar(); }, 15000);
-                                    }
-                                    else if (st === 'erro') { _errorSet.add(cid); setTimeout(function() { _errorSet.delete(cid); atualizar(); }, 5000); }
-                                    else if (st === 'sem_video') { _errorSet.add(cid); setTimeout(function() { _errorSet.delete(cid); atualizar(); }, 5000); }
+                fetch('/api/dash-upload/status')
+                    .then(function(r) { return r.ok ? r.json() : null; })
+                    .then(function(data) {
+                        if (!data) return;
+                        remaining.forEach(function(cid) {
+                            var st = _getChannelStatus(data, cid);
+                            if (st === 'sucesso' || st === 'erro' || st === 'sem_video') {
+                                _uploadingSet.delete(cid);
+                                delete _statusBeforeUpload[cid];
+                                remaining.delete(cid);
+                                if (st === 'sucesso') {
+                                    _successSet.add(cid);
+                                    fetch('/api/dash-upload/refresh-disp/' + cid, {method:'POST'}).then(function() { atualizar(); });
+                                    setTimeout(function() { _successSet.delete(cid); atualizar(); }, 15000);
                                 }
-                            });
-                            atualizar();
-                        } catch(e) {}
-                    }
-                };
-                xhr.send();
+                                else if (st === 'erro') { _errorSet.add(cid); setTimeout(function() { _errorSet.delete(cid); atualizar(); }, 5000); }
+                                else if (st === 'sem_video') { _errorSet.add(cid); setTimeout(function() { _errorSet.delete(cid); atualizar(); }, 5000); }
+                            }
+                        });
+                        atualizar();
+                    })
+                    .catch(function(err) {
+                        console.error('[Upload] Batch poll error:', err);
+                    });
             }, 5000);
         }
     </script>
