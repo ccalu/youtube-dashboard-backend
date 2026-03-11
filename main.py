@@ -11233,10 +11233,11 @@ async def dash_agentes_page():
     """Dashboard Central de Agentes - Interface web"""
     return DASH_AGENTES_HTML
 
-@app.get("/dash-analise-copy", response_class=HTMLResponse)
+@app.get("/dash-analise-copy")
 async def dash_copy_redirect():
     """Redirect para /dash-agentes (backward compat)"""
-    return DASH_AGENTES_HTML
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/dash-agentes")
 
 
 # =========================================================================
