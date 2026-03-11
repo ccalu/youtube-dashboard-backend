@@ -781,7 +781,7 @@ async def get_channel_ctr(channel_id, limit=50):
         params={
             "channel_id": f"eq.{channel_id}",
             "ctr": "not.is.null",
-            "select": "video_id,views,impressions,ctr,avg_retention_pct,avg_view_duration,watch_time_seconds,updated_at",
+            "select": "video_id,views,impressions,ctr,avg_retention_pct,avg_view_duration,updated_at",
             "order": "impressions.desc",
             "limit": str(limit)
         },
@@ -829,7 +829,6 @@ async def get_channel_ctr(channel_id, limit=50):
     avg_retention = round(sum(ret_values) / len(ret_values), 2) if ret_values else 0
     dur_values = [v.get("avg_view_duration", 0) or 0 for v in videos if v.get("avg_view_duration")]
     avg_duration = round(sum(dur_values) / len(dur_values), 1) if dur_values else 0
-    total_watch_time = sum(v.get("watch_time_seconds", 0) or 0 for v in videos)
 
     # Data da ultima atualizacao
     updated_dates = [v.get("updated_at", "") for v in videos if v.get("updated_at")]
@@ -844,8 +843,7 @@ async def get_channel_ctr(channel_id, limit=50):
             "avg_ctr": channel_avg_ctr,
             "avg_ctr_percent": round(channel_avg_ctr * 100, 2),
             "avg_retention_pct": avg_retention,
-            "avg_view_duration_sec": avg_duration,
-            "total_watch_time_seconds": total_watch_time
+            "avg_view_duration_sec": avg_duration
         },
         "videos": videos
     }

@@ -10737,7 +10737,7 @@ function renderCTRTable() {
         else if (col === 'ctr') { va = a.ctr || 0; vb = b.ctr || 0; }
         else if (col === 'retention') { va = a.avg_retention_pct || 0; vb = b.avg_retention_pct || 0; }
         else if (col === 'duration') { va = a.avg_view_duration || 0; vb = b.avg_view_duration || 0; }
-        else if (col === 'watchtime') { va = a.watch_time_seconds || 0; vb = b.watch_time_seconds || 0; }
+        else if (col === 'watchtime') { va = (a.views || 0) * (a.avg_view_duration || 0); vb = (b.views || 0) * (b.avg_view_duration || 0); }
         else { va = 0; vb = 0; }
         if (va < vb) return dir === 'asc' ? -1 : 1;
         if (va > vb) return dir === 'asc' ? 1 : -1;
@@ -10780,7 +10780,8 @@ function renderCTRTable() {
         html += '<div style="font-size:24px;font-weight:700;color:var(--blue)">' + fmtDuration(stats.avg_view_duration_sec || 0) + '</div>';
         html += '<div style="font-size:11px;color:var(--text-secondary)">Duracao Media</div></div>';
         html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
-        html += '<div style="font-size:24px;font-weight:700;color:#f59e0b">' + fmtWatchTime(stats.total_watch_time_seconds || 0) + '</div>';
+        var totalWT = 0; videos.forEach(function(v) { totalWT += (v.views || 0) * (v.avg_view_duration || 0); });
+        html += '<div style="font-size:24px;font-weight:700;color:#f59e0b">' + fmtWatchTime(totalWT) + '</div>';
         html += '<div style="font-size:11px;color:var(--text-secondary)">Watch Time Total</div></div>';
     }
     html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
@@ -10818,7 +10819,7 @@ function renderCTRTable() {
                 var retColor = (v.avg_retention_pct || 0) >= 50 ? '#22c55e' : (v.avg_retention_pct || 0) >= 30 ? '#f59e0b' : '#ef4444';
                 html += '<td style="text-align:right;padding:6px;font-weight:600;color:' + retColor + '">' + retVal + '</td>';
                 html += '<td style="text-align:right;padding:6px;color:var(--text-primary)">' + fmtDuration(v.avg_view_duration) + '</td>';
-                html += '<td style="text-align:right;padding:6px;color:var(--text-secondary)">' + fmtWatchTime(v.watch_time_seconds) + '</td>';
+                html += '<td style="text-align:right;padding:6px;color:var(--text-secondary)">' + fmtWatchTime((v.views || 0) * (v.avg_view_duration || 0)) + '</td>';
             }
             html += '</tr>';
         });
