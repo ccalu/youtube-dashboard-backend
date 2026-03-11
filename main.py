@@ -10658,6 +10658,10 @@ function collectCTR() {
     }
 })();
 
+var _ctrVideos = [];
+var _ctrStats = {};
+var _ctrSort = {col: 'impressions', dir: 'desc'};
+
 function showChannelCTR() {
     if (!_selectedChannel) return;
     var area = document.getElementById('reportArea');
@@ -10670,56 +10674,94 @@ function showChannelCTR() {
                 area.innerHTML = '<div class="empty-state"><h2>CTR</h2><p>Sem dados de CTR para este canal.<br><small>Use o botao "CTR" na sidebar para coletar dados de todos os canais.</small></p></div>';
                 return;
             }
-            var stats = data.channel_stats || {};
-            var videos = data.videos || [];
-            var html = '<div class="report-content" style="padding:1.5rem">';
-            html += '<h2 style="color:var(--text-primary);margin:0 0 4px">CTR - Impressoes e Click-Through Rate</h2>';
-            html += '<p style="color:var(--text-secondary);margin:0 0 1.5rem;font-size:13px">' + (data.total_videos || 0) + ' videos com dados de CTR</p>';
-
-            // Stats cards
-            html += '<div style="display:flex;gap:12px;margin-bottom:1.5rem;flex-wrap:wrap">';
-            html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
-            html += '<div style="font-size:24px;font-weight:700;color:#f59e0b">' + (stats.avg_ctr_percent || 0).toFixed(2) + '%</div>';
-            html += '<div style="font-size:11px;color:var(--text-secondary)">CTR Medio</div></div>';
-            html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
-            html += '<div style="font-size:24px;font-weight:700;color:var(--blue)">' + (stats.total_impressions || 0).toLocaleString() + '</div>';
-            html += '<div style="font-size:11px;color:var(--text-secondary)">Total Impressoes</div></div>';
-            html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
-            html += '<div style="font-size:24px;font-weight:700;color:var(--green)">' + (data.total_videos || 0) + '</div>';
-            html += '<div style="font-size:11px;color:var(--text-secondary)">Videos</div></div>';
-            html += '</div>';
-
-            // Table
-            if (videos.length > 0) {
-                html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
-                html += '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text-secondary)">';
-                html += '<th style="text-align:left;padding:8px 6px">Titulo</th>';
-                html += '<th style="text-align:right;padding:8px 6px">Views</th>';
-                html += '<th style="text-align:right;padding:8px 6px">Impressoes</th>';
-                html += '<th style="text-align:right;padding:8px 6px">CTR</th>';
-                html += '<th style="text-align:right;padding:8px 6px">Retencao</th>';
-                html += '</tr></thead><tbody>';
-                videos.forEach(function(v) {
-                    var ctrVal = ((v.ctr || 0) * 100).toFixed(2);
-                    var ctrColor = ctrVal >= 8 ? '#22c55e' : ctrVal >= 5 ? '#f59e0b' : '#ef4444';
-                    var retVal = v.avg_retention_pct ? v.avg_retention_pct.toFixed(1) + '%' : '-';
-                    var titulo = v.titulo || v.video_id || '';
-                    html += '<tr style="border-bottom:1px solid var(--border)">';
-                    html += '<td style="padding:6px;color:var(--text-primary);font-size:12px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(titulo) + '</td>';
-                    html += '<td style="text-align:right;padding:6px;color:var(--text-primary)">' + (v.views || 0).toLocaleString() + '</td>';
-                    html += '<td style="text-align:right;padding:6px;color:var(--text-primary)">' + (v.impressions || 0).toLocaleString() + '</td>';
-                    html += '<td style="text-align:right;padding:6px;font-weight:600;color:' + ctrColor + '">' + ctrVal + '%</td>';
-                    html += '<td style="text-align:right;padding:6px;color:var(--text-secondary)">' + retVal + '</td>';
-                    html += '</tr>';
-                });
-                html += '</tbody></table></div>';
-            }
-            html += '</div>';
-            area.innerHTML = html;
+            _ctrStats = data.channel_stats || {};
+            _ctrVideos = data.videos || [];
+            _ctrSort = {col: 'impressions', dir: 'desc'};
+            renderCTRTable();
         })
         .catch(function(e) {
             area.innerHTML = '<div class="empty-state"><p>Erro ao carregar CTR: ' + escHtml(e.message) + '</p></div>';
         });
+}
+
+function sortCTR(col) {
+    if (_ctrSort.col === col) {
+        _ctrSort.dir = _ctrSort.dir === 'desc' ? 'asc' : 'desc';
+    } else {
+        _ctrSort.col = col;
+        _ctrSort.dir = col === 'titulo' ? 'asc' : 'desc';
+    }
+    renderCTRTable();
+}
+
+function renderCTRTable() {
+    var area = document.getElementById('reportArea');
+    var stats = _ctrStats;
+    var videos = _ctrVideos.slice();
+
+    // Sort
+    var col = _ctrSort.col;
+    var dir = _ctrSort.dir;
+    videos.sort(function(a, b) {
+        var va, vb;
+        if (col === 'titulo') { va = (a.titulo || a.video_id || '').toLowerCase(); vb = (b.titulo || b.video_id || '').toLowerCase(); }
+        else if (col === 'views') { va = a.views || 0; vb = b.views || 0; }
+        else if (col === 'impressions') { va = a.impressions || 0; vb = b.impressions || 0; }
+        else if (col === 'ctr') { va = a.ctr || 0; vb = b.ctr || 0; }
+        else if (col === 'retention') { va = a.avg_retention_pct || 0; vb = b.avg_retention_pct || 0; }
+        else { va = 0; vb = 0; }
+        if (va < vb) return dir === 'asc' ? -1 : 1;
+        if (va > vb) return dir === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    var arrow = function(c) { return _ctrSort.col === c ? (_ctrSort.dir === 'asc' ? ' \\u25B2' : ' \\u25BC') : ''; };
+    var thStyle = 'padding:8px 6px;cursor:pointer;user-select:none;white-space:nowrap';
+
+    var html = '<div class="report-content" style="padding:1.5rem">';
+    html += '<h2 style="color:var(--text-primary);margin:0 0 4px">CTR - Impressoes e Click-Through Rate</h2>';
+    html += '<p style="color:var(--text-secondary);margin:0 0 1.5rem;font-size:13px">' + videos.length + ' videos com dados de CTR</p>';
+
+    // Stats cards
+    html += '<div style="display:flex;gap:12px;margin-bottom:1.5rem;flex-wrap:wrap">';
+    html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
+    html += '<div style="font-size:24px;font-weight:700;color:#f59e0b">' + (stats.avg_ctr_percent || 0).toFixed(2) + '%</div>';
+    html += '<div style="font-size:11px;color:var(--text-secondary)">CTR Medio</div></div>';
+    html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
+    html += '<div style="font-size:24px;font-weight:700;color:var(--blue)">' + (stats.total_impressions || 0).toLocaleString() + '</div>';
+    html += '<div style="font-size:11px;color:var(--text-secondary)">Total Impressoes</div></div>';
+    html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
+    html += '<div style="font-size:24px;font-weight:700;color:var(--green)">' + videos.length + '</div>';
+    html += '<div style="font-size:11px;color:var(--text-secondary)">Videos</div></div>';
+    html += '</div>';
+
+    // Table
+    if (videos.length > 0) {
+        html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+        html += '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text-secondary)">';
+        html += '<th style="text-align:left;' + thStyle + '" onclick="sortCTR(\'titulo\')">Titulo' + arrow('titulo') + '</th>';
+        html += '<th style="text-align:right;' + thStyle + '" onclick="sortCTR(\'views\')">Views' + arrow('views') + '</th>';
+        html += '<th style="text-align:right;' + thStyle + '" onclick="sortCTR(\'impressions\')">Impressoes' + arrow('impressions') + '</th>';
+        html += '<th style="text-align:right;' + thStyle + '" onclick="sortCTR(\'ctr\')">CTR' + arrow('ctr') + '</th>';
+        html += '<th style="text-align:right;' + thStyle + '" onclick="sortCTR(\'retention\')">Retencao' + arrow('retention') + '</th>';
+        html += '</tr></thead><tbody>';
+        videos.forEach(function(v) {
+            var ctrVal = ((v.ctr || 0) * 100).toFixed(2);
+            var ctrColor = ctrVal >= 8 ? '#22c55e' : ctrVal >= 5 ? '#f59e0b' : '#ef4444';
+            var retVal = v.avg_retention_pct ? v.avg_retention_pct.toFixed(1) + '%' : '-';
+            var titulo = v.titulo || v.video_id || '';
+            html += '<tr style="border-bottom:1px solid var(--border)">';
+            html += '<td style="padding:6px;color:var(--text-primary);font-size:12px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(titulo) + '</td>';
+            html += '<td style="text-align:right;padding:6px;color:var(--text-primary)">' + (v.views || 0).toLocaleString() + '</td>';
+            html += '<td style="text-align:right;padding:6px;color:var(--text-primary)">' + (v.impressions || 0).toLocaleString() + '</td>';
+            html += '<td style="text-align:right;padding:6px;font-weight:600;color:' + ctrColor + '">' + ctrVal + '%</td>';
+            html += '<td style="text-align:right;padding:6px;color:var(--text-secondary)">' + retVal + '</td>';
+            html += '</tr>';
+        });
+        html += '</tbody></table></div>';
+    }
+    html += '</div>';
+    area.innerHTML = html;
 }
 
 function agentTag(key) {
