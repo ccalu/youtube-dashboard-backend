@@ -10752,8 +10752,8 @@ function renderCTRTable() {
 
     // Tabs
     html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem">';
-    html += '<button style="' + tabBtnStyle(isCTR) + '" onclick="switchCTRTab(\'ctr\')">CTR & Impressoes</button>';
-    html += '<button style="' + tabBtnStyle(!isCTR) + '" onclick="switchCTRTab(\'retention\')">Retencao & Watch Time</button>';
+    html += "<button style=\"" + tabBtnStyle(isCTR) + "\" onclick=\"switchCTRTab('ctr')\">CTR &amp; Impressoes</button>";
+    html += "<button style=\"" + tabBtnStyle(!isCTR) + "\" onclick=\"switchCTRTab('retention')\">Retencao &amp; Watch Time</button>";
     if (_ctrLastUpdated) {
         var d = new Date(_ctrLastUpdated);
         html += '<span style="margin-left:auto;font-size:11px;color:var(--text-secondary)">Ultima coleta: ' + d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}) + '</span>';
@@ -10791,15 +10791,15 @@ function renderCTRTable() {
     if (videos.length > 0) {
         html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
         html += '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text-secondary)">';
-        html += '<th style="text-align:left;' + thStyle + '" onclick="sortCTR(\'titulo\')">Titulo' + arrow('titulo') + '</th>';
-        html += '<th style="text-align:right;' + thStyle + '" onclick="sortCTR(\'views\')">Views' + arrow('views') + '</th>';
+        html += "<th style=\"text-align:left;" + thStyle + "\" onclick=\"sortCTR('titulo')\">Titulo" + arrow('titulo') + "</th>";
+        html += "<th style=\"text-align:right;" + thStyle + "\" onclick=\"sortCTR('views')\">Views" + arrow('views') + "</th>";
         if (isCTR) {
-            html += '<th style="text-align:right;' + thStyle + '" onclick="sortCTR(\'impressions\')">Impressoes' + arrow('impressions') + '</th>';
-            html += '<th style="text-align:right;' + thStyle + '" onclick="sortCTR(\'ctr\')">CTR' + arrow('ctr') + '</th>';
+            html += "<th style=\"text-align:right;" + thStyle + "\" onclick=\"sortCTR('impressions')\">Impressoes" + arrow('impressions') + "</th>";
+            html += "<th style=\"text-align:right;" + thStyle + "\" onclick=\"sortCTR('ctr')\">CTR" + arrow('ctr') + "</th>";
         } else {
-            html += '<th style="text-align:right;' + thStyle + '" onclick="sortCTR(\'retention\')">Retencao' + arrow('retention') + '</th>';
-            html += '<th style="text-align:right;' + thStyle + '" onclick="sortCTR(\'duration\')">Duracao Media' + arrow('duration') + '</th>';
-            html += '<th style="text-align:right;' + thStyle + '" onclick="sortCTR(\'watchtime\')">Watch Time' + arrow('watchtime') + '</th>';
+            html += "<th style=\"text-align:right;" + thStyle + "\" onclick=\"sortCTR('retention')\">Retencao" + arrow('retention') + "</th>";
+            html += "<th style=\"text-align:right;" + thStyle + "\" onclick=\"sortCTR('duration')\">Duracao Media" + arrow('duration') + "</th>";
+            html += "<th style=\"text-align:right;" + thStyle + "\" onclick=\"sortCTR('watchtime')\">Watch Time" + arrow('watchtime') + "</th>";
         }
         html += '</tr></thead><tbody>';
         videos.forEach(function(v) {
