@@ -9529,6 +9529,12 @@ body {
 .btn-ctr { background: var(--bg-tertiary); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); font-size: 12px; }
 .btn-ctr:hover { border-color: #f59e0b; background: rgba(245,158,11,0.1); }
 .btn-ctr:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-export { background: var(--bg-tertiary); color: #a78bfa; border: 1px solid rgba(167,139,250,0.3); font-size: 12px; position: relative; }
+.btn-export:hover { border-color: #a78bfa; background: rgba(167,139,250,0.1); }
+.export-menu { position: absolute; top: 100%; right: 0; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 6px 0; min-width: 220px; z-index: 100; box-shadow: 0 8px 24px rgba(0,0,0,0.4); margin-top: 4px; }
+.export-menu-item { display: block; width: 100%; padding: 8px 16px; text-align: left; background: none; border: none; color: var(--text-primary); font-size: 12px; cursor: pointer; }
+.export-menu-item:hover { background: rgba(255,255,255,0.05); }
+.export-menu-item small { display: block; color: var(--text-secondary); font-size: 10px; margin-top: 2px; }
 .agent-tag { display: inline-block; font-size: 0.6rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; padding: 2px 6px; border-radius: 4px; margin: 1px 2px; }
 .agent-tag.copy { background: rgba(59,130,246,0.2); color: #3b82f6; }
 .agent-tag.satisfacao { background: rgba(14,185,129,0.2); color: #0EB981; }
@@ -9643,7 +9649,8 @@ body {
             <div class="main-title default-text" id="mainTitle">Selecione um canal</div>
             <div class="main-actions" id="mainActions" style="display:none">
                 <button class="btn btn-accent" onclick="runAnalysis()" id="btnRun">Gerar Relatorio</button>
-                <button class="btn btn-ctr" onclick="showChannelCTR()" id="btnChannelCTR">CTR</button>
+                <button class="btn btn-ctr" onclick="showChannelCTR()" id="btnChannelCTR" title="CTR e Retencao">&#128200;</button>
+                <button class="btn btn-export" onclick="showExportMenu()" id="btnExport" title="Exportar CSV">&#128190;</button>
                 <button class="btn btn-history" onclick="showChannelHistory()" title="Historico" style="margin-left:auto">&#128203;</button>
             </div>
         </div>
@@ -10837,6 +10844,146 @@ function renderCTRTable() {
     var sortThs = area.querySelectorAll('[data-sort]');
     for (var i = 0; i < sortThs.length; i++) {
         sortThs[i].addEventListener('click', function() { sortCTR(this.getAttribute('data-sort')); });
+    }
+}
+
+// === EXPORT CSV ===
+var _exportMenuOpen = false;
+
+function showExportMenu() {
+    if (_exportMenuOpen) { closeExportMenu(); return; }
+    _exportMenuOpen = true;
+    var btn = document.getElementById('btnExport');
+    var menu = document.createElement('div');
+    menu.className = 'export-menu';
+    menu.id = 'exportMenu';
+    menu.innerHTML = '<button class="export-menu-item" data-export="ctr">CTR &amp; Impressoes<small>Titulo, Views, Impressoes, CTR por video</small></button>' +
+        '<button class="export-menu-item" data-export="retention">Retencao &amp; Watch Time<small>Titulo, Views, Retencao, Duracao Media</small></button>' +
+        '<button class="export-menu-item" data-export="all-agents">Todos os Agentes (texto)<small>Relatorios completos de todos os agentes</small></button>' +
+        '<button class="export-menu-item" data-export="copy">Agente Copy<small>Relatorio do agente de copy</small></button>' +
+        '<button class="export-menu-item" data-export="satisfacao">Agente Satisfacao<small>Relatorio do agente de satisfacao</small></button>' +
+        '<button class="export-menu-item" data-export="autenticidade">Agente Autenticidade<small>Relatorio de autenticidade</small></button>' +
+        '<button class="export-menu-item" data-export="temas">Agente Temas<small>Relatorio de temas</small></button>' +
+        '<button class="export-menu-item" data-export="motores">Agente Motores<small>Relatorio de motores</small></button>' +
+        '<button class="export-menu-item" data-export="ordenador">Agente Ordenador<small>Relatorio de ordenacao</small></button>';
+    btn.parentElement.style.position = 'relative';
+    btn.parentElement.appendChild(menu);
+    var items = menu.querySelectorAll('[data-export]');
+    for (var i = 0; i < items.length; i++) {
+        items[i].addEventListener('click', function() {
+            var type = this.getAttribute('data-export');
+            closeExportMenu();
+            doExport(type);
+        });
+    }
+    setTimeout(function() {
+        document.addEventListener('click', closeExportOnClickOutside);
+    }, 10);
+}
+
+function closeExportOnClickOutside(e) {
+    var menu = document.getElementById('exportMenu');
+    var btn = document.getElementById('btnExport');
+    if (menu && !menu.contains(e.target) && e.target !== btn) {
+        closeExportMenu();
+    }
+}
+
+function closeExportMenu() {
+    _exportMenuOpen = false;
+    var menu = document.getElementById('exportMenu');
+    if (menu) menu.remove();
+    document.removeEventListener('click', closeExportOnClickOutside);
+}
+
+function downloadCSV(filename, csv) {
+    var blob = new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8;'});
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(link.href);
+}
+
+function downloadTXT(filename, text) {
+    var blob = new Blob([text], {type: 'text/plain;charset=utf-8;'});
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(link.href);
+}
+
+function doExport(type) {
+    if (!_selectedChannel) return;
+    var ch = _channelsData[_selectedChannel] || {};
+    var name = (ch.channel_name || _selectedChannel).replace(/[^a-zA-Z0-9]/g, '_');
+
+    if (type === 'ctr' || type === 'retention') {
+        // Exportar dados CTR/Retencao
+        fetch('/api/ctr/' + _selectedChannel + '/latest')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.error || !data.videos || !data.videos.length) {
+                    alert('Sem dados de CTR para exportar');
+                    return;
+                }
+                var videos = data.videos;
+                var csv, fname;
+                if (type === 'ctr') {
+                    csv = 'Titulo,Views,Impressoes,CTR (%)\n';
+                    videos.forEach(function(v) {
+                        var t = (v.titulo || v.video_id || '').replace(/"/g, '""');
+                        csv += '"' + t + '",' + (v.views || 0) + ',' + (v.impressions || 0) + ',' + ((v.ctr || 0) * 100).toFixed(2) + '\n';
+                    });
+                    fname = name + '_CTR.csv';
+                } else {
+                    csv = 'Titulo,Views,Retencao (%),Duracao Media (s)\n';
+                    videos.forEach(function(v) {
+                        var t = (v.titulo || v.video_id || '').replace(/"/g, '""');
+                        csv += '"' + t + '",' + (v.views || 0) + ',' + ((v.avg_retention_pct || 0)).toFixed(1) + ',' + ((v.avg_view_duration || 0)).toFixed(0) + '\n';
+                    });
+                    fname = name + '_Retencao.csv';
+                }
+                downloadCSV(fname, csv);
+            });
+    } else if (type === 'all-agents') {
+        // Exportar todos os relatorios de agentes em TXT
+        var agents = ['copy', 'satisfacao', 'autenticidade', 'temas', 'motores', 'ordenador'];
+        var txt = '=== RELATORIOS DE AGENTES: ' + (ch.channel_name || _selectedChannel) + ' ===\n\n';
+        var pending = agents.length;
+        var results = {};
+        agents.forEach(function(ag) {
+            var agInfo = AGENTS.filter(function(a) { return a.key === ag; })[0];
+            if (!agInfo) { pending--; return; }
+            var url = agInfo.getUrl.replace('{id}', _selectedChannel);
+            fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+                results[ag] = data;
+                pending--;
+                if (pending <= 0) {
+                    agents.forEach(function(a) {
+                        var d = results[a];
+                        txt += '=== ' + a.toUpperCase() + ' ===\n';
+                        if (d && d.report_text) { txt += d.report_text + '\n\n'; }
+                        else if (d && d.results_text) { txt += d.results_text + '\n\n'; }
+                        else { txt += 'Sem dados\n\n'; }
+                    });
+                    downloadTXT(name + '_Agentes.txt', txt);
+                }
+            }).catch(function() { pending--; });
+        });
+    } else {
+        // Exportar agente individual
+        var agInfo = AGENTS.filter(function(a) { return a.key === type; })[0];
+        if (!agInfo) return;
+        var url = agInfo.getUrl.replace('{id}', _selectedChannel);
+        fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+            var txt = '=== ' + type.toUpperCase() + ': ' + (ch.channel_name || _selectedChannel) + ' ===\n\n';
+            if (data && data.report_text) { txt += data.report_text; }
+            else if (data && data.results_text) { txt += data.results_text; }
+            else { txt += 'Sem dados'; }
+            downloadTXT(name + '_' + type + '.txt', txt);
+        });
     }
 }
 
