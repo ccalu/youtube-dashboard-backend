@@ -10682,17 +10682,9 @@ function _finishCTRCollection(result) {
     btn.textContent = 'CTR';
     statusEl.style.display = 'none';
     statusEl.textContent = '';
-    // Salvar no historico localStorage
-    var now = new Date();
-    var ts = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
-    var entry = { date: ts, success: (result && result.success) || 0, records: (result && result.total_records) || 0, errors: (result && result.errors) || 0 };
-    var hist = JSON.parse(localStorage.getItem('ctrHistory') || '[]');
-    hist.unshift(entry);
-    if (hist.length > 50) hist = hist.slice(0, 50);
-    localStorage.setItem('ctrHistory', JSON.stringify(hist));
 }
 
-// Ao carregar: verificar se coleta esta rodando no backend + sync historico
+// Ao carregar: verificar se coleta esta rodando no backend
 (function() {
     fetch('/api/ctr/status')
         .then(function(r) { return r.json(); })
@@ -10700,17 +10692,6 @@ function _finishCTRCollection(result) {
             if (data.running) {
                 _showCTRInProgress();
                 _startCTRPolling();
-            } else if (data.finished_at && data.result) {
-                // Se tem resultado no backend, garantir que esta no historico local
-                var fin = new Date(data.finished_at);
-                var ts = fin.toLocaleDateString('pt-BR') + ' ' + fin.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
-                var hist = JSON.parse(localStorage.getItem('ctrHistory') || '[]');
-                var exists = hist.some(function(h) { return h.date === ts; });
-                if (!exists) {
-                    hist.unshift({ date: ts, success: data.result.success || 0, records: data.result.total_records || 0, errors: data.result.errors || 0 });
-                    if (hist.length > 50) hist = hist.slice(0, 50);
-                    localStorage.setItem('ctrHistory', JSON.stringify(hist));
-                }
             }
         })
         .catch(function() {});
@@ -11056,55 +11037,58 @@ function agentTag(key) {
 }
 
 // === HISTORICO GERAL (sidebar) ===
-function _buildCTRHistoryHTML() {
-    var hist = JSON.parse(localStorage.getItem('ctrHistory') || '[]');
-    if (hist.length === 0) return '';
-    var html = '<div style="color:#f59e0b;font-size:0.75rem;font-weight:600;margin-bottom:0.6rem;">Coletas CTR</div>';
-    for (var i = 0; i < hist.length; i++) {
-        var h = hist[i];
-        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0.8rem;background:var(--bg-tertiary);border-radius:6px;margin-bottom:4px;font-size:0.75rem;">';
-        html += '<span style="color:var(--text-secondary)">' + h.date + '</span>';
-        html += '<span style="color:var(--accent)">' + h.success + ' canais | ' + h.records + ' registros</span>';
-        html += '</div>';
-    }
-    html += '<div style="border-bottom:1px solid var(--border);margin:0.8rem 0;"></div>';
-    return html;
-}
-
 function showGeneralHistory() {
     document.getElementById('historyModal').classList.add('active');
     var el = document.getElementById('historyList');
     el.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Carregando historico geral...</div>';
 
-    fetch('/api/agents/history/general?days=30')
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            var history = data.history || [];
-            var html = _buildCTRHistoryHTML();
-            if (history.length === 0 && !html) {
-                el.innerHTML = '<div class="empty-state"><p>Nenhum historico encontrado</p></div>';
-                return;
-            }
-            html += '<div style="color:var(--blue);font-size:0.75rem;font-weight:600;margin-bottom:0.8rem;">Historico Geral de Analises</div>';
-            for (var i = 0; i < history.length; i++) {
-                var h = history[i];
-                var parts = h.date.split('-');
-                var dateLabel = parts[2] + '/' + parts[1] + '/' + parts[0];
-                var tags = '';
-                var agentKeys = ['copy','satisfacao','autenticidade','temas','motores','ordenador'];
-                for (var j = 0; j < agentKeys.length; j++) {
-                    if (h.agents[agentKeys[j]]) tags += agentTag(agentKeys[j]);
-                }
-                html += '<div class="hist-date-row" onclick="showGeneralHistoryDate(\\'' + h.date + '\\')">';
-                html += '<div><span class="hist-date-label">' + dateLabel + '</span> <span class="hist-count">' + h.channel_count + ' canais</span></div>';
-                html += '<div>' + tags + '</div>';
+    Promise.all([
+        fetch('/api/ctr/history').then(function(r) { return r.json(); }),
+        fetch('/api/agents/history/general?days=30').then(function(r) { return r.json(); })
+    ]).then(function(results) {
+        var ctrHist = (results[0] && results[0].history) || [];
+        var agentHist = (results[1] && results[1].history) || [];
+
+        if (ctrHist.length === 0 && agentHist.length === 0) {
+            el.innerHTML = '<div class="empty-state"><p>Nenhum historico encontrado</p></div>';
+            return;
+        }
+
+        var html = '';
+
+        // Secao Coletas CTR
+        if (ctrHist.length > 0) {
+            html += '<div style="color:#f59e0b;font-size:0.75rem;font-weight:600;margin-bottom:0.6rem;">Coletas CTR</div>';
+            for (var i = 0; i < ctrHist.length; i++) {
+                var c = ctrHist[i];
+                html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0.8rem;background:var(--bg-tertiary);border-radius:6px;margin-bottom:4px;font-size:0.75rem;">';
+                html += '<span style="color:var(--text-secondary)">' + c.date + '</span>';
+                html += '<span style="color:var(--accent)">' + c.channels + ' canais</span>';
                 html += '</div>';
             }
-            el.innerHTML = html;
-        })
-        .catch(function(e) {
-            el.innerHTML = '<div class="empty-state"><p>Erro: ' + e.message + '</p></div>';
-        });
+            html += '<div style="border-bottom:1px solid var(--border);margin:0.8rem 0;"></div>';
+        }
+
+        // Secao Analises Agentes
+        html += '<div style="color:var(--blue);font-size:0.75rem;font-weight:600;margin-bottom:0.8rem;">Historico Geral de Analises</div>';
+        for (var i = 0; i < agentHist.length; i++) {
+            var h = agentHist[i];
+            var parts = h.date.split('-');
+            var dateLabel = parts[2] + '/' + parts[1] + '/' + parts[0];
+            var tags = '';
+            var agentKeys = ['copy','satisfacao','autenticidade','temas','motores','ordenador'];
+            for (var j = 0; j < agentKeys.length; j++) {
+                if (h.agents[agentKeys[j]]) tags += agentTag(agentKeys[j]);
+            }
+            html += '<div class="hist-date-row" onclick="showGeneralHistoryDate(\\'' + h.date + '\\')">';
+            html += '<div><span class="hist-date-label">' + dateLabel + '</span> <span class="hist-count">' + h.channel_count + ' canais</span></div>';
+            html += '<div>' + tags + '</div>';
+            html += '</div>';
+        }
+        el.innerHTML = html;
+    }).catch(function(e) {
+        el.innerHTML = '<div class="empty-state"><p>Erro: ' + e.message + '</p></div>';
+    });
 }
 
 function showGeneralHistoryDate(date) {
@@ -12439,6 +12423,16 @@ async def get_ctr_collection_status():
     except Exception as e:
         logger.error(f"Erro get CTR status: {e}")
         return {"running": False, "error": str(e)}
+
+@app.get("/api/ctr/history")
+async def get_ctr_collection_history():
+    """Historico de coletas CTR derivado de yt_reporting_jobs."""
+    try:
+        import ctr_collector
+        return {"history": ctr_collector.get_collection_history()}
+    except Exception as e:
+        logger.error(f"Erro get CTR history: {e}")
+        return {"history": []}
 
 @app.get("/api/ctr/jobs")
 async def list_ctr_jobs():

@@ -61,6 +61,59 @@ def get_collection_status():
     """Retorna estado atual da coleta CTR."""
     return dict(_ctr_collection_status)
 
+def get_collection_history(limit=20):
+    """Deriva historico de coletas agrupando yt_reporting_jobs.updated_at em lotes."""
+    read_headers = {"apikey": AUTH_KEY, "Authorization": f"Bearer {AUTH_KEY}"}
+    resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/yt_reporting_jobs",
+        params={
+            "select": "channel_id,updated_at,last_report_date",
+            "order": "updated_at.desc",
+            "report_type": f"eq.{REPORT_TYPE}"
+        },
+        headers=read_headers
+    )
+    if resp.status_code != 200:
+        return []
+
+    rows = resp.json()
+    if not rows:
+        return []
+
+    # Agrupar em lotes: rows com updated_at dentro de 10 min = 1 coleta
+    batches = []
+    current_batch = []
+    batch_anchor = None
+
+    for row in rows:
+        ts_str = row.get("updated_at", "")
+        if not ts_str:
+            continue
+        try:
+            ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+        except (ValueError, TypeError):
+            continue
+
+        if batch_anchor is None or abs((batch_anchor - ts).total_seconds()) <= 600:
+            current_batch.append(row)
+            if batch_anchor is None:
+                batch_anchor = ts
+        else:
+            batches.append({"anchor": batch_anchor, "channels": len(current_batch)})
+            current_batch = [row]
+            batch_anchor = ts
+
+    if current_batch:
+        batches.append({"anchor": batch_anchor, "channels": len(current_batch)})
+
+    result = []
+    for b in batches[:limit]:
+        result.append({
+            "date": b["anchor"].strftime("%d/%m/%Y %H:%M"),
+            "channels": b["channels"]
+        })
+    return result
+
 # =============================================================================
 # CONFIGURACOES
 # =============================================================================
