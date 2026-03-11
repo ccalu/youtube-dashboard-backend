@@ -10896,6 +10896,12 @@ function closeExportMenu() {
     document.removeEventListener('click', closeExportOnClickOutside);
 }
 
+function pad(str, len) {
+    str = String(str);
+    while (str.length < len) str += ' ';
+    return str;
+}
+
 function downloadCSV(filename, csv) {
     var blob = new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8;'});
     var link = document.createElement('a');
@@ -10929,28 +10935,34 @@ function doExport(type) {
                     return;
                 }
                 var videos = data.videos;
-                var csv, fname;
+                var txt, fname;
                 if (type === 'ctr') {
-                    csv = 'Titulo,Views,Impressoes,CTR (%)\n';
+                    txt = '=== CTR & IMPRESSOES: ' + (ch.channel_name || _selectedChannel) + ' ===\\n';
+                    txt += 'CTR Medio: ' + (data.channel_stats.avg_ctr_percent || 0).toFixed(2) + '% | Total Impressoes: ' + (data.channel_stats.total_impressions || 0).toLocaleString() + ' | Videos: ' + videos.length + '\\n\\n';
+                    txt += pad('Titulo', 60) + pad('Views', 12) + pad('Impressoes', 12) + pad('CTR', 8) + '\\n';
+                    txt += '-'.repeat(92) + '\\n';
                     videos.forEach(function(v) {
-                        var t = (v.titulo || v.video_id || '').replace(/"/g, '""');
-                        csv += '"' + t + '",' + (v.views || 0) + ',' + (v.impressions || 0) + ',' + ((v.ctr || 0) * 100).toFixed(2) + '\n';
+                        var t = (v.titulo || v.video_id || '').substring(0, 58);
+                        txt += pad(t, 60) + pad((v.views || 0).toLocaleString(), 12) + pad((v.impressions || 0).toLocaleString(), 12) + pad(((v.ctr || 0) * 100).toFixed(2) + '%', 8) + '\\n';
                     });
-                    fname = name + '_CTR.csv';
+                    fname = name + '_CTR.txt';
                 } else {
-                    csv = 'Titulo,Views,Retencao (%),Duracao Media (s)\n';
+                    txt = '=== RETENCAO & WATCH TIME: ' + (ch.channel_name || _selectedChannel) + ' ===\\n';
+                    txt += 'Retencao Media: ' + (data.channel_stats.avg_retention_pct || 0).toFixed(1) + '% | Duracao Media: ' + fmtDuration(data.channel_stats.avg_view_duration_sec || 0) + ' | Videos: ' + videos.length + '\\n\\n';
+                    txt += pad('Titulo', 60) + pad('Views', 12) + pad('Retencao', 10) + pad('Duracao', 10) + '\\n';
+                    txt += '-'.repeat(92) + '\\n';
                     videos.forEach(function(v) {
-                        var t = (v.titulo || v.video_id || '').replace(/"/g, '""');
-                        csv += '"' + t + '",' + (v.views || 0) + ',' + ((v.avg_retention_pct || 0)).toFixed(1) + ',' + ((v.avg_view_duration || 0)).toFixed(0) + '\n';
+                        var t = (v.titulo || v.video_id || '').substring(0, 58);
+                        txt += pad(t, 60) + pad((v.views || 0).toLocaleString(), 12) + pad(((v.avg_retention_pct || 0)).toFixed(1) + '%', 10) + pad(fmtDuration(v.avg_view_duration), 10) + '\\n';
                     });
-                    fname = name + '_Retencao.csv';
+                    fname = name + '_Retencao.txt';
                 }
-                downloadCSV(fname, csv);
+                downloadTXT(fname, txt);
             });
     } else if (type === 'all-agents') {
         // Exportar todos os relatorios de agentes em TXT
         var agents = ['copy', 'satisfacao', 'autenticidade', 'temas', 'motores', 'ordenador'];
-        var txt = '=== RELATORIOS DE AGENTES: ' + (ch.channel_name || _selectedChannel) + ' ===\n\n';
+        var txt = '=== RELATORIOS DE AGENTES: ' + (ch.channel_name || _selectedChannel) + ' ===\\n\\n';
         var pending = agents.length;
         var results = {};
         agents.forEach(function(ag) {
@@ -10963,10 +10975,10 @@ function doExport(type) {
                 if (pending <= 0) {
                     agents.forEach(function(a) {
                         var d = results[a];
-                        txt += '=== ' + a.toUpperCase() + ' ===\n';
-                        if (d && d.report_text) { txt += d.report_text + '\n\n'; }
-                        else if (d && d.results_text) { txt += d.results_text + '\n\n'; }
-                        else { txt += 'Sem dados\n\n'; }
+                        txt += '=== ' + a.toUpperCase() + ' ===\\n';
+                        if (d && d.report_text) { txt += d.report_text + '\\n\\n'; }
+                        else if (d && d.results_text) { txt += d.results_text + '\\n\\n'; }
+                        else { txt += 'Sem dados\\n\\n'; }
                     });
                     downloadTXT(name + '_Agentes.txt', txt);
                 }
@@ -10978,7 +10990,7 @@ function doExport(type) {
         if (!agInfo) return;
         var url = agInfo.getUrl.replace('{id}', _selectedChannel);
         fetch(url).then(function(r) { return r.json(); }).then(function(data) {
-            var txt = '=== ' + type.toUpperCase() + ': ' + (ch.channel_name || _selectedChannel) + ' ===\n\n';
+            var txt = '=== ' + type.toUpperCase() + ': ' + (ch.channel_name || _selectedChannel) + ' ===\\n\\n';
             if (data && data.report_text) { txt += data.report_text; }
             else if (data && data.results_text) { txt += data.results_text; }
             else { txt += 'Sem dados'; }
