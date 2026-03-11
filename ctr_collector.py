@@ -49,6 +49,18 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
+# Estado global da coleta (para polling do frontend)
+_ctr_collection_status = {
+    "running": False,
+    "started_at": None,
+    "finished_at": None,
+    "result": None
+}
+
+def get_collection_status():
+    """Retorna estado atual da coleta CTR."""
+    return dict(_ctr_collection_status)
+
 # =============================================================================
 # CONFIGURACOES
 # =============================================================================
@@ -598,6 +610,25 @@ async def collect_ctr_reports():
     Coleta principal: baixa CSVs novos de todos os canais e salva no Supabase.
     Roda semanalmente (domingo 6AM) ou via POST /api/ctr/collect.
     """
+    global _ctr_collection_status
+    _ctr_collection_status = {
+        "running": True,
+        "started_at": datetime.now().isoformat(),
+        "finished_at": None,
+        "result": None
+    }
+
+    try:
+        result = await _do_collect_ctr_reports()
+        _ctr_collection_status["result"] = result
+        return result
+    finally:
+        _ctr_collection_status["running"] = False
+        _ctr_collection_status["finished_at"] = datetime.now().isoformat()
+
+
+async def _do_collect_ctr_reports():
+    """Logica interna da coleta CTR."""
     log.info("=" * 60)
     log.info("CTR COLLECTION: Baixando relatorios de impressoes/CTR")
     log.info("=" * 60)

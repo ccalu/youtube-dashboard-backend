@@ -8919,7 +8919,7 @@ body {
 
 /* Sidebar */
 .sidebar {
-    width: 280px;
+    width: 340px;
     background: var(--bg-secondary);
     border-right: 1px solid var(--border);
     padding: 1.5rem 1rem;
@@ -9054,7 +9054,7 @@ body {
 
 /* Main area */
 .main {
-    margin-left: 280px;
+    margin-left: 340px;
     flex: 1;
     padding: 2rem 3rem;
     min-height: 100vh;
@@ -10617,6 +10617,8 @@ function runAll() {
         });
 }
 
+var _ctrPollTimer = null;
+
 function collectCTR() {
     var btn = document.getElementById('btnCTR');
     var statusEl = document.getElementById('ctrStatus');
@@ -10629,19 +10631,11 @@ function collectCTR() {
         .then(function(r) { return r.json(); })
         .then(function(data) {
             if (data.status === 'processing') {
-                btn.innerHTML = '<span class="loading-spinner" style="width:12px;height:12px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:4px"></span> Em andamento...';
-                statusEl.textContent = 'Coleta iniciada em background... aguarde 1-3 min';
-                setTimeout(function() {
-                    btn.disabled = false;
-                    btn.textContent = 'Atualizar CTR';
-                    var now = new Date();
-                    var ts = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
-                    statusEl.textContent = 'Ultima geracao: ' + ts;
-                    localStorage.setItem('lastCTRCollection', ts);
-                }, 90000);
+                _showCTRInProgress();
+                _startCTRPolling();
             } else {
                 btn.disabled = false;
-                btn.textContent = 'Atualizar CTR';
+                btn.textContent = 'CTR';
                 statusEl.textContent = 'Erro: ' + (data.error || 'Resposta inesperada');
                 statusEl.style.color = '#ef4444';
                 setTimeout(function() { statusEl.style.color = '#94a3b8'; }, 5000);
@@ -10649,20 +10643,77 @@ function collectCTR() {
         })
         .catch(function(e) {
             btn.disabled = false;
-            btn.textContent = 'Atualizar CTR';
+            btn.textContent = 'CTR';
             statusEl.textContent = 'Erro: ' + e.message;
             statusEl.style.color = '#ef4444';
             setTimeout(function() { statusEl.style.color = '#94a3b8'; }, 5000);
         });
 }
 
-// Restaurar data da ultima coleta CTR do localStorage
-(function() {
-    var last = localStorage.getItem('lastCTRCollection');
-    if (last) {
-        var el = document.getElementById('ctrStatus');
-        if (el) { el.style.display = 'block'; el.textContent = 'Ultima geracao: ' + last; }
+function _showCTRInProgress() {
+    var btn = document.getElementById('btnCTR');
+    var statusEl = document.getElementById('ctrStatus');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-spinner" style="width:12px;height:12px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:4px"></span> Em andamento...';
+    statusEl.style.display = 'block';
+    statusEl.textContent = 'Coleta em background... aguarde';
+}
+
+function _startCTRPolling() {
+    if (_ctrPollTimer) clearInterval(_ctrPollTimer);
+    _ctrPollTimer = setInterval(function() {
+        fetch('/api/ctr/status')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.running) {
+                    clearInterval(_ctrPollTimer);
+                    _ctrPollTimer = null;
+                    _finishCTRCollection(data.result);
+                }
+            })
+            .catch(function() {});
+    }, 5000);
+}
+
+function _finishCTRCollection(result) {
+    var btn = document.getElementById('btnCTR');
+    var statusEl = document.getElementById('ctrStatus');
+    btn.disabled = false;
+    btn.textContent = 'CTR';
+    var now = new Date();
+    var ts = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+    statusEl.style.display = 'block';
+    if (result && result.success !== undefined) {
+        statusEl.textContent = 'Concluido: ' + result.success + ' canais | ' + ts;
+    } else {
+        statusEl.textContent = 'Ultima geracao: ' + ts;
     }
+    localStorage.setItem('lastCTRCollection', ts);
+}
+
+// Ao carregar: verificar se coleta esta rodando no backend
+(function() {
+    fetch('/api/ctr/status')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.running) {
+                _showCTRInProgress();
+                _startCTRPolling();
+            } else {
+                var last = localStorage.getItem('lastCTRCollection');
+                if (last) {
+                    var el = document.getElementById('ctrStatus');
+                    if (el) { el.style.display = 'block'; el.textContent = 'Ultima geracao: ' + last; }
+                }
+            }
+        })
+        .catch(function() {
+            var last = localStorage.getItem('lastCTRCollection');
+            if (last) {
+                var el = document.getElementById('ctrStatus');
+                if (el) { el.style.display = 'block'; el.textContent = 'Ultima geracao: ' + last; }
+            }
+        });
 })();
 
 var _ctrVideos = [];
@@ -12360,6 +12411,16 @@ async def trigger_ctr_collection(background_tasks: BackgroundTasks):
     except Exception as e:
         logger.error(f"Erro trigger CTR collection: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/ctr/status")
+async def get_ctr_collection_status():
+    """Retorna se a coleta CTR esta rodando ou finalizada."""
+    try:
+        from ctr_collector import get_collection_status
+        return get_collection_status()
+    except Exception as e:
+        logger.error(f"Erro get CTR status: {e}")
+        return {"running": False, "error": str(e)}
 
 @app.get("/api/ctr/jobs")
 async def list_ctr_jobs():
