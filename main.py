@@ -10668,7 +10668,7 @@ function collectCTR() {
 var _ctrVideos = [];
 var _ctrStats = {};
 var _ctrLastUpdated = null;
-var _ctrSort = {col: 'impressions', dir: 'desc'};
+var _ctrSort = {col: 'ctr', dir: 'desc'};
 var _ctrTab = 'ctr';
 
 function showChannelCTR() {
@@ -10697,7 +10697,7 @@ function showChannelCTR() {
 
 function switchCTRTab(tab) {
     _ctrTab = tab;
-    if (tab === 'ctr') { _ctrSort = {col: 'impressions', dir: 'desc'}; }
+    if (tab === 'ctr') { _ctrSort = {col: 'ctr', dir: 'desc'}; }
     else { _ctrSort = {col: 'retention', dir: 'desc'}; }
     renderCTRTable();
 }
