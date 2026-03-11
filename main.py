@@ -9526,6 +9526,9 @@ body {
 .tab-run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-history { background: var(--bg-tertiary); color: var(--blue); border: 1px solid rgba(84,160,255,0.3); }
 .btn-history:hover { border-color: var(--blue); background: rgba(84,160,255,0.1); }
+.btn-ctr { background: var(--bg-tertiary); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); font-size: 12px; }
+.btn-ctr:hover { border-color: #f59e0b; background: rgba(245,158,11,0.1); }
+.btn-ctr:disabled { opacity: 0.6; cursor: not-allowed; }
 .agent-tag { display: inline-block; font-size: 0.6rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; padding: 2px 6px; border-radius: 4px; margin: 1px 2px; }
 .agent-tag.copy { background: rgba(59,130,246,0.2); color: #3b82f6; }
 .agent-tag.satisfacao { background: rgba(14,185,129,0.2); color: #0EB981; }
@@ -9628,7 +9631,9 @@ body {
         <div class="sidebar-actions">
             <button class="btn btn-accent" onclick="runAll()" id="btnRunAll">Rodar Todos</button>
             <button class="btn btn-history" onclick="showGeneralHistory()">Historico</button>
+            <button class="btn btn-ctr" onclick="collectCTR()" id="btnCTR">Atualizar CTR</button>
         </div>
+        <div id="ctrStatus" style="text-align:center;font-size:11px;color:#94a3b8;margin-top:-4px;padding:0 12px;display:none"></div>
         <div id="channelList">
             <div class="loading"><span class="loading-spinner"></span> Carregando canais...</div>
         </div>
@@ -9655,7 +9660,7 @@ body {
         <div id="reportArea">
             <div class="empty-state">
                 <h2>Central de Agentes</h2>
-                <p>Selecione um canal na sidebar para visualizar os relatorios dos 5 agentes<br>ou clique em "Rodar Todos" para gerar analises de todos os canais.</p>
+                <p>Selecione um canal na sidebar para visualizar os relatorios dos 6 agentes<br>ou clique em "Rodar Todos" para gerar analises de todos os canais.</p>
             </div>
         </div>
     </main>
@@ -10546,14 +10551,14 @@ function renderReportLines(text) {
 function runAnalysis() {
     if (!_selectedChannel) return;
     var ch = _channelsData[_selectedChannel] || {};
-    if (!confirm('Rodar todos os 5 agentes para ' + (ch.channel_name || _selectedChannel) + '?\\n\\nIsso pode demorar 2-5 minutos.')) return;
+    if (!confirm('Rodar todos os 6 agentes para ' + (ch.channel_name || _selectedChannel) + '?\\n\\nIsso pode demorar 3-7 minutos.')) return;
 
     var btn = document.getElementById('btnRun');
     btn.disabled = true;
     btn.textContent = 'Gerando...';
     var area = document.getElementById('reportArea');
-    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Rodando 5 agentes... (2-5 min)</div>';
-    _runningAgents = {copy:true, satisfacao:true, autenticidade:true, temas:true, motores:true};
+    area.innerHTML = '<div class="loading"><span class="loading-spinner"></span> Rodando 6 agentes... (3-7 min)<br><small id="agentProgress" style="opacity:0.7;margin-top:8px;display:block">Aguardando: Copy, Satisfacao, Autenticidade, Temas, Motores, Ordenador</small></div>';
+    _runningAgents = {copy:true, satisfacao:true, autenticidade:true, temas:true, motores:true, ordenador:true};
     updateRunningBanner();
 
     fetch('/api/analise-completa/' + _selectedChannel, { method: 'POST' })
@@ -10582,7 +10587,7 @@ function runAnalysis() {
 }
 
 function runAll() {
-    if (!confirm('Rodar todos os 5 agentes para TODOS os canais?\\n\\nIsso pode demorar varios minutos.')) return;
+    if (!confirm('Rodar todos os 6 agentes para TODOS os canais?\\n\\nIsso pode demorar varios minutos.')) return;
     var btn = document.getElementById('btnRunAll');
     btn.disabled = true;
     btn.textContent = 'Rodando...';
@@ -10603,6 +10608,54 @@ function runAll() {
             alert('Erro: ' + e.message);
         });
 }
+
+function collectCTR() {
+    var btn = document.getElementById('btnCTR');
+    var statusEl = document.getElementById('ctrStatus');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-spinner" style="width:12px;height:12px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:4px"></span> Coletando...';
+    statusEl.style.display = 'block';
+    statusEl.textContent = 'Coletando CTR de todos os canais...';
+
+    fetch('/api/ctr/collect', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.status === 'processing') {
+                btn.innerHTML = '<span class="loading-spinner" style="width:12px;height:12px;border-width:2px;display:inline-block;vertical-align:middle;margin-right:4px"></span> Em andamento...';
+                statusEl.textContent = 'Coleta iniciada em background... aguarde 1-3 min';
+                setTimeout(function() {
+                    btn.disabled = false;
+                    btn.textContent = 'Atualizar CTR';
+                    var now = new Date();
+                    var ts = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+                    statusEl.textContent = 'Ultima geracao: ' + ts;
+                    localStorage.setItem('lastCTRCollection', ts);
+                }, 90000);
+            } else {
+                btn.disabled = false;
+                btn.textContent = 'Atualizar CTR';
+                statusEl.textContent = 'Erro: ' + (data.error || 'Resposta inesperada');
+                statusEl.style.color = '#ef4444';
+                setTimeout(function() { statusEl.style.color = '#94a3b8'; }, 5000);
+            }
+        })
+        .catch(function(e) {
+            btn.disabled = false;
+            btn.textContent = 'Atualizar CTR';
+            statusEl.textContent = 'Erro: ' + e.message;
+            statusEl.style.color = '#ef4444';
+            setTimeout(function() { statusEl.style.color = '#94a3b8'; }, 5000);
+        });
+}
+
+// Restaurar data da ultima coleta CTR do localStorage
+(function() {
+    var last = localStorage.getItem('lastCTRCollection');
+    if (last) {
+        var el = document.getElementById('ctrStatus');
+        if (el) { el.style.display = 'block'; el.textContent = 'Ultima geracao: ' + last; }
+    }
+})();
 
 function agentTag(key) {
     var labels = {copy:'Copy', satisfacao:'Satisf', autenticidade:'Auth', temas:'Temas', motores:'Mot', ordenador:'Ord'};
