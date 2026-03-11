@@ -9629,9 +9629,9 @@ body {
             <div class="sidebar-stats" id="sidebarStats">Carregando...</div>
         </div>
         <div class="sidebar-actions">
-            <button class="btn btn-accent" onclick="runAll()" id="btnRunAll">Rodar Todos</button>
-            <button class="btn btn-history" onclick="showGeneralHistory()">Historico</button>
-            <button class="btn btn-ctr" onclick="collectCTR()" id="btnCTR">Atualizar CTR</button>
+            <button class="btn btn-accent" onclick="runAll()" id="btnRunAll">Run All</button>
+            <button class="btn btn-ctr" onclick="collectCTR()" id="btnCTR">CTR</button>
+            <button class="btn btn-history" onclick="showGeneralHistory()" style="margin-left:auto" title="Historico">&#128203;</button>
         </div>
         <div id="ctrStatus" style="text-align:center;font-size:11px;color:#94a3b8;margin-top:-4px;padding:0 12px;display:none"></div>
         <div id="channelList">
