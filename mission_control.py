@@ -577,19 +577,23 @@ async def get_mission_control_data(db):
     except Exception:
         pass
 
-    # Get latest avg_retention per channel from copy_analysis_runs
+    # Get avg_retention per channel from yt_video_metrics (fonte: YouTube Analytics API)
     retention_map = {}  # channel_id -> avg_retention
     try:
-        ret_resp = db.supabase.table('copy_analysis_runs') \
-            .select('channel_id,channel_avg_retention') \
-            .order('run_date', desc=True) \
+        # Buscar todos os videos com retencao > 0, agrupar por canal
+        ret_resp = db.supabase.table('yt_video_metrics') \
+            .select('channel_id,avg_retention_pct') \
+            .gt('avg_retention_pct', 0) \
             .execute()
+        from collections import defaultdict
+        ret_by_channel = defaultdict(list)
         for row in (ret_resp.data or []):
             chid = row.get('channel_id')
-            if chid and chid not in retention_map:
-                ret_val = row.get('channel_avg_retention')
-                if ret_val is not None:
-                    retention_map[chid] = ret_val
+            ret_val = row.get('avg_retention_pct')
+            if chid and ret_val:
+                ret_by_channel[chid].append(ret_val)
+        for chid, vals in ret_by_channel.items():
+            retention_map[chid] = round(sum(vals) / len(vals), 2)
     except Exception:
         pass
 

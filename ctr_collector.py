@@ -506,8 +506,9 @@ def save_ctr_data(channel_id, aggregated_data):
 
 def save_channel_avg_ctr(channel_id, aggregated_data):
     """
-    Calcula e salva CTR medio ponderado do canal em yt_channels.
+    Calcula e salva CTR medio ponderado + retencao media do canal em yt_channels.
     CTR canal = total_cliques / total_impressoes (de todos os videos).
+    Retencao = media de avg_retention_pct dos videos do canal em yt_video_metrics.
     """
     total_impressions = sum(d["impressions"] for d in aggregated_data.values())
     total_clicks = sum(d["impressions"] * d["ctr"] for d in aggregated_data.values())
