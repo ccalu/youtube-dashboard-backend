@@ -619,16 +619,20 @@ async def collect_ctr_reports():
     }
 
     try:
-        result = await _do_collect_ctr_reports()
+        result = await asyncio.to_thread(_do_collect_ctr_reports_sync)
         _ctr_collection_status["result"] = result
         return result
+    except Exception as e:
+        log.error(f"CTR COLLECTION ERRO GERAL: {e}")
+        _ctr_collection_status["result"] = {"error": str(e)}
+        return {"error": str(e)}
     finally:
         _ctr_collection_status["running"] = False
         _ctr_collection_status["finished_at"] = datetime.now().isoformat()
 
 
-async def _do_collect_ctr_reports():
-    """Logica interna da coleta CTR."""
+def _do_collect_ctr_reports_sync():
+    """Logica interna da coleta CTR (sync, roda em thread)."""
     log.info("=" * 60)
     log.info("CTR COLLECTION: Baixando relatorios de impressoes/CTR")
     log.info("=" * 60)

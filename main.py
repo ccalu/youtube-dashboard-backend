@@ -12402,11 +12402,13 @@ async def setup_ctr_jobs():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/ctr/collect")
-async def trigger_ctr_collection(background_tasks: BackgroundTasks):
+async def trigger_ctr_collection():
     """Manual trigger: baixa CSVs de CTR disponiveis para todos os canais."""
     try:
-        from ctr_collector import collect_ctr_reports
-        background_tasks.add_task(collect_ctr_reports)
+        import ctr_collector
+        if ctr_collector.get_collection_status()["running"]:
+            return {"message": "CTR collection already running", "status": "processing"}
+        asyncio.create_task(ctr_collector.collect_ctr_reports())
         return {"message": "CTR collection started in background", "status": "processing"}
     except Exception as e:
         logger.error(f"Erro trigger CTR collection: {e}")
@@ -12416,8 +12418,8 @@ async def trigger_ctr_collection(background_tasks: BackgroundTasks):
 async def get_ctr_collection_status():
     """Retorna se a coleta CTR esta rodando ou finalizada."""
     try:
-        from ctr_collector import get_collection_status
-        return get_collection_status()
+        import ctr_collector
+        return ctr_collector.get_collection_status()
     except Exception as e:
         logger.error(f"Erro get CTR status: {e}")
         return {"running": False, "error": str(e)}
