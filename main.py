@@ -9551,6 +9551,8 @@ body {
 .hist-channel-name { font-size: 0.82rem; color: var(--text-secondary); }
 .hist-back-btn { background: none; border: none; color: var(--blue); font-size: 0.8rem; cursor: pointer; font-family: inherit; padding: 0.3rem 0; margin-bottom: 0.5rem; }
 .hist-back-btn:hover { text-decoration: underline; }
+.hist-delete-btn { background: none; border: none; color: #ef4444; font-size: 14px; cursor: pointer; padding: 2px 6px; border-radius: 4px; opacity: 0.5; transition: opacity 0.15s; }
+.hist-delete-btn:hover { opacity: 1; background: rgba(239,68,68,0.1); }
 
 /* Mobile menu toggle */
 .mobile-header {
@@ -11107,16 +11109,44 @@ function showGeneralHistoryDate(date) {
                 var ch = channels[i];
                 var tags = '';
                 for (var j = 0; j < ch.agents.length; j++) tags += agentTag(ch.agents[j]);
-                html += '<div class="hist-channel-row" onclick="closeHistory();selectChannel(\\'' + ch.channel_id + '\\')">';
+                html += '<div class="hist-channel-row" style="cursor:default;">';
+                html += '<div style="flex:1;cursor:pointer" onclick="closeHistory();selectChannel(\\'' + ch.channel_id + '\\')">';
                 html += '<span class="hist-channel-name">' + escHtml(ch.channel_name) + '</span>';
                 html += '<div>' + tags + '</div>';
                 html += '</div>';
+                html += '<button class="hist-delete-btn" data-delch="' + ch.channel_id + '" data-deldate="' + date + '" title="Excluir">&#128465;</button>';
+                html += '</div>';
             }
             el.innerHTML = html;
+            // Bind delete buttons
+            var btns = el.querySelectorAll('.hist-delete-btn');
+            for (var b = 0; b < btns.length; b++) {
+                btns[b].addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var chId = this.getAttribute('data-delch');
+                    var dt = this.getAttribute('data-deldate');
+                    if (confirm('Excluir todos os relatorios deste canal em ' + dt.split('-').reverse().join('/') + '?')) {
+                        deleteHistoryEntry(chId, dt);
+                    }
+                });
+            }
         })
         .catch(function(e) {
             el.innerHTML = '<div class="empty-state"><p>Erro: ' + e.message + '</p></div>';
         });
+}
+
+function deleteHistoryEntry(channelId, date) {
+    fetch('/api/analise-completa/' + channelId + '/date/' + date, { method: 'DELETE' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.total_deleted > 0) {
+                showGeneralHistoryDate(date);
+            } else {
+                alert('Nenhum registro encontrado para excluir');
+            }
+        })
+        .catch(function(e) { alert('Erro: ' + e.message); });
 }
 
 // === HISTORICO DO CANAL (header button) ===
