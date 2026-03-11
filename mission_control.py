@@ -478,12 +478,17 @@ async def get_agent_overview_batch(supabase_client):
                 if cid not in overview:
                     overview[cid] = {}
                 ranking = row.get('ranking_json') or []
-                top_theme = ranking[0] if ranking else None
+                if isinstance(ranking, str):
+                    try:
+                        ranking = json.loads(ranking)
+                    except (json.JSONDecodeError, TypeError):
+                        ranking = []
+                top_theme = ranking[0] if ranking and isinstance(ranking, list) else None
                 overview[cid]['temas'] = {
                     'status': 'done',
                     'last_run': row.get('run_date'),
-                    'top_theme': top_theme.get('theme', '') if top_theme else None,
-                    'top_theme_score': top_theme.get('score', 0) if top_theme else 0,
+                    'top_theme': top_theme.get('theme', '') if isinstance(top_theme, dict) else None,
+                    'top_theme_score': top_theme.get('score', 0) if isinstance(top_theme, dict) else 0,
                 }
     except Exception as e:
         logger.warning(f"[MC] Query falhou: {e}")
@@ -4691,11 +4696,13 @@ function initSpriteCache() {
 
 function loadMCData(isRefresh) {
   return fetch('/api/mission-control/status')
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
     .then(function(data) {
       mcData = data;
       if (isRefresh && allRooms.length > 0) {
-        // Only update stats, do NOT rebuild rooms (preserves character positions)
         refreshRoomStats(data);
         invalidateBarCache();
       } else {
@@ -4707,6 +4714,18 @@ function loadMCData(isRefresh) {
     })
     .catch(function(err) {
       console.error('[MC] Error loading data:', err);
+      if (!isRefresh) {
+        var cv = document.getElementById('cv');
+        if (cv) {
+          var ctx = cv.getContext('2d');
+          ctx.fillStyle = '#1a1a2e';
+          ctx.fillRect(0, 0, cv.width, cv.height);
+          ctx.fillStyle = '#f87171';
+          ctx.font = '14px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText('Erro ao carregar dados. Recarregue a pagina.', cv.width / 2, cv.height / 2);
+        }
+      }
     });
 }
 
@@ -5211,6 +5230,7 @@ function fetchAgentStatus(channelId, agentType) {
     'ordenador': '/api/analise-ordenador/'
   };
   var baseUrl = latestUrlMap[agentType] || '/api/analise-copy/';
+  var requestAgent = selectedAgent;
 
   fetch(baseUrl + channelId + '/latest')
     .then(function(r) {
@@ -5218,14 +5238,22 @@ function fetchAgentStatus(channelId, agentType) {
       return r.json();
     })
     .then(function(data) {
+      if (selectedAgent !== requestAgent) return;
       if (!data) {
         renderAgentStatus(null, agentType);
         return;
       }
       _agentStatusCache[cacheKey] = { data: data, ts: Date.now() };
+      // Limitar cache a 50 entries
+      var keys = Object.keys(_agentStatusCache);
+      if (keys.length > 50) {
+        var oldest = keys.sort(function(a, b) { return _agentStatusCache[a].ts - _agentStatusCache[b].ts; });
+        for (var d = 0; d < oldest.length - 50; d++) delete _agentStatusCache[oldest[d]];
+      }
       renderAgentStatus(data, agentType);
     })
     .catch(function() {
+      if (selectedAgent !== requestAgent) return;
       renderAgentStatus(null, agentType);
     });
 }
@@ -5467,18 +5495,24 @@ function loadReportInModal() {
   if (!_currentReportAgent) return;
   body.innerHTML = '<div style="color:#888;padding:24px">Carregando...</div>';
   var base = _latestUrlMap[_currentReportAgent.agentType] || '/api/analise-copy/';
+  var requestAgent = _currentReportAgent;
 
   fetch(base + _currentReportAgent.channelId + '/latest')
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    })
     .then(function(data) {
+      if (_currentReportAgent !== requestAgent) return;
       if (data.report_text) {
         renderReportInModal(data.report_text, data.run_date);
       } else {
         body.innerHTML = '<div style="color:#666;padding:24px">Nenhum relatorio encontrado</div>';
       }
     })
-    .catch(function() {
-      body.innerHTML = '<div style="color:#f87171;padding:24px">Erro ao carregar</div>';
+    .catch(function(err) {
+      if (_currentReportAgent !== requestAgent) return;
+      body.innerHTML = '<div style="color:#f87171;padding:24px">Erro ao carregar: ' + err.message + '</div>';
     });
 }
 
