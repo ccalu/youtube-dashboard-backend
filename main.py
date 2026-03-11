@@ -9592,6 +9592,7 @@ body {
         transform: translateX(-100%);
         transition: transform 0.25s ease;
         z-index: 15;
+        width: 280px;
     }
     .sidebar.open { transform: translateX(0); }
     .sidebar { padding-top: 60px; }
@@ -9600,8 +9601,12 @@ body {
     .main-header { flex-direction: column; align-items: flex-start; gap: 0.8rem; }
     .main-title { font-size: 1rem; }
     .main-title.default-text { display: none; }
-    .main-actions { width: 100%; }
-    .main-actions .btn { flex: 1; font-size: 0.75rem; padding: 0.4rem 0.5rem; }
+    .main-actions { width: 100%; flex-wrap: wrap; }
+    .main-actions .btn { font-size: 0.75rem; padding: 0.4rem 0.5rem; }
+    .main-actions .btn.btn-accent { flex: 1 1 100%; }
+    .main-actions .btn.btn-ctr,
+    .main-actions .btn.btn-export,
+    .main-actions .btn.btn-history { flex: 1; }
     #tabsArea { margin-top: 0.8rem; }
     .tabs-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-wrap: nowrap; }
     .tabs-bar::-webkit-scrollbar { display: none; }
@@ -9610,6 +9615,7 @@ body {
     .modal { padding: 1.2rem; max-width: 95%; }
     .sidebar-actions { flex-wrap: wrap; }
     .sidebar-actions .btn { font-size: 0.7rem; padding: 0.4rem 0.6rem; }
+    .export-menu { right: auto; left: 0; }
 }
 
 @media (max-width: 480px) {
@@ -9618,6 +9624,7 @@ body {
     .report-container { padding: 0.8rem; font-size: 0.7rem; }
     .channel-name { max-width: 120px; }
     .tab-btn { font-size: 0.65rem; padding: 0.4rem 0.6rem; }
+    .main-actions .btn { font-size: 0.7rem; padding: 0.35rem 0.4rem; }
 }
 </style>
 </head>
