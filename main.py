@@ -10680,15 +10680,16 @@ function _finishCTRCollection(result) {
     var statusEl = document.getElementById('ctrStatus');
     btn.disabled = false;
     btn.textContent = 'CTR';
+    statusEl.style.display = 'none';
+    statusEl.textContent = '';
+    // Salvar no historico localStorage
     var now = new Date();
     var ts = now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
-    statusEl.style.display = 'block';
-    if (result && result.success !== undefined) {
-        statusEl.textContent = 'Concluido: ' + result.success + ' canais | ' + ts;
-    } else {
-        statusEl.textContent = 'Ultima geracao: ' + ts;
-    }
-    localStorage.setItem('lastCTRCollection', ts);
+    var entry = { date: ts, success: (result && result.success) || 0, records: (result && result.total_records) || 0, errors: (result && result.errors) || 0 };
+    var hist = JSON.parse(localStorage.getItem('ctrHistory') || '[]');
+    hist.unshift(entry);
+    if (hist.length > 50) hist = hist.slice(0, 50);
+    localStorage.setItem('ctrHistory', JSON.stringify(hist));
 }
 
 // Ao carregar: verificar se coleta esta rodando no backend
@@ -10699,21 +10700,9 @@ function _finishCTRCollection(result) {
             if (data.running) {
                 _showCTRInProgress();
                 _startCTRPolling();
-            } else {
-                var last = localStorage.getItem('lastCTRCollection');
-                if (last) {
-                    var el = document.getElementById('ctrStatus');
-                    if (el) { el.style.display = 'block'; el.textContent = 'Ultima geracao: ' + last; }
-                }
             }
         })
-        .catch(function() {
-            var last = localStorage.getItem('lastCTRCollection');
-            if (last) {
-                var el = document.getElementById('ctrStatus');
-                if (el) { el.style.display = 'block'; el.textContent = 'Ultima geracao: ' + last; }
-            }
-        });
+        .catch(function() {});
 })();
 
 var _ctrVideos = [];
@@ -11056,6 +11045,21 @@ function agentTag(key) {
 }
 
 // === HISTORICO GERAL (sidebar) ===
+function _buildCTRHistoryHTML() {
+    var hist = JSON.parse(localStorage.getItem('ctrHistory') || '[]');
+    if (hist.length === 0) return '';
+    var html = '<div style="color:#f59e0b;font-size:0.75rem;font-weight:600;margin-bottom:0.6rem;">Coletas CTR</div>';
+    for (var i = 0; i < hist.length; i++) {
+        var h = hist[i];
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0.8rem;background:var(--bg-tertiary);border-radius:6px;margin-bottom:4px;font-size:0.75rem;">';
+        html += '<span style="color:var(--text-secondary)">' + h.date + '</span>';
+        html += '<span style="color:var(--accent)">' + h.success + ' canais | ' + h.records + ' registros</span>';
+        html += '</div>';
+    }
+    html += '<div style="border-bottom:1px solid var(--border);margin:0.8rem 0;"></div>';
+    return html;
+}
+
 function showGeneralHistory() {
     document.getElementById('historyModal').classList.add('active');
     var el = document.getElementById('historyList');
@@ -11065,11 +11069,12 @@ function showGeneralHistory() {
         .then(function(r) { return r.json(); })
         .then(function(data) {
             var history = data.history || [];
-            if (history.length === 0) {
+            var html = _buildCTRHistoryHTML();
+            if (history.length === 0 && !html) {
                 el.innerHTML = '<div class="empty-state"><p>Nenhum historico encontrado</p></div>';
                 return;
             }
-            var html = '<div style="color:var(--blue);font-size:0.75rem;font-weight:600;margin-bottom:0.8rem;">Historico Geral de Analises</div>';
+            html += '<div style="color:var(--blue);font-size:0.75rem;font-weight:600;margin-bottom:0.8rem;">Historico Geral de Analises</div>';
             for (var i = 0; i < history.length; i++) {
                 var h = history[i];
                 var parts = h.date.split('-');
