@@ -792,6 +792,33 @@ async def get_channel_ctr(channel_id, limit=50):
 
     videos = resp.json()
 
+    # Buscar titulos dos videos na tabela videos_historico
+    video_ids = [v["video_id"] for v in videos if v.get("video_id")]
+    title_map = {}
+    if video_ids:
+        # Buscar em batches de 50
+        for i in range(0, len(video_ids), 50):
+            batch = video_ids[i:i+50]
+            ids_str = ",".join(f'"{vid}"' for vid in batch)
+            title_resp = requests.get(
+                f"{SUPABASE_URL}/rest/v1/videos_historico",
+                params={
+                    "video_id": f"in.({ids_str})",
+                    "select": "video_id,titulo",
+                    "order": "data_coleta.desc",
+                },
+                headers={"apikey": AUTH_KEY, "Authorization": f"Bearer {AUTH_KEY}"}
+            )
+            if title_resp.status_code == 200:
+                for row in title_resp.json():
+                    vid = row.get("video_id")
+                    if vid and vid not in title_map:
+                        title_map[vid] = row.get("titulo", "")
+
+    # Adicionar titulo a cada video
+    for v in videos:
+        v["titulo"] = title_map.get(v.get("video_id"), "")
+
     # Calcular CTR medio ponderado do canal (total_cliques / total_impressoes)
     total_impressions = sum(v.get("impressions", 0) or 0 for v in videos)
     total_clicks = sum((v.get("impressions", 0) or 0) * (v.get("ctr", 0) or 0) for v in videos)

@@ -10693,7 +10693,7 @@ function showChannelCTR() {
             if (videos.length > 0) {
                 html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
                 html += '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text-secondary)">';
-                html += '<th style="text-align:left;padding:8px 6px">Video ID</th>';
+                html += '<th style="text-align:left;padding:8px 6px">Titulo</th>';
                 html += '<th style="text-align:right;padding:8px 6px">Views</th>';
                 html += '<th style="text-align:right;padding:8px 6px">Impressoes</th>';
                 html += '<th style="text-align:right;padding:8px 6px">CTR</th>';
@@ -10703,8 +10703,9 @@ function showChannelCTR() {
                     var ctrVal = ((v.ctr || 0) * 100).toFixed(2);
                     var ctrColor = ctrVal >= 8 ? '#22c55e' : ctrVal >= 5 ? '#f59e0b' : '#ef4444';
                     var retVal = v.avg_retention_pct ? v.avg_retention_pct.toFixed(1) + '%' : '-';
+                    var titulo = v.titulo || v.video_id || '';
                     html += '<tr style="border-bottom:1px solid var(--border)">';
-                    html += '<td style="padding:6px;color:var(--text-primary);font-family:monospace;font-size:11px">' + escHtml(v.video_id || '') + '</td>';
+                    html += '<td style="padding:6px;color:var(--text-primary);font-size:12px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(titulo) + '</td>';
                     html += '<td style="text-align:right;padding:6px;color:var(--text-primary)">' + (v.views || 0).toLocaleString() + '</td>';
                     html += '<td style="text-align:right;padding:6px;color:var(--text-primary)">' + (v.impressions || 0).toLocaleString() + '</td>';
                     html += '<td style="text-align:right;padding:6px;font-weight:600;color:' + ctrColor + '">' + ctrVal + '%</td>';
