@@ -10660,7 +10660,9 @@ function collectCTR() {
 
 var _ctrVideos = [];
 var _ctrStats = {};
+var _ctrLastUpdated = null;
 var _ctrSort = {col: 'impressions', dir: 'desc'};
+var _ctrTab = 'ctr';
 
 function showChannelCTR() {
     if (!_selectedChannel) return;
@@ -10676,12 +10678,21 @@ function showChannelCTR() {
             }
             _ctrStats = data.channel_stats || {};
             _ctrVideos = data.videos || [];
+            _ctrLastUpdated = data.last_updated || null;
             _ctrSort = {col: 'impressions', dir: 'desc'};
+            _ctrTab = 'ctr';
             renderCTRTable();
         })
         .catch(function(e) {
             area.innerHTML = '<div class="empty-state"><p>Erro ao carregar CTR: ' + escHtml(e.message) + '</p></div>';
         });
+}
+
+function switchCTRTab(tab) {
+    _ctrTab = tab;
+    if (tab === 'ctr') { _ctrSort = {col: 'impressions', dir: 'desc'}; }
+    else { _ctrSort = {col: 'retention', dir: 'desc'}; }
+    renderCTRTable();
 }
 
 function sortCTR(col) {
@@ -10694,10 +10705,26 @@ function sortCTR(col) {
     renderCTRTable();
 }
 
+function fmtDuration(sec) {
+    if (!sec) return '-';
+    var m = Math.floor(sec / 60);
+    var s = Math.round(sec % 60);
+    return m + ':' + (s < 10 ? '0' : '') + s;
+}
+
+function fmtWatchTime(sec) {
+    if (!sec) return '-';
+    var h = Math.floor(sec / 3600);
+    if (h >= 1) return h.toLocaleString() + 'h';
+    var m = Math.floor(sec / 60);
+    return m + 'min';
+}
+
 function renderCTRTable() {
     var area = document.getElementById('reportArea');
     var stats = _ctrStats;
     var videos = _ctrVideos.slice();
+    var isCTR = _ctrTab === 'ctr';
 
     // Sort
     var col = _ctrSort.col;
@@ -10709,6 +10736,8 @@ function renderCTRTable() {
         else if (col === 'impressions') { va = a.impressions || 0; vb = b.impressions || 0; }
         else if (col === 'ctr') { va = a.ctr || 0; vb = b.ctr || 0; }
         else if (col === 'retention') { va = a.avg_retention_pct || 0; vb = b.avg_retention_pct || 0; }
+        else if (col === 'duration') { va = a.avg_view_duration || 0; vb = b.avg_view_duration || 0; }
+        else if (col === 'watchtime') { va = a.watch_time_seconds || 0; vb = b.watch_time_seconds || 0; }
         else { va = 0; vb = 0; }
         if (va < vb) return dir === 'asc' ? -1 : 1;
         if (va > vb) return dir === 'asc' ? 1 : -1;
@@ -10717,19 +10746,42 @@ function renderCTRTable() {
 
     var arrow = function(c) { return _ctrSort.col === c ? (_ctrSort.dir === 'asc' ? ' \\u25B2' : ' \\u25BC') : ''; };
     var thStyle = 'padding:8px 6px;cursor:pointer;user-select:none;white-space:nowrap';
+    var tabBtnStyle = function(active) { return 'padding:6px 16px;border:1px solid ' + (active ? '#f59e0b' : 'var(--border)') + ';background:' + (active ? 'rgba(245,158,11,0.15)' : 'var(--bg-secondary)') + ';color:' + (active ? '#f59e0b' : 'var(--text-secondary)') + ';border-radius:6px;cursor:pointer;font-size:12px;font-weight:' + (active ? '600' : '400'); };
 
     var html = '<div class="report-content" style="padding:1.5rem">';
-    html += '<h2 style="color:var(--text-primary);margin:0 0 4px">CTR - Impressoes e Click-Through Rate</h2>';
-    html += '<p style="color:var(--text-secondary);margin:0 0 1.5rem;font-size:13px">' + videos.length + ' videos com dados de CTR</p>';
+
+    // Tabs
+    html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:1rem">';
+    html += '<button style="' + tabBtnStyle(isCTR) + '" onclick="switchCTRTab(\'ctr\')">CTR & Impressoes</button>';
+    html += '<button style="' + tabBtnStyle(!isCTR) + '" onclick="switchCTRTab(\'retention\')">Retencao & Watch Time</button>';
+    if (_ctrLastUpdated) {
+        var d = new Date(_ctrLastUpdated);
+        html += '<span style="margin-left:auto;font-size:11px;color:var(--text-secondary)">Ultima coleta: ' + d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'}) + '</span>';
+    }
+    html += '</div>';
+
+    html += '<p style="color:var(--text-secondary);margin:0 0 1rem;font-size:13px">' + videos.length + ' videos com dados</p>';
 
     // Stats cards
     html += '<div style="display:flex;gap:12px;margin-bottom:1.5rem;flex-wrap:wrap">';
-    html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
-    html += '<div style="font-size:24px;font-weight:700;color:#f59e0b">' + (stats.avg_ctr_percent || 0).toFixed(2) + '%</div>';
-    html += '<div style="font-size:11px;color:var(--text-secondary)">CTR Medio</div></div>';
-    html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
-    html += '<div style="font-size:24px;font-weight:700;color:var(--blue)">' + (stats.total_impressions || 0).toLocaleString() + '</div>';
-    html += '<div style="font-size:11px;color:var(--text-secondary)">Total Impressoes</div></div>';
+    if (isCTR) {
+        html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
+        html += '<div style="font-size:24px;font-weight:700;color:#f59e0b">' + (stats.avg_ctr_percent || 0).toFixed(2) + '%</div>';
+        html += '<div style="font-size:11px;color:var(--text-secondary)">CTR Medio</div></div>';
+        html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
+        html += '<div style="font-size:24px;font-weight:700;color:var(--blue)">' + (stats.total_impressions || 0).toLocaleString() + '</div>';
+        html += '<div style="font-size:11px;color:var(--text-secondary)">Total Impressoes</div></div>';
+    } else {
+        html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
+        html += '<div style="font-size:24px;font-weight:700;color:#a78bfa">' + (stats.avg_retention_pct || 0).toFixed(1) + '%</div>';
+        html += '<div style="font-size:11px;color:var(--text-secondary)">Retencao Media</div></div>';
+        html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
+        html += '<div style="font-size:24px;font-weight:700;color:var(--blue)">' + fmtDuration(stats.avg_view_duration_sec || 0) + '</div>';
+        html += '<div style="font-size:11px;color:var(--text-secondary)">Duracao Media</div></div>';
+        html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
+        html += '<div style="font-size:24px;font-weight:700;color:#f59e0b">' + fmtWatchTime(stats.total_watch_time_seconds || 0) + '</div>';
+        html += '<div style="font-size:11px;color:var(--text-secondary)">Watch Time Total</div></div>';
+    }
     html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
     html += '<div style="font-size:24px;font-weight:700;color:var(--green)">' + videos.length + '</div>';
     html += '<div style="font-size:11px;color:var(--text-secondary)">Videos</div></div>';
@@ -10741,21 +10793,32 @@ function renderCTRTable() {
         html += '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text-secondary)">';
         html += '<th style="text-align:left;' + thStyle + '" onclick="sortCTR(\'titulo\')">Titulo' + arrow('titulo') + '</th>';
         html += '<th style="text-align:right;' + thStyle + '" onclick="sortCTR(\'views\')">Views' + arrow('views') + '</th>';
-        html += '<th style="text-align:right;' + thStyle + '" onclick="sortCTR(\'impressions\')">Impressoes' + arrow('impressions') + '</th>';
-        html += '<th style="text-align:right;' + thStyle + '" onclick="sortCTR(\'ctr\')">CTR' + arrow('ctr') + '</th>';
-        html += '<th style="text-align:right;' + thStyle + '" onclick="sortCTR(\'retention\')">Retencao' + arrow('retention') + '</th>';
+        if (isCTR) {
+            html += '<th style="text-align:right;' + thStyle + '" onclick="sortCTR(\'impressions\')">Impressoes' + arrow('impressions') + '</th>';
+            html += '<th style="text-align:right;' + thStyle + '" onclick="sortCTR(\'ctr\')">CTR' + arrow('ctr') + '</th>';
+        } else {
+            html += '<th style="text-align:right;' + thStyle + '" onclick="sortCTR(\'retention\')">Retencao' + arrow('retention') + '</th>';
+            html += '<th style="text-align:right;' + thStyle + '" onclick="sortCTR(\'duration\')">Duracao Media' + arrow('duration') + '</th>';
+            html += '<th style="text-align:right;' + thStyle + '" onclick="sortCTR(\'watchtime\')">Watch Time' + arrow('watchtime') + '</th>';
+        }
         html += '</tr></thead><tbody>';
         videos.forEach(function(v) {
-            var ctrVal = ((v.ctr || 0) * 100).toFixed(2);
-            var ctrColor = ctrVal >= 8 ? '#22c55e' : ctrVal >= 5 ? '#f59e0b' : '#ef4444';
-            var retVal = v.avg_retention_pct ? v.avg_retention_pct.toFixed(1) + '%' : '-';
             var titulo = v.titulo || v.video_id || '';
             html += '<tr style="border-bottom:1px solid var(--border)">';
             html += '<td style="padding:6px;color:var(--text-primary);font-size:12px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(titulo) + '</td>';
             html += '<td style="text-align:right;padding:6px;color:var(--text-primary)">' + (v.views || 0).toLocaleString() + '</td>';
-            html += '<td style="text-align:right;padding:6px;color:var(--text-primary)">' + (v.impressions || 0).toLocaleString() + '</td>';
-            html += '<td style="text-align:right;padding:6px;font-weight:600;color:' + ctrColor + '">' + ctrVal + '%</td>';
-            html += '<td style="text-align:right;padding:6px;color:var(--text-secondary)">' + retVal + '</td>';
+            if (isCTR) {
+                var ctrVal = ((v.ctr || 0) * 100).toFixed(2);
+                var ctrColor = ctrVal >= 8 ? '#22c55e' : ctrVal >= 5 ? '#f59e0b' : '#ef4444';
+                html += '<td style="text-align:right;padding:6px;color:var(--text-primary)">' + (v.impressions || 0).toLocaleString() + '</td>';
+                html += '<td style="text-align:right;padding:6px;font-weight:600;color:' + ctrColor + '">' + ctrVal + '%</td>';
+            } else {
+                var retVal = v.avg_retention_pct ? v.avg_retention_pct.toFixed(1) + '%' : '-';
+                var retColor = (v.avg_retention_pct || 0) >= 50 ? '#22c55e' : (v.avg_retention_pct || 0) >= 30 ? '#f59e0b' : '#ef4444';
+                html += '<td style="text-align:right;padding:6px;font-weight:600;color:' + retColor + '">' + retVal + '</td>';
+                html += '<td style="text-align:right;padding:6px;color:var(--text-primary)">' + fmtDuration(v.avg_view_duration) + '</td>';
+                html += '<td style="text-align:right;padding:6px;color:var(--text-secondary)">' + fmtWatchTime(v.watch_time_seconds) + '</td>';
+            }
             html += '</tr>';
         });
         html += '</tbody></table></div>';
