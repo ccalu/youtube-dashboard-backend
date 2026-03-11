@@ -9084,7 +9084,6 @@ body {
 }
 /* === Report Header & Title === */
 .report-header-line {
-    color: var(--accent);
     font-weight: 600;
     font-size: 0.7rem;
     color: var(--text-muted);
@@ -9531,7 +9530,7 @@ body {
 .btn-ctr:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-export { background: var(--bg-tertiary); color: #a78bfa; border: 1px solid rgba(167,139,250,0.3); font-size: 12px; position: relative; }
 .btn-export:hover { border-color: #a78bfa; background: rgba(167,139,250,0.1); }
-.export-menu { position: absolute; top: 100%; right: 0; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 6px 0; min-width: 220px; z-index: 100; box-shadow: 0 8px 24px rgba(0,0,0,0.4); margin-top: 4px; }
+.export-menu { position: absolute; top: 100%; right: 0; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 6px 0; min-width: 220px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); margin-top: 4px; }
 .export-menu-item { display: block; width: 100%; padding: 8px 16px; text-align: left; background: none; border: none; color: var(--text-primary); font-size: 12px; cursor: pointer; }
 .export-menu-item:hover { background: rgba(255,255,255,0.05); }
 .export-menu-item small { display: block; color: var(--text-secondary); font-size: 10px; margin-top: 2px; }
@@ -9852,21 +9851,25 @@ function loadAllAgents(channelId) {
         if (dot) dot.classList.remove('has-data');
     }
 
+    var requestId = channelId;
     var promises = AGENTS.map(function(ag) {
         var url = ag.getUrl.replace('{id}', channelId);
         return fetch(url)
             .then(function(r) { return r.status === 404 ? null : r.json(); })
             .then(function(data) {
+                if (_selectedChannel !== requestId) return;
                 _agentData[ag.key] = data;
                 var dot = document.getElementById('dot-' + ag.key);
                 if (dot && data) dot.classList.add('has-data');
-                // Renderizar imediatamente se esta eh a aba ativa
                 if (ag.key === _activeTab) renderActiveTab();
             })
             .catch(function() { _agentData[ag.key] = null; });
     });
 
-    Promise.all(promises).then(function() { renderActiveTab(); });
+    Promise.all(promises).then(function() {
+        if (_selectedChannel !== requestId) return;
+        renderActiveTab();
+    });
 }
 
 function renderActiveTab() {
