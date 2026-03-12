@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agente 7 — Ordenador de Produção</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a24;
+            --bg-card: #16161f;
+            --text-primary: #e8e8ed;
+            --text-secondary: #a0a0b0;
+            --text-muted: #6b6b7b;
+            --accent: #f472b6;
+            --accent-dim: rgba(244, 114, 182, 0.15);
+            --accent-glow: rgba(244, 114, 182, 0.3);
+            --green: #00d4aa;
+            --green-dim: rgba(0, 212, 170, 0.15);
+            --warning: #ff6b6b;
+            --warning-dim: rgba(255, 107, 107, 0.15);
+            --highlight: #ffd93d;
+            --highlight-dim: rgba(255, 217, 61, 0.1);
+            --purple: #a78bfa;
+            --purple-dim: rgba(167, 139, 250, 0.15);
+            --orange: #ff9f43;
+            --orange-dim: rgba(255, 159, 67, 0.15);
+            --blue: #54a0ff;
+            --blue-dim: rgba(84, 160, 255, 0.15);
+            --cyan: #22d3ee;
+            --cyan-dim: rgba(34, 211, 238, 0.15);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-accent: rgba(244, 114, 182, 0.3);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.8;
+            font-size: 16px;
+        }
+        .container { display: flex; min-height: 100vh; }
+
+        .sidebar {
+            width: 280px; background: var(--bg-secondary); border-right: 1px solid var(--border);
+            padding: 2rem 1.5rem; position: fixed; height: 100vh; overflow-y: auto;
+        }
+        .sidebar-header { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+        .sidebar-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); font-weight: 600; margin-bottom: 0.5rem; }
+        .sidebar-subtitle { font-size: 1rem; color: var(--text-primary); font-weight: 600; }
+        .nav-section { margin-bottom: 1.5rem; }
+        .nav-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.75rem; font-weight: 600; }
+        .nav-link {
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 0.75rem; color: var(--text-secondary); text-decoration: none;
+            font-size: 0.82rem; border-radius: 6px; transition: all 0.2s ease; margin-bottom: 0.2rem;
+        }
+        .nav-link:hover { background: var(--accent-dim); color: var(--accent); }
+        .nav-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+        .main { flex: 1; margin-left: 280px; padding: 3rem 4rem; max-width: 1100px; }
+        h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem; line-height: 1.2; }
+        h1 .accent { color: var(--accent); }
+        h2 { font-size: 1.75rem; font-weight: 700; margin-top: 3.5rem; margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--accent); display: inline-block; }
+        h3 { font-size: 1.25rem; font-weight: 600; margin-top: 2rem; margin-bottom: 1rem; color: var(--text-primary); }
+        h4 { font-size: 1.1rem; font-weight: 600; color: var(--accent); margin-top: 1.5rem; margin-bottom: 0.75rem; }
+        p { margin-bottom: 1.5rem; color: var(--text-secondary); }
+        strong { color: var(--text-primary); }
+        .meta { color: var(--text-muted); font-size: 0.875rem; margin-bottom: 2rem; }
+        ul { margin: 1rem 0 1.5rem 1.5rem; }
+        ul li { color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.95rem; }
+
+        .part-header {
+            background: linear-gradient(135deg, var(--accent-dim) 0%, var(--bg-tertiary) 100%);
+            border: 1px solid var(--border-accent); border-radius: 16px;
+            padding: 2rem 2.5rem; margin: 3.5rem 0 2rem 0; position: relative; overflow: hidden;
+        }
+        .part-header::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--accent), transparent); }
+        .part-number { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent); font-weight: 600; margin-bottom: 0.5rem; }
+        .part-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; }
+        .part-desc { font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 0; }
+
+        .highlight-card {
+            background: var(--bg-card); border: 1px solid var(--border-accent); border-radius: 12px;
+            padding: 2rem; margin: 2.5rem 0; position: relative; overflow: hidden;
+        }
+        .highlight-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--accent), transparent); }
+        .highlight-card .label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); font-weight: 600; margin-bottom: 1rem; }
+        .highlight-card p { color: var(--text-primary); font-size: 1.1rem; margin-bottom: 0; }
+
+        .divider { height: 1px; background: linear-gradient(90deg, var(--accent), transparent); margin: 3rem 0; }
+
+        .insight-box {
+            background: linear-gradient(135deg, var(--accent-dim) 0%, transparent 100%);
+            border-left: 3px solid var(--accent); padding: 1.25rem 1.5rem; margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0; font-weight: 500; color: var(--text-primary); font-size: 1rem;
+        }
+        .insight-box.green { background: linear-gradient(135deg, var(--green-dim) 0%, transparent 100%); border-left-color: var(--green); }
+        .insight-box.warning { background: linear-gradient(135deg, var(--warning-dim) 0%, transparent 100%); border-left-color: var(--warning); }
+        .insight-box.highlight { background: linear-gradient(135deg, var(--highlight-dim) 0%, transparent 100%); border-left-color: var(--highlight); }
+        .insight-box.purple { background: linear-gradient(135deg, var(--purple-dim) 0%, transparent 100%); border-left-color: var(--purple); }
+        .insight-box.blue { background: linear-gradient(135deg, var(--blue-dim) 0%, transparent 100%); border-left-color: var(--blue); }
+        .insight-box.orange { background: linear-gradient(135deg, var(--orange-dim) 0%, transparent 100%); border-left-color: var(--orange); }
+
+        .decision-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .decision-table th {
+            background: var(--bg-tertiary); color: var(--accent); font-weight: 600; font-size: 0.75rem;
+            text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; text-align: left; border-bottom: 2px solid var(--accent);
+        }
+        .decision-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+        .decision-table tr:hover td { background: var(--bg-tertiary); }
+        .decision-table td:first-child { color: var(--text-primary); font-weight: 500; }
+
+        .metric-row { display: flex; gap: 1rem; margin: 1.5rem 0; flex-wrap: wrap; }
+        .metric-box {
+            background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 10px;
+            padding: 1.25rem 1.5rem; flex: 1; min-width: 160px; text-align: center;
+        }
+        .metric-box.active { border-color: var(--border-accent); }
+        .metric-value { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; font-family: 'JetBrains Mono', monospace; }
+        .metric-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+        .steps-row { display: flex; gap: 1.25rem; margin: 2rem 0; flex-wrap: wrap; }
+        .step-card {
+            flex: 1; min-width: 200px; background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 1.25rem; position: relative;
+        }
+        .step-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 12px 12px 0 0; }
+        .step-card.s1::before { background: var(--accent); }
+        .step-card.s2::before { background: var(--green); }
+        .step-card.s3::before { background: var(--blue); }
+        .step-card.s4::before { background: var(--purple); }
+        .step-card.s5::before { background: var(--orange); }
+        .step-card.s6::before { background: var(--warning); }
+        .step-num {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.4rem;
+        }
+        .step-card.s1 .step-num { color: var(--accent); }
+        .step-card.s2 .step-num { color: var(--green); }
+        .step-card.s3 .step-num { color: var(--blue); }
+        .step-card.s4 .step-num { color: var(--purple); }
+        .step-card.s5 .step-num { color: var(--orange); }
+        .step-card.s6 .step-num { color: var(--warning); }
+        .step-title { font-weight: 700; font-size: 0.95rem; color: var(--text-primary); margin-bottom: 0.4rem; }
+        .step-desc { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6; }
+
+        .code-block {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 1.5rem; margin: 2rem 0; font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6; overflow-x: auto; white-space: pre;
+        }
+        .code-block .key { color: var(--accent); }
+        .code-block .val { color: var(--green); }
+        .code-block .num { color: var(--orange); }
+        .code-block .muted { color: var(--text-muted); }
+
+        .report-mock {
+            background: var(--bg-card); border: 2px solid var(--accent); border-radius: 16px;
+            padding: 0; margin: 2.5rem 0; overflow: hidden;
+        }
+        .report-header {
+            background: linear-gradient(135deg, var(--accent-dim), var(--bg-tertiary));
+            padding: 1.5rem 2rem; border-bottom: 1px solid var(--border);
+        }
+        .report-header-title { font-size: 1.1rem; font-weight: 700; color: var(--accent); margin-bottom: 0.25rem; }
+        .report-header-meta { font-size: 0.8rem; color: var(--text-muted); }
+        .report-body { padding: 2rem; }
+        .report-section-title {
+            font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em;
+            font-weight: 700; padding: 0.4rem 0.75rem; border-radius: 4px;
+            display: inline-block; margin-bottom: 1rem; margin-top: 1.5rem;
+        }
+        .report-section-title:first-child { margin-top: 0; }
+        .report-section-title.pink { background: var(--accent-dim); color: var(--accent); }
+        .report-section-title.green { background: var(--green-dim); color: var(--green); }
+        .report-section-title.blue { background: var(--blue-dim); color: var(--blue); }
+        .report-section-title.purple { background: var(--purple-dim); color: var(--purple); }
+        .report-section-title.yellow { background: var(--highlight-dim); color: var(--highlight); }
+        .report-section-title.red { background: var(--warning-dim); color: var(--warning); }
+        .report-section-title.orange { background: var(--orange-dim); color: var(--orange); }
+        .report-text { color: var(--text-secondary); font-size: 0.88rem; line-height: 1.8; margin-bottom: 1rem; }
+        .report-text strong { color: var(--text-primary); }
+
+        .report-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; margin: 1rem 0; }
+        .report-table th {
+            background: var(--bg-tertiary); color: var(--accent); font-weight: 600; font-size: 0.65rem;
+            text-transform: uppercase; letter-spacing: 0.05em; padding: 0.6rem 0.6rem; text-align: left;
+            border-bottom: 2px solid var(--accent); white-space: nowrap;
+        }
+        .report-table td { padding: 0.6rem 0.6rem; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+        .report-table tr:hover td { background: var(--bg-tertiary); }
+        .report-table td:first-child { font-weight: 600; color: var(--text-primary); }
+
+        .tier-label {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; font-weight: 700;
+            padding: 0.2rem 0.5rem; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .tier-alta { background: var(--green-dim); color: var(--green); }
+        .tier-normal { background: var(--highlight-dim); color: var(--highlight); }
+        .tier-baixa { background: var(--warning-dim); color: var(--warning); }
+
+        .signal-card {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 1.5rem; margin: 1rem 0; position: relative;
+        }
+        .signal-card::before { content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 3px; border-radius: 12px 0 0 12px; }
+        .signal-card.s1::before { background: var(--green); }
+        .signal-card.s2::before { background: var(--warning); }
+        .signal-title { font-weight: 700; color: var(--text-primary); font-size: 1rem; margin-bottom: 0.5rem; }
+        .signal-desc { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.7; }
+
+        .ecosystem-flow {
+            display: flex; flex-direction: column; align-items: center; gap: 0.5rem; margin: 2rem 0;
+        }
+        .flow-box {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+            padding: 0.75rem 1.5rem; text-align: center; font-size: 0.88rem; color: var(--text-secondary);
+            width: 100%; max-width: 500px;
+        }
+        .flow-box.active {
+            border-color: var(--accent); background: linear-gradient(135deg, var(--accent-dim), var(--bg-card));
+            color: var(--accent); font-weight: 700;
+        }
+        .flow-arrow { color: var(--text-muted); font-size: 1.2rem; }
+
+        .footer-bar { margin-top: 4rem; padding: 2rem 0; border-top: 1px solid var(--border); text-align: center; }
+        .footer-bar p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0; }
+
+        @media (max-width: 900px) {
+            .sidebar { display: none; }
+            .main { margin-left: 0; padding: 2rem 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <!-- SIDEBAR -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">Ecossistema de Agentes</div>
+                <div class="sidebar-subtitle">Agente 7: Ordenador de Producao</div>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-label">Contexto</div>
+                <a href="#problema" class="nav-link"><span class="nav-dot" style="background: var(--warning)"></span>O Problema</a>
+                <a href="#solucao" class="nav-link"><span class="nav-dot" style="background: var(--green)"></span>A Solucao</a>
+                <a href="#ecossistema" class="nav-link"><span class="nav-dot" style="background: var(--accent)"></span>Posicao no Ecossistema</a>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-label">Como Funciona</div>
+                <a href="#pilares" class="nav-link"><span class="nav-dot" style="background: var(--purple)"></span>Os Dois Pilares</a>
+                <a href="#pilar1" class="nav-link"><span class="nav-dot" style="background: var(--blue)"></span>Pilar 1: Motores</a>
+                <a href="#pilar2" class="nav-link"><span class="nav-dot" style="background: var(--orange)"></span>Pilar 2: Inauthentic</a>
+                <a href="#interacao" class="nav-link"><span class="nav-dot" style="background: var(--cyan)"></span>Interacao dos Pilares</a>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-label">Dados e Fluxo</div>
+                <a href="#planilha" class="nav-link"><span class="nav-dot" style="background: var(--accent)"></span>Leitura da Planilha</a>
+                <a href="#fluxo" class="nav-link"><span class="nav-dot" style="background: var(--green)"></span>Fluxo de Analise</a>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-label">Output</div>
+                <a href="#output" class="nav-link"><span class="nav-dot" style="background: var(--blue)"></span>Relatorio de Ordem</a>
+                <a href="#exemplo" class="nav-link"><span class="nav-dot" style="background: var(--purple)"></span>Exemplo de Relatorio</a>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-label">Decisoes</div>
+                <a href="#decisoes" class="nav-link"><span class="nav-dot" style="background: var(--highlight)"></span>Todas as Decisoes</a>
+            </div>
+        </nav>
+
+        <!-- MAIN CONTENT -->
+        <div class="main">
+
+            <h1>Agente 7 &mdash; <span class="accent">Ordenador de Producao</span></h1>
+            <p class="meta">Documento de especificacao &bull; Ecossistema de Agentes &bull; Março 2026</p>
+
+            <!-- ==================== PROBLEMA ==================== -->
+            <div class="part-header" id="problema">
+                <div class="part-number">Contexto</div>
+                <div class="part-title">O Problema</div>
+                <div class="part-desc">Por que precisamos de um agente para ordenar a producao</div>
+            </div>
+
+            <p>Apos os scripts serem criados pelos Sargentos e enviados para a planilha de producao via upload, eles ficam em <strong>ordem arbitraria</strong> (ordem de criacao/upload). A equipe de producao simplesmente produz de cima para baixo, sem nenhuma estrategia por tras da sequencia de postagem.</p>
+
+            <div class="insight-box warning">
+                <strong>Estamos deixando dinheiro na mesa.</strong> Scripts com alto potencial de viralizacao ficam esperando enquanto scripts medianos sao produzidos primeiro, simplesmente porque foram uploadados antes.
+            </div>
+
+            <div class="insight-box orange">
+                <strong>Risco de desmonetizacao.</strong> Sem controle da ordem, o canal pode acabar publicando varios videos seguidos com a mesma estrutura de copywriting, colocando em risco a monetizacao pela politica de inauthentic content.
+            </div>
+
+            <!-- ==================== SOLUCAO ==================== -->
+            <div class="part-header" id="solucao">
+                <div class="part-number">Proposta</div>
+                <div class="part-title">A Solucao</div>
+                <div class="part-desc">Um agente que recomenda a ordem ideal de producao e postagem</div>
+            </div>
+
+            <p>Um agente que <strong>analisa todos os scripts pendentes na planilha de producao</strong> e recomenda a ordem ideal de producao/postagem, maximizando viralizacao e protegendo a saude do canal ao mesmo tempo.</p>
+
+            <div class="metric-row">
+                <div class="metric-box active">
+                    <div class="metric-value" style="color: var(--accent);">1 canal</div>
+                    <div class="metric-label">Por execucao</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-value" style="color: var(--green);">Sob demanda</div>
+                    <div class="metric-label">Acionamento</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-value" style="color: var(--blue);">Relatorio</div>
+                    <div class="metric-label">Output (fase inicial)</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-value" style="color: var(--purple);">Operador</div>
+                    <div class="metric-label">Decide se segue</div>
+                </div>
+            </div>
+
+            <div class="insight-box green">
+                O operador tem <strong>total autonomia</strong> &mdash; o agente gera a recomendacao, mas quem decide se segue ou nao e o operador. Nao ha acao automatica na planilha.
+            </div>
+
+            <!-- ==================== ECOSSISTEMA ==================== -->
+            <div id="ecossistema"></div>
+            <h2>Posicao no Ecossistema</h2>
+
+            <div class="ecosystem-flow">
+                <div class="flow-box">Agente de Motores Psicologicos (analisa o que performa no canal)</div>
+                <div class="flow-arrow">&#8595;</div>
+                <div class="flow-box">Agente de Recomendacao (gera titulos novos)</div>
+                <div class="flow-arrow">&#8595;</div>
+                <div class="flow-box">Sargentos (criam os scripts)</div>
+                <div class="flow-arrow">&#8595;</div>
+                <div class="flow-box">Upload (scripts &rarr; planilha de producao)</div>
+                <div class="flow-arrow">&#8595;</div>
+                <div class="flow-box active">&#9733; AGENTE 7 &mdash; ORDENADOR DE PRODUCAO &#9733;</div>
+                <div class="flow-arrow">&#8595;</div>
+                <div class="flow-box">Relatorio &rarr; reordenacao manual &rarr; equipe produz na ordem otimizada</div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- ==================== PILARES ==================== -->
+            <div class="part-header" id="pilares">
+                <div class="part-number">Logica de Decisao</div>
+                <div class="part-title">Os Dois Pilares</div>
+                <div class="part-desc">Como o agente decide a ordem ideal de producao</div>
+            </div>
+
+            <!-- PILAR 1 -->
+            <h3 id="pilar1">Pilar 1 &mdash; Potencial de Viralizacao (Motores Psicologicos)</h3>
+
+            <p>O agente recebe de outro agente do ecossistema a <strong>hierarquia de motores psicologicos</strong> que estao performando melhor na audiencia do canal naquele momento (baseado em CTR + Views dos videos recentes).</p>
+
+            <p>Com essa hierarquia, ele le os titulos dos scripts pendentes na planilha, identifica quais motores psicologicos cada titulo carrega, e <strong>classifica o potencial de viralizacao</strong> de cada script. Titulos mais alinhados com os motores dominantes do canal sobem na fila. Titulos sem alinhamento com nenhum motor que performa bem caem naturalmente para o final &mdash; e consequencia direta da priorizacao.</p>
+
+            <div class="insight-box blue">
+                <strong>Objetivo:</strong> Produzir e postar primeiro os scripts com maior chance de viralizar &rarr; maximiza crescimento, alcance e faturamento.
+            </div>
+
+            <!-- PILAR 2 -->
+            <h3 id="pilar2">Pilar 2 &mdash; Saude do Canal (Inauthentic Content)</h3>
+
+            <p>O agente recebe de outro agente do ecossistema um <strong>diagnostico de saude</strong> do canal em relacao a politica de inauthentic content &mdash; especificamente, se o canal esta variando as estruturas de copywriting o suficiente nos videos recentes. A frequencia de postagem do canal ja vem embutida nesse diagnostico (nao e um input separado).</p>
+
+            <p>Esse pilar funciona como um <strong>modulador</strong> da priorizacao:</p>
+
+            <div class="signal-card s1">
+                <div class="signal-title" style="color: var(--green);">Canal Saudavel</div>
+                <div class="signal-desc">O agente foca quase exclusivamente nos motores psicologicos, priorizando viralizacao. Estruturas consecutivas sao permitidas.</div>
+            </div>
+
+            <div class="signal-card s2">
+                <div class="signal-title" style="color: var(--warning);">Canal em Risco</div>
+                <div class="signal-desc">O agente precisa balancear viralizacao com diversificacao, evitando concentrar muitos scripts da mesma estrutura de copy na sequencia. <strong>Nunca repete mesma estrutura em sequencia direta</strong> (um atras do outro).</div>
+            </div>
+
+            <div class="insight-box orange">
+                <strong>Objetivo:</strong> Garantir que a monetizacao do canal nunca esteja em risco, mesmo que isso signifique sacrificar um pouco de potencial viral imediato.
+            </div>
+
+            <!-- INTERACAO -->
+            <h3 id="interacao">Interacao entre os Pilares</h3>
+
+            <div class="code-block"><span class="val">Canal Saudavel</span> + Motores Claros
+    <span class="muted">&rarr;</span> Priorizar agressivamente por viralizacao
+    <span class="muted">&rarr;</span> Motores psicologicos dominam a decisao
+    <span class="muted">&rarr;</span> Estruturas consecutivas permitidas
+
+<span class="key">Canal em Risco</span> + Motores Claros
+    <span class="muted">&rarr;</span> Balancear viralizacao com diversificacao de estruturas
+    <span class="muted">&rarr;</span> Intercalar estruturas de copy diferentes na sequencia
+    <span class="muted">&rarr;</span> Nunca repetir mesma estrutura em sequencia direta
+    <span class="muted">&rarr;</span> Proteger monetizacao sem ignorar potencial viral</div>
+
+            <div class="divider"></div>
+
+            <!-- ==================== PLANILHA ==================== -->
+            <div class="part-header" id="planilha">
+                <div class="part-number">Dados</div>
+                <div class="part-title">O Que o Agente Le na Planilha</div>
+                <div class="part-desc">Apenas 3 colunas sao necessarias para a decisao</div>
+            </div>
+
+            <table class="decision-table">
+                <thead>
+                    <tr>
+                        <th>Coluna</th>
+                        <th>O Que E</th>
+                        <th>Para Que Serve</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>E (Status)</strong></td>
+                        <td>Estado do script (to do, done, processing, error)</td>
+                        <td><strong style="color: var(--accent);">Filtro inicial:</strong> so analisa scripts "to do"</td>
+                    </tr>
+                    <tr>
+                        <td><strong>B (Title)</strong></td>
+                        <td>Titulo do script</td>
+                        <td><strong style="color: var(--blue);">Analise principal:</strong> identificar motores psicologicos do titulo</td>
+                    </tr>
+                    <tr>
+                        <td><strong>A (ID)</strong></td>
+                        <td>Estrutura de copywriting (A, B, C, D, E...)</td>
+                        <td><strong style="color: var(--orange);">Modulacao:</strong> usado quando canal esta em risco de inauthentic content</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="insight-box">
+                <strong>Sem minimo de scripts</strong> &mdash; o agente roda com qualquer quantidade de scripts "to do" na planilha.
+            </div>
+
+            <!-- FLUXO -->
+            <h3 id="fluxo">Fluxo de Analise (6 passos)</h3>
+
+            <div class="steps-row">
+                <div class="step-card s1">
+                    <div class="step-num">Passo 1</div>
+                    <div class="step-title">Filtrar "to do"</div>
+                    <div class="step-desc">Le Coluna E e seleciona apenas scripts com status "to do"</div>
+                </div>
+                <div class="step-card s2">
+                    <div class="step-num">Passo 2</div>
+                    <div class="step-title">Analisar Motores</div>
+                    <div class="step-desc">Le titulos (Coluna B) e identifica motores psicologicos de cada um</div>
+                </div>
+                <div class="step-card s3">
+                    <div class="step-num">Passo 3</div>
+                    <div class="step-title">Classificar Potencial</div>
+                    <div class="step-desc">Compara motores de cada titulo com a hierarquia de motores do canal</div>
+                </div>
+            </div>
+            <div class="steps-row">
+                <div class="step-card s4">
+                    <div class="step-num">Passo 4</div>
+                    <div class="step-title">Checar Saude</div>
+                    <div class="step-desc">Verifica diagnostico de inauthentic content do canal</div>
+                </div>
+                <div class="step-card s5">
+                    <div class="step-num">Passo 5</div>
+                    <div class="step-title">Dividir em Tiers</div>
+                    <div class="step-desc">Separa em 3 tiers: Alta / Normal / Baixa prioridade</div>
+                </div>
+                <div class="step-card s6">
+                    <div class="step-num">Passo 6</div>
+                    <div class="step-title">Gerar Relatorio</div>
+                    <div class="step-desc">Tabela de ordem + instrucoes de movimentacao + sinalizacoes</div>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- ==================== OUTPUT ==================== -->
+            <div class="part-header" id="output">
+                <div class="part-number">Entrega</div>
+                <div class="part-title">Output &mdash; Relatorio de Ordem Recomendada</div>
+                <div class="part-desc">Formato do relatorio que o agente gera para o operador</div>
+            </div>
+
+            <p>Na fase inicial, o agente <strong>nao altera a planilha diretamente</strong>. Ele gera um relatorio em texto com a ordem recomendada para que o operador humano decida se quer reordenar.</p>
+
+            <div class="insight-box highlight">
+                <strong>Evolucao futura:</strong> Quando a logica estiver validada e confiavel, migrar para reordenacao automatica via API do Google Sheets.
+            </div>
+
+            <h3>Estrutura do Relatorio</h3>
+
+            <p>O relatorio contem <strong>4 secoes</strong>:</p>
+
+            <div class="steps-row">
+                <div class="step-card s1">
+                    <div class="step-num">Secao 1</div>
+                    <div class="step-title">Justificativa Geral</div>
+                    <div class="step-desc">Por que a ordem foi definida dessa forma (logica usada, estado do canal)</div>
+                </div>
+                <div class="step-card s2">
+                    <div class="step-num">Secao 2</div>
+                    <div class="step-title">Tabela de Ordem</div>
+                    <div class="step-desc">Dividida em 3 tiers com posicao, estrutura, titulo, motores e justificativa</div>
+                </div>
+            </div>
+            <div class="steps-row">
+                <div class="step-card s3">
+                    <div class="step-num">Secao 3</div>
+                    <div class="step-title">Instrucoes de Movimento</div>
+                    <div class="step-desc">"Mova linha 39 para posicao 1", "Mova linha 46 para posicao 5", etc.</div>
+                </div>
+                <div class="step-card s4">
+                    <div class="step-num">Secao 4</div>
+                    <div class="step-title">Sinalizacoes Inauthentic</div>
+                    <div class="step-desc">Explicacao completa de quais scripts foram rebaixados e por que</div>
+                </div>
+            </div>
+
+            <!-- EXEMPLO DE RELATORIO -->
+            <h3 id="exemplo">Exemplo de Relatorio</h3>
+
+            <div class="report-mock">
+                <div class="report-header">
+                    <div class="report-header-title">ORDENADOR DE PRODUCAO &mdash; Relatorio de Ordem Recomendada</div>
+                    <div class="report-header-meta">Canal: Reis Perversos RU &bull; Data: 10/03/2026 &bull; Scripts analisados: 14</div>
+                </div>
+                <div class="report-body">
+
+                    <div class="report-section-title pink">Secao 1 &mdash; Justificativa Geral</div>
+                    <p class="report-text">
+                        Ordenacao baseada na hierarquia de motores psicologicos do canal (CTR + Views dos ultimos 20 videos).
+                        <strong>Saude do canal: em risco</strong> &mdash; 40% dos ultimos 15 videos usam Estrutura A.
+                        Aplicada diversificacao de estruturas com intercalacao forcada.
+                    </p>
+
+                    <div class="report-section-title green">Secao 2 &mdash; Ordem Recomendada</div>
+
+                    <table class="report-table">
+                        <thead>
+                            <tr>
+                                <th>Tier</th>
+                                <th>#</th>
+                                <th>Linha</th>
+                                <th>Estr.</th>
+                                <th>Titulo</th>
+                                <th>Motores Detectados</th>
+                                <th>Justificativa</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span class="tier-label tier-alta">Alta</span></td>
+                                <td style="color: var(--green); font-weight: 700;">#1</td>
+                                <td>39</td>
+                                <td style="color: var(--accent); font-weight: 600;">E</td>
+                                <td>To, Chto Konkistadory Delali s Zhenshchinami...</td>
+                                <td style="color: var(--blue);">curiosidade proibida, revelacao</td>
+                                <td>Alinhado com motor #1 e #3</td>
+                            </tr>
+                            <tr>
+                                <td><span class="tier-label tier-alta">Alta</span></td>
+                                <td style="color: var(--green); font-weight: 700;">#2</td>
+                                <td>42</td>
+                                <td style="color: var(--accent); font-weight: 600;">B</td>
+                                <td>Proklyatie Tutankhamona: 22 Cheloveka Pogibli...</td>
+                                <td style="color: var(--blue);">maldicao, misterio historico</td>
+                                <td>Motor #1 dominante</td>
+                            </tr>
+                            <tr>
+                                <td><span class="tier-label tier-alta">Alta</span></td>
+                                <td style="color: var(--green); font-weight: 700;">#3</td>
+                                <td>40</td>
+                                <td style="color: var(--accent); font-weight: 600;">C</td>
+                                <td>To, Chto Kommod Delal s Zhenshchinami na Are...</td>
+                                <td style="color: var(--blue);">poder absoluto, sadismo</td>
+                                <td>Motor #2 + combinacao forte</td>
+                            </tr>
+                            <tr>
+                                <td><span class="tier-label tier-alta">Alta</span></td>
+                                <td style="color: var(--green); font-weight: 700;">#4</td>
+                                <td>41</td>
+                                <td style="color: var(--accent); font-weight: 600;">A</td>
+                                <td>Noga Genrikha VIII Gnila Zazhivo...</td>
+                                <td style="color: var(--blue);">grotesco corporal, ironia</td>
+                                <td>Motor #2 &bull; <span style="color: var(--warning);">&#9888; rebaixado de #2</span></td>
+                            </tr>
+                            <tr>
+                                <td><span class="tier-label tier-normal">Normal</span></td>
+                                <td style="color: var(--highlight); font-weight: 700;">#5</td>
+                                <td>46</td>
+                                <td style="color: var(--accent); font-weight: 600;">D</td>
+                                <td>7 Samykh Chudovishchnykh Kazney Ivana Groz...</td>
+                                <td style="color: var(--blue);">lista morbida, poder</td>
+                                <td>Motor presente mas nao dominante</td>
+                            </tr>
+                            <tr>
+                                <td><span class="tier-label tier-normal">Normal</span></td>
+                                <td style="color: var(--highlight); font-weight: 700;">#6</td>
+                                <td>45</td>
+                                <td style="color: var(--accent); font-weight: 600;">C</td>
+                                <td>To, Chto Proiskhodilo na Pirakh Semyi Bordzhia...</td>
+                                <td style="color: var(--blue);">poder absoluto</td>
+                                <td>Motor presente mas nao dominante</td>
+                            </tr>
+                            <tr>
+                                <td><span class="tier-label tier-baixa">Baixa</span></td>
+                                <td style="color: var(--warning); font-weight: 700;">#13</td>
+                                <td>48</td>
+                                <td style="color: var(--accent); font-weight: 600;">E</td>
+                                <td>Chto Stalo s Zhenshchinami Konstantinopolya...</td>
+                                <td style="color: var(--text-muted);">&mdash;</td>
+                                <td>Sem alinhamento com motores atuais</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="report-section-title blue">Secao 3 &mdash; Instrucoes de Movimentacao</div>
+
+                    <div class="code-block"><span class="val">MOVER</span> linha 39 &rarr; posicao 1 <span class="muted">(subir)</span>
+<span class="val">MOVER</span> linha 42 &rarr; posicao 2 <span class="muted">(subir)</span>
+<span class="val">MOVER</span> linha 40 &rarr; posicao 3 <span class="muted">(subir)</span>
+<span class="val">MOVER</span> linha 41 &rarr; posicao 4 <span class="muted">(subir &mdash; rebaixado por inauthentic)</span>
+<span class="val">MOVER</span> linha 46 &rarr; posicao 5 <span class="muted">(subir)</span>
+<span class="key">MANTER</span> linha 45 na posicao atual
+<span class="num">MOVER</span> linha 48 &rarr; posicao 13 <span class="muted">(descer)</span></div>
+
+                    <div class="report-section-title red">Secao 4 &mdash; Sinalizacoes de Inauthentic Content</div>
+
+                    <div class="insight-box warning" style="margin: 0.75rem 0; font-size: 0.88rem;">
+                        <strong>&#9888; Script "Noga Genrikha VIII Gnila Zazhivo..." (Estrutura A)</strong> desceu de <strong>#2 para #4</strong><br>
+                        Motivo: Canal com 40% de Estrutura A nos ultimos 15 videos &mdash; diversificacao necessaria
+                    </div>
+                    <div class="insight-box warning" style="margin: 0.75rem 0; font-size: 0.88rem;">
+                        <strong>&#9888; Script "To, Chto Genrikh VIII Delal..." (Estrutura A)</strong> desceu de <strong>#5 para #9</strong><br>
+                        Motivo: Ja ha 1 script de Estrutura A nos tiers superiores &mdash; evitando concentracao
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- ==================== DECISOES ==================== -->
+            <div class="part-header" id="decisoes">
+                <div class="part-number">Registro</div>
+                <div class="part-title">Decisoes Tomadas</div>
+                <div class="part-desc">Todas as definicoes fechadas para este agente</div>
+            </div>
+
+            <table class="decision-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Decisao</th>
+                        <th>Detalhe</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>Output como relatorio (nao acao direta)</td>
+                        <td>Operador decide se segue a recomendacao. Automacao futura.</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>Le apenas colunas A, B e E</td>
+                        <td>Descricao e script sao irrelevantes para ordenacao</td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td>Formato texto com tabela + instrucoes de movimento</td>
+                        <td>Tabela com linha atual, posicao nova, motores e justificativa</td>
+                    </tr>
+                    <tr>
+                        <td>4</td>
+                        <td>Nivel de detalhe: ordem + motores + justificativa</td>
+                        <td>Cada script mostra motores detectados e por que ficou naquela posicao</td>
+                    </tr>
+                    <tr>
+                        <td>5</td>
+                        <td>Sinalizacao completa de rebaixamentos</td>
+                        <td>Explica exatamente o motivo quando um script e rebaixado por diversificacao</td>
+                    </tr>
+                    <tr>
+                        <td>6</td>
+                        <td>Justificativa geral no topo do relatorio</td>
+                        <td>Explica a logica geral da ordenacao antes da lista</td>
+                    </tr>
+                    <tr>
+                        <td>7</td>
+                        <td>Um canal por execucao</td>
+                        <td>Cada agente opera para um canal especifico</td>
+                    </tr>
+                    <tr>
+                        <td>8</td>
+                        <td>Sem minimo de scripts</td>
+                        <td>Roda com qualquer quantidade de "to do"</td>
+                    </tr>
+                    <tr>
+                        <td>9</td>
+                        <td>Frequencia de postagem embutida no inauthentic</td>
+                        <td>Nao e input separado</td>
+                    </tr>
+                    <tr>
+                        <td>10</td>
+                        <td>3 tiers de prioridade</td>
+                        <td>Alta / Normal / Baixa</td>
+                    </tr>
+                    <tr>
+                        <td>11</td>
+                        <td>Motores: usa hierarquia do Agente de Motores</td>
+                        <td>O agente ja recebe quais motores dominam &mdash; aplica direto</td>
+                    </tr>
+                    <tr>
+                        <td>12</td>
+                        <td>Titulos sem motores = final da fila</td>
+                        <td>Consequencia natural da priorizacao por alinhamento</td>
+                    </tr>
+                    <tr>
+                        <td>13</td>
+                        <td>Evitar mesma estrutura em sequencia so quando em risco</td>
+                        <td>Canal saudavel permite estruturas consecutivas</td>
+                    </tr>
+                    <tr>
+                        <td>14</td>
+                        <td>Sem prioridade manual no agente</td>
+                        <td>Operador tem autonomia total &mdash; segue ou ignora o relatorio</td>
+                    </tr>
+                    <tr>
+                        <td>15</td>
+                        <td>Scripts antigos tratados igual</td>
+                        <td>Idade do script e irrelevante para a ordenacao</td>
+                    </tr>
+                    <tr>
+                        <td>16</td>
+                        <td>Execucao sob demanda</td>
+                        <td>Operador aciona quando quiser</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <!-- FOOTER -->
+            <div class="footer-bar">
+                <p>Agente 7 &mdash; Ordenador de Producao &bull; Ecossistema de Agentes &bull; Março 2026</p>
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arquitetura LLM — 3 Agentes de Analise</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a24;
+            --bg-card: #16161f;
+            --text-primary: #e8e8ed;
+            --text-secondary: #a0a0b0;
+            --text-muted: #6b6b7b;
+            --accent: #00d4aa;
+            --accent-dim: rgba(0, 212, 170, 0.15);
+            --warning: #ff6b6b;
+            --warning-dim: rgba(255, 107, 107, 0.15);
+            --highlight: #ffd93d;
+            --highlight-dim: rgba(255, 217, 61, 0.1);
+            --purple: #a78bfa;
+            --purple-dim: rgba(167, 139, 250, 0.15);
+            --orange: #ff9f43;
+            --orange-dim: rgba(255, 159, 67, 0.15);
+            --blue: #54a0ff;
+            --blue-dim: rgba(84, 160, 255, 0.15);
+            --cyan: #22d3ee;
+            --cyan-dim: rgba(34, 211, 238, 0.15);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-accent: rgba(0, 212, 170, 0.3);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.8;
+            font-size: 16px;
+        }
+        .container { display: flex; min-height: 100vh; }
+
+        /* Sidebar */
+        .sidebar {
+            width: 300px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            padding: 2rem 1.5rem;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .sidebar-header { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+        .sidebar-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--purple); font-weight: 600; margin-bottom: 0.5rem; }
+        .sidebar-subtitle { font-size: 1rem; color: var(--text-primary); font-weight: 600; }
+        .nav-section { margin-bottom: 1.5rem; }
+        .nav-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.75rem; font-weight: 600; }
+        .nav-link {
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 0.75rem; color: var(--text-secondary); text-decoration: none;
+            font-size: 0.85rem; border-radius: 6px; transition: all 0.2s ease; margin-bottom: 0.2rem;
+        }
+        .nav-link:hover { background: var(--purple-dim); color: var(--purple); }
+        .nav-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+        /* Main */
+        .main { flex: 1; margin-left: 300px; padding: 3rem 4rem; max-width: 1100px; }
+        h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem; line-height: 1.2; }
+        h1 .accent { color: var(--purple); }
+        h2 { font-size: 1.75rem; font-weight: 700; margin-top: 3.5rem; margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--purple); display: inline-block; }
+        h3 { font-size: 1.25rem; font-weight: 600; margin-top: 2rem; margin-bottom: 1rem; }
+        h4 { font-size: 1.1rem; font-weight: 600; color: var(--purple); margin-top: 1.5rem; margin-bottom: 0.75rem; }
+        p { margin-bottom: 1.5rem; color: var(--text-secondary); }
+        strong { color: var(--text-primary); }
+        .meta { color: var(--text-muted); font-size: 0.875rem; margin-bottom: 2rem; }
+        ul { margin: 1rem 0 1.5rem 1.5rem; }
+        ul li { color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.95rem; }
+        ul li strong { color: var(--text-primary); }
+
+        .highlight-card {
+            background: var(--bg-card); border: 1px solid var(--border-accent); border-radius: 12px;
+            padding: 2rem; margin: 2.5rem 0; position: relative; overflow: hidden;
+        }
+        .highlight-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--purple), transparent); }
+        .highlight-card .label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--purple); font-weight: 600; margin-bottom: 1rem; }
+        .highlight-card p { color: var(--text-primary); font-size: 1.1rem; margin-bottom: 0; }
+
+        .highlight-card.green::before { background: linear-gradient(90deg, var(--accent), transparent); }
+        .highlight-card.green .label { color: var(--accent); }
+        .highlight-card.orange::before { background: linear-gradient(90deg, var(--orange), transparent); }
+        .highlight-card.orange .label { color: var(--orange); }
+        .highlight-card.blue::before { background: linear-gradient(90deg, var(--blue), transparent); }
+        .highlight-card.blue .label { color: var(--blue); }
+        .highlight-card.warning::before { background: linear-gradient(90deg, var(--warning), transparent); }
+        .highlight-card.warning .label { color: var(--warning); }
+
+        .divider { height: 1px; background: linear-gradient(90deg, var(--purple), transparent); margin: 3rem 0; }
+        .divider-thick { height: 4px; background: linear-gradient(90deg, var(--purple), var(--accent), transparent); margin: 4rem 0; border-radius: 2px; }
+
+        .insight-box {
+            background: linear-gradient(135deg, var(--purple-dim) 0%, transparent 100%);
+            border-left: 3px solid var(--purple); padding: 1.25rem 1.5rem; margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0; font-weight: 500; color: var(--text-primary); font-size: 1rem;
+        }
+        .insight-box.green { background: linear-gradient(135deg, var(--accent-dim) 0%, transparent 100%); border-left-color: var(--accent); }
+        .insight-box.warning { background: linear-gradient(135deg, var(--warning-dim) 0%, transparent 100%); border-left-color: var(--warning); }
+        .insight-box.highlight { background: linear-gradient(135deg, var(--highlight-dim) 0%, transparent 100%); border-left-color: var(--highlight); }
+        .insight-box.blue { background: linear-gradient(135deg, var(--blue-dim) 0%, transparent 100%); border-left-color: var(--blue); }
+        .insight-box.orange { background: linear-gradient(135deg, var(--orange-dim) 0%, transparent 100%); border-left-color: var(--orange); }
+
+        .decision-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .decision-table th {
+            background: var(--bg-tertiary); color: var(--purple); font-weight: 600; font-size: 0.75rem;
+            text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; text-align: left; border-bottom: 2px solid var(--purple);
+        }
+        .decision-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+        .decision-table tr:hover td { background: var(--bg-tertiary); }
+        .decision-table td:first-child { color: var(--text-primary); font-weight: 500; }
+
+        .code-block {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 1.5rem; margin: 2rem 0; font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6; overflow-x: auto; white-space: pre-wrap;
+        }
+        .code-block .accent { color: var(--accent); }
+        .code-block .purple { color: var(--purple); }
+        .code-block .warning { color: var(--warning); }
+        .code-block .highlight { color: var(--highlight); }
+        .code-block .blue { color: var(--blue); }
+        .code-block .orange { color: var(--orange); }
+        .code-block .muted { color: var(--text-muted); }
+
+        .metric-row { display: flex; gap: 1rem; margin: 1.5rem 0; flex-wrap: wrap; }
+        .metric-box {
+            background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 10px;
+            padding: 1rem 1.25rem; flex: 1; min-width: 140px; text-align: center;
+        }
+        .metric-value { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
+        .metric-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+        /* Report mock */
+        .report-mock {
+            background: var(--bg-card); border: 2px solid var(--purple); border-radius: 16px;
+            padding: 0; margin: 2.5rem 0; overflow: hidden;
+        }
+        .report-mock.green-border { border-color: var(--accent); }
+        .report-mock.orange-border { border-color: var(--orange); }
+        .report-header {
+            background: linear-gradient(135deg, var(--purple-dim), var(--bg-tertiary));
+            padding: 1.5rem 2rem; border-bottom: 1px solid var(--border);
+        }
+        .report-mock.green-border .report-header { background: linear-gradient(135deg, var(--accent-dim), var(--bg-tertiary)); }
+        .report-mock.orange-border .report-header { background: linear-gradient(135deg, var(--orange-dim), var(--bg-tertiary)); }
+        .report-header-title { font-size: 1.1rem; font-weight: 700; color: var(--purple); margin-bottom: 0.25rem; }
+        .report-mock.green-border .report-header-title { color: var(--accent); }
+        .report-mock.orange-border .report-header-title { color: var(--orange); }
+        .report-header-meta { font-size: 0.8rem; color: var(--text-muted); }
+        .report-body { padding: 2rem; }
+        .report-section-title {
+            font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em;
+            font-weight: 700; padding: 0.4rem 0.75rem; border-radius: 4px;
+            display: inline-block; margin-bottom: 1rem; margin-top: 1.5rem;
+        }
+        .report-section-title:first-child { margin-top: 0; }
+        .report-section-title.purple { background: var(--purple-dim); color: var(--purple); }
+        .report-section-title.green { background: var(--accent-dim); color: var(--accent); }
+        .report-section-title.red { background: var(--warning-dim); color: var(--warning); }
+        .report-section-title.yellow { background: var(--highlight-dim); color: var(--highlight); }
+        .report-section-title.blue { background: var(--blue-dim); color: var(--blue); }
+        .report-section-title.orange { background: var(--orange-dim); color: var(--orange); }
+        .report-text { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.8; margin-bottom: 1rem; }
+        .report-text strong { color: var(--text-primary); }
+
+        .report-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin: 1rem 0; }
+        .report-table th {
+            background: var(--bg-tertiary); color: var(--purple); font-weight: 600; font-size: 0.7rem;
+            text-transform: uppercase; letter-spacing: 0.05em; padding: 0.6rem 0.75rem; text-align: left;
+            border-bottom: 2px solid var(--purple);
+        }
+        .report-table td { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+        .report-table tr:hover td { background: var(--bg-tertiary); }
+        .report-table tr:first-child td { color: var(--accent); font-weight: 600; }
+        .report-table tr:last-child td { color: var(--warning); }
+        .report-table td:first-child { font-weight: 600; color: var(--text-primary); }
+
+        .report-rec {
+            background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px;
+            padding: 1rem 1.25rem; margin-bottom: 0.75rem;
+        }
+        .report-rec-title { font-weight: 700; color: var(--purple); font-size: 0.9rem; margin-bottom: 0.25rem; }
+        .report-rec-desc { color: var(--text-secondary); font-size: 0.85rem; }
+
+        .badge {
+            font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;
+            padding: 0.35rem 0.75rem; border-radius: 20px; display: inline-block;
+        }
+        .badge.purple { background: var(--purple-dim); color: var(--purple); }
+        .badge.green { background: var(--accent-dim); color: var(--accent); }
+        .badge.yellow { background: var(--highlight-dim); color: var(--highlight); }
+        .badge.orange { background: var(--orange-dim); color: var(--orange); }
+        .badge.red { background: var(--warning-dim); color: var(--warning); }
+
+        .agent-header {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px;
+            padding: 2rem; margin: 2rem 0; display: flex; align-items: center; gap: 2rem;
+        }
+        .agent-number {
+            font-size: 3rem; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+            width: 80px; height: 80px; display: flex; align-items: center; justify-content: center;
+            border-radius: 16px; flex-shrink: 0;
+        }
+        .agent-info h3 { margin: 0 0 0.25rem 0; font-size: 1.4rem; }
+        .agent-info p { margin: 0; font-size: 0.9rem; }
+
+        .prompt-block {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 0; margin: 2rem 0; overflow: hidden;
+        }
+        .prompt-header {
+            padding: 1rem 1.5rem; border-bottom: 1px solid var(--border);
+            font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; font-weight: 600;
+        }
+        .prompt-header.system { background: var(--purple-dim); color: var(--purple); }
+        .prompt-header.user { background: var(--accent-dim); color: var(--accent); }
+        .prompt-body {
+            padding: 1.5rem; font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem; color: var(--text-secondary); line-height: 1.7; white-space: pre-wrap;
+        }
+        .prompt-body .accent { color: var(--accent); }
+        .prompt-body .purple { color: var(--purple); }
+        .prompt-body .warning { color: var(--warning); }
+        .prompt-body .highlight { color: var(--highlight); }
+
+        .flow-step {
+            display: flex; align-items: flex-start; gap: 1rem; margin-bottom: 1rem;
+        }
+        .flow-number {
+            width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .flow-content { flex: 1; }
+        .flow-content strong { font-size: 0.95rem; }
+        .flow-content p { font-size: 0.88rem; margin-bottom: 0.25rem; }
+
+        .footer-bar { margin-top: 4rem; padding: 2rem 0; border-top: 1px solid var(--border); text-align: center; }
+        .footer-bar p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0; }
+
+        @media (max-width: 900px) {
+            .sidebar { display: none; }
+            .main { margin-left: 0; padding: 2rem 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <!-- SIDEBAR -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">Ecossistema de Agentes</div>
+                <div class="sidebar-subtitle">Arquitetura LLM &mdash; 3 Agentes</div>
+            </div>
+            <div class="nav-section">
+                <div class="nav-label">Visao Geral</div>
+                <a href="#intro" class="nav-link"><span class="nav-dot" style="background:var(--purple)"></span> Como funciona a LLM</a>
+                <a href="#fluxo-geral" class="nav-link"><span class="nav-dot" style="background:var(--purple)"></span> Fluxo Geral</a>
+                <a href="#comparativo" class="nav-link"><span class="nav-dot" style="background:var(--purple)"></span> Comparativo 3 Agentes</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-label">Agente 1 &mdash; Copy</div>
+                <a href="#ag1-papel" class="nav-link"><span class="nav-dot" style="background:var(--accent)"></span> Papel e Contexto</a>
+                <a href="#ag1-prompt" class="nav-link"><span class="nav-dot" style="background:var(--accent)"></span> Prompt Completo</a>
+                <a href="#ag1-output" class="nav-link"><span class="nav-dot" style="background:var(--accent)"></span> Output Esperado</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-label">Agente 2 &mdash; Autenticidade</div>
+                <a href="#ag2-papel" class="nav-link"><span class="nav-dot" style="background:var(--warning)"></span> Papel e Contexto</a>
+                <a href="#ag2-prompt" class="nav-link"><span class="nav-dot" style="background:var(--warning)"></span> Prompt Completo</a>
+                <a href="#ag2-output" class="nav-link"><span class="nav-dot" style="background:var(--warning)"></span> Output Esperado</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-label">Agente 3 &mdash; Micronichos</div>
+                <a href="#ag3-papel" class="nav-link"><span class="nav-dot" style="background:var(--orange)"></span> Papel e Contexto</a>
+                <a href="#ag3-prompt1" class="nav-link"><span class="nav-dot" style="background:var(--orange)"></span> Prompt 1: Classificacao</a>
+                <a href="#ag3-prompt2" class="nav-link"><span class="nav-dot" style="background:var(--orange)"></span> Prompt 2: Narrativa</a>
+                <a href="#ag3-output" class="nav-link"><span class="nav-dot" style="background:var(--orange)"></span> Output Esperado</a>
+            </div>
+        </nav>
+
+        <!-- MAIN -->
+        <main class="main">
+
+            <!-- ============================================================ -->
+            <!-- HEADER -->
+            <!-- ============================================================ -->
+            <section id="intro">
+                <h1>Arquitetura LLM dos <span class="accent">3 Agentes</span></h1>
+                <div class="meta">Documento de Review &bull; 27 de Fevereiro de 2026 &bull; Prompts + Outputs Completos</div>
+
+                <div class="highlight-card">
+                    <div class="label">O que e este documento</div>
+                    <p>Especificacao completa de <strong>como a LLM (GPT-4o-mini) vai trabalhar</strong> em cada um dos 3 agentes de analise. Inclui o prompt EXATO que sera enviado, o contexto que recebe, e um exemplo do output esperado para cada agente.</p>
+                </div>
+
+                <p>Cada agente e um <strong>especialista isolado</strong>. Recebe APENAS os dados relevantes para sua funcao e produz um relatorio focado. Os agentes NAO se comunicam entre si &mdash; o cruzamento de informacoes e responsabilidade do Agente 6 (Recomendador).</p>
+
+                <div class="metric-row">
+                    <div class="metric-box" style="border-color:rgba(0,212,170,0.3)">
+                        <div class="metric-value" style="color:var(--accent)">1</div>
+                        <div class="metric-label">Agente Copy</div>
+                        <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem">Qual estrutura A-G performa melhor?</div>
+                    </div>
+                    <div class="metric-box" style="border-color:rgba(255,107,107,0.3)">
+                        <div class="metric-value" style="color:var(--warning)">2</div>
+                        <div class="metric-label">Agente Autenticidade</div>
+                        <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem">O canal esta seguro ou em risco?</div>
+                    </div>
+                    <div class="metric-box" style="border-color:rgba(255,159,67,0.3)">
+                        <div class="metric-value" style="color:var(--orange)">3</div>
+                        <div class="metric-label">Agente Micronichos</div>
+                        <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem">Qual subcategoria tematica viraliza?</div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- ============================================================ -->
+            <!-- FLUXO GERAL -->
+            <!-- ============================================================ -->
+            <section id="fluxo-geral">
+                <h2>Fluxo Geral: Python + LLM</h2>
+
+                <p>Em todos os 3 agentes, o fluxo segue o mesmo padrao:</p>
+
+                <div class="flow-step">
+                    <div class="flow-number" style="background:var(--purple-dim);color:var(--purple)">1</div>
+                    <div class="flow-content">
+                        <strong>Python coleta e processa dados</strong>
+                        <p>Busca dados do Supabase, calcula metricas, gera rankings e tabelas numericas</p>
+                    </div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-number" style="background:var(--accent-dim);color:var(--accent)">2</div>
+                    <div class="flow-content">
+                        <strong>Python monta o prompt com os dados</strong>
+                        <p>Injeta dados processados + relatorio anterior (memoria) no prompt da LLM</p>
+                    </div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-number" style="background:var(--orange-dim);color:var(--orange)">3</div>
+                    <div class="flow-content">
+                        <strong>LLM recebe e analisa</strong>
+                        <p>GPT-4o-mini (temperature 0.3) recebe os dados e gera observacoes narrativas</p>
+                    </div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-number" style="background:var(--highlight-dim);color:var(--highlight)">4</div>
+                    <div class="flow-content">
+                        <strong>Python monta o relatorio final</strong>
+                        <p>Combina tabelas (geradas pelo Python) + texto analitico (gerado pela LLM) num relatorio unico</p>
+                    </div>
+                </div>
+
+                <div class="insight-box">
+                    <strong>Divisao de trabalho:</strong> Python faz o trabalho NUMERICO (rankings, medias, desvios, scores). A LLM faz o trabalho NARRATIVO (interpretar padroes, contextualizar, identificar tendencias). Nenhum faz o trabalho do outro.
+                </div>
+
+                <div class="insight-box green">
+                    <strong>Memoria acumulativa:</strong> Em TODOS os 3 agentes, a LLM recebe o relatorio anterior como contexto. Isso permite comparar evolucao, confirmar ou revisar tendencias, e construir historico ao longo do tempo.
+                </div>
+
+                <h4>Configuracao tecnica da LLM</h4>
+                <table class="decision-table">
+                    <tr><th>Parametro</th><th>Valor</th><th>Motivo</th></tr>
+                    <tr><td>Modelo</td><td>GPT-4o-mini</td><td>Rapido, barato, suficiente para analise narrativa com dados pre-processados</td></tr>
+                    <tr><td>Temperature</td><td>0.3</td><td>Baixa = respostas factuais e consistentes. Nao queremos criatividade excessiva</td></tr>
+                    <tr><td>Max tokens</td><td>Sem limite</td><td>A LLM escreve o necessario. Limitar trunca analises importantes</td></tr>
+                    <tr><td>Formato</td><td>System + User messages</td><td>System = contexto permanente. User = dados da semana atual</td></tr>
+                </table>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- ============================================================ -->
+            <!-- COMPARATIVO -->
+            <!-- ============================================================ -->
+            <section id="comparativo">
+                <h2>Comparativo dos 3 Agentes</h2>
+
+                <table class="decision-table">
+                    <tr><th>Aspecto</th><th>Agente 1 (Copy)</th><th>Agente 2 (Autenticidade)</th><th>Agente 3 (Micronichos)</th></tr>
+                    <tr><td>Pergunta central</td><td>Qual estrutura de roteiro gera mais retencao?</td><td>O canal parece autentico ou template?</td><td>Qual subcategoria tematica a audiencia prefere?</td></tr>
+                    <tr><td>Metrica primaria</td><td>Retencao %</td><td>Score 0-100</td><td>Views brutas</td></tr>
+                    <tr><td>Fonte de dados</td><td>Planilha de copy + Analytics API</td><td>Planilha de copy + titulos</td><td>videos_historico (Supabase)</td></tr>
+                    <tr><td>Canais elegiveis</td><td>21 (com planilha + OAuth)</td><td>21 (com planilha + OAuth)</td><td>43 (todos tipo="nosso")</td></tr>
+                    <tr><td>Chamadas LLM</td><td>1 (narrativa)</td><td>1 (narrativa)</td><td>2 (classificacao + narrativa)</td></tr>
+                    <tr><td>Blocos de output</td><td>2: Observacoes + Tendencias</td><td>3: Diagnostico + Recomendacoes + Tendencias</td><td>3: Ranking + Observacoes + Recomendacoes</td></tr>
+                    <tr><td>Da recomendacoes?</td><td>NAO (decisao e humana)</td><td>SIM (com prioridade ALTA/MEDIA/BAIXA)</td><td>SIM (micronichos novos para testar)</td></tr>
+                </table>
+            </section>
+
+            <div class="divider-thick"></div>
+
+            <!-- ============================================================ -->
+            <!-- AGENTE 1 - COPY -->
+            <!-- ============================================================ -->
+            <section id="ag1-papel">
+                <div class="agent-header">
+                    <div class="agent-number" style="background:var(--accent-dim);color:var(--accent)">01</div>
+                    <div class="agent-info">
+                        <h3 style="color:var(--accent)">Agente de Estrutura de Copy</h3>
+                        <p>Camada 1 &mdash; Diagnostico | Metrica: Retencao % | Output: 2 blocos</p>
+                    </div>
+                </div>
+
+                <p>Analisa qual <strong>estrutura narrativa (A-G)</strong> gera mais retencao no canal. Cada estrutura e uma ABORDAGEM NARRATIVA diferente &mdash; nao o tema, mas COMO a historia e contada.</p>
+
+                <h4>O que a LLM recebe</h4>
+                <p>O Python ja calculou tudo antes de chamar a LLM. Ela recebe:</p>
+                <ul>
+                    <li>Ranking de estruturas por retencao media (A: 42.3%, C: 38.1%, etc.)</li>
+                    <li>Desvio padrao da retencao por estrutura</li>
+                    <li>N de videos por estrutura + distribuicao %</li>
+                    <li>Watch time medio por estrutura</li>
+                    <li>Lista de anomalias detectadas pelo Python</li>
+                    <li>Media geral do canal + status de cada estrutura (ACIMA / MEDIA / ABAIXO)</li>
+                    <li>Relatorio anterior (se existir) para comparacao</li>
+                </ul>
+
+                <h4>O que a LLM NAO recebe</h4>
+                <ul>
+                    <li>CTR (e do Agente 4, nao da copy)</li>
+                    <li>Titulos dos videos (e do Agente 2 e 4)</li>
+                    <li>Micronichos (e do Agente 3)</li>
+                    <li>Dados de outros canais</li>
+                </ul>
+
+                <div class="insight-box green">
+                    <strong>Decisao de design:</strong> A LLM NAO da recomendacoes de acao. Ela apresenta PADROES e FATOS. A decisao de "usar mais Estrutura A" e HUMANA. Isso evita que a LLM de conselhos baseados em dados insuficientes.
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- AG1 PROMPT -->
+            <section id="ag1-prompt">
+                <h2>Prompt Completo &mdash; Agente 1</h2>
+                <p>Este e o prompt EXATO que sera enviado para a LLM. Dividido em <strong>SYSTEM</strong> (contexto permanente) e <strong>USER</strong> (dados da semana).</p>
+
+                <div class="prompt-block">
+                    <div class="prompt-header system">SYSTEM MESSAGE &mdash; Contexto permanente do Agente 1</div>
+                    <div class="prompt-body"><span class="purple">Voce e um analista senior de performance de copywriting para canais YouTube.</span>
+
+<span class="highlight">CONTEXTO DO SISTEMA:</span>
+Este canal produz videos usando diferentes estruturas de copy (roteiros narrativos),
+identificadas por letras A-G. Cada estrutura e uma ABORDAGEM NARRATIVA diferente de
+contar a historia &mdash; nao o tema, mas COMO a historia e contada.
+
+Exemplo: dois videos sobre "A Queda de Roma" podem usar estruturas diferentes:
+- Estrutura A (cronologica): conta do inicio ao fim
+- Estrutura C (misterio): abre com uma pergunta e vai revelando
+
+<span class="accent">A metrica PRIMARIA e retencao %</span> porque:
+- Copy/roteiro afeta DIRETAMENTE quanto tempo o espectador assiste
+- CTR (cliques na thumbnail) e afetado pelo titulo + thumbnail, NAO pela copy
+- Retencao e o indicador MAIS PURO de qualidade do roteiro
+
+<span class="highlight">METRICAS DE CONTEXTO</span> (nao usadas para ranking, mas para interpretar):
+- <span class="blue">Watch Time (minutos):</span> contextualiza retencao vs duracao do video
+  &rarr; Video de 8 min com 40% ret = 3.2 min assistidos
+  &rarr; Video de 18 min com 25% ret = 4.5 min assistidos
+  &rarr; O segundo PARECE pior em retencao mas entrega MAIS tempo assistido
+
+- <span class="blue">Views:</span> escala/alcance. Anomalia quando 1 video tem 5x+ a media da estrutura
+
+- <span class="blue">Desvio padrao da retencao por estrutura:</span>
+  &rarr; Baixo (&lt;5%): estrutura CONSISTENTE &mdash; funciona independente do tema
+  &rarr; Alto (&gt;10%): estrutura VOLATIL &mdash; performance depende mais do TEMA que da copy
+  &rarr; Isso e informacao critica: volatilidade alta = a estrutura nao e o fator determinante
+
+<span class="highlight">CLASSIFICACAO POR STATUS:</span>
+- ACIMA: retencao da estrutura acima da media geral do canal
+- MEDIA: proxima da media geral do canal
+- ABAIXO: abaixo da media geral do canal
+
+<span class="warning">REGRAS INVIOLAVEIS:</span>
+1. Seja FACTUAL &mdash; cite numeros exatos dos dados fornecidos
+2. NAO invente dados &mdash; use APENAS o que esta nos dados abaixo
+3. NAO de recomendacoes de acao &mdash; decisao e HUMANA. Voce apresenta padroes
+4. NAO tente explicar POR QUE um video viralizou ou flopou &mdash; so reporte o fato
+5. NAO repita tabelas de ranking ou anomalias (o sistema ja gera isso automaticamente)
+6. Anomalias: REPORTE como fato + flag. NAO tente explicar a causa
+7. Escreva em portugues, paragrafos curtos separados por linha em branco
+8. Escreva o quanto for necessario. NAO resuma ou corte a analise
+9. Use EXATAMENTE os marcadores [OBSERVACOES] e [TENDENCIAS]
+
+<span class="accent">VOCE TEM MEMORIA ACUMULATIVA:</span>
+Se houver um relatorio anterior abaixo, ele contem TODAS as conclusoes e tendencias
+identificadas ate agora. Sua analise atual DEVE:
+- Se basear no relatorio anterior como referencia
+- Confirmar ou revisar tendencias anteriores
+- Notar evolucoes (ex: "Estrutura A consolida lideranca pela 3a analise consecutiva")
+- Construir em cima, nunca ignorar o historico
+
+<span class="muted">{bloco do relatorio anterior, se existir}</span></div>
+                </div>
+
+                <div class="prompt-block">
+                    <div class="prompt-header user">USER MESSAGE &mdash; Dados da semana atual</div>
+                    <div class="prompt-body">Produza EXATAMENTE 2 blocos:
+
+<span class="purple">[OBSERVACOES]</span>
+Analise DESTA SEMANA. Cubra obrigatoriamente:
+1. Qual estrutura lidera e com que margem sobre a media do canal
+2. Consistencia: cite o desvio padrao de cada estrutura.
+   Interprete: &lt;5% = consistente, &gt;10% = volatil
+3. Se alguma estrutura volatil sugere que performance depende do tema, nao da copy
+4. Qual estrutura e consistentemente a pior e por que margem
+5. Distribuicao da producao: quantos videos cada estrutura tem, qual
+   porcentagem do total. Analise se ha concentracao ou diversidade
+6. Anomalias notaveis: se 1 video tem views 5x+ acima da media da estrutura
+7. Watch time vs retencao: se uma estrutura tem retencao menor mas
+   watch time maior (videos mais longos), destaque a nuance
+8. Qualquer outro padrao relevante nos dados
+
+<span class="purple">[TENDENCIAS]</span>
+EVOLUCAO ao longo do tempo (SO se houver relatorio anterior):
+- Estruturas subindo, caindo ou consolidando posicao no ranking
+- Compare retencao atual vs anterior com numeros exatos
+- Padroes que se confirmam ou se revertem
+- Se primeira analise: "Primeira analise. Sem dados anteriores para comparacao."
+
+<span class="highlight">DADOS DA SEMANA ATUAL:</span>
+<span class="muted">{ranking, medias, desvios, anomalias &mdash; gerados pelo Python}</span></div>
+                </div>
+
+                <div class="insight-box highlight">
+                    <strong>Mudanca vs. prompt anterior:</strong> O prompt antigo tinha ~40 linhas genericas ("voce e um analista de dados"). O novo tem contexto completo: explica o que sao estruturas A-G, por que retencao e primaria, como interpretar desvio padrao, watch time, e anomalias. A LLM agora ENTENDE o dominio.
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- AG1 OUTPUT -->
+            <section id="ag1-output">
+                <h2>Output Esperado &mdash; Agente 1</h2>
+
+                <div class="report-mock green-border">
+                    <div class="report-header">
+                        <div class="report-header-title" style="color:var(--accent)">Analise de Performance de Copy &mdash; Cronicas da Coroa [PT-BR]</div>
+                        <div class="report-header-meta">27-02-2026 &bull; 18 videos analisados &bull; 5 estruturas utilizadas</div>
+                    </div>
+                    <div class="report-body">
+
+                        <div class="report-section-title green">Observacoes</div>
+
+                        <p style="font-size:0.8rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem">Lideranca e Consistencia</p>
+                        <div class="report-text">
+                            A Estrutura <strong>A lidera com retencao media de 42.3%</strong>, superando a media geral do canal (35.8%) por 6.5 pontos percentuais. Desvio padrao de 3.1% &mdash; <strong>altamente consistente</strong>, indicando que a abordagem narrativa cronologica funciona independentemente do tema.
+                        </div>
+                        <div class="report-text">
+                            A Estrutura C aparece em segundo com 38.1% de retencao, mas com desvio padrao de <strong>12.4%</strong> &mdash; <strong>volatil</strong>. Isso indica que a performance depende mais do TEMA escolhido do que da forma narrativa. Quando acerta o tema, vai muito bem. Quando erra, cai drasticamente.
+                        </div>
+
+                        <p style="font-size:0.8rem;font-weight:600;color:var(--warning);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;margin-top:1.5rem">Estrutura mais fraca</p>
+                        <div class="report-text">
+                            Estrutura <strong>E e a mais fraca do canal</strong> com retencao media de 28.5%, ficando 7.3 pontos abaixo da media geral. Seus 3 videos tem desempenho uniformemente baixo (desvio de 2.8%), indicando que o problema e da abordagem, nao de temas especificos.
+                        </div>
+
+                        <p style="font-size:0.8rem;font-weight:600;color:var(--highlight);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;margin-top:1.5rem">Distribuicao da producao</p>
+                        <div class="report-text">
+                            A producao esta concentrada em 2 estruturas: <strong>Estrutura A com 7 videos (39%)</strong> e <strong>Estrutura C com 5 videos (28%)</strong>, totalizando 67% do conteudo. Estruturas D e F tem apenas 1 video cada (5.5% cada). A Estrutura G nao foi utilizada em nenhum video.
+                        </div>
+
+                        <p style="font-size:0.8rem;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;margin-top:1.5rem">Watch time vs retencao</p>
+                        <div class="report-text">
+                            Nuance relevante: Estrutura <strong>B tem retencao de 31.2%</strong> (abaixo da media), mas seus videos sao os mais longos do canal (media 22 min). Em termos de watch time absoluto, entregam <strong>6.9 minutos assistidos</strong> por viewer &mdash; o segundo maior do canal. Estrutura A, com 42.3% de retencao em videos de 12 min media, entrega 5.1 min. Em tempo de sessao puro, B e superior.
+                        </div>
+
+                        <div class="report-section-title blue">Tendencias</div>
+                        <div class="report-text">
+                            Primeira analise. Sem dados anteriores para comparacao.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="divider-thick"></div>
+
+            <!-- ============================================================ -->
+            <!-- AGENTE 2 - AUTENTICIDADE -->
+            <!-- ============================================================ -->
+            <section id="ag2-papel">
+                <div class="agent-header">
+                    <div class="agent-number" style="background:var(--warning-dim);color:var(--warning)">02</div>
+                    <div class="agent-info">
+                        <h3 style="color:var(--warning)">Agente de Score de Autenticidade</h3>
+                        <p>Camada 1 &mdash; Diagnostico | Metrica: Score 0-100 | Output: 3 blocos</p>
+                    </div>
+                </div>
+
+                <p>Avalia se o canal esta em <strong>risco de ser flaggado como "Inauthentic Content"</strong> pelo YouTube (politica de Julho 2025). O Python calcula um score numerico, e a LLM interpreta e da recomendacoes concretas.</p>
+
+                <h4>O que a LLM recebe</h4>
+                <ul>
+                    <li><strong>Score composto (0-100)</strong> + nivel (EXCELENTE/BOM/ATENCAO/RISCO/CRITICO)</li>
+                    <li><strong>Score Fator 1</strong> (Variedade de Estruturas): Shannon entropy, dominancia %, estruturas usadas de 7</li>
+                    <li><strong>Score Fator 2</strong> (Diversidade de Titulos): Jaccard similarity, padroes seriais, keyword stuffing, near-duplicates</li>
+                    <li>Lista de alertas ativos (se houver)</li>
+                    <li>Titulos especificos com similaridade alta</li>
+                    <li>Distribuicao de estruturas (% por letra)</li>
+                    <li>Relatorio anterior (se existir) para comparacao</li>
+                </ul>
+
+                <div class="insight-box warning">
+                    <strong>Diferenca do Agente 1:</strong> Este agente SIM da recomendacoes de acao. Porque aqui a acao e URGENTE &mdash; se o canal esta em risco de ser derrubado, precisa de orientacao imediata. Cada recomendacao vem com prioridade [ALTA], [MEDIA] ou [BAIXA].
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- AG2 PROMPT -->
+            <section id="ag2-prompt">
+                <h2>Prompt Completo &mdash; Agente 2</h2>
+
+                <div class="prompt-block">
+                    <div class="prompt-header system">SYSTEM MESSAGE &mdash; Contexto permanente do Agente 2</div>
+                    <div class="prompt-body"><span class="purple">Voce e um perito em politicas de conteudo do YouTube, especializado em detectar
+e PREVENIR flags de "Inauthentic Content" (politica atualizada em Julho 2025).</span>
+
+<span class="highlight">CONTEXTO DO SISTEMA:</span>
+O YouTube derruba canais que parecem "produzidos em massa, baseados em template,
+facilmente replicaveis em escala". Nosso sistema calcula um SCORE de 0-100
+(mais alto = mais autentico/seguro) baseado em 2 fatores com peso igual (50/50):
+
+<span class="accent">FATOR 1 &mdash; Variedade de Estruturas de Copy (Coluna A da planilha):</span>
+- Cada video usa uma estrutura narrativa (A-G)
+- Calculamos: Shannon entropy, dominancia (% da estrutura mais usada), quantidade usada
+- Score alto: usa varias estruturas, nenhuma domina. Parece HUMANO e variado
+- Score baixo: 1-2 estruturas dominam 80%+ dos videos. Parece TEMPLATE em massa
+- Triggers especificos:
+  &rarr; Dominancia &gt;80% = CRITICO (1 estrutura em quase tudo)
+  &rarr; Usar apenas 1-2 de 7 estruturas disponiveis = RISCO
+  &rarr; Shannon entropy baixa = pouca variabilidade
+
+<span class="warning">FATOR 2 &mdash; Diversidade de Titulos (Coluna B da planilha):</span>
+- Analisamos TODOS os titulos publicados
+- Calculamos: Jaccard similarity entre pares, padroes seriais, keyword stuffing, near-duplicates
+- Score alto: titulos diversos, criativos, sem padroes repetitivos
+- Score baixo: titulos repetitivos, "Parte 1/2/3", mesmas palavras dominantes
+- Triggers especificos:
+  &rarr; Pares com similaridade Jaccard &gt;0.6 = titulos muito parecidos
+  &rarr; Padroes seriais ("Parte X", numeros sequenciais) = flag forte
+  &rarr; 1 keyword em &gt;40% dos titulos = keyword stuffing
+  &rarr; Near-duplicates (titulos que diferem por 1-2 palavras) = CRITICO
+
+<span class="highlight">NIVEIS DO SCORE:</span>
+- EXCELENTE (80-100): canal seguro, variado, parece humano
+- BOM (60-80): adequado, poucos riscos
+- ATENCAO (40-60): riscos moderados, precisa diversificar
+- RISCO (20-40): alto risco de flag, acao necessaria
+- CRITICO (0-20): perigo iminente de derrubada
+
+<span class="highlight">ALERTAS AUTOMATICOS (gerados pelo sistema):</span>
+- Score composto &lt; 40
+- Qualquer fator individual &lt; 30
+- Queda &gt; 15 pontos vs analise anterior
+
+<span class="warning">REGRAS INVIOLAVEIS:</span>
+1. Seja FACTUAL &mdash; cite numeros dos dados fornecidos
+2. NAO invente dados &mdash; use APENAS o que esta nos dados
+3. Cada recomendacao DEVE citar dados especificos (titulos reais, porcentagens)
+4. Priorize recomendacoes: [ALTA] = risco imediato, [MEDIA] = melhorar, [BAIXA] = otimizar
+5. NAO repita tabelas que o sistema ja gera
+6. Escreva em portugues, seja direto e objetivo
+
+<span class="accent">VOCE TEM MEMORIA ACUMULATIVA:</span>
+Se houver relatorio anterior, construa em cima dele. Compare evolucao dos scores,
+verifique se recomendacoes anteriores foram implementadas.
+
+<span class="muted">{bloco do relatorio anterior, se existir}</span></div>
+                </div>
+
+                <div class="prompt-block">
+                    <div class="prompt-header user">USER MESSAGE &mdash; Dados calculados pelo Python</div>
+                    <div class="prompt-body">Produza EXATAMENTE 3 blocos:
+
+<span class="warning">[DIAGNOSTICO]</span>
+Estado atual de autenticidade. Cubra obrigatoriamente:
+1. Score geral e nivel &mdash; o que significa para o risco do canal
+2. Qual dos 2 fatores e o mais fraco e por que (cite metricas)
+3. Se ha alertas ativos, explique a gravidade
+4. Titulos especificos que sao problematicos (cite-os entre aspas)
+5. Estruturas de copy: distribuicao esta saudavel ou concentrada?
+6. Avaliacao geral: canal precisa de acao IMEDIATA ou apenas monitoramento?
+
+<span class="accent">[RECOMENDACOES]</span>
+Acoes CONCRETAS, cada uma com prioridade [ALTA], [MEDIA] ou [BAIXA]:
+1. Para cada recomendacao, cite o dado especifico que a motiva
+2. Sugira microacoes praticas (ex: "nos proximos 5 videos, usar estruturas D e E
+   que estao em 0%")
+3. Para titulos: sugira formulas alternativas para substituir padroes repetitivos
+4. Para estruturas: sugira redistribuicao especifica com numeros
+
+<span class="blue">[TENDENCIAS]</span>
+(SO se houver relatorio anterior):
+- Score anterior vs atual (cite numeros)
+- Quais recomendacoes anteriores foram implementadas (se detectavel nos dados)
+- Fatores que melhoraram ou pioraram
+- Se primeira analise: "Primeira analise. Sem dados anteriores para comparacao."
+
+<span class="highlight">DADOS:</span>
+<span class="muted">{scores, fatores, alertas, titulos, distribuicao &mdash; gerados pelo Python}</span></div>
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- AG2 OUTPUT -->
+            <section id="ag2-output">
+                <h2>Output Esperado &mdash; Agente 2</h2>
+
+                <div class="report-mock" style="border-color:var(--warning)">
+                    <div class="report-header" style="background:linear-gradient(135deg, var(--warning-dim), var(--bg-tertiary))">
+                        <div class="report-header-title" style="color:var(--warning)">Score de Autenticidade &mdash; Cronicas da Coroa [PT-BR]</div>
+                        <div class="report-header-meta">27-02-2026 &bull; Score: 54/100 &bull; Nivel: ATENCAO &bull; 1 alerta ativo</div>
+                    </div>
+                    <div class="report-body">
+
+                        <div class="report-section-title red">Diagnostico</div>
+                        <div class="report-text">
+                            O canal esta no nivel <strong>ATENCAO com score 54/100</strong>. Nao e critico, mas requer vigilancia. O fator mais fraco e <strong>Diversidade de Titulos (score 42)</strong> &mdash; abaixo do limiar de alerta individual de 30, porem no limiar moderado.
+                        </div>
+                        <div class="report-text">
+                            Existem <strong>3 pares de titulos com similaridade Jaccard acima de 0.6</strong>: "O Rei Mais Cruel da Idade Media" vs "O Rei Mais Sanguinario da Idade Media" (Jaccard 0.78), "A Queda do Imperio Romano" vs "A Queda do Imperio Bizantino" (Jaccard 0.67), e "Torturas Medievais que Voce Nao Acredita" vs "Punicoes Medievais que Voce Nao Acredita" (Jaccard 0.72). Esses pares <strong>near-duplicates</strong> sao o principal risco.
+                        </div>
+                        <div class="report-text">
+                            A variedade de estruturas (score 66) esta saudavel: 5 de 7 estruturas em uso, dominancia de 39% (Estrutura A). Nao ha concentracao critica.
+                        </div>
+
+                        <div class="report-section-title green">Recomendacoes</div>
+                        <div class="report-rec">
+                            <div class="report-rec-title">[ALTA] Diversificar titulos near-duplicates</div>
+                            <div class="report-rec-desc">Os 3 pares identificados seguem o padrao "O/A [superlativo] [periodo]". Para os proximos videos, usar formulas como: perguntas ("Por que X fez Y?"), declarativas ("X mudou Z para sempre"), ou nomeando o personagem diretamente ("Vlad III: A Verdade por Tras do Dracula").</div>
+                        </div>
+                        <div class="report-rec">
+                            <div class="report-rec-title">[MEDIA] Introduzir estruturas D e F</div>
+                            <div class="report-rec-desc">Estruturas D e F estao com 1 video cada (5.5%). Nos proximos 10 videos, incluir pelo menos 3 com essas estruturas para subir a variedade. Estrutura G ainda nao foi usada &mdash; considerar testar.</div>
+                        </div>
+                        <div class="report-rec">
+                            <div class="report-rec-title">[BAIXA] Reduzir keyword "Medieval" nos titulos</div>
+                            <div class="report-rec-desc">A palavra "Medieval" aparece em 35% dos titulos. Embora abaixo do limiar de 40%, esta perto. Variar com sinonimos: "Idade Media", "sec. XIV", "Europa feudal".</div>
+                        </div>
+
+                        <div class="report-section-title blue">Tendencias</div>
+                        <div class="report-text">
+                            Primeira analise. Sem dados anteriores para comparacao.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="divider-thick"></div>
+
+            <!-- ============================================================ -->
+            <!-- AGENTE 3 - MICRONICHOS -->
+            <!-- ============================================================ -->
+            <section id="ag3-papel">
+                <div class="agent-header">
+                    <div class="agent-number" style="background:var(--orange-dim);color:var(--orange)">03</div>
+                    <div class="agent-info">
+                        <h3 style="color:var(--orange)">Agente de Micronichos</h3>
+                        <p>Camada 2 &mdash; Analise Especializada | Metrica: Views brutas | Output: 3 blocos</p>
+                    </div>
+                </div>
+
+                <p>Identifica quais <strong>subcategorias tematicas (micronichos)</strong> performam melhor no canal. E o unico agente que faz <strong>2 chamadas LLM</strong>: uma para classificar e outra para analisar.</p>
+
+                <div class="insight-box orange">
+                    <strong>Diferenca principal:</strong> Nos Agentes 1 e 2, o Python ja sabe as categorias (estruturas A-G sao definidas na planilha). No Agente 3, a LLM precisa DESCOBRIR as categorias a partir dos titulos. Por isso sao 2 chamadas.
+                </div>
+
+                <h4>Por que 2 chamadas?</h4>
+                <div class="metric-row">
+                    <div class="metric-box" style="border-color:rgba(255,159,67,0.3)">
+                        <div class="metric-value" style="color:var(--orange);font-size:1.2rem">Chamada 1</div>
+                        <div class="metric-label">Classificacao</div>
+                        <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:0.5rem;text-align:left">LLM recebe TODOS os titulos e classifica cada video em 1 micronicho. Retorna JSON puro.</div>
+                    </div>
+                    <div class="metric-box" style="border-color:rgba(167,139,250,0.3)">
+                        <div class="metric-value" style="color:var(--purple);font-size:1.2rem">Python</div>
+                        <div class="metric-label">Agregacao</div>
+                        <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:0.5rem;text-align:left">Python agrega: views media, total, melhor/pior video por micronicho. Gera o ranking numerico.</div>
+                    </div>
+                    <div class="metric-box" style="border-color:rgba(0,212,170,0.3)">
+                        <div class="metric-value" style="color:var(--accent);font-size:1.2rem">Chamada 2</div>
+                        <div class="metric-label">Narrativa</div>
+                        <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:0.5rem;text-align:left">LLM recebe ranking JA CALCULADO e gera observacoes analiticas + recomendacoes de novos micronichos.</div>
+                    </div>
+                </div>
+
+                <h4>Fonte de dados</h4>
+                <table class="decision-table">
+                    <tr><th>Aspecto</th><th>Agentes 1 e 2</th><th>Agente 3</th></tr>
+                    <tr><td>Fonte</td><td>Planilha de copy (Google Sheets)</td><td>Tabela <code>videos_historico</code> (Supabase)</td></tr>
+                    <tr><td>Requer OAuth?</td><td>Sim (21 canais)</td><td>Nao (43 canais)</td></tr>
+                    <tr><td>Dados usados</td><td>Estruturas + retencao + titulos</td><td>Apenas titulo + views + data</td></tr>
+                    <tr><td>Maturidade minima</td><td>N/A</td><td>7 dias (video precisa de 7+ dias)</td></tr>
+                </table>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- AG3 PROMPT 1 -->
+            <section id="ag3-prompt1">
+                <h2>Prompt 1 &mdash; Classificacao (JSON)</h2>
+                <p>A primeira chamada LLM classifica cada video em exatamente 1 micronicho. Retorna JSON puro, sem texto.</p>
+
+                <div class="prompt-block">
+                    <div class="prompt-header system">SYSTEM MESSAGE &mdash; Taxonomista de conteudo</div>
+                    <div class="prompt-body"><span class="purple">Voce e um taxonomista de conteudo YouTube especializado em categorizar videos
+em subcategorias tematicas (micronichos).</span>
+
+<span class="highlight">DEFINICAO DE MICRONICHO:</span>
+Um micronicho e uma SUBCATEGORIA TEMATICA contida dentro do subnicho foco de um canal.
+E o nivel intermediario entre o subnicho (amplo) e o tema individual (1 video).
+
+<span class="accent">Hierarquia:</span>
+  Nicho (Historia) &rarr; Subnicho (Relatos de Guerra WWII) &rarr; <span class="orange">MICRONICHO (Espionagem Militar)</span> &rarr; Tema (Operacao Mincemeat)
+
+<span class="highlight">6 CARACTERISTICAS DE UM MICRONICHO:</span>
+1. E uma CATEGORIA, nao um assunto individual. Agrupa multiplos temas possiveis.
+   "Espionagem Militar" nao e 1 video &mdash; e um universo de videos possiveis.
+2. E CONTIDO dentro do subnicho do canal. "Receitas de bolo" NAO e micronicho
+   de Relatos de Guerra. Mas "Alimentacao nas Trincheiras" SIM.
+3. Um subnicho tem MUITOS micronichos possiveis (10-30+).
+4. Um tema pode caber em mais de um micronicho. Nesse caso, escolha o MAIS ESPECIFICO.
+5. Micronichos tem tamanhos diferentes: alguns cobrem dezenas de temas, outros 5-10.
+6. A audiencia tem preferencias DIFERENTES por micronicho dentro do mesmo canal.
+
+<span class="warning">REGRAS DE CLASSIFICACAO:</span>
+1. Cada video recebe EXATAMENTE 1 micronicho (sem dupla contagem)
+2. Use nomes CURTOS e DESCRITIVOS (2-4 palavras max)
+3. Se um titulo e ambiguo, escolha o micronicho MAIS ESPECIFICO
+4. Se 2 videos tem temas parecidos, DEVEM estar no MESMO micronicho
+5. NAO crie micronichos com 1 video se o tema cabe num micronicho existente
+6. Micronichos devem ser MUTUAMENTE DISTINTOS (nao criar 2 que significam a mesma coisa)
+
+<span class="accent">LISTA DE MICRONICHOS JA IDENTIFICADOS (analise anterior):</span>
+<span class="muted">Use estes nomes para manter CONSISTENCIA. Reutilize-os quando o tema se encaixar.
+Voce pode adicionar novos micronichos se necessario, mas NUNCA renomeie os existentes.
+{lista da analise anterior, se existir}</span></div>
+                </div>
+
+                <div class="prompt-block">
+                    <div class="prompt-header user">USER MESSAGE &mdash; Lista de videos para classificar</div>
+                    <div class="prompt-body">Canal: <span class="accent">{nome do canal}</span>
+Subnicho do canal: <span class="accent">{subnicho}</span>
+Lingua: <span class="accent">{lingua}</span>
+
+Classifique cada video abaixo em UM micronicho.
+
+Responda APENAS em JSON valido, sem texto adicional:
+{
+  "micronichos": [
+    {"video_id": "xxx", "titulo": "Titulo do Video", "micronicho": "Nome do Micronicho"},
+    ...
+  ]
+}
+
+VIDEOS (<span class="orange">{N}</span> videos, 7+ dias de maturidade):
+<span class="muted">{lista: video_id | titulo | views | data}</span></div>
+                </div>
+
+                <h4>Exemplo de resposta esperada (JSON)</h4>
+                <div class="code-block">{
+  "micronichos": [
+    {"video_id": "abc123", "titulo": "Witold Pilecki: O Homem que se Infiltrou em Auschwitz", "micronicho": "<span class="accent">Herois Nao Declarados</span>"},
+    {"video_id": "def456", "titulo": "Enigma: Como os Aliados Quebraram o Codigo Nazista", "micronicho": "<span class="accent">Espionagem e Inteligencia</span>"},
+    {"video_id": "ghi789", "titulo": "A Marcha da Morte de 1945", "micronicho": "<span class="accent">Tratamento de Prisioneiros</span>"},
+    {"video_id": "jkl012", "titulo": "Operacao Market Garden: O Maior Fracasso Aliado", "micronicho": "<span class="accent">Batalhas Decisivas</span>"}
+  ]
+}</div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- AG3 PROMPT 2 -->
+            <section id="ag3-prompt2">
+                <h2>Prompt 2 &mdash; Narrativa Analitica</h2>
+                <p>A segunda chamada recebe o ranking JA CALCULADO pelo Python e gera 3 blocos de analise.</p>
+
+                <div class="prompt-block">
+                    <div class="prompt-header system">SYSTEM MESSAGE &mdash; Analista de performance por micronicho</div>
+                    <div class="prompt-body"><span class="purple">Voce e um analista de performance de conteudo YouTube, especializado em analisar
+quais subcategorias tematicas (micronichos) performam melhor em um canal.</span>
+
+<span class="highlight">CONTEXTO:</span>
+- Micronicho = subcategoria tematica dentro do subnicho do canal
+- Metrica: views brutas + idade do video como contexto interpretativo
+- NAO usa retencao (isso e do Agente 1) nem CTR (Agente 4)
+- Views brutas indicam INTERESSE DA AUDIENCIA pelo micronicho
+- A data de publicacao contextualiza: 50K em 7 dias &ne; 50K em 90 dias
+
+<span class="accent">IMPORTANCIA ESTRATEGICA DOS MICRONICHOS:</span>
+1. <span class="accent">PERFORMANCE:</span> micronichos diferentes tem views drasticamente diferentes.
+   Saber qual funciona muda a estrategia de producao.
+2. <span class="warning">PROTECAO:</span> 80%+ dos videos no mesmo micronicho = risco de inauthentic content.
+   Variar micronichos e uma das formas mais efetivas de se proteger.
+3. <span class="highlight">OPORTUNIDADE:</span> micronichos pouco explorados com alta performance = ouro.
+   O canal pode estar sentado numa mina sem saber.
+
+<span class="warning">REGRAS:</span>
+1. Seja FACTUAL &mdash; cite numeros dos dados
+2. NAO invente dados
+3. Views como metrica principal. Data como CONTEXTO (ex: "45K em apenas 12 dias &mdash;
+   ritmo acima da media, indicando interesse crescente")
+4. Escreva em portugues, paragrafos curtos
+5. Use EXATAMENTE os marcadores indicados
+
+<span class="accent">VOCE TEM MEMORIA ACUMULATIVA:</span>
+<span class="muted">{bloco do relatorio anterior, se existir}</span></div>
+                </div>
+
+                <div class="prompt-block">
+                    <div class="prompt-header user">USER MESSAGE &mdash; Ranking calculado pelo Python</div>
+                    <div class="prompt-body">Produza EXATAMENTE 3 blocos:
+
+<span class="orange">[RANKING]</span>
+Tabela formatada do melhor ao pior micronicho. Para cada um:
+- Posicao (#1, #2...)
+- Nome do micronicho
+- N de videos
+- Views media
+- Views total
+- Melhor video: titulo + views + idade em dias (ex: "180K (12d)")
+- Pior video: titulo + views + idade em dias
+
+<span class="accent">[OBSERVACOES]</span>
+Cubra obrigatoriamente:
+1. DESTAQUES POSITIVOS: micronichos para dobrar aposta. Cite numeros.
+   Se o melhor video e recente com views altas, destaque como "interesse em ascensao"
+2. SINAIS DE ALERTA: micronichos com performance fraca ou em declinio.
+   Se videos antigos performam melhor que recentes = possivel saturacao
+3. CONCENTRACAO E DIVERSIDADE: analise a distribuicao real da producao.
+   Quantos videos cada micronicho tem, qual porcentagem do total.
+   Se o micronicho mais concentrado e tambem o de melhor performance, e menos grave.
+   Se o mais concentrado e mediocre, e desperdicio de producao
+4. PADROES: micronichos emergentes (poucos videos mas views altas),
+   micronichos em declinio, micronichos consistentes
+
+<span class="highlight">[RECOMENDACOES]</span>
+Micronichos NOVOS que NAO existem nos dados mas tem potencial.
+Para cada sugestao:
+1. Nome do micronicho
+2. Por que faz sentido (baseado nos padroes observados)
+3. Conexao com os micronichos que ja performam bem
+Exemplo: se "Herois Nao Declarados" lidera, sugerir "Mulheres na Guerra"
+(combina narrativa pessoal + figuras desconhecidas &mdash; os dois ingredientes top)
+
+<span class="orange">DADOS:</span>
+Canal: <span class="accent">{nome}</span> | Subnicho: <span class="accent">{subnicho}</span> | Lingua: <span class="accent">{lingua}</span>
+<span class="muted">{ranking completo com numeros &mdash; gerado pelo Python}</span></div>
+                </div>
+            </section>
+
+            <div class="divider"></div>
+
+            <!-- AG3 OUTPUT -->
+            <section id="ag3-output">
+                <h2>Output Esperado &mdash; Agente 3</h2>
+
+                <div class="report-mock orange-border">
+                    <div class="report-header">
+                        <div class="report-header-title" style="color:var(--orange)">Analise de Micronichos &mdash; Relatos de Guerra WWII [PT-BR]</div>
+                        <div class="report-header-meta">27-02-2026 &bull; 22 videos analisados (7+ dias) &bull; 7 micronichos identificados</div>
+                    </div>
+                    <div class="report-body">
+
+                        <!-- BLOCO 1 -->
+                        <div class="report-section-title orange">Bloco 1 &mdash; Ranking de Micronichos</div>
+                        <table class="report-table">
+                            <tr><th>#</th><th>Micronicho</th><th>Videos</th><th>Views Media</th><th>Views Total</th><th>Melhor Video</th><th>Pior Video</th></tr>
+                            <tr><td>1</td><td>Herois Nao Declarados</td><td>4</td><td>87.500</td><td>350.000</td><td>180K (12d)</td><td>32K (45d)</td></tr>
+                            <tr style="color:var(--text-secondary)"><td>2</td><td>Espionagem e Inteligencia</td><td>3</td><td>72.333</td><td>217.000</td><td>95K (30d)</td><td>52K (22d)</td></tr>
+                            <tr style="color:var(--text-secondary)"><td>3</td><td>Tratamento de Prisioneiros</td><td>5</td><td>58.200</td><td>291.000</td><td>120K (60d)</td><td>18K (8d)</td></tr>
+                            <tr style="color:var(--text-secondary)"><td>4</td><td>Batalhas Decisivas</td><td>4</td><td>41.750</td><td>167.000</td><td>65K (35d)</td><td>22K (20d)</td></tr>
+                            <tr style="color:var(--text-secondary)"><td>5</td><td>Armamentos e Tecnologia</td><td>3</td><td>28.000</td><td>84.000</td><td>38K (40d)</td><td>15K (25d)</td></tr>
+                            <tr style="color:var(--text-secondary)"><td>6</td><td>Vida Civil Durante a Guerra</td><td>2</td><td>24.500</td><td>49.000</td><td>31K (18d)</td><td>18K (28d)</td></tr>
+                            <tr><td>7</td><td>Estrategia de Alto Comando</td><td>1</td><td>12.000</td><td>12.000</td><td>12K (52d)</td><td>&mdash;</td></tr>
+                        </table>
+
+                        <!-- BLOCO 2 -->
+                        <div class="report-section-title green">Bloco 2 &mdash; Observacoes Analiticas</div>
+
+                        <p style="font-size:0.8rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem">Destaques positivos</p>
+                        <div class="report-text">
+                            O micronicho <strong>"Herois Nao Declarados"</strong> e disparado o mais forte do canal. Com 4 videos e media de 87.5K views, supera o segundo colocado em mais de 20%. Particularmente notavel: o video mais recente (180K em apenas 12 dias) &mdash; indicando interesse em <strong>ascensao</strong>. A audiencia responde fortemente a narrativas de figuras desconhecidas que fizeram a diferenca.
+                        </div>
+                        <div class="report-text">
+                            <strong>"Espionagem e Inteligencia"</strong> e o segundo mais forte, com alta consistencia &mdash; o pior video (52K) ainda esta acima da media geral de todos os micronichos. Performance solida sem grandes oscilacoes = demanda estavel.
+                        </div>
+
+                        <p style="font-size:0.8rem;font-weight:600;color:var(--warning);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;margin-top:1.5rem">Sinais de alerta</p>
+                        <div class="report-text">
+                            <strong>"Estrategia de Alto Comando"</strong> tem 1 video com 12K views em 52 dias &mdash; pior performance isolada do canal. A audiencia parece preferir narrativas humanas (herois, prisioneiros, espioes) a analises estrategicas abstratas.
+                        </div>
+                        <div class="report-text">
+                            <strong>"Tratamento de Prisioneiros"</strong> mostra sinal de possivel saturacao: o video mais antigo (120K em 60 dias) performa drasticamente melhor que o mais recente (18K em 8 dias). Os primeiros videos exploraram os temas mais fortes, e os novos nao estao encontrando o mesmo interesse.
+                        </div>
+
+                        <p style="font-size:0.8rem;font-weight:600;color:var(--highlight);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.5rem;margin-top:1.5rem">Concentracao e diversidade</p>
+                        <div class="report-text">
+                            A producao esta distribuida de forma razoavel: <strong>"Tratamento de Prisioneiros"</strong> lidera em volume com 5 videos (23% do total), seguido por "Herois Nao Declarados" e "Batalhas Decisivas" com 4 cada (18%). Os 3 micronichos mais produzidos concentram 59% do conteudo. O micronicho mais concentrado ("Tratamento de Prisioneiros") esta em <strong>3o lugar</strong> em performance, nao em 1o &mdash; indicando que ha espaco para redistribuir producao em favor de "Herois Nao Declarados" que lidera em views mas tem menos videos.
+                        </div>
+
+                        <!-- BLOCO 3 -->
+                        <div class="report-section-title yellow">Bloco 3 &mdash; Recomendacoes de Novos Micronichos</div>
+                        <div class="report-text" style="margin-bottom:1rem">
+                            Padrao observado: audiencia responde melhor a <strong>narrativas humanas pessoais</strong> do que a conteudo analitico/tecnico. Micronichos sugeridos com base nesse padrao:
+                        </div>
+
+                        <div class="report-rec">
+                            <div class="report-rec-title">1. Fugas e Evasoes</div>
+                            <div class="report-rec-desc">Prisioneiros que escaparam de campos, soldados que fugiram por tras das linhas. Combina elemento humano pessoal + suspense narrativo &mdash; ingredientes presentes nos 2 micronichos top ("Herois Nao Declarados" + "Espionagem").</div>
+                        </div>
+                        <div class="report-rec">
+                            <div class="report-rec-title">2. Traidores e Desertores</div>
+                            <div class="report-rec-desc">Figuras que mudaram de lado, colaboracionistas, desertores por questoes morais. Narrativa humana com conflito moral &mdash; angulo oposto de "Herois", com potencial de gerar mesma resposta emocional.</div>
+                        </div>
+                        <div class="report-rec">
+                            <div class="report-rec-title">3. Mulheres na Guerra</div>
+                            <div class="report-rec-desc">Enfermeiras, pilotas sovieticas (Bruxas da Noite), resistencia francesa feminina. Combina narrativa pessoal + figuras desconhecidas &mdash; os dois ingredientes top do canal.</div>
+                        </div>
+                        <div class="report-rec">
+                            <div class="report-rec-title">4. Ultimos Dias e Rendicoes</div>
+                            <div class="report-rec-desc">Momentos finais de batalhas, ultimas horas de regimes, rendicoes dramaticas. Alta carga emocional com desfecho definido &mdash; diferente do conteudo tecnico que nao performa.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="divider-thick"></div>
+
+            <!-- ============================================================ -->
+            <!-- RESUMO DAS MUDANCAS -->
+            <!-- ============================================================ -->
+            <section>
+                <h2>Resumo das Mudancas</h2>
+
+                <h4>O que muda nos Agentes 1 e 2 (ja existem)</h4>
+                <table class="decision-table">
+                    <tr><th>Aspecto</th><th>Antes</th><th>Depois</th></tr>
+                    <tr><td>Tamanho do prompt</td><td>~40 linhas genericas</td><td>Prompt completo com todo o conhecimento do dominio</td></tr>
+                    <tr><td>Contexto</td><td>"Voce e um analista de YouTube"</td><td>Explica estruturas A-G, por que retencao, volatilidade, scores, triggers</td></tr>
+                    <tr><td>Instrucoes de output</td><td>Lista vaga de topicos</td><td>Checklist obrigatorio: "cubra X, Y, Z com dados"</td></tr>
+                    <tr><td>Regras</td><td>Poucas ou nenhuma</td><td>Regras inviolaveis: nao inventar, nao recomendar (Ag1), ser factual</td></tr>
+                    <tr><td>max_tokens</td><td>3000 (limitava)</td><td>Sem limite (escreve o necessario)</td></tr>
+                    <tr><td>Memoria</td><td>Ja tinha</td><td>Instrucoes mais claras: "confirmar ou revisar tendencias"</td></tr>
+                </table>
+
+                <h4>O que e novo (Agente 3)</h4>
+                <table class="decision-table">
+                    <tr><th>Aspecto</th><th>Especificacao</th></tr>
+                    <tr><td>Chamadas LLM</td><td>2 (classificacao JSON + narrativa)</td></tr>
+                    <tr><td>Fonte de dados</td><td>videos_historico (nao precisa de planilha)</td></tr>
+                    <tr><td>Canais elegiveis</td><td>43 (todos tipo="nosso" com videos)</td></tr>
+                    <tr><td>Lista de micronichos</td><td>Auto-construida, acumulativa entre runs</td></tr>
+                    <tr><td>Output</td><td>Ranking + Observacoes + Recomendacoes de novos</td></tr>
+                </table>
+            </section>
+
+            <div class="footer-bar">
+                <p>Arquitetura LLM &mdash; 3 Agentes de Analise &bull; Documento de Review &bull; v1.0 &bull; 27 de Fevereiro 2026</p>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

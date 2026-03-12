@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Motores Psicologicos de CTR — Coreano 005</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a24;
+            --bg-card: #16161f;
+            --text-primary: #e8e8ed;
+            --text-secondary: #a0a0b0;
+            --text-muted: #6b6b7b;
+            --accent: #ff6b35;
+            --accent-dim: rgba(255, 107, 53, 0.15);
+            --accent-glow: rgba(255, 107, 53, 0.3);
+            --warning: #ff4757;
+            --warning-dim: rgba(255, 71, 87, 0.15);
+            --success: #2ed573;
+            --success-dim: rgba(46, 213, 115, 0.15);
+            --gold: #ffa502;
+            --gold-dim: rgba(255, 165, 2, 0.15);
+            --blue: #54a0ff;
+            --blue-dim: rgba(84, 160, 255, 0.15);
+            --purple: #a78bfa;
+            --purple-dim: rgba(167, 139, 250, 0.15);
+            --cyan: #22d3ee;
+            --cyan-dim: rgba(34, 211, 238, 0.15);
+            --pink: #f472b6;
+            --pink-dim: rgba(244, 114, 182, 0.15);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-accent: rgba(255, 107, 53, 0.3);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.8;
+            font-size: 16px;
+        }
+        .container { display: flex; min-height: 100vh; }
+
+        /* SIDEBAR */
+        .sidebar {
+            width: 280px; background: var(--bg-secondary); border-right: 1px solid var(--border);
+            padding: 2rem 1.5rem; position: fixed; height: 100vh; overflow-y: auto;
+        }
+        .sidebar-header { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+        .sidebar-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+        .sidebar-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); font-weight: 600; margin-bottom: 0.5rem; }
+        .sidebar-subtitle { font-size: 1rem; color: var(--text-primary); font-weight: 600; }
+        .nav-section { margin-bottom: 1.5rem; }
+        .nav-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.75rem; font-weight: 600; }
+        .nav-link {
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 0.75rem; color: var(--text-secondary); text-decoration: none;
+            font-size: 0.85rem; border-radius: 6px; transition: all 0.2s ease; margin-bottom: 0.2rem; cursor: pointer;
+        }
+        .nav-link:hover { background: var(--accent-dim); color: var(--accent); }
+        .nav-link.active { background: var(--accent-dim); color: var(--accent); font-weight: 600; }
+        .nav-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+        /* MAIN */
+        .main { flex: 1; margin-left: 280px; padding: 3rem 4rem; max-width: 1100px; }
+        h1 { font-size: 2.5rem; font-weight: 800; margin-bottom: 1rem; line-height: 1.2; }
+        h1 .accent { color: var(--accent); }
+        .subtitle { font-size: 1.15rem; color: var(--text-secondary); margin-bottom: 2.5rem; font-weight: 400; line-height: 1.7; }
+        h2 { font-size: 1.75rem; font-weight: 700; margin-top: 3.5rem; margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--accent); display: inline-block; }
+        h3 { font-size: 1.25rem; font-weight: 600; margin-top: 2rem; margin-bottom: 1rem; color: var(--text-primary); }
+        p { margin-bottom: 1.5rem; color: var(--text-secondary); }
+        strong { color: var(--text-primary); }
+        .meta { color: var(--text-muted); font-size: 0.875rem; margin-bottom: 2rem; }
+
+        /* HERO */
+        .hero-banner {
+            background: linear-gradient(135deg, var(--accent-dim) 0%, var(--pink-dim) 50%, var(--purple-dim) 100%);
+            border: 1px solid var(--border-accent);
+            border-radius: 16px;
+            padding: 2.5rem;
+            margin: 0 0 3rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero-banner::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent), var(--pink), var(--purple));
+        }
+        .hero-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        .hero-stat {
+            text-align: center;
+            padding: 1rem;
+            background: rgba(0,0,0,0.25);
+            border-radius: 10px;
+        }
+        .hero-stat-value { font-size: 2rem; font-weight: 800; color: var(--accent); }
+        .hero-stat-label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem; }
+
+        /* CARDS */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 4px; height: 100%;
+        }
+        .card.orange::before { background: var(--accent); }
+        .card.pink::before { background: var(--pink); }
+        .card.gold::before { background: var(--gold); }
+        .card.blue::before { background: var(--blue); }
+        .card.cyan::before { background: var(--cyan); }
+        .card.red::before { background: var(--warning); }
+        .card.green::before { background: var(--success); }
+        .card.purple::before { background: var(--purple); }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+        .card-icon { font-size: 1.5rem; }
+        .card-title { font-size: 1.15rem; font-weight: 700; }
+
+        /* TABLE */
+        .table-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            margin: 1.5rem 0;
+        }
+        table { width: 100%; border-collapse: collapse; }
+        thead { background: var(--bg-tertiary); }
+        th {
+            padding: 0.85rem 1.25rem;
+            text-align: left;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            font-weight: 600;
+            border-bottom: 1px solid var(--border);
+        }
+        td {
+            padding: 0.85rem 1.25rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background: rgba(255,255,255,0.02); }
+        .ctr-badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .ctr-top { background: var(--success-dim); color: var(--success); }
+        .ctr-mid { background: var(--gold-dim); color: var(--gold); }
+        .ctr-low { background: var(--warning-dim); color: var(--warning); }
+        .ctr-dead { background: rgba(255,255,255,0.05); color: var(--text-muted); }
+
+        /* MOTOR BADGE */
+        .motor-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin: 0.2rem 0.25rem 0.2rem 0;
+        }
+        .motor-1 { background: var(--pink-dim); color: var(--pink); }
+        .motor-2 { background: var(--purple-dim); color: var(--purple); }
+        .motor-3 { background: var(--gold-dim); color: var(--gold); }
+        .motor-4 { background: var(--cyan-dim); color: var(--cyan); }
+        .motor-5 { background: var(--blue-dim); color: var(--blue); }
+
+        /* KEYWORD */
+        .keyword-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+        .keyword {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.4rem 0.85rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .keyword .kr { color: var(--accent); font-weight: 600; }
+        .keyword .tl { color: var(--text-muted); font-size: 0.75rem; }
+
+        /* CORRELATION BAR */
+        .corr-bars { margin: 1.5rem 0; }
+        .corr-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        .corr-label {
+            width: 200px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-align: right;
+            flex-shrink: 0;
+        }
+        .corr-bar-bg {
+            flex: 1;
+            height: 28px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+        .corr-bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 0.75rem;
+            font-size: 0.8rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            transition: width 1s ease;
+        }
+
+        /* FORMULA */
+        .formula-box {
+            background: linear-gradient(135deg, var(--bg-tertiary), var(--bg-card));
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.75rem;
+            margin: 1.5rem 0;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .formula-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+        }
+        .formula-line {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .formula-tag {
+            padding: 0.3rem 0.7rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .formula-plus { color: var(--text-muted); font-size: 1.2rem; }
+
+        /* KILLER CARD */
+        .killer-card {
+            background: linear-gradient(135deg, var(--warning-dim), rgba(0,0,0,0));
+            border: 1px solid rgba(255, 71, 87, 0.2);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+        .killer-icon { font-size: 1.5rem; flex-shrink: 0; margin-top: 0.1rem; }
+        .killer-title { font-weight: 700; color: var(--warning); margin-bottom: 0.35rem; }
+        .killer-desc { font-size: 0.9rem; color: var(--text-secondary); margin: 0; }
+        .killer-example {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background: rgba(0,0,0,0.3);
+            border-radius: 6px;
+        }
+        .killer-ctr { color: var(--warning); font-weight: 600; }
+
+        /* HIERARCHY */
+        .hierarchy {
+            display: flex;
+            align-items: stretch;
+            gap: 0;
+            margin: 1.5rem 0;
+            overflow-x: auto;
+        }
+        .hierarchy-item {
+            flex: 1;
+            min-width: 140px;
+            padding: 1.25rem 1rem;
+            text-align: center;
+            position: relative;
+            border: 1px solid var(--border);
+        }
+        .hierarchy-item:first-child { border-radius: 12px 0 0 12px; }
+        .hierarchy-item:last-child { border-radius: 0 12px 12px 0; }
+        .hierarchy-rank { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.3rem; }
+        .hierarchy-name { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.3rem; }
+        .hierarchy-ctr { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; font-weight: 600; }
+        .hierarchy-arrow {
+            position: absolute;
+            right: -8px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 1;
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+
+        /* INSIGHT BOX */
+        .insight-box {
+            background: var(--blue-dim);
+            border: 1px solid rgba(84, 160, 255, 0.2);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem;
+            margin: 1.25rem 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+        .insight-box .icon { font-size: 1.2rem; flex-shrink: 0; }
+        .insight-box p { margin: 0; font-size: 0.9rem; color: var(--blue); }
+
+        /* HYPOTHESIS */
+        .hypo-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+        .hypo-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.25rem;
+        }
+        .hypo-tag {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        .hypo-tag.test { background: var(--cyan-dim); color: var(--cyan); }
+        .hypo-title { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem; }
+        .hypo-desc { font-size: 0.85rem; color: var(--text-muted); margin: 0; }
+
+        /* PRIORITY LIST */
+        .priority-list { margin: 1.5rem 0; }
+        .priority-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1.25rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+            transition: all 0.2s ease;
+        }
+        .priority-item:hover { border-color: var(--accent); transform: translateX(4px); }
+        .priority-num {
+            width: 36px; height: 36px;
+            background: var(--accent-dim);
+            color: var(--accent);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+        .priority-content { flex: 1; }
+        .priority-title { font-weight: 700; color: var(--text-primary); margin-bottom: 0.25rem; }
+        .priority-desc { font-size: 0.9rem; color: var(--text-muted); margin: 0; }
+
+        /* SECTION DIVIDER */
+        .section-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border), transparent);
+            margin: 3rem 0;
+        }
+
+        @media (max-width: 900px) {
+            .sidebar { display: none; }
+            .main { margin-left: 0; padding: 2rem 1.5rem; }
+            .hero-stats { grid-template-columns: 1fr; }
+            .hypo-grid { grid-template-columns: 1fr; }
+            .hierarchy { flex-direction: column; }
+            .hierarchy-item { border-radius: 8px !important; }
+            .hierarchy-arrow { display: none; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- SIDEBAR -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-icon">🇰🇷</div>
+            <div class="sidebar-title">Reis Perversos 005</div>
+            <div class="sidebar-subtitle">Motores Psicologicos de CTR</div>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-label">Analise</div>
+            <a href="#contexto" class="nav-link"><span class="nav-dot" style="background:var(--accent)"></span> Contexto</a>
+            <a href="#ranking" class="nav-link"><span class="nav-dot" style="background:var(--gold)"></span> Ranking por CTR</a>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-label">5 Motores</div>
+            <a href="#motor1" class="nav-link"><span class="nav-dot" style="background:var(--pink)"></span> #1 Mulheres Vitimas</a>
+            <a href="#motor2" class="nav-link"><span class="nav-dot" style="background:var(--purple)"></span> #2 Verdade Oculta</a>
+            <a href="#motor3" class="nav-link"><span class="nav-dot" style="background:var(--gold)"></span> #3 Perpetrador Poderoso</a>
+            <a href="#motor4" class="nav-link"><span class="nav-dot" style="background:var(--cyan)"></span> #4 Intensidade Calibrada</a>
+            <a href="#motor5" class="nav-link"><span class="nav-dot" style="background:var(--blue)"></span> #5 Civilizacao Reconhecivel</a>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-label">Conclusoes</div>
+            <a href="#antipadroes" class="nav-link"><span class="nav-dot" style="background:var(--warning)"></span> Anti-Padroes</a>
+            <a href="#formula" class="nav-link"><span class="nav-dot" style="background:var(--success)"></span> Formula de CTR</a>
+            <a href="#hipoteses" class="nav-link"><span class="nav-dot" style="background:var(--cyan)"></span> Hipoteses</a>
+            <a href="#prioridades" class="nav-link"><span class="nav-dot" style="background:var(--accent)"></span> Prioridades</a>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="main">
+
+        <h1>Motores Psicologicos de <span class="accent">CTR</span></h1>
+        <p class="meta">Coreano 005 (Reis Perversos) &middot; 05/03/2026 &middot; ~17 videos analisados</p>
+
+        <!-- HERO -->
+        <div class="hero-banner" id="contexto">
+            <p style="color:var(--text-primary); font-size:1.05rem; font-weight:500; margin-bottom:0.5rem;">
+                Analise dos motores psicologicos que impulsionam o CTR no canal coreano do Reis Perversos 005. Baseada em ~17 videos publicados, com objetivo de identificar padroes tematicos e de formulacao de titulos que geram alto CTR na audiencia coreana.
+            </p>
+            <div class="hero-stats">
+                <div class="hero-stat">
+                    <div class="hero-stat-value">9.5%</div>
+                    <div class="hero-stat-label">CTR Medio do Canal</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="hero-stat-value">11.7%</div>
+                    <div class="hero-stat-label">Melhor CTR</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="hero-stat-value">3.5%</div>
+                    <div class="hero-stat-label">Pior CTR</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RANKING -->
+        <h2 id="ranking">Ranking Completo por CTR</h2>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>CTR</th>
+                        <th>Titulo (Traduzido)</th>
+                        <th>Motores Ativos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td><span class="ctr-badge ctr-top">11.7%</span></td>
+                        <td>O segredo mais vergonhoso de Roma: o que realmente aconteceu com mulheres arrastadas a arena</td>
+                        <td><span class="motor-badge motor-1">Mulheres</span><span class="motor-badge motor-2">Segredo</span><span class="motor-badge motor-5">Roma</span></td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td><span class="ctr-badge ctr-top">11.5%</span></td>
+                        <td>O que soldados romanos fizeram a rainha capturada deixa sem palavras</td>
+                        <td><span class="motor-badge motor-1">Rainha</span><span class="motor-badge motor-4">Intensidade</span><span class="motor-badge motor-5">Roma</span></td>
+                    </tr>
+                    <tr>
+                        <td>3</td>
+                        <td><span class="ctr-badge ctr-top">11.5%</span></td>
+                        <td>O segredo chocante que imperadores chineses esconderam sobre concubinas no palacio</td>
+                        <td><span class="motor-badge motor-1">Concubinas</span><span class="motor-badge motor-2">Segredo</span><span class="motor-badge motor-3">Imperador</span><span class="motor-badge motor-5">China</span></td>
+                    </tr>
+                    <tr>
+                        <td>4</td>
+                        <td><span class="ctr-badge ctr-top">11.5%</span></td>
+                        <td>O que reis assirios fizeram com mulheres capturadas superou a imaginacao</td>
+                        <td><span class="motor-badge motor-1">Mulheres</span><span class="motor-badge motor-3">Reis</span><span class="motor-badge motor-4">Intensidade</span></td>
+                    </tr>
+                    <tr>
+                        <td>5</td>
+                        <td><span class="ctr-badge ctr-top">10.7%</span></td>
+                        <td>As atrocidades de Vlad contra mulheres que Hollywood nunca revelara</td>
+                        <td><span class="motor-badge motor-1">Mulheres</span><span class="motor-badge motor-2">Cover-up</span><span class="motor-badge motor-3">Vlad</span></td>
+                    </tr>
+                    <tr>
+                        <td>6</td>
+                        <td><span class="ctr-badge ctr-mid">9.5%</span></td>
+                        <td>A noite em que o rei Xerxes perdeu a razao (verdade que ninguem ousou contar)</td>
+                        <td><span class="motor-badge motor-2">Verdade oculta</span><span class="motor-badge motor-3">Rei</span></td>
+                    </tr>
+                    <tr>
+                        <td>7</td>
+                        <td><span class="ctr-badge ctr-mid">9.2%</span></td>
+                        <td>O que Leonidas fez a seus proprios soldados foi pior que qualquer batalha</td>
+                        <td><span class="motor-badge motor-3">Heroi</span><span class="motor-badge motor-4">Intensidade</span></td>
+                    </tr>
+                    <tr>
+                        <td>8</td>
+                        <td><span class="ctr-badge ctr-mid">~8%</span></td>
+                        <td>Congelar ate morrer: por que castelos Tudor eram pesadelos gelados</td>
+                        <td><span class="motor-badge motor-4">Intensidade</span></td>
+                    </tr>
+                    <tr>
+                        <td>9</td>
+                        <td><span class="ctr-badge ctr-low">7.7%</span></td>
+                        <td>O destino de princesas reais durante invasao romana era pior que a morte</td>
+                        <td><span class="motor-badge motor-1">Princesas</span><span class="motor-badge motor-5">Roma</span></td>
+                    </tr>
+                    <tr>
+                        <td>10</td>
+                        <td><span class="ctr-badge ctr-low">6.7%</span></td>
+                        <td>Por que filhas do rei derrotado imploraram para morrer antes do comandante romano</td>
+                        <td><span class="motor-badge motor-1">Filhas</span><span class="motor-badge motor-5">Roma</span></td>
+                    </tr>
+                    <tr>
+                        <td>11</td>
+                        <td><span class="ctr-badge ctr-low">6.3%</span></td>
+                        <td>As ultimas horas de Spartacus foram mais aterrorizantes do que voce imagina</td>
+                        <td><span class="motor-badge motor-4">Intensidade</span></td>
+                    </tr>
+                    <tr>
+                        <td>12</td>
+                        <td><span class="ctr-badge ctr-low">6.3%</span></td>
+                        <td>As piores atrocidades dos soldados de Napoleao contra mulheres espanholas</td>
+                        <td><span class="motor-badge motor-1">Mulheres</span></td>
+                    </tr>
+                    <tr>
+                        <td>13</td>
+                        <td><span class="ctr-badge ctr-low">5.5%</span></td>
+                        <td>Para onde Mary Boleyn desapareceu? A irma esquecida de Anne</td>
+                        <td><span class="ctr-badge ctr-dead">nenhum</span></td>
+                    </tr>
+                    <tr>
+                        <td>14</td>
+                        <td><span class="ctr-badge ctr-dead">4.6%</span></td>
+                        <td>Os atos mais chocantes de Commodus (pior que Gladiador)</td>
+                        <td><span class="ctr-badge ctr-dead">nenhum</span></td>
+                    </tr>
+                    <tr>
+                        <td>15</td>
+                        <td><span class="ctr-badge ctr-dead">3.7%</span></td>
+                        <td>O destino de cada senador que esfaqueou Julio Cesar</td>
+                        <td><span class="ctr-badge ctr-dead">nenhum</span></td>
+                    </tr>
+                    <tr>
+                        <td>16</td>
+                        <td><span class="ctr-badge ctr-dead">3.6%</span></td>
+                        <td>O imperador mais depravado: a historia sombria de Tiberio em Capri</td>
+                        <td><span class="ctr-badge ctr-dead">nenhum</span></td>
+                    </tr>
+                    <tr>
+                        <td>17</td>
+                        <td><span class="ctr-badge ctr-dead">3.5%</span></td>
+                        <td>As coisas mais terriveis que Tiberio fez aos escravos meninos em Capri</td>
+                        <td><span class="ctr-badge ctr-dead">nenhum</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <!-- MOTOR 1 -->
+        <h2 id="motor1">Motor #1: Mulheres como Vitimas</h2>
+
+        <div class="card pink">
+            <div class="card-header">
+                <span class="card-icon">👑</span>
+                <span class="card-title">Driver #1 absoluto — todos os 5 titulos acima de 10% tem mulheres como vitimas</span>
+            </div>
+            <p>A ausencia do driver #1 nao e compensada pelos outros motores. Quando o titulo nao tem mulheres como vitimas, o CTR cai drasticamente.</p>
+
+            <h3>Vocabulario que funciona</h3>
+            <div class="keyword-grid">
+                <span class="keyword"><span class="kr">여성들</span> <span class="tl">mulheres</span></span>
+                <span class="keyword"><span class="kr">여왕</span> <span class="tl">rainha</span></span>
+                <span class="keyword"><span class="kr">후궁들</span> <span class="tl">concubinas</span></span>
+                <span class="keyword"><span class="kr">포로 여성들</span> <span class="tl">mulheres capturadas</span></span>
+                <span class="keyword"><span class="kr">공주들</span> <span class="tl">princesas</span></span>
+            </div>
+
+            <h3>Correlacao</h3>
+            <div class="corr-bars">
+                <div class="corr-row">
+                    <span class="corr-label">Com "mulheres" no titulo</span>
+                    <div class="corr-bar-bg">
+                        <div class="corr-bar-fill" style="width:85%; background: linear-gradient(90deg, var(--pink), var(--accent));">~10%+</div>
+                    </div>
+                </div>
+                <div class="corr-row">
+                    <span class="corr-label">Sem "mulheres" no titulo</span>
+                    <div class="corr-bar-bg">
+                        <div class="corr-bar-fill" style="width:42%; background: var(--text-muted);">~5%</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="insight-box">
+                <span class="icon">🧠</span>
+                <p>A audiencia Reactive coreana processa violencia contra mulheres como revelacao de verdade suprimida sobre sistemas de poder, nao como sensacionalismo. A vitima feminina ativa o motor de justica/revelacao (숨겨진 진실) que e central na cultura de consumo de conteudo historico coreano.</p>
+            </div>
+        </div>
+
+        <!-- MOTOR 2 -->
+        <h2 id="motor2">Motor #2: Verdade Oculta / Segredo Revelado</h2>
+
+        <div class="card purple">
+            <div class="card-header">
+                <span class="card-icon">🔓</span>
+                <span class="card-title">Os top performers prometem REVELAR algo deliberadamente escondido</span>
+            </div>
+
+            <h3>Vocabulario-chave</h3>
+            <div class="keyword-grid">
+                <span class="keyword"><span class="kr">비밀</span> <span class="tl">segredo</span></span>
+                <span class="keyword"><span class="kr">숨긴</span> <span class="tl">escondeu/ocultou</span></span>
+                <span class="keyword"><span class="kr">실제로</span> <span class="tl">realmente/na verdade</span></span>
+                <span class="keyword"><span class="kr">밝히지 않을</span> <span class="tl">nao revelara</span></span>
+                <span class="keyword"><span class="kr">말하지 못한 진실</span> <span class="tl">verdade que nao puderam contar</span></span>
+            </div>
+
+            <div class="table-container" style="margin-top:1.25rem">
+                <table>
+                    <thead><tr><th>Titulo</th><th>Elemento</th><th>CTR</th></tr></thead>
+                    <tbody>
+                        <tr><td>Arena Women</td><td><strong>수치스러운 비밀</strong> (segredo vergonhoso)</td><td><span class="ctr-badge ctr-top">11.7%</span></td></tr>
+                        <tr><td>Chinese Emperors</td><td><strong>숨긴</strong> 충격적인 <strong>비밀</strong></td><td><span class="ctr-badge ctr-top">11.5%</span></td></tr>
+                        <tr><td>Vlad</td><td>할리우드가 절대 <strong>밝히지 않을</strong></td><td><span class="ctr-badge ctr-top">10.7%</span></td></tr>
+                        <tr><td>Xerxes</td><td>아무도 감히 <strong>말하지 못한</strong> 진실</td><td><span class="ctr-badge ctr-mid">9.5%</span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="insight-box">
+                <span class="icon">💡</span>
+                <p><strong>Revelar > Contar.</strong> Titulos biograficos genericos ("a historia sombria de Tiberio") nao prometem revelar nada — apenas CONTAR algo. A audiencia quer ser cumplice da revelacao — participar do ato de descobrir o que foi escondido.</p>
+            </div>
+        </div>
+
+        <!-- MOTOR 3 -->
+        <h2 id="motor3">Motor #3: Perpetrador Poderoso e Institucional</h2>
+
+        <div class="card gold">
+            <div class="card-header">
+                <span class="card-icon">⚔️</span>
+                <span class="card-title">Quanto mais poderoso o perpetrador, maior o CTR</span>
+            </div>
+
+            <div class="hierarchy">
+                <div class="hierarchy-item" style="background: var(--gold-dim);">
+                    <div class="hierarchy-rank">#1</div>
+                    <div class="hierarchy-name" style="color:var(--gold)">Reis / Imperadores</div>
+                    <div class="hierarchy-ctr" style="color:var(--gold)">11.5%</div>
+                    <span class="hierarchy-arrow">›</span>
+                </div>
+                <div class="hierarchy-item" style="background: var(--accent-dim);">
+                    <div class="hierarchy-rank">#2</div>
+                    <div class="hierarchy-name" style="color:var(--accent)">Imperio (sistema)</div>
+                    <div class="hierarchy-ctr" style="color:var(--accent)">11.7%</div>
+                    <span class="hierarchy-arrow">›</span>
+                </div>
+                <div class="hierarchy-item" style="background: var(--purple-dim);">
+                    <div class="hierarchy-rank">#3</div>
+                    <div class="hierarchy-name" style="color:var(--purple)">Figura Iconica</div>
+                    <div class="hierarchy-ctr" style="color:var(--purple)">10.7%</div>
+                    <span class="hierarchy-arrow">›</span>
+                </div>
+                <div class="hierarchy-item" style="background: rgba(255,255,255,0.03);">
+                    <div class="hierarchy-rank">#4</div>
+                    <div class="hierarchy-name">Soldados</div>
+                    <div class="hierarchy-ctr" style="color:var(--text-muted)">6.3%</div>
+                    <span class="hierarchy-arrow">›</span>
+                </div>
+                <div class="hierarchy-item" style="background: var(--warning-dim);">
+                    <div class="hierarchy-rank">#5</div>
+                    <div class="hierarchy-name" style="color:var(--warning)">Sem perpetrador</div>
+                    <div class="hierarchy-ctr" style="color:var(--warning)">6.3%</div>
+                </div>
+            </div>
+
+            <div class="insight-box">
+                <span class="icon">⚡</span>
+                <p>O poder do perpetrador amplifica a gravidade da revelacao. "Reis fizeram X com mulheres" implica abuso sistematico, institucional, organizado. "Soldados fizeram X" implica violencia de guerra — mais comum, menos chocante.</p>
+            </div>
+        </div>
+
+        <!-- MOTOR 4 -->
+        <h2 id="motor4">Motor #4: Marcadores de Intensidade Calibrados</h2>
+
+        <div class="card cyan">
+            <div class="card-header">
+                <span class="card-icon">📈</span>
+                <span class="card-title">Intensificadores que prometem escala sem parecer clickbait</span>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>Marcador (Coreano)</th><th>Traducao</th><th>CTR</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong style="color:var(--cyan)">상상을 초월했다</strong></td><td>Superou a imaginacao</td><td><span class="ctr-badge ctr-top">11.5%</span></td></tr>
+                        <tr><td><strong style="color:var(--cyan)">말문이 막힐 정도</strong></td><td>Ao ponto de ficar sem palavras</td><td><span class="ctr-badge ctr-top">11.5%</span></td></tr>
+                        <tr><td><strong style="color:var(--cyan)">실제로 벌어진 일</strong></td><td>O que realmente aconteceu</td><td><span class="ctr-badge ctr-top">11.7%</span></td></tr>
+                        <tr><td><strong style="color:var(--cyan)">충격적인</strong></td><td>Chocante</td><td><span class="ctr-badge ctr-top">11.5%</span></td></tr>
+                        <tr><td><strong style="color:var(--cyan)">절대 밝히지 않을</strong></td><td>Jamais revelara</td><td><span class="ctr-badge ctr-top">10.7%</span></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="insight-box">
+                <span class="icon">🎯</span>
+                <p><strong>Calibracao, nao hiperbole.</strong> Esses nao sao hiperboles vazias — sao marcadores de escala que prometem que o conteudo vai ALEM do que o espectador ja conhece. "Superou a imaginacao" implica que existe um limiar conhecido e este conteudo o ultrapassa.</p>
+            </div>
+        </div>
+
+        <!-- MOTOR 5 -->
+        <h2 id="motor5">Motor #5: Civilizacao Reconhecivel</h2>
+
+        <div class="card blue">
+            <div class="card-header">
+                <span class="card-icon">🌍</span>
+                <span class="card-title">Audiencia coreana responde melhor a civilizacoes que conhece</span>
+            </div>
+
+            <div class="corr-bars">
+                <div class="corr-row">
+                    <span class="corr-label"><strong style="color:var(--success)">Roma</strong> (ALTO)</span>
+                    <div class="corr-bar-bg">
+                        <div class="corr-bar-fill" style="width:88%; background: linear-gradient(90deg, var(--success), var(--blue));">~10%+</div>
+                    </div>
+                </div>
+                <div class="corr-row">
+                    <span class="corr-label"><strong style="color:var(--gold)">China</strong> (ALTO)</span>
+                    <div class="corr-bar-bg">
+                        <div class="corr-bar-fill" style="width:85%; background: linear-gradient(90deg, var(--gold), var(--accent));">11.5%</div>
+                    </div>
+                </div>
+                <div class="corr-row">
+                    <span class="corr-label"><strong style="color:var(--cyan)">Assiria</strong> (MED-ALTO)</span>
+                    <div class="corr-bar-bg">
+                        <div class="corr-bar-fill" style="width:85%; background: var(--cyan);">11.5%</div>
+                    </div>
+                </div>
+                <div class="corr-row">
+                    <span class="corr-label"><strong style="color:var(--purple)">Vlad/Medieval</strong> (MEDIO)</span>
+                    <div class="corr-bar-bg">
+                        <div class="corr-bar-fill" style="width:78%; background: var(--purple);">10.7%</div>
+                    </div>
+                </div>
+                <div class="corr-row">
+                    <span class="corr-label">Napoleao/Espanha (MED-BAIXO)</span>
+                    <div class="corr-bar-bg">
+                        <div class="corr-bar-fill" style="width:46%; background: var(--text-muted);">6.3%</div>
+                    </div>
+                </div>
+                <div class="corr-row">
+                    <span class="corr-label">Tudor/Inglaterra (BAIXO)</span>
+                    <div class="corr-bar-bg">
+                        <div class="corr-bar-fill" style="width:55%; background: var(--text-muted);">~8%</div>
+                    </div>
+                </div>
+                <div class="corr-row">
+                    <span class="corr-label" style="color:var(--warning)">Mary Boleyn (MUITO BAIXO)</span>
+                    <div class="corr-bar-bg">
+                        <div class="corr-bar-fill" style="width:38%; background: rgba(255,71,87,0.4);">5.5%</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="insight-box">
+                <span class="icon">🏯</span>
+                <p><strong>Caso especial — China:</strong> O CTR de 11.5% pode indicar que civilizacoes com PROXIMIDADE CULTURAL ao publico coreano (China, Japao, Mongois) tem potencial especial. A proximidade aumenta tanto o reconhecimento quanto a carga emocional.</p>
+            </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <!-- ANTI-PADROES -->
+        <h2 id="antipadroes">Anti-Padroes: O que MATA o CTR</h2>
+
+        <div class="killer-card">
+            <span class="killer-icon">💀</span>
+            <div>
+                <div class="killer-title">KILLER #1: Vitimas Masculinas</div>
+                <p class="killer-desc">Quando o titulo nao tem mulheres como vitimas, o CTR cai drasticamente. A ausencia do driver #1 nao e compensada.</p>
+                <div class="killer-example">Senadores que esfaquearam Cesar → <span class="killer-ctr">3.7%</span> &nbsp;|&nbsp; Tiberio/escravos meninos → <span class="killer-ctr">3.5%</span></div>
+            </div>
+        </div>
+
+        <div class="killer-card">
+            <span class="killer-icon">📝</span>
+            <div>
+                <div class="killer-title">KILLER #2: Titulo Biografico Generico</div>
+                <p class="killer-desc">Titulos que soam como sinopse de documentario nao ativam o motor de revelacao. O titulo deve prometer DESCOBERTA, nao NARRATIVA.</p>
+                <div class="killer-example">"A historia sombria de Tiberio em Capri" → <span class="killer-ctr">3.6%</span></div>
+            </div>
+        </div>
+
+        <div class="killer-card">
+            <span class="killer-icon">❓</span>
+            <div>
+                <div class="killer-title">KILLER #3: Figura Desconhecida na Coreia</div>
+                <p class="killer-desc">O espectador nao clica para descobrir sobre alguem que nao sabe quem e. A figura precisa ter schema pre-existente.</p>
+                <div class="killer-example">Mary Boleyn → <span class="killer-ctr">5.5%</span></div>
+            </div>
+        </div>
+
+        <div class="killer-card">
+            <span class="killer-icon">🎬</span>
+            <div>
+                <div class="killer-title">KILLER #4: Referencia Pop Culture Ocidental</div>
+                <p class="killer-desc">Referencias a filmes/series ocidentais assumem conhecimento cultural que a audiencia coreana pode nao compartilhar.</p>
+                <div class="killer-example">Commodus "(pior que Gladiador)" → <span class="killer-ctr">4.6%</span></div>
+            </div>
+        </div>
+
+        <div class="killer-card">
+            <span class="killer-icon">🔁</span>
+            <div>
+                <div class="killer-title">KILLER #5: Repeticao de Figura</div>
+                <p class="killer-desc">Publicar dois videos sobre a mesma figura em sequencia divide a audiencia e gera fadiga tematica.</p>
+                <div class="killer-example">Tiberio #1 → <span class="killer-ctr">3.6%</span> &nbsp;|&nbsp; Tiberio #2 → <span class="killer-ctr">3.5%</span></div>
+            </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <!-- FORMULA -->
+        <h2 id="formula">Formula de CTR</h2>
+
+        <div class="card green">
+            <div class="card-header">
+                <span class="card-icon">🏆</span>
+                <span class="card-title">Formula Ideal — CTR 10%+</span>
+            </div>
+            <div class="formula-box">
+                <div class="formula-title">Combinacao Vencedora</div>
+                <div class="formula-line">
+                    <span class="formula-tag" style="background:var(--gold-dim); color:var(--gold);">PERPETRADOR PODEROSO</span>
+                    <span class="formula-plus">+</span>
+                    <span class="formula-tag" style="background:var(--pink-dim); color:var(--pink);">MULHERES VITIMAS</span>
+                    <span class="formula-plus">+</span>
+                    <span class="formula-tag" style="background:var(--purple-dim); color:var(--purple);">REVELACAO</span>
+                    <span class="formula-plus">+</span>
+                    <span class="formula-tag" style="background:var(--cyan-dim); color:var(--cyan);">INTENSIDADE</span>
+                    <span class="formula-plus">+</span>
+                    <span class="formula-tag" style="background:var(--blue-dim); color:var(--blue);">CIV. RECONHECIVEL</span>
+                </div>
+            </div>
+            <p style="margin-top:1rem;">
+                <strong>Exemplo (11.5% CTR):</strong><br>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:0.9rem; color:var(--accent);">
+                    "아시리아 <strong>왕들</strong>이 포로 <strong>여성들</strong>에게 한 짓은 <strong>상상을 초월</strong>했다"
+                </span><br>
+                <span style="font-size:0.85rem; color:var(--text-muted);">[REIS] + [MULHERES CAPTURADAS] + [SUPEROU A IMAGINACAO]</span>
+            </p>
+        </div>
+
+        <div class="card red">
+            <div class="card-header">
+                <span class="card-icon">⚠️</span>
+                <span class="card-title">Formula que Falha — CTR &lt;5%</span>
+            </div>
+            <div class="formula-box">
+                <div class="formula-title">Combinacao Toxica</div>
+                <div class="formula-line">
+                    <span class="formula-tag" style="background:var(--warning-dim); color:var(--warning);">BIOGRAFIA GENERICA</span>
+                    <span class="formula-plus">+</span>
+                    <span class="formula-tag" style="background:rgba(255,255,255,0.05); color:var(--text-muted);">SEM MULHERES</span>
+                    <span class="formula-plus">+</span>
+                    <span class="formula-tag" style="background:rgba(255,255,255,0.05); color:var(--text-muted);">REF. POP CULTURE</span>
+                    <span class="formula-plus">+</span>
+                    <span class="formula-tag" style="background:rgba(255,255,255,0.05); color:var(--text-muted);">FIGURA DESCONHECIDA</span>
+                </div>
+            </div>
+            <p style="margin-top:1rem;">
+                <strong>Exemplo (3.6% CTR):</strong><br>
+                <span style="font-family:'JetBrains Mono',monospace; font-size:0.9rem; color:var(--warning);">
+                    "역사상 가장 타락한 황제: 카프리 섬 티베리우스의 <strong>어두운 이야기</strong>"
+                </span><br>
+                <span style="font-size:0.85rem; color:var(--text-muted);">[BIOGRAFIA GENERICA] + [SEM VITIMA FEMININA] + ["HISTORIA SOMBRIA" = VAGO]</span>
+            </p>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <!-- HIPOTESES -->
+        <h2 id="hipoteses">Hipoteses para Teste Futuro</h2>
+
+        <div class="hypo-grid">
+            <div class="hypo-card">
+                <span class="hypo-tag test">A/B TEST</span>
+                <div class="hypo-title">Civilizacoes asiaticas tem CTR extra?</div>
+                <p class="hypo-desc">Chinese Emperors teve 11.5% — pode ser tema OU proximidade cultural. Testar titulos sobre crueldade imperial chinesa/japonesa/mongol.</p>
+            </div>
+            <div class="hypo-card">
+                <span class="hypo-tag test">A/B TEST</span>
+                <div class="hypo-title">"비밀" (segredo) e o marcador mais forte?</div>
+                <p class="hypo-desc">Aparece nos 2 maiores CTRs. Testar titulos com vs sem "비밀" mantendo os outros motores constantes.</p>
+            </div>
+            <div class="hypo-card">
+                <span class="hypo-tag test">MONITORAR</span>
+                <div class="hypo-title">Rainha/Princesa > mulheres genericas?</div>
+                <p class="hypo-desc">"포로 여왕" (11.5%) vs "스페인 여성들" (6.3%) sugere que status da vitima amplifica o CTR.</p>
+            </div>
+            <div class="hypo-card">
+                <span class="hypo-tag test">MONITORAR</span>
+                <div class="hypo-title">Template "[X]가 [Y]에게 한 짓" e o mais forte?</div>
+                <p class="hypo-desc">Aparece em 3 dos top 5. Monitorar performance desse template especifico.</p>
+            </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <!-- PRIORIDADES -->
+        <h2 id="prioridades">Implicacoes Praticas — Prioridades</h2>
+
+        <div class="priority-list">
+            <div class="priority-item">
+                <div class="priority-num">1</div>
+                <div class="priority-content">
+                    <div class="priority-title">Sempre incluir mulheres como vitimas no titulo</div>
+                    <p class="priority-desc">Mesmo que o script trate de um sistema mais amplo, o titulo deve explicitar a vitima feminina. Usar: 여성들, 여왕, 후궁, 공주, 포로 여성</p>
+                </div>
+            </div>
+            <div class="priority-item">
+                <div class="priority-num">2</div>
+                <div class="priority-content">
+                    <div class="priority-title">Sempre incluir elemento de revelacao</div>
+                    <p class="priority-desc">비밀 (segredo), 숨긴 (escondeu), 실제로 (realmente), 진실 (verdade). O titulo deve prometer DESCOBERTA, nunca apenas NARRATIVA.</p>
+                </div>
+            </div>
+            <div class="priority-item">
+                <div class="priority-num">3</div>
+                <div class="priority-content">
+                    <div class="priority-title">Usar perpetradores de poder maximo</div>
+                    <p class="priority-desc">Preferir 왕 (rei), 황제 (imperador), 제국 (imperio) a 병사 (soldados). O perpetrador deve representar PODER INSTITUCIONAL.</p>
+                </div>
+            </div>
+            <div class="priority-item">
+                <div class="priority-num">4</div>
+                <div class="priority-content">
+                    <div class="priority-title">Civilizacoes reconheciveis</div>
+                    <p class="priority-desc">Roma, China, Assiria, Egito, Mongois, Persia. Evitar figuras pouco conhecidas. Explorar potencial de civilizacoes asiaticas (proximidade cultural).</p>
+                </div>
+            </div>
+            <div class="priority-item">
+                <div class="priority-num">5</div>
+                <div class="priority-content">
+                    <div class="priority-title">Evitar anti-padroes</div>
+                    <p class="priority-desc">NUNCA titulo sem vitima feminina (CTR -50-70%). NUNCA formato biografico generico. NUNCA repetir figura. EVITAR refs pop culture ocidental.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-divider"></div>
+
+        <p class="meta" style="margin-top:2rem; text-align:center;">
+            Dados coletados em 05/03/2026 &middot; Amostra: ~17 videos &middot; CTR medio: 9.5%<br>
+            Correlacoes baseadas em amostra pequena — necessitam validacao continua
+        </p>
+
+    </main>
+</div>
+
+<script>
+    // Smooth scroll for sidebar links
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+
+    // Highlight active section on scroll
+    const sections = document.querySelectorAll('h2[id]');
+    const navLinks = document.querySelectorAll('.nav-link');
+    window.addEventListener('scroll', () => {
+        let current = '';
+        sections.forEach(section => {
+            const sectionTop = section.offsetTop - 120;
+            if (scrollY >= sectionTop) current = section.getAttribute('id');
+        });
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('href') === '#' + current) link.classList.add('active');
+        });
+    });
+</script>
+</body>
+</html>

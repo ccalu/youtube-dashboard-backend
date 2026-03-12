@@ -1,0 +1,1389 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agente 3 - Temas + Motores Psicologicos</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0f0f0f;
+  color: #e0e0e0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  padding: 20px;
+}
+.container { max-width: 1100px; margin: 0 auto; }
+
+/* HEADER */
+.header {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 16px;
+  padding: 40px;
+  text-align: center;
+  margin-bottom: 32px;
+  border: 1px solid #2a2a4a;
+}
+.header h1 {
+  font-size: 32px;
+  color: #f97316;
+  margin-bottom: 8px;
+}
+.header .subtitle {
+  font-size: 16px;
+  color: #94a3b8;
+  max-width: 700px;
+  margin: 0 auto;
+}
+.header .badge {
+  display: inline-block;
+  background: #f97316;
+  color: #000;
+  padding: 4px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 12px;
+}
+
+/* SECTIONS */
+.section {
+  background: #1a1a1a;
+  border-radius: 16px;
+  padding: 28px;
+  margin-bottom: 24px;
+  border: 1px solid #2a2a2a;
+}
+.section-title {
+  font-size: 22px;
+  color: #f97316;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f9731633;
+}
+.section-subtitle {
+  font-size: 17px;
+  color: #fb923c;
+  margin: 24px 0 12px 0;
+}
+
+/* CONCEPT CARDS */
+.concepts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.concept-card {
+  background: #111;
+  border-radius: 12px;
+  padding: 20px;
+  border-left: 4px solid #f97316;
+}
+.concept-card.tema { border-left-color: #3b82f6; }
+.concept-card.motor { border-left-color: #a78bfa; }
+.concept-card.score { border-left-color: #4ade80; }
+.concept-card.filtro { border-left-color: #f59e0b; }
+.concept-card h3 {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+.concept-card h3.tema-color { color: #3b82f6; }
+.concept-card h3.motor-color { color: #a78bfa; }
+.concept-card h3.score-color { color: #4ade80; }
+.concept-card h3.filtro-color { color: #f59e0b; }
+.concept-card p { font-size: 13px; color: #b0b0b0; }
+.concept-card .example {
+  background: #0a0a0a;
+  border-radius: 6px;
+  padding: 10px;
+  margin-top: 10px;
+  font-size: 12px;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  color: #94a3b8;
+}
+.example .right { color: #4ade80; }
+.example .wrong { color: #ef4444; }
+
+/* HIERARCHY */
+.hierarchy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+.hier-item {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  text-align: center;
+}
+.hier-arrow {
+  font-size: 20px;
+  color: #555;
+  padding: 0 8px;
+}
+.hier-nicho { background: #1e3a5f; color: #60a5fa; }
+.hier-subnicho { background: #1a3a2a; color: #4ade80; }
+.hier-tema { background: #1e293b; color: #3b82f6; }
+.hier-motor { background: #2d1b4e; color: #a78bfa; }
+
+/* FLOW */
+.flow-container { margin: 16px 0; }
+.flow-step {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 4px;
+}
+.flow-number {
+  min-width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  margin-right: 14px;
+  flex-shrink: 0;
+}
+.flow-number.python { background: #1e3a5f; color: #60a5fa; }
+.flow-number.llm { background: #3b1f5e; color: #c084fc; }
+.flow-number.save { background: #1a3a2a; color: #4ade80; }
+.flow-text {
+  padding-top: 5px;
+  font-size: 14px;
+}
+.flow-text .tag {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  margin-right: 6px;
+}
+.tag-python { background: #1e3a5f; color: #60a5fa; }
+.tag-llm { background: #3b1f5e; color: #c084fc; }
+.tag-save { background: #1a3a2a; color: #4ade80; }
+.flow-connector {
+  width: 32px;
+  display: flex;
+  justify-content: center;
+  margin-right: 14px;
+}
+.flow-connector .line {
+  width: 2px;
+  height: 12px;
+  background: #333;
+}
+
+/* PROMPT BLOCKS */
+.prompt-block {
+  background: #111;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 12px 0;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #c8c8c8;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 600px;
+  overflow-y: auto;
+  border: 1px solid #222;
+}
+.prompt-block::-webkit-scrollbar { width: 6px; }
+.prompt-block::-webkit-scrollbar-track { background: #111; }
+.prompt-block::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+.prompt-label {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.prompt-label.system { background: #3b1f5e; color: #c084fc; }
+.prompt-label.user { background: #1e3a5f; color: #60a5fa; }
+.prompt-label.output { background: #1a3a2a; color: #4ade80; }
+.prompt-label.output-json { background: #4a3000; color: #f59e0b; }
+
+/* ARCHITECTURE DIAGRAM */
+.arch-diagram {
+  display: flex;
+  gap: 20px;
+  margin: 16px 0;
+}
+.arch-col {
+  flex: 1;
+  background: #111;
+  border-radius: 12px;
+  padding: 20px;
+}
+.arch-col.python-col { border: 2px solid #1e3a5f; }
+.arch-col.llm-col { border: 2px solid #3b1f5e; }
+.arch-col h3 {
+  text-align: center;
+  margin-bottom: 12px;
+  font-size: 16px;
+}
+.arch-col h3.py-h { color: #60a5fa; }
+.arch-col h3.llm-h { color: #c084fc; }
+.arch-col ul {
+  list-style: none;
+  padding: 0;
+}
+.arch-col li {
+  padding: 6px 0;
+  font-size: 13px;
+  color: #b0b0b0;
+  border-bottom: 1px solid #1a1a1a;
+}
+.arch-col li:last-child { border-bottom: none; }
+.arch-col li::before {
+  content: ">";
+  margin-right: 8px;
+  font-weight: 700;
+}
+.python-col li::before { color: #60a5fa; }
+.llm-col li::before { color: #c084fc; }
+
+/* OUTPUT SECTION */
+.output-block {
+  background: #0a0a12;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 12px 0;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #d0d0d0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 700px;
+  overflow-y: auto;
+  border: 1px solid #1a1a3a;
+}
+.output-block::-webkit-scrollbar { width: 6px; }
+.output-block::-webkit-scrollbar-track { background: #0a0a12; }
+.output-block::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+/* REPORT MANAGEMENT */
+.mgmt-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+.mgmt-card {
+  background: #111;
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+.mgmt-card .icon { font-size: 28px; margin-bottom: 8px; }
+.mgmt-card h4 { font-size: 14px; color: #f97316; margin-bottom: 6px; }
+.mgmt-card p { font-size: 12px; color: #888; }
+
+/* DETECTION TABLE */
+.detect-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+}
+.detect-table th, .detect-table td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid #222;
+  font-size: 13px;
+}
+.detect-table th {
+  color: #f97316;
+  font-weight: 600;
+  background: #111;
+}
+.detect-table td { color: #b0b0b0; }
+.detect-table tr:hover td { background: #151515; }
+
+/* UNIFIED OUTPUT */
+.unified-box {
+  background: #111;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 12px 0;
+  border: 2px dashed #f9731644;
+}
+.unified-box h4 { color: #f97316; margin-bottom: 8px; font-size: 15px; }
+.unified-formula {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.formula-part {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.formula-temas { background: #1e3a5f; color: #60a5fa; }
+.formula-motores { background: #3b1f5e; color: #c084fc; }
+.formula-comp { background: #3a2a00; color: #f59e0b; }
+.formula-result { background: #1a3a2a; color: #4ade80; }
+.formula-op { color: #666; font-size: 18px; }
+
+.note {
+  background: #1a1500;
+  border-left: 3px solid #f59e0b;
+  padding: 12px 16px;
+  border-radius: 0 8px 8px 0;
+  margin: 12px 0;
+  font-size: 13px;
+  color: #d4a857;
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- HEADER -->
+<div class="header">
+  <h1>Agente 3 -- Temas + Motores Psicologicos</h1>
+  <p class="subtitle">Identifica o TEMA concreto de cada video e os MOTORES PSICOLOGICOS invisiveis que explicam por que a audiencia clica. Camada 2 do ecossistema de agentes.</p>
+  <div class="badge">CAMADA 2 -- ANALISE ESPECIALIZADA</div>
+</div>
+
+<!-- 1. CONCEITOS-CHAVE -->
+<div class="section">
+  <h2 class="section-title">1. Conceitos-Chave</h2>
+
+  <div class="concepts-grid">
+    <div class="concept-card tema">
+      <h3 class="tema-color">TEMA</h3>
+      <p>O assunto CONCRETO e FACTUAL do video. Especifico o suficiente para distinguir de qualquer outro video. Nao e uma categoria, nao e o titulo reformulado.</p>
+      <div class="example">
+        <div style="color:#f97316;margin-bottom:6px;">Titulo: "Os 5 Atos Mais Perturbadores de Caligula Que Foram Longe Demais"</div>
+        <div class="wrong">ERRADO: "Historia de Roma" (generico demais)</div>
+        <div class="wrong">ERRADO: "Atos perturbadores" (categoria, nao tema)</div>
+        <div class="right">CERTO: "Os excessos e atrocidades do imperador Caligula em Roma"</div>
+        <div style="color:#f97316;margin-top:8px;margin-bottom:6px;">Titulo: "O que os Vikings faziam com as freiras"</div>
+        <div class="wrong">ERRADO: "Vikings" (generico demais)</div>
+        <div class="right">CERTO: "O destino das freiras nos saques vikings"</div>
+      </div>
+    </div>
+    <div class="concept-card motor">
+      <h3 class="motor-color">MOTOR PSICOLOGICO</h3>
+      <p>O padrao INVISIVEL que explica POR QUE a audiencia clica. Nao e o assunto do video, e a EMOCAO que move o clique. Cada video tem 2-4 hipoteses de motores.</p>
+      <div class="example">
+        <div style="color:#f97316;margin-bottom:6px;">Titulo: "O que os Vikings faziam com as freiras"</div>
+        <div class="right">"Voyeurismo legitimado" -- autorizado a ver algo proibido porque e "historia"</div>
+        <div class="right">"Choque moral" -- brutalidade viking contra freiras gera indignacao</div>
+        <div class="right">"Violacao do sagrado" -- freiras = pureza maxima sendo violada</div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="section-subtitle">Hierarquia</h3>
+  <div class="hierarchy">
+    <div class="hier-item hier-nicho">Nicho</div>
+    <span class="hier-arrow">--></span>
+    <div class="hier-item hier-subnicho">Subnicho</div>
+    <span class="hier-arrow">--></span>
+    <div class="hier-item hier-tema">TEMA</div>
+    <span class="hier-arrow">--></span>
+    <div class="hier-item hier-motor">Motores (hipoteses)</div>
+  </div>
+  <p style="text-align:center;color:#888;font-size:13px;margin-top:8px;">
+    Ex: Historia/Guerra > Monetizados > <span style="color:#3b82f6">Os excessos e atrocidades de Caligula</span> > <span style="color:#a78bfa">Poder sem limites + Voyeurismo legitimado + Choque moral</span>
+  </p>
+</div>
+
+<!-- 2. SCORE, FILTROS E DADOS -->
+<div class="section">
+  <h2 class="section-title">2. Score, Filtros e Dados</h2>
+
+  <div class="concepts-grid">
+    <div class="concept-card score">
+      <h3 class="score-color">Score: 50% CTR + 50% Views</h3>
+      <p>Cada video recebe um score de 0 a 100, normalizado min-max dentro do canal. Metade do peso e o CTR (capacidade de atrair clique) e metade e as views brutas (alcance real).</p>
+      <div class="example">
+        <div class="right">Video com 145K views e 8.2% CTR = Score 85/100</div>
+        <div class="right">Video com 12K views e 4.1% CTR = Score 22/100</div>
+      </div>
+    </div>
+    <div class="concept-card filtro">
+      <h3 class="filtro-color">Filtros</h3>
+      <p>Nem todo video e analisado. Filtros garantem que so videos com dados relevantes entram na analise.</p>
+      <div class="example">
+        <div class="right">Minimo 7 dias de vida (maturidade do video)</div>
+        <div class="right">Minimo 500 views (abaixo disso nao vale analisar)</div>
+        <div class="right">Minimo 5 videos no canal (amostra minima)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    CTR relativo: cada video mostra o CTR comparado com a media do canal. Ex: "CTR: 8.2% (canal: 6.4% | +1.8pp)" -- isso mostra se o video performa acima ou abaixo do canal.
+  </div>
+</div>
+
+<!-- 3. ARQUITETURA -->
+<div class="section">
+  <h2 class="section-title">3. Arquitetura do Agente</h2>
+
+  <div class="arch-diagram">
+    <div class="arch-col python-col">
+      <h3 class="py-h">PYTHON (Dados + Numeros)</h3>
+      <ul>
+        <li>Busca todos os videos do canal</li>
+        <li>Aplica filtros (7 dias, 500 views)</li>
+        <li>Busca CTR de cada video + CTR medio do canal (referencia, nao entra no score)</li>
+        <li>Calcula score (50% CTR + 50% Views)</li>
+        <li>Organiza ranking por score</li>
+        <li>Detecta videos novos vs ja analisados</li>
+        <li>Calcula deltas (Views +X%, CTR +Xpp)</li>
+        <li>Conta motores e suas estatisticas</li>
+        <li>Salva tudo no banco de dados</li>
+      </ul>
+    </div>
+    <div class="arch-col llm-col">
+      <h3 class="llm-h">LLM (Analise + Inteligencia)</h3>
+      <ul>
+        <li><strong>LLM TEMAS:</strong> Extrai tema concreto de cada video</li>
+        <li><strong>LLM TEMAS:</strong> Identifica hipoteses de motores</li>
+        <li><strong>LLM MOTORES:</strong> Comenta cada video do ranking</li>
+        <li><strong>LLM MOTORES:</strong> Identifica motores dominantes</li>
+        <li><strong>LLM MOTORES:</strong> Descobre padroes e tendencias</li>
+        <li><strong>LLM MOTORES:</strong> Gera recomendacoes acionaveis</li>
+        <li><strong>LLM MOTORES:</strong> Compara com relatorios anteriores</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note">
+    Regra de ouro: Python faz 100% dos calculos numericos (scores, rankings, deltas, contagens). A LLM NUNCA inventa ou altera numeros -- ela recebe dados prontos e faz a analise qualitativa.
+  </div>
+</div>
+
+<!-- 4. FLUXO COMPLETO -->
+<div class="section">
+  <h2 class="section-title">4. Fluxo Completo -- Passo a Passo</h2>
+
+  <h3 class="section-subtitle">Primeira Analise (Relatorio #1)</h3>
+  <div class="flow-container">
+    <div class="flow-step">
+      <div class="flow-number python">1</div>
+      <div class="flow-text"><span class="tag tag-python">PYTHON</span> Busca TODOS os videos do canal no banco de dados</div>
+    </div>
+    <div class="flow-step"><div class="flow-connector"><div class="line"></div></div></div>
+    <div class="flow-step">
+      <div class="flow-number python">2</div>
+      <div class="flow-text"><span class="tag tag-python">PYTHON</span> Filtra: 7+ dias de vida, 500+ views, minimo 5 videos</div>
+    </div>
+    <div class="flow-step"><div class="flow-connector"><div class="line"></div></div></div>
+    <div class="flow-step">
+      <div class="flow-number python">3</div>
+      <div class="flow-text"><span class="tag tag-python">PYTHON</span> Busca CTR de cada video + CTR medio do canal (apenas como referencia comparativa, NAO entra no score)</div>
+    </div>
+    <div class="flow-step"><div class="flow-connector"><div class="line"></div></div></div>
+    <div class="flow-step">
+      <div class="flow-number python">4</div>
+      <div class="flow-text"><span class="tag tag-python">PYTHON</span> Calcula score (50% CTR + 50% Views normalizado) e monta ranking</div>
+    </div>
+    <div class="flow-step"><div class="flow-connector"><div class="line"></div></div></div>
+    <div class="flow-step">
+      <div class="flow-number llm">5</div>
+      <div class="flow-text"><span class="tag tag-llm">LLM TEMAS</span> Recebe ranking completo --> extrai tema + hipoteses de motores de CADA video</div>
+    </div>
+    <div class="flow-step"><div class="flow-connector"><div class="line"></div></div></div>
+    <div class="flow-step">
+      <div class="flow-number python">6</div>
+      <div class="flow-text"><span class="tag tag-python">PYTHON</span> Salva output da LLM TEMAS</div>
+    </div>
+    <div class="flow-step"><div class="flow-connector"><div class="line"></div></div></div>
+    <div class="flow-step">
+      <div class="flow-number llm">7</div>
+      <div class="flow-text"><span class="tag tag-llm">LLM MOTORES</span> Recebe output da LLM TEMAS (ranking + temas/hipoteses) --> gera analise narrativa completa</div>
+    </div>
+    <div class="flow-step"><div class="flow-connector"><div class="line"></div></div></div>
+    <div class="flow-step">
+      <div class="flow-number save">8</div>
+      <div class="flow-text"><span class="tag tag-save">SALVAR</span> Junta LLM TEMAS + LLM MOTORES = 1 relatorio unico. Salva no banco com snapshot dos dados</div>
+    </div>
+  </div>
+
+  <h3 class="section-subtitle">Analises Futuras (Relatorio #2+)</h3>
+  <div class="flow-container">
+    <div class="flow-step">
+      <div class="flow-number python">1</div>
+      <div class="flow-text"><span class="tag tag-python">PYTHON</span> Busca TODOS os videos + CTR (dados frescos)</div>
+    </div>
+    <div class="flow-step"><div class="flow-connector"><div class="line"></div></div></div>
+    <div class="flow-step">
+      <div class="flow-number python">2</div>
+      <div class="flow-text"><span class="tag tag-python">PYTHON</span> Carrega snapshot do ultimo relatorio (analyzed_video_data)</div>
+    </div>
+    <div class="flow-step"><div class="flow-connector"><div class="line"></div></div></div>
+    <div class="flow-step">
+      <div class="flow-number python">3</div>
+      <div class="flow-text"><span class="tag tag-python">PYTHON</span> Compara cada video: NOVO (nao existe no snapshot) | ATUALIZADO (Views +20% ou CTR +2pp) | SEM MUDANCA (ignora)</div>
+    </div>
+    <div class="flow-step"><div class="flow-connector"><div class="line"></div></div></div>
+    <div class="flow-step">
+      <div class="flow-number llm">4</div>
+      <div class="flow-text"><span class="tag tag-llm">LLM TEMAS</span> Recebe SO os videos NOVOS --> extrai temas + hipoteses (zero duplicacao)</div>
+    </div>
+    <div class="flow-step"><div class="flow-connector"><div class="line"></div></div></div>
+    <div class="flow-step">
+      <div class="flow-number python">5</div>
+      <div class="flow-text"><span class="tag tag-python">PYTHON</span> Merge: novos (temas da LLM) + existentes (temas do snapshot) + recalcula TODOS os scores</div>
+    </div>
+    <div class="flow-step"><div class="flow-connector"><div class="line"></div></div></div>
+    <div class="flow-step">
+      <div class="flow-number python">6</div>
+      <div class="flow-text"><span class="tag tag-python">PYTHON</span> Calcula deltas dos atualizados + contagem de motores + ranking geral</div>
+    </div>
+    <div class="flow-step"><div class="flow-connector"><div class="line"></div></div></div>
+    <div class="flow-step">
+      <div class="flow-number llm">7</div>
+      <div class="flow-text"><span class="tag tag-llm">LLM MOTORES</span> Recebe ranking dos NOVOS + dados de comparacao --> gera PARTE 1 (analise do dia) + PARTE 2 (comparacao)</div>
+    </div>
+    <div class="flow-step"><div class="flow-connector"><div class="line"></div></div></div>
+    <div class="flow-step">
+      <div class="flow-number save">8</div>
+      <div class="flow-text"><span class="tag tag-save">SALVAR</span> Junta LLM TEMAS + LLM MOTORES (parte 1 + parte 2) = 1 relatorio unico. Atualiza snapshot</div>
+    </div>
+  </div>
+</div>
+
+<!-- 5. LLM TEMAS -->
+<div class="section">
+  <h2 class="section-title">5. LLM TEMAS -- Prompt Completo</h2>
+
+  <div class="note">Os exemplos nos prompts abaixo sao FIGURADOS para ilustrar o conceito. Os titulos mencionados sao exemplos didaticos, nao titulos reais dos canais.</div>
+
+  <span class="prompt-label system">PROMPT</span>
+  <div class="prompt-block">Voce e um analista especializado em psicologia de audiencia no YouTube. Voce trabalha para uma operacao que gerencia dezenas de canais YouTube simultaneamente. Seu objetivo e identificar QUAIS temas concretos geram performance e POR QUE -- revelando os motores psicologicos invisiveis por tras de cada clique.
+
+Para cada video voce deve identificar duas coisas:
+1. O TEMA -- o assunto factual concreto e especifico do video
+2. As HIPOTESES DE MOTORES PSICOLOGICOS -- os padroes invisiveis que explicam por que a audiencia clica
+
+O TEMA e a DECISAO (o que produzir). O MOTOR e a ANALISE (por que funciona).
+
+=== REGRAS PARA TEMA ===
+
+O tema e o ASSUNTO CONCRETO do video. Nao e uma categoria. Nao e o titulo reescrito. E o fato especifico que o video aborda.
+
+ERRADO - generico demais:
+  "Historia de Roma" -- isso e um nicho, nao um tema
+  "Crimes historicos" -- isso e uma categoria, nao um tema
+  "Atos perturbadores" -- isso e um topico, nao um tema
+
+ERRADO - repetindo o titulo:
+  "Os 5 Atos Mais Perturbadores de Caligula Que Foram Longe Demais" -- isso e o titulo copiado
+
+CERTO - assunto concreto e especifico:
+  Titulo: "Os 5 Atos Mais Perturbadores de Caligula Que Foram Longe Demais"
+    --> Tema: "Os excessos e atrocidades do imperador Caligula em Roma"
+  Titulo: "O que os Vikings faziam com as freiras"
+    --> Tema: "O destino das freiras nos saques vikings"
+  Titulo: "A noite mais sangrenta dos Vikings em Paris"
+    --> Tema: "O cerco e saque viking a Paris no ano 845 d.C."
+
+Teste de qualidade: se dois videos DIFERENTES podem ter o mesmo tema, voce esta sendo generico demais. Cada tema deve ser unico e identificavel.
+
+REGRA CRITICA: Voce so tem acesso ao TITULO do video. NUNCA deduza informacao que o titulo nao diz. Extraia o tema do que o titulo REALMENTE diz, sem adicionar informacao que nao esta la.
+
+=== REGRAS PARA HIPOTESES DE MOTORES PSICOLOGICOS ===
+
+Motores psicologicos sao os padroes INVISIVEIS que explicam o clique. Nao e o que o video e SOBRE -- e a EMOCAO que MOVE a audiencia a clicar e assistir.
+
+Regras fundamentais:
+- Cada video deve ter entre 2 e 4 hipoteses de motores
+- Motores NAO sao uma lista fixa -- voce deve identificar o padrao REAL de cada video
+- Se o padrao e genuinamente o mesmo em varios videos, USE O MESMO NOME (agrupe)
+- Se o padrao e diferente mesmo que pareca similar, CRIE UM NOVO MOTOR (separe)
+- Cada motor precisa de uma explicacao que CONECTE o padrao ao conteudo ESPECIFICO daquele video
+- NUNCA escreva explicacoes genericas que poderiam servir para qualquer video
+
+Como decidir se agrupa ou separa:
+  Pergunte-se: "A EMOCAO que leva ao clique e a mesma?"
+  Se SIM --> mesmo motor, mesmo nome
+  Se NAO --> motor diferente, nome novo
+
+=== EXEMPLOS DE MOTORES BEM IDENTIFICADOS ===
+
+Estes sao EXEMPLOS DE REFERENCIA (figurados) para voce entender o nivel de profundidade esperado. NAO sao uma lista fechada. Voce DEVE criar motores novos quando o padrao e genuinamente diferente.
+
+"Poder sem limites"
+  Fascinacao por figuras com poder absoluto e zero consequencias. O espectador se pergunta "o que EU faria com esse poder?"
+  Exemplo: "Os 5 Atos Mais Perturbadores de Caligula Que Foram Longe Demais" -- nao e so sobre atos perturbadores, e sobre um homem que TINHA poder absoluto e usou sem limites. O poder e o motor, nao a crueldade.
+  So funciona com personagens centrais que TIVERAM poder real. NAO funciona com eventos ou grupos.
+
+"Voyeurismo legitimado"
+  O formato historico/educativo permite consumir conteudo transgressor (violencia, crueldade, tabus) sem culpa. A historia serve como LICENCA MORAL para ver o proibido. O espectador se sente "autorizado" a ver algo proibido porque e "historia".
+  Exemplo: "O que os Vikings faziam com as freiras" -- o espectador consome conteudo violento e transgressor legitimado pelo formato historico. "Nao sou morbido, estou aprendendo historia."
+  Diferente de curiosidade generica -- e especificamente sobre consumir o PROIBIDO em formato SEGURO.
+
+"Choque moral"
+  Brutalidade ou violencia extrema que gera indignacao imediata. Motor de ENTRADA -- atrai o clique mas nao sustenta a atencao sozinho.
+  Exemplo: "O que os Vikings faziam com as freiras" -- a brutalidade viking contra freiras (maximo de vulnerabilidade) gera indignacao visceral.
+  Diferente de "Violacao do sagrado": choque moral e sobre a INTENSIDADE da violencia, violacao do sagrado e sobre a NATUREZA do que esta sendo violado.
+
+"Violacao do sagrado"
+  Algo que a sociedade considera sagrado (religiao, inocencia, moral, instituicoes) sendo destruido ou corrompido. A TRANSGRESSAO do que deveria ser protegido gera indignacao + curiosidade.
+  Exemplo: "O que os Vikings faziam com as freiras" -- freiras = simbolo maximo de pureza e castidade. Vikings violando esse simbolo sagrado e uma transgressao que vai alem da violencia fisica.
+  NAO e o mesmo que "Choque moral" -- Choque moral e sobre brutalidade generica. Violacao do sagrado e sobre QUEM ou O QUE esta sendo violado.
+
+"Monstruosidade feminina"
+  Fascinacao por mulheres que cometeram atrocidades -- quebra o estereotipo de mulher = cuidado e protecao. A subversao do esperado gera curiosidade intensa.
+  Exemplo: "Elizabeth Bathory se banhava em sangue" -- uma MULHER cometendo monstruosidades e mais chocante porque viola a expectativa social do feminino.
+  Motor especifico -- nao e Choque moral generico. A emocao e de SURPRESA pela inversao do estereotipo.
+
+"Luto civilizacional"
+  Tristeza pela perda irreversivel de uma cultura inteira. O lamento pelo que se perdeu para sempre.
+  Exemplo: "A queda do Imperio Asteca" -- nao e indignacao pela violencia espanhola, e TRISTEZA por uma civilizacao que nunca mais vai existir.
+  NAO e Choque moral (indignacao) -- e LAMENTO.
+
+"Conhecimento proibido"
+  Gatilho de que existe verdade oculta que "eles" esconderam de voce. O sistema, a escola, a igreja, NAO queria que voce soubesse.
+  Exemplo: "5 verdades que a escola nunca te ensinou" -- motor de GANCHO, funciona no clique mas nao sustenta retencao sozinho.
+
+=== COMO MOTORES SE REPETEM ENTRE TEMAS DIFERENTES ===
+
+Observe como os MESMOS motores aparecem em videos com TEMAS completamente diferentes. Isso e o poder da analise -- descobrir os padroes invisiveis que se repetem:
+
+Titulo: "Os 5 Atos Mais Perturbadores de Caligula Que Foram Longe Demais"
+  Tema: Os excessos e atrocidades do imperador Caligula em Roma
+  Motores:
+    H1: Poder sem limites -- poder absoluto sem consequencias
+    H2: Voyeurismo legitimado -- conteudo transgressor em formato historico
+    H3: Choque moral -- "ele fez ISSO?"
+
+Titulo: "O que os Vikings faziam com as freiras"
+  Tema: O destino das freiras nos saques vikings
+  Motores:
+    H1: Voyeurismo legitimado        &lt;-- REPETE (mesmo de Caligula)
+    H2: Choque moral                 &lt;-- REPETE (mesmo de Caligula)
+    H3: Violacao do sagrado          &lt;-- NOVO (freiras = pureza sendo violada)
+
+Titulo: "Elizabeth Bathory se banhava em sangue"
+  Tema: As atrocidades de Elizabeth Bathory
+  Motores:
+    H1: Choque moral                 &lt;-- REPETE
+    H2: Poder sem limites            &lt;-- REPETE (mesma emocao de Caligula)
+    H3: Monstruosidade feminina      &lt;-- NOVO (mulher cometendo atrocidades)
+
+INSIGHT: "Voyeurismo legitimado" e "Choque moral" aparecem nos tops repetidamente.
+Isso revela o que MOVE a audiencia do canal -- independente do tema concreto.
+
+=== COMO DISTINGUIR MOTORES SIMILARES ===
+
+Pergunte-se: "A EMOCAO que leva ao clique e a mesma?"
+Se SIM --> mesmo motor, mesmo nome
+Se NAO --> motor diferente, nome novo
+
+Exemplo com o mesmo video "O que os Vikings faziam com as freiras":
+  - Choque moral: emocao = INDIGNACAO pela brutalidade dos vikings
+  - Violacao do sagrado: emocao = TRANSGRESSAO -- freiras (puras) sendo violadas
+  - Voyeurismo legitimado: emocao = ver o PROIBIDO legitimado pela historia
+  Tres emocoes diferentes = tres motores diferentes no MESMO video.
+
+=== FORMATO DE RESPOSTA ===
+Responda APENAS com JSON valido. Sem markdown, sem comentarios, sem explicacoes fora do JSON.</div>
+
+  <span class="prompt-label user">USER PROMPT</span>
+  <div class="prompt-block">CANAL: {channel_name} ({lingua})
+NICHO: {nicho}
+SUBNICHO: {subnicho}
+CTR MEDIO DO CANAL: {avg_ctr}%
+
+{total_videos} VIDEOS PARA ANALISAR (ordenados por score, filtrados: 7+ dias, 500+ views):
+
+#1 | video_id: abc123 | "Os excessos de Caligula que a historia escondeu" | Views: 145.230 | CTR: 8.2% (canal: 6.4% | +1.8pp) | Score: 85/100
+#2 | video_id: def456 | "A noite mais sangrenta dos Vikings em Paris" | Views: 98.400 | CTR: 7.1% (canal: 6.4% | +0.7pp) | Score: 72/100
+#3 | video_id: ghi789 | "As torturas mais crueis da Santa Inquisicao" | Views: 87.100 | CTR: 6.8% (canal: 6.4% | +0.4pp) | Score: 68/100
+...
+
+Extraia o tema concreto e as hipoteses de motores psicologicos de cada video.
+
+Responda com JSON no formato:
+{
+  "videos": [
+    {
+      "video_id": "...",
+      "titulo": "...",
+      "tema": "...",
+      "hipoteses": [
+        {"motor": "...", "explicacao": "..."},
+        {"motor": "...", "explicacao": "..."}
+      ]
+    }
+  ]
+}</div>
+
+  <span class="prompt-label output">OUTPUT FINAL (Python junta dados + output LLM TEMAS)</span>
+  <p style="color:#888;font-size:13px;margin:8px 0;">A LLM TEMAS retorna o JSON com temas e hipoteses. O Python junta com os dados numericos (ranking, score, views, CTR) e monta o resultado abaixo. Este e EXATAMENTE o que a LLM MOTORES recebe como input. (Exemplos figurados para ilustracao)</p>
+  <div class="output-block">#1 | Score: 85/100 | Views: 145.230 | CTR: 8.2% (canal: 6.4% | +1.8pp)
+    Titulo: "Os 5 Atos Mais Perturbadores de Caligula Que Foram Longe Demais"
+    Tema: Os excessos e atrocidades do imperador Caligula em Roma
+    Motores: Poder sem limites, Voyeurismo legitimado, Choque moral
+    Hipoteses:
+      - Poder sem limites: Ver o que um ser humano faz quando tem poder ABSOLUTO e zero
+        consequencias. Caligula TINHA o poder e usou sem limites. Fascinacao universal.
+      - Voyeurismo legitimado: Conteudo transgressor consumido como "documentario historico".
+        O espectador se sente autorizado a ver algo perturbador porque e "historia".
+      - Choque moral: "Perturbadores" + "longe demais" = promessa de conteudo que ultrapassa
+        o limite aceitavel. A transgressao gera indignacao misturada com curiosidade.
+
+#2 | Score: 72/100 | Views: 98.400 | CTR: 7.1% (canal: 6.4% | +0.7pp)
+    Titulo: "O que os Vikings faziam com as freiras"
+    Tema: O destino das freiras nos saques vikings
+    Motores: Voyeurismo legitimado, Choque moral, Violacao do sagrado
+    Hipoteses:
+      - Voyeurismo legitimado: O espectador se sente "autorizado" a ver algo proibido
+        porque e "historia". Curiosidade morbida legitimada pelo formato educativo.
+      - Choque moral: Brutalidade viking contra freiras (maximo de vulnerabilidade) --
+        o contraste extremo entre agressor e vitima gera indignacao visceral.
+      - Violacao do sagrado: Freiras = simbolo maximo de pureza e castidade sendo
+        violadas por vikings = maximo de brutalidade. A transgressao do sagrado vai
+        alem da violencia fisica.
+
+#3 | Score: 68/100 | Views: 87.100 | CTR: 6.8% (canal: 6.4% | +0.4pp)
+    Titulo: "Elizabeth Bathory se banhava em sangue"
+    Tema: As atrocidades de Elizabeth Bathory
+    Motores: Choque moral, Poder sem limites, Monstruosidade feminina
+    Hipoteses:
+      - Choque moral: Banhar-se em sangue humano -- a imagem e tao extrema que gera
+        indignacao e curiosidade imediatas.
+      - Poder sem limites: Bathory era uma nobre com poder absoluto sobre suas vitimas.
+        Mesma emocao de Caligula -- o que faz alguem com poder e sem consequencias.
+      - Monstruosidade feminina: Uma MULHER cometendo monstruosidades quebra o estereotipo
+        de mulher = cuidado e protecao. A inversao do esperado gera curiosidade intensa.
+
+#4 | Score: 61/100 | Views: 75.300 | CTR: 5.9% (canal: 6.4% | -0.5pp)
+    Titulo: "A noite mais sangrenta dos Vikings em Paris"
+    Tema: O cerco e saque viking a Paris no ano 845 d.C.
+    Motores: Choque moral, Underdog invertido
+    Hipoteses:
+      - Choque moral: Barbaros destruindo a capital da cristandade medieval -- a brutalidade
+        em escala massiva gera indignacao visceral.
+      - Underdog invertido: Vikings eram inferiores em tecnologia e numeros mas dominaram
+        uma superpotencia -- subversao total de expectativa que gera admiracao.
+
+...
+
+#25 | Score: 22/100 | Views: 12.800 | CTR: 4.1% (canal: 6.4% | -2.3pp)
+    Titulo: "Cronologia completa da Guerra dos 100 Anos"
+    Tema: A cronologia detalhada da Guerra dos Cem Anos entre Franca e Inglaterra
+    Motores: Completude enciclopedica
+    Hipoteses:
+      - Completude enciclopedica: Promessa de cobrir TUDO sobre o assunto -- atrai quem
+        busca referencia completa, mas sem gancho emocional forte. Motor fraco.</div>
+
+  <span class="prompt-label output-json">OUTPUT REAL (JSON)</span>
+  <p style="color:#888;font-size:13px;margin:8px 0;">Este e o formato real que a LLM retorna (o Python processa esse JSON para salvar no banco e passar para a LLM MOTORES):</p>
+  <div class="prompt-block">{
+  "videos": [
+    {
+      "video_id": "abc123",
+      "titulo": "Os 5 Atos Mais Perturbadores de Caligula Que Foram Longe Demais",
+      "tema": "Os excessos e atrocidades do imperador Caligula em Roma",
+      "hipoteses": [
+        {
+          "motor": "Poder sem limites",
+          "explicacao": "Ver o que um ser humano faz quando tem poder ABSOLUTO e zero consequencias. Caligula TINHA o poder e usou sem limites."
+        },
+        {
+          "motor": "Voyeurismo legitimado",
+          "explicacao": "Conteudo transgressor consumido como documentario historico. O espectador se sente autorizado a ver algo perturbador porque e historia."
+        },
+        {
+          "motor": "Choque moral",
+          "explicacao": "Perturbadores + longe demais = promessa de conteudo que ultrapassa o limite aceitavel. A transgressao gera indignacao misturada com curiosidade."
+        }
+      ]
+    },
+    {
+      "video_id": "def456",
+      "titulo": "O que os Vikings faziam com as freiras",
+      "tema": "O destino das freiras nos saques vikings",
+      "hipoteses": [
+        {
+          "motor": "Voyeurismo legitimado",
+          "explicacao": "O espectador se sente autorizado a ver algo proibido porque e historia. Curiosidade morbida legitimada pelo formato educativo."
+        },
+        {
+          "motor": "Choque moral",
+          "explicacao": "Brutalidade viking contra freiras (maximo de vulnerabilidade) -- o contraste extremo entre agressor e vitima gera indignacao visceral."
+        },
+        {
+          "motor": "Violacao do sagrado",
+          "explicacao": "Freiras = simbolo maximo de pureza sendo violadas por vikings = maximo de brutalidade. A transgressao do sagrado vai alem da violencia fisica."
+        }
+      ]
+    }
+  ]
+}</div>
+</div>
+
+<!-- 6. LLM MOTORES -->
+<div class="section">
+  <h2 class="section-title">6. LLM MOTORES -- Prompt Completo</h2>
+
+  <div class="note">Os exemplos nos prompts abaixo sao FIGURADOS para ilustrar o conceito. Os titulos mencionados sao exemplos didaticos, nao titulos reais dos canais.</div>
+
+  <span class="prompt-label system">PROMPT</span>
+  <div class="prompt-block">Voce e um estrategista de conteudo YouTube especializado em analise de motores psicologicos. Voce trabalha para uma operacao que gerencia dezenas de canais YouTube simultaneamente. Seu objetivo e transformar dados de performance + temas + motores psicologicos em inteligencia estrategica acionavel.
+
+=== O QUE VOCE RECEBE ===
+
+Voce recebe o output da LLM TEMAS (que ja extraiu o tema e as hipoteses de motores de cada video) junto com dados numericos calculados pelo sistema:
+- Ranking de videos com scores (0-100), views, CTR e motores ja identificados
+- CTR medio do canal (apenas como referencia comparativa -- NAO faz parte do score)
+- Relatorio anterior (se existir) para comparacao e evolucao
+
+=== SEU TRABALHO ===
+
+1. COMENTAR cada video do ranking -- por que esse score? O que os motores revelam sobre a atracao da audiencia? Como os motores se relacionam entre si naquele video especifico?
+2. IDENTIFICAR os motores DOMINANTES do canal -- quais padroes psicologicos movem a audiencia deste canal? Por que ESSES motores funcionam AQUI e nao outros?
+3. DESCOBRIR PADROES -- combinacoes de motores que amplificam performance, motores que falham sozinhos, tendencias de crescimento ou saturacao
+4. GERAR RECOMENDACOES acionaveis -- temas concretos que o canal deveria produzir, testar, evitar ou reformular. Com exemplos especificos.
+
+=== REGRAS CRITICAS ===
+
+SOBRE NUMEROS:
+- Todos os numeros (views, CTR, scores, contagens, percentuais) sao FATOS calculados pelo sistema
+- NUNCA invente, altere, arredonde ou estime numeros -- use EXATAMENTE o que foi fornecido
+- Sua analise e sobre o PORQUE dos numeros, nao sobre os numeros em si
+
+SOBRE MOTORES:
+- Motores NAO sao uma lista fixa -- cada canal tem seus proprios padroes
+- NAO agrupe motores diferentes so porque parecem similares
+- Se a EMOCAO que leva ao clique e diferente, o motor e diferente
+- Se um motor aparece em 1-2 videos apenas, classifique como "emergente" ou "monitorar"
+- Ao comentar um video, CONECTE os motores ao conteudo ESPECIFICO -- nunca repita definicoes genericas
+- Explique COMO os motores interagem entre si quando ha mais de um no mesmo video
+
+SOBRE RECOMENDACOES:
+- Toda recomendacao deve incluir EXEMPLOS CONCRETOS de temas que o canal poderia produzir
+- Explique QUAL motor psicologico cada tema recomendado ativaria
+- Identifique riscos (saturacao de cenario, dependencia de motor unico)
+- Sugira testes A/B quando houver hipoteses inconclusivas
+
+SOBRE COMENTARIOS:
+- Cada comentario de video deve ser UNICO -- conecte os motores ao conteudo ESPECIFICO daquele video
+- Nunca escreva comentarios genericos que poderiam servir para qualquer video
+- Explique POR QUE os motores daquele video especifico geraram aquele score especifico
+- Quando dois videos tem motores iguais mas scores diferentes, explique a diferenca
+
+=== EXEMPLOS DE COMO COMENTAR VIDEOS NO RANKING ===
+
+EXEMPLO BOM -- comentario conectado ao conteudo especifico:
+
+  #1 | Score: 85/100 | Views: 145.230 | CTR: 8.2% (canal: 6.4% | +1.8pp)
+      Titulo: "Os 5 Atos Mais Perturbadores de Caligula Que Foram Longe Demais"
+      Tema: Os excessos e atrocidades do imperador Caligula em Roma
+      Motores: Poder sem limites + Voyeurismo legitimado + Choque moral
+      --> Combinacao tripla de motores. Caligula TINHA poder absoluto (Poder sem limites),
+      o espectador consome as atrocidades pelo filtro da historia (Voyeurismo legitimado),
+      e "longe demais" promete transgressao que choca (Choque moral). Os 3 motores se
+      reforcam: poder + transgressao + formato seguro = atracao maxima.
+      CTR 1.8pp acima da media confirma a atracao.
+
+EXEMPLO RUIM -- comentario generico que serve pra qualquer video:
+
+  #1 | Score: 85/100 | Views: 145.230 | CTR: 8.2%
+      --> Video com boa performance. Os motores psicologicos funcionam bem juntos
+      e geram um score alto. O CTR acima da media mostra que a audiencia gosta.
+      (NUNCA faca isso -- nao diz NADA sobre o conteudo especifico do video)
+
+=== EXEMPLO DE COMO ANALISAR MOTORES DOMINANTES ===
+
+EXEMPLO BOM:
+
+  1. Voyeurismo legitimado -- 12/25 videos (48%) | Score medio: 74/100
+     O motor mais forte do canal. A audiencia de Archives de Guerre consome conteudo
+     transgressor (violencia, sexo, crueldade) LEGITIMADO pelo formato historico.
+     O formato "documentario" serve como licenca moral: nao e pornografia, e "educacao".
+     REGRA DO CANAL: quanto mais transgressor o tema concreto, melhor performa --
+     DESDE que venha embrulhado em formato historico-educativo.
+     Videos: #1 Caligula (85), #4 Roma antiga (66), #5 Inquisicao (61)...
+
+EXEMPLO RUIM:
+
+  1. Voyeurismo legitimado -- 12/25 videos (48%) | Score medio: 74
+     Motor presente em varios videos do canal com boa performance.
+     (NUNCA faca isso -- nao explica POR QUE funciona neste canal especifico)
+
+=== EXEMPLO DE COMO FAZER RECOMENDACOES ===
+
+EXEMPLO BOM:
+
+  PRODUZIR MAIS: Temas que combinam Voyeurismo + Violacao do sagrado
+    - "Os rituais proibidos dos templarios" --> Voyeurismo (rituais secretos em formato
+      historico) + Violacao do sagrado (ordem religiosa transgredindo)
+    - "O que as concubinas do farao faziam em segredo" --> Voyeurismo (sexualidade implicita)
+      + Erotismo velado (imaginacao preenche o que nao e mostrado)
+
+EXEMPLO RUIM:
+
+  PRODUZIR MAIS: Temas historicos com bons motores psicologicos
+    (NUNCA faca isso -- sem exemplos concretos e sem explicar quais motores seriam ativados)
+
+=== EXEMPLO DE COMO COMPARAR COM RELATORIO ANTERIOR ===
+
+EXEMPLO BOM:
+
+  HIPOTESES ANTERIORES -- STATUS:
+  - CONFIRMADA: "Voyeurismo + Violacao = formula do canal"
+    Evidencia: Novo video "Os crimes de Nero" (score 78) confirmou. Mesmo padrao de Caligula
+    (score 85). Dupla funciona consistentemente.
+  - EM TESTE: "Civilizacoes nao-europeias tem potencial"
+    Asteca (score 61) ficou moderado. Amostra de 1 video e insuficiente para concluir.
+    Precisa de mais 2-3 videos para validar.
+  - NOVA HIPOTESE: "Temas religiosos com Voyeurismo = proximo filao"
+    Inquisicao cresceu +49% views. Testar: Cruzadas, heresias, rituais proibidos de ordens.
+
+EXEMPLO RUIM:
+
+  HIPOTESES ANTERIORES -- STATUS:
+  - CONFIRMADA: hipotese sobre Roma foi confirmada
+    (NUNCA faca isso -- sem evidencia concreta do que confirmou)
+
+=== FORMATO DE RESPOSTA -- PRIMEIRA ANALISE ===
+
+Use os marcadores exatos abaixo. Nao adicione secoes extras. Nao omita nenhum video do ranking.
+
+[RANKING COMENTADO]
+(comentar CADA video do ranking -- todos, do primeiro ao ultimo)
+(para cada video: titulo, score, views, CTR vs canal, tema, motores, analise)
+
+[MOTORES DOMINANTES]
+(listar TODOS os motores encontrados, do mais forte ao mais fraco)
+(para cada um: quantos videos, percentual, score medio)
+(explicar por que esse motor funciona neste canal especifico)
+(separar em "Motores principais" e "Motores menores/emergentes")
+(listar quais videos pertencem a cada motor)
+
+[PADROES E DESCOBERTAS]
+(combinacoes de motores que amplificam performance)
+(motores que falham sozinhos vs combinados)
+(riscos: saturacao, dependencia, concentracao)
+(oportunidades: motores emergentes, cenarios subexplorados)
+
+[RECOMENDACOES]
+(PRODUZIR MAIS -- com exemplos concretos de temas e quais motores ativariam)
+(TESTAR -- hipoteses a validar com exemplos)
+(DIVERSIFICAR -- como sair da zona de conforto mantendo motores fortes)
+(EVITAR -- o que nao produzir e por que)
+(REFORMULAR -- temas fracos que podem ser salvos mudando o angulo/motor)
+
+=== FORMATO DE RESPOSTA -- ANALISES FUTURAS (Relatorio #2+) ===
+
+O relatorio tem DUAS PARTES claramente separadas. A analise do dia vem PRIMEIRO. A comparacao com anteriores vem DEPOIS.
+
+PARTE 1 -- ANALISE DO DIA:
+
+[RANKING COMENTADO -- NOVOS VIDEOS]
+(comentar CADA video novo -- mesmo nivel de detalhe da primeira analise)
+
+[MOTORES NOS NOVOS VIDEOS]
+(quais motores apareceram nos novos: recorrentes, novos, emergentes)
+
+[PADROES DOS NOVOS]
+(o que os novos videos revelam sobre a direcao do canal)
+
+[RECOMENDACOES]
+(baseadas especificamente nos novos dados)
+
+PARTE 2 -- COMPARACAO COM ANTERIORES:
+
+[RANKING GERAL ATUALIZADO]
+(top 10 de todos os videos do canal, novos + existentes)
+(indicar mudancas de posicao, novos entrantes, videos que subiram/desceram)
+
+[EVOLUCAO DOS MOTORES]
+(como cada motor evoluiu vs relatorio anterior: cresceu, estavel, caiu, novo)
+(mostrar numeros anteriores vs atuais)
+
+[VIDEOS COM CRESCIMENTO SIGNIFICATIVO]
+(somente videos com Views +20% ou CTR +2pp -- dados fornecidos pelo sistema)
+(analisar o que o crescimento revela sobre os motores daquele video)
+
+[HIPOTESES ANTERIORES -- STATUS]
+(para cada hipotese do relatorio anterior:)
+(CONFIRMADA -- com evidencia do que confirmou)
+(EM TESTE -- por que ainda nao ha dados suficientes)
+(REFUTADA -- com evidencia do que refutou)
+(incluir NOVAS HIPOTESES geradas neste relatorio)</div>
+
+  <span class="prompt-label user">USER PROMPT -- Primeira Analise</span>
+  <div class="prompt-block">CANAL: {channel_name} ({lingua})
+NICHO: {nicho} | SUBNICHO: {subnicho}
+CTR MEDIO DO CANAL: {avg_ctr}%
+TOTAL DE VIDEOS ANALISADOS: {total_videos}
+
+RANKING COMPLETO ({total_videos} videos com temas e hipoteses):
+
+#1 | Score: 85/100 | Views: 145.230 | CTR: 8.2% (canal: 6.4% | +1.8pp)
+    Titulo: "Os excessos de Caligula que a historia escondeu"
+    Tema: Os excessos e depravacoes de Caligula como imperador romano
+    Motores: Violacao do sagrado, Voyeurismo legitimado, Poder sem limites
+
+#2 | Score: 72/100 | Views: 98.400 | CTR: 7.1% (canal: 6.4% | +0.7pp)
+    Titulo: "A noite mais sangrenta dos Vikings em Paris"
+    Tema: O cerco e saque viking a Paris no ano 845 d.C.
+    Motores: Choque moral, Underdog invertido
+
+#3 | Score: 68/100 | Views: 87.100 | CTR: 6.8% (canal: 6.4% | +0.4pp)
+    Titulo: "As torturas mais crueis da Santa Inquisicao"
+    Tema: Os metodos de tortura utilizados pela Santa Inquisicao catolica
+    Motores: Voyeurismo legitimado, Violacao do sagrado
+...
+
+#25 | Score: 22/100 | Views: 12.800 | CTR: 4.1% (canal: 6.4% | -2.3pp)
+     Titulo: "Cronologia completa da Guerra dos 100 Anos"
+     Tema: Cronologia da Guerra dos Cem Anos entre Franca e Inglaterra
+     Motores: Completude enciclopedica
+
+Gere o relatorio completo de motores psicologicos. Esta e a PRIMEIRA analise deste canal.</div>
+
+  <span class="prompt-label user">USER PROMPT -- Analises Futuras</span>
+  <div class="prompt-block">CANAL: {channel_name} ({lingua})
+NICHO: {nicho} | SUBNICHO: {subnicho}
+CTR MEDIO DO CANAL: {avg_ctr}%
+RELATORIO NUMERO: #{run_number} (anterior: #{run_number - 1}, {prev_date})
+
+=== NOVOS VIDEOS ({new_count} videos) ===
+
+#1 | Score: 78/100 | Views: 112.000 | CTR: 7.8% (canal: 6.5% | +1.3pp)
+    Titulo: "Os crimes impunes de Nero"
+    Tema: Os crimes e extravagancias do imperador Nero
+    Motores: Poder sem limites, Voyeurismo legitimado
+
+#2 | Score: 61/100 | Views: 45.000 | CTR: 6.2% (canal: 6.5% | -0.3pp)
+    Titulo: "A queda brutal do Imperio Asteca"
+    Tema: A conquista espanhola e destruicao do Imperio Asteca
+    Motores: Luto civilizacional, Choque de dominacao
+
+=== VIDEOS COM MUDANCA SIGNIFICATIVA ({updated_count} videos) ===
+(Views +20% ou CTR +2pp -- dados calculados pelo sistema)
+
+- abc123 "Caligula": Views 145.230 -> 198.500 (+37%) | CTR 8.2% -> 8.5% (+0.3pp) | Score 85 -> 88
+- ghi789 "Inquisicao": Views 87.100 -> 130.200 (+49%) | CTR 6.8% -> 7.4% (+0.6pp) | Score 68 -> 75
+
+=== RANKING GERAL ATUALIZADO ({total_videos} videos, top 10) ===
+(scores recalculados pelo sistema com dados atuais)
+
+#1 abc123 Score:88 | #2 xyz789 Score:78 NOVO | #3 ghi789 Score:75 | ...
+
+=== CONTAGEM DE MOTORES ATUALIZADA ===
+
+- Voyeurismo legitimado: 14/29 videos (48%) | Score medio: 76 | era 12/25 (48%), score 74
+- Violacao do sagrado: 9/29 videos (31%) | Score medio: 73 | era 8/25 (32%), score 71
+- Poder sem limites: 6/29 videos (21%) | Score medio: 72 | era 4/25 (16%), score 69
+...
+
+=== RELATORIO ANTERIOR (#{run_number - 1}) ===
+
+(texto completo do relatorio anterior)
+
+Gere o relatorio completo. PARTE 1: analise dos novos videos. PARTE 2: comparacao com relatorio anterior.</div>
+
+  <span class="prompt-label output">OUTPUT ESPERADO -- Primeira Analise</span>
+  <div class="output-block">[RANKING COMENTADO]
+1. "Os excessos de Caligula" -- Score: 85/100 | Views: 145.230 | CTR: 8.2% (canal: 6.4% | +1.8pp)
+   Tema: Os excessos e depravacoes de Caligula como imperador romano
+   Motores: Violacao do sagrado + Voyeurismo legitimado + Poder sem limites
+   --> Combinacao tripla de motores -- raro no canal. O tema une transgressao moral,
+   conteudo proibido em formato seguro, e fascinacao por poder absoluto. Os 3 motores
+   se reforcam mutuamente: Caligula TINHA o poder (motor 3), USOU para transgredir
+   (motor 1), e o espectador ASSISTE tudo pelo filtro da historia (motor 2).
+   CTR 1.8pp acima da media confirma: a audiencia QUER esse tipo de conteudo.
+
+2. "A noite mais sangrenta dos Vikings em Paris" -- Score: 72/100 | Views: 98.400 | CTR: 7.1% (+0.7pp)
+   Tema: O cerco e saque viking a Paris no ano 845 d.C.
+   Motores: Choque moral + Underdog invertido
+   --> Dois motores que funcionam em tensao: o choque de barbaros destruindo a civilizacao
+   E a admiracao secreta por quem venceu contra todas as probabilidades. O espectador
+   sente indignacao e admiracao ao mesmo tempo -- essa tensao emocional segura a atencao.
+
+3. "As torturas da Inquisicao" -- Score: 68/100 | Views: 87.100 | CTR: 6.8% (+0.4pp)
+   Tema: Os metodos de tortura da Santa Inquisicao catolica
+   Motores: Voyeurismo legitimado + Violacao do sagrado
+   --> Mesma dupla do #1 (sem Poder sem limites). A Inquisicao e a Igreja como
+   instrumento de crueldade -- a inversao do protetor em agressor amplifica
+   o motor de Violacao do sagrado. Voyeurismo forte: detalhes de tortura
+   em contexto educativo.
+
+4. "O harem secreto do Imperio Otomano" -- Score: 66/100 | Views: 82.000 | CTR: 7.5% (+1.1pp)
+   Tema: O funcionamento e segredos do harem imperial otomano
+   Motores: Voyeurismo legitimado + Erotismo velado
+   --> CTR alto (7.5%, +1.1pp) mas views moderadas -- o clique e forte mas
+   o alcance organico e menor. "Erotismo velado" e motor novo no canal:
+   o tema sexual e implicito, nunca explicito, mas a atracao e sexual.
+   Notar que NAO e o mesmo que Voyeurismo: Voyeurismo = ver o proibido,
+   Erotismo velado = atracao sexual disfarcada de historia.
+
+5. "5 massacres que a escola nunca te ensinou" -- Score: 61/100 | Views: 75.300 | CTR: 5.9% (-0.5pp)
+   Tema: Massacres historicos omitidos do curriculo escolar
+   Motores: Conhecimento proibido + Choque moral
+   --> CTR abaixo da media (-0.5pp). "Conhecimento proibido" funciona como
+   gancho de clique mas nao sustenta. O formato listicle ("5 massacres")
+   dilui o impacto emocional -- cada massacre recebe pouco tempo.
+
+... (todos os 25 videos) ...
+
+25. "Cronologia da Guerra dos 100 Anos" -- Score: 22/100 | Views: 12.800 | CTR: 4.1% (-2.3pp)
+    Tema: Cronologia da Guerra dos Cem Anos entre Franca e Inglaterra
+    Motores: Completude enciclopedica
+    --> Motor unico e fraco. "Completude enciclopedica" atrai um nicho pequeno
+    (quem busca referencia) mas nao gera clique emocional. CTR 2.3pp ABAIXO
+    da media confirma: sem motor emocional = sem performance.
+
+[MOTORES DOMINANTES]
+1. Voyeurismo legitimado -- 12/25 videos (48%) | Score medio: 74/100
+   O motor mais forte do canal. Presente em quase metade dos videos e com
+   o maior score medio. A audiencia de Archives de Guerre quer consumir
+   conteudo transgressor (violencia, sexo, crueldade) atraves da legitimacao
+   historica. O formato "documentario historico" serve como licenca moral.
+   REGRA: quanto mais transgressor o tema concreto, melhor performa --
+   DESDE que venha embrulhado em formato historico-educativo.
+   Videos: #1 Caligula, #3 Inquisicao, #4 Harem, #7 Gladiadores, #9 Borgias...
+
+2. Violacao do sagrado -- 8/25 videos (32%) | Score medio: 71/100
+   Segundo motor. Funciona MELHOR como motor secundario combinado com
+   Voyeurismo (score medio 82 quando juntos vs 63 sozinho).
+   O padrao: algo que a sociedade considera sagrado (religiao, moral,
+   inocencia) sendo violado ou destruido. A transgressao gera indignacao
+   + curiosidade = clique.
+   REGRA: NAO usar sozinho -- sempre combinar com Voyeurismo ou Poder.
+
+3. Choque moral -- 7/25 videos (28%) | Score medio: 65/100
+   Motor de entrada -- atrai o clique inicial (brutalidade, violencia extrema)
+   mas nao sustenta a atencao sozinho. Score medio mais baixo dos top 3.
+   REGRA: usar como motor de entrada + combinar com motor de profundidade.
+
+4. Poder sem limites -- 4/25 videos (16%) | Score medio: 69/100
+   Motor de nicho -- aparece em poucos videos mas com score alto.
+   Funciona exclusivamente com figuras historicas que tiveram poder absoluto.
+   REGRA: depende de personagem central forte -- nao funciona com eventos.
+
+5. Erotismo velado -- 2/25 videos (8%) | Score medio: 64/100
+   Motor emergente. CTR alto (media 7.3%) mas views moderadas.
+   REGRA: potencial subexplorado -- testar mais.
+
+Motores fracos:
+- Conhecimento proibido -- 3/25 (12%) | Score: 55 -- funciona como gancho, nao sustenta
+- Underdog invertido -- 2/25 (8%) | Score: 58 -- situacional, depende do tema
+- Completude enciclopedica -- 2/25 (8%) | Score: 28 -- EVITAR, puxa canal pra baixo
+
+[PADROES E DESCOBERTAS]
+- Combinacao Voyeurismo + Violacao do sagrado = score medio 82 (vs 65 individual)
+  Esta e a FORMULA do canal. 5/25 videos tem essa dupla, todos no top 10.
+- Videos com motor unico performam 22% abaixo da media do canal
+  SEMPRE combinar 2+ motores por tema.
+- Videos com 3+ motores: score medio 80 vs 62 com 1-2 motores
+- Roma antiga: 5/25 videos, 3 no top 5 -- forte mas concentrado demais
+- Temas com CTR acima da media: 15/25 (60%) -- canal saudavel
+- Temas com CTR abaixo: concentrados em motores fracos (Conhecimento proibido,
+  Completude enciclopedica) -- padrao claro do que NAO funciona.
+
+[RECOMENDACOES]
+- PRODUZIR MAIS: Temas que combinam Voyeurismo + Violacao do sagrado
+  Exemplos concretos: rituais proibidos de civilizacoes antigas, praticas
+  secretas de ordens religiosas, excessos de imperadores.
+- TESTAR: Erotismo velado com Voyeurismo -- CTR alto indica potencial
+  Exemplos: concubinas imperiais, rituais de fertilidade, casamentos forcados.
+- DIVERSIFICAR CENARIO: Sair de Roma mantendo os mesmos motores.
+  Egito (Cleopatra + Voyeurismo), Persia (harem + Erotismo), Japao feudal
+  (samurais + Violacao do sagrado).
+- EVITAR: Temas puramente cronologicos sem motor emocional
+  "Cronologia de X", "Historia completa de Y" = score medio 28. Nao produzir.
+- REFORMULAR: Temas com Conhecimento proibido -- nao funciona sozinho.
+  "5 coisas que a escola escondeu" --> "O segredo que a Igreja tentou destruir"
+  (troca Conhecimento proibido --> Violacao do sagrado + Voyeurismo).</div>
+
+  <span class="prompt-label output">OUTPUT ESPERADO -- Analise Futura (Relatorio #2+)</span>
+  <div class="output-block">PARTE 1 -- ANALISE DO DIA
+
+[RANKING COMENTADO -- NOVOS VIDEOS]
+1. "Os crimes impunes de Nero" -- Score: 78/100 | Views: 112.000 | CTR: 7.8% (canal: 6.5% | +1.3pp)
+   Tema: Os crimes e extravagancias do imperador Nero
+   Motores: Poder sem limites + Voyeurismo legitimado
+   --> Nero e Caligula 2.0 -- mesma combinacao de poder absoluto + transgressao
+   em formato historico. Score 78 vs 85 do Caligula: Nero e forte mas nao
+   supera o original. A audiencia ja viu esse padrao -- retornos decrescentes
+   de Roma podem estar comecando.
+
+2. "A queda brutal do Imperio Asteca" -- Score: 61/100 | Views: 45.000 | CTR: 6.2% (-0.3pp)
+   Tema: A conquista espanhola e destruicao do Imperio Asteca
+   Motores: Luto civilizacional + Choque de dominacao
+   --> Dois motores NOVOS no canal. "Luto civilizacional" e diferente de
+   "Choque moral": nao e indignacao pela violencia, e TRISTEZA pela perda
+   irreversivel de uma civilizacao inteira. "Choque de dominacao" e diferente
+   de "Underdog invertido": aqui o forte esmaga o fraco (nao ha subversao).
+   CTR ligeiramente abaixo da media -- motores novos ainda nao provados.
+
+[MOTORES NOS NOVOS VIDEOS]
+- Voyeurismo legitimado: 2/4 novos -- continua dominante, consistente
+- Poder sem limites: 2/4 novos -- crescendo, especialmente com imperadores romanos
+- Luto civilizacional: 1/4 -- NOVO, monitorar nos proximos relatorios
+- Choque de dominacao: 1/4 -- NOVO, CTR fraco, precisa de mais dados
+
+[PADROES DOS NOVOS]
+- Roma continua funcionando mas com retornos decrescentes (Nero 78 &lt; Caligula 85)
+- Civilizacoes americanas sao territorio inexplorado -- resultado moderado
+- Motores novos (Luto + Choque de dominacao) nao performaram tao bem quanto
+  os estabelecidos (Voyeurismo + Violacao) -- normal para primeiro teste
+
+[RECOMENDACOES]
+- NAO saturar Roma -- proximo video romano deve esperar 2-3 semanas
+- TESTAR "Luto civilizacional" + Voyeurismo (ex: "Os ultimos dias de Pompeia")
+- Manter foco em Voyeurismo + Violacao como motores primarios
+- Civilizacoes americanas: tentar com motor mais forte (Maias + rituais = Voyeurismo)
+
+---------------------------------------------------------------------------
+
+PARTE 2 -- COMPARACAO COM ANTERIORES
+
+[RANKING GERAL ATUALIZADO]
+1. "Os excessos de Caligula" -- Score: 88/100 (era 85) ^
+   Views: 198.500 (+37%) | CTR: 8.5% (+0.3pp)
+2. "Os crimes impunes de Nero" -- Score: 78/100 * NOVO
+   Views: 112.000 | CTR: 7.8%
+3. "As torturas da Inquisicao" -- Score: 75/100 (era 68) ^^
+   Views: 130.200 (+49%) | CTR: 7.4% (+0.6pp)
+4. "A noite mais sangrenta dos Vikings" -- Score: 72/100 (=)
+5. "O harem secreto do Imperio Otomano" -- Score: 66/100 (=)
+...
+10. "A queda brutal do Imperio Asteca" -- Score: 61/100 * NOVO
+
+[EVOLUCAO DOS MOTORES vs Relatorio #1 (2026-03-04)]
+- Voyeurismo legitimado: 12/25 --> 14/29 (48%-->48%) | Score: 74-->76 ^ ESTAVEL E DOMINANTE
+- Violacao do sagrado: 8/25 --> 9/29 (32%-->31%) | Score: 71-->73 ^ ESTAVEL
+- Poder sem limites: 4/25 --> 6/29 (16%-->21%) | Score: 69-->72 ^ CRESCENDO
+- Choque moral: 7/25 --> 7/29 (28%-->24%) | Score: 65-->65 = PERDENDO RELEVANCIA
+- NOVOS: Luto civilizacional (1 video), Choque de dominacao (1 video)
+
+[VIDEOS COM CRESCIMENTO SIGNIFICATIVO]
+- "Os excessos de Caligula": Views +37%, CTR +0.3pp --> posicao #1 consolidada
+  Motor triplo (Voyeurismo + Violacao + Poder) confirmado como mais forte.
+- "As torturas da Inquisicao": Views +49%, CTR +0.6pp --> MAIOR crescimento do ciclo
+  Subiu de score 68 para 75. Temas religiosos com Voyeurismo = proximo filao.
+
+[HIPOTESES ANTERIORES -- STATUS]
+- CONFIRMADA: "Voyeurismo + Violacao = formula do canal" -- mantem 82 score medio
+- CONFIRMADA: "Roma pode saturar" -- Nero (78) performou abaixo de Caligula (88)
+- EM TESTE: "Erotismo velado como potencial" -- sem novos videos, inconclusivo
+- EM TESTE: "Civilizacoes nao-europeias" -- Asteca score 61, moderado
+- NOVA HIPOTESE: "Temas religiosos com Voyeurismo = proximo filao" (Inquisicao +49%)</div>
+</div>
+
+<!-- 7. OUTPUT FINAL UNIFICADO -->
+<div class="section">
+  <h2 class="section-title">7. Output Final Unificado</h2>
+
+  <p style="color:#b0b0b0;margin-bottom:16px;font-size:14px;">Os outputs das duas LLMs sao juntados pelo Python em um unico relatorio salvo no banco de dados:</p>
+
+  <h3 class="section-subtitle">Primeira Analise (Relatorio #1)</h3>
+  <div class="unified-formula">
+    <span class="formula-part formula-temas">LLM TEMAS</span>
+    <span class="formula-op">+</span>
+    <span class="formula-part formula-motores">LLM MOTORES</span>
+    <span class="formula-op">=</span>
+    <span class="formula-part formula-result">1 Relatorio</span>
+  </div>
+
+  <h3 class="section-subtitle">Analises Futuras (Relatorio #2+)</h3>
+  <div class="unified-formula">
+    <span class="formula-part formula-temas">LLM TEMAS<br><small>(so novos)</small></span>
+    <span class="formula-op">+</span>
+    <span class="formula-part formula-motores">LLM MOTORES<br><small>(analise do dia)</small></span>
+    <span class="formula-op">+</span>
+    <span class="formula-part formula-comp">Comparacao<br><small>(vs anteriores)</small></span>
+    <span class="formula-op">=</span>
+    <span class="formula-part formula-result">1 Relatorio</span>
+  </div>
+
+  <div class="note">
+    Sempre 1 relatorio unico por execucao. A analise do dia vem PRIMEIRO (novos videos, motores, padroes, recomendacoes). A comparacao com anteriores vem DEPOIS, como secao separada no final.
+  </div>
+</div>
+
+<!-- 8. GESTAO DE RELATORIOS -->
+<div class="section">
+  <h2 class="section-title">8. Gestao de Relatorios</h2>
+
+  <div class="mgmt-grid">
+    <div class="mgmt-card">
+      <div class="icon">#</div>
+      <h4>Numeracao Sequencial</h4>
+      <p>Cada relatorio recebe um numero sequencial por canal: #1, #2, #3... com a data de execucao. Facil de identificar e referenciar.</p>
+    </div>
+    <div class="mgmt-card">
+      <div class="icon">X</div>
+      <h4>Excluir Relatorio</h4>
+      <p>"Excluir relatorio #2" -- remove o relatorio e renumera os seguintes. Videos daquele relatorio voltam a ser "novos" na proxima analise.</p>
+    </div>
+    <div class="mgmt-card">
+      <div class="icon">R</div>
+      <h4>Refazer Analise</h4>
+      <p>Excluir o ultimo relatorio e rodar novamente. Util para testar ajustes nos prompts ou quando a LLM nao entregou qualidade suficiente.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    Exemplo pratico: Canal tem relatorios #1 (10/mar), #2 (17/mar), #3 (24/mar). Voce exclui o #2. Resultado: #1 (10/mar) e #2 (24/mar, renumerado). Os videos que estavam no antigo #2 serao re-analisados na proxima execucao.
+  </div>
+</div>
+
+<!-- 9. DETECCAO INCREMENTAL -->
+<div class="section">
+  <h2 class="section-title">9. Deteccao Incremental -- Como Evita Duplicacao</h2>
+
+  <p style="color:#b0b0b0;margin-bottom:16px;font-size:14px;">Cada relatorio salva um snapshot (analyzed_video_data) com os dados de cada video no momento da analise. Na proxima execucao, o Python compara os dados atuais com o snapshot:</p>
+
+  <table class="detect-table">
+    <tr>
+      <th>Situacao</th>
+      <th>Como detecta</th>
+      <th>O que acontece</th>
+    </tr>
+    <tr>
+      <td style="color:#4ade80;font-weight:600;">NOVO</td>
+      <td>video_id NAO existe no snapshot</td>
+      <td>Vai pra LLM TEMAS --> extrai tema + hipoteses</td>
+    </tr>
+    <tr>
+      <td style="color:#f59e0b;font-weight:600;">ATUALIZADO</td>
+      <td>Views +20% OU CTR +2pp vs snapshot</td>
+      <td>Python atualiza numeros. LLM MOTORES recebe os deltas na comparacao</td>
+    </tr>
+    <tr>
+      <td style="color:#666;font-weight:600;">SEM MUDANCA</td>
+      <td>Abaixo dos thresholds</td>
+      <td>Ignorado. Mantem tema/hipoteses/score do snapshot</td>
+    </tr>
+  </table>
+
+  <div class="unified-box">
+    <h4>Resultado: Zero Duplicacao</h4>
+    <p style="color:#b0b0b0;font-size:13px;">A LLM TEMAS so recebe videos NOVOS. Nunca re-analisa o mesmo video. Os numeros (views, CTR, score) sao atualizados 100% pelo Python -- precisos e sem custo de LLM. A LLM MOTORES recebe tudo pronto para gerar a analise narrativa.</p>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div style="text-align:center;padding:30px;color:#555;font-size:12px;">
+  Spec: Agente 3 -- Temas + Motores Psicologicos | Camada 2 | Cellibs + Claude | 2026-03-04
+</div>
+
+</div>
+</body>
+</html>

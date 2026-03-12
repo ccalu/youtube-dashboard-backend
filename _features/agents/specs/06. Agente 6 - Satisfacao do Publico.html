@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agente 6 — Satisfacao do Publico</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-tertiary: #1a1a24;
+            --bg-card: #16161f;
+            --text-primary: #e8e8ed;
+            --text-secondary: #a0a0b0;
+            --text-muted: #6b6b7b;
+            --accent: #f472b6;
+            --accent-dim: rgba(244, 114, 182, 0.15);
+            --accent-glow: rgba(244, 114, 182, 0.3);
+            --green: #00d4aa;
+            --green-dim: rgba(0, 212, 170, 0.15);
+            --warning: #ff6b6b;
+            --warning-dim: rgba(255, 107, 107, 0.15);
+            --highlight: #ffd93d;
+            --highlight-dim: rgba(255, 217, 61, 0.1);
+            --purple: #a78bfa;
+            --purple-dim: rgba(167, 139, 250, 0.15);
+            --orange: #ff9f43;
+            --orange-dim: rgba(255, 159, 67, 0.15);
+            --blue: #54a0ff;
+            --blue-dim: rgba(84, 160, 255, 0.15);
+            --cyan: #22d3ee;
+            --cyan-dim: rgba(34, 211, 238, 0.15);
+            --border: rgba(255, 255, 255, 0.08);
+            --border-accent: rgba(244, 114, 182, 0.3);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.8;
+            font-size: 16px;
+        }
+        .container { display: flex; min-height: 100vh; }
+
+        .sidebar {
+            width: 280px; background: var(--bg-secondary); border-right: 1px solid var(--border);
+            padding: 2rem 1.5rem; position: fixed; height: 100vh; overflow-y: auto;
+        }
+        .sidebar-header { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+        .sidebar-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); font-weight: 600; margin-bottom: 0.5rem; }
+        .sidebar-subtitle { font-size: 1rem; color: var(--text-primary); font-weight: 600; }
+        .nav-section { margin-bottom: 1.5rem; }
+        .nav-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 0.75rem; font-weight: 600; }
+        .nav-link {
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 0.75rem; color: var(--text-secondary); text-decoration: none;
+            font-size: 0.82rem; border-radius: 6px; transition: all 0.2s ease; margin-bottom: 0.2rem;
+        }
+        .nav-link:hover { background: var(--accent-dim); color: var(--accent); }
+        .nav-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+        .main { flex: 1; margin-left: 280px; padding: 3rem 4rem; max-width: 1100px; }
+        h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem; line-height: 1.2; }
+        h1 .accent { color: var(--accent); }
+        h2 { font-size: 1.75rem; font-weight: 700; margin-top: 3.5rem; margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 2px solid var(--accent); display: inline-block; }
+        h3 { font-size: 1.25rem; font-weight: 600; margin-top: 2rem; margin-bottom: 1rem; color: var(--text-primary); }
+        h4 { font-size: 1.1rem; font-weight: 600; color: var(--accent); margin-top: 1.5rem; margin-bottom: 0.75rem; }
+        p { margin-bottom: 1.5rem; color: var(--text-secondary); }
+        strong { color: var(--text-primary); }
+        .meta { color: var(--text-muted); font-size: 0.875rem; margin-bottom: 2rem; }
+        ul { margin: 1rem 0 1.5rem 1.5rem; }
+        ul li { color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.95rem; }
+
+        .part-header {
+            background: linear-gradient(135deg, var(--accent-dim) 0%, var(--bg-tertiary) 100%);
+            border: 1px solid var(--border-accent); border-radius: 16px;
+            padding: 2rem 2.5rem; margin: 3.5rem 0 2rem 0; position: relative; overflow: hidden;
+        }
+        .part-header::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--accent), transparent); }
+        .part-number { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent); font-weight: 600; margin-bottom: 0.5rem; }
+        .part-title { font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; }
+        .part-desc { font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 0; }
+
+        .highlight-card {
+            background: var(--bg-card); border: 1px solid var(--border-accent); border-radius: 12px;
+            padding: 2rem; margin: 2.5rem 0; position: relative; overflow: hidden;
+        }
+        .highlight-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--accent), transparent); }
+        .highlight-card .label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); font-weight: 600; margin-bottom: 1rem; }
+        .highlight-card p { color: var(--text-primary); font-size: 1.1rem; margin-bottom: 0; }
+
+        .divider { height: 1px; background: linear-gradient(90deg, var(--accent), transparent); margin: 3rem 0; }
+
+        .insight-box {
+            background: linear-gradient(135deg, var(--accent-dim) 0%, transparent 100%);
+            border-left: 3px solid var(--accent); padding: 1.25rem 1.5rem; margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0; font-weight: 500; color: var(--text-primary); font-size: 1rem;
+        }
+        .insight-box.green { background: linear-gradient(135deg, var(--green-dim) 0%, transparent 100%); border-left-color: var(--green); }
+        .insight-box.warning { background: linear-gradient(135deg, var(--warning-dim) 0%, transparent 100%); border-left-color: var(--warning); }
+        .insight-box.highlight { background: linear-gradient(135deg, var(--highlight-dim) 0%, transparent 100%); border-left-color: var(--highlight); }
+        .insight-box.purple { background: linear-gradient(135deg, var(--purple-dim) 0%, transparent 100%); border-left-color: var(--purple); }
+        .insight-box.blue { background: linear-gradient(135deg, var(--blue-dim) 0%, transparent 100%); border-left-color: var(--blue); }
+        .insight-box.orange { background: linear-gradient(135deg, var(--orange-dim) 0%, transparent 100%); border-left-color: var(--orange); }
+
+        .decision-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .decision-table th {
+            background: var(--bg-tertiary); color: var(--accent); font-weight: 600; font-size: 0.75rem;
+            text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; text-align: left; border-bottom: 2px solid var(--accent);
+        }
+        .decision-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+        .decision-table tr:hover td { background: var(--bg-tertiary); }
+        .decision-table td:first-child { color: var(--text-primary); font-weight: 500; }
+
+        .metric-row { display: flex; gap: 1rem; margin: 1.5rem 0; flex-wrap: wrap; }
+        .metric-box {
+            background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 10px;
+            padding: 1.25rem 1.5rem; flex: 1; min-width: 160px; text-align: center;
+        }
+        .metric-box.active { border-color: var(--border-accent); }
+        .metric-value { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; font-family: 'JetBrains Mono', monospace; }
+        .metric-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .metric-sub { font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.35rem; }
+
+        .matrix-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.9rem; }
+        .matrix-table th { padding: 0.75rem 1rem; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; }
+        .matrix-table th:first-child { background: transparent; }
+        .matrix-table th.col-good { background: var(--green-dim); color: var(--green); border-radius: 8px 0 0 0; }
+        .matrix-table th.col-bad { background: var(--warning-dim); color: var(--warning); border-radius: 0 8px 0 0; }
+        .matrix-table td { padding: 1rem; border: 1px solid var(--border); font-size: 0.88rem; }
+        .matrix-table td:first-child { font-weight: 600; color: var(--text-primary); background: var(--bg-tertiary); width: 140px; text-align: center; }
+        .matrix-cell-good { background: var(--green-dim); color: var(--green); font-weight: 500; }
+        .matrix-cell-warn { background: var(--highlight-dim); color: var(--highlight); font-weight: 500; }
+        .matrix-cell-opp { background: var(--blue-dim); color: var(--blue); font-weight: 500; }
+        .matrix-cell-bad { background: var(--warning-dim); color: var(--warning); font-weight: 500; }
+
+        .signal-card {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 1.5rem; margin: 1rem 0; position: relative;
+        }
+        .signal-card::before { content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 3px; border-radius: 12px 0 0 12px; }
+        .signal-card.s1::before { background: var(--accent); }
+        .signal-card.s2::before { background: var(--blue); }
+        .signal-card.s3::before { background: var(--green); }
+        .signal-card.s4::before { background: var(--purple); }
+        .signal-title { font-weight: 700; color: var(--text-primary); font-size: 1rem; margin-bottom: 0.5rem; }
+        .signal-desc { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.7; }
+
+        .score-formula {
+            background: var(--bg-card); border: 2px solid var(--accent); border-radius: 16px;
+            padding: 2rem; margin: 2.5rem 0; text-align: center;
+        }
+        .score-formula-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); font-weight: 600; margin-bottom: 1.25rem; }
+        .score-formula-eq {
+            font-family: 'JetBrains Mono', monospace; font-size: 1.1rem; font-weight: 700;
+            color: var(--text-primary); margin-bottom: 1.25rem; line-height: 2;
+        }
+        .score-formula-eq .sub { color: var(--green); }
+        .score-formula-eq .sent { color: var(--blue); }
+        .score-formula-eq .appr { color: var(--accent); }
+        .score-formula-eq .op { color: var(--text-muted); font-weight: 400; }
+        .score-parts { display: flex; gap: 2rem; justify-content: center; margin-top: 1.25rem; flex-wrap: wrap; }
+        .score-part { text-align: center; min-width: 140px; }
+        .score-part-pct { font-family: 'JetBrains Mono', monospace; font-size: 1.8rem; font-weight: 700; }
+        .score-part-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem; }
+        .score-part-reason { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.5rem; }
+
+        .steps-row { display: flex; gap: 1.25rem; margin: 2rem 0; flex-wrap: wrap; }
+        .step-card {
+            flex: 1; min-width: 200px; background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 1.25rem; position: relative;
+        }
+        .step-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; border-radius: 12px 12px 0 0; }
+        .step-card.s1::before { background: var(--accent); }
+        .step-card.s2::before { background: var(--green); }
+        .step-card.s3::before { background: var(--blue); }
+        .step-card.s4::before { background: var(--purple); }
+        .step-card.s5::before { background: var(--orange); }
+        .step-card.s6::before { background: var(--warning); }
+        .step-card.s7::before { background: var(--cyan); }
+        .step-num {
+            font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.4rem;
+        }
+        .step-card.s1 .step-num { color: var(--accent); }
+        .step-card.s2 .step-num { color: var(--green); }
+        .step-card.s3 .step-num { color: var(--blue); }
+        .step-card.s4 .step-num { color: var(--purple); }
+        .step-card.s5 .step-num { color: var(--orange); }
+        .step-card.s6 .step-num { color: var(--warning); }
+        .step-card.s7 .step-num { color: var(--cyan); }
+        .step-title { font-weight: 700; font-size: 0.95rem; color: var(--text-primary); margin-bottom: 0.4rem; }
+        .step-desc { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.6; }
+
+        .code-block {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 1.5rem; margin: 2rem 0; font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6; overflow-x: auto; white-space: pre;
+        }
+        .code-block .key { color: var(--accent); }
+        .code-block .val { color: var(--green); }
+        .code-block .num { color: var(--orange); }
+        .code-block .muted { color: var(--text-muted); }
+
+        .report-mock {
+            background: var(--bg-card); border: 2px solid var(--accent); border-radius: 16px;
+            padding: 0; margin: 2.5rem 0; overflow: hidden;
+        }
+        .report-header {
+            background: linear-gradient(135deg, var(--accent-dim), var(--bg-tertiary));
+            padding: 1.5rem 2rem; border-bottom: 1px solid var(--border);
+        }
+        .report-header-title { font-size: 1.1rem; font-weight: 700; color: var(--accent); margin-bottom: 0.25rem; }
+        .report-header-meta { font-size: 0.8rem; color: var(--text-muted); }
+        .report-body { padding: 2rem; }
+        .report-section-title {
+            font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em;
+            font-weight: 700; padding: 0.4rem 0.75rem; border-radius: 4px;
+            display: inline-block; margin-bottom: 1rem; margin-top: 1.5rem;
+        }
+        .report-section-title:first-child { margin-top: 0; }
+        .report-section-title.pink { background: var(--accent-dim); color: var(--accent); }
+        .report-section-title.green { background: var(--green-dim); color: var(--green); }
+        .report-section-title.blue { background: var(--blue-dim); color: var(--blue); }
+        .report-section-title.purple { background: var(--purple-dim); color: var(--purple); }
+        .report-section-title.yellow { background: var(--highlight-dim); color: var(--highlight); }
+        .report-section-title.red { background: var(--warning-dim); color: var(--warning); }
+        .report-section-title.orange { background: var(--orange-dim); color: var(--orange); }
+        .report-text { color: var(--text-secondary); font-size: 0.88rem; line-height: 1.8; margin-bottom: 1rem; }
+        .report-text strong { color: var(--text-primary); }
+
+        .report-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; margin: 1rem 0; }
+        .report-table th {
+            background: var(--bg-tertiary); color: var(--accent); font-weight: 600; font-size: 0.65rem;
+            text-transform: uppercase; letter-spacing: 0.05em; padding: 0.6rem 0.6rem; text-align: left;
+            border-bottom: 2px solid var(--accent); white-space: nowrap;
+        }
+        .report-table td { padding: 0.6rem 0.6rem; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+        .report-table tr:hover td { background: var(--bg-tertiary); }
+        .report-table td:first-child { font-weight: 600; color: var(--text-primary); }
+        .report-table .score-high { color: var(--green); font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+        .report-table .score-mid { color: var(--highlight); font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+        .report-table .score-low { color: var(--warning); font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+
+        .limit-card {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+            padding: 1rem 1.25rem; margin: 0.75rem 0; display: flex; align-items: flex-start; gap: 0.75rem;
+        }
+        .limit-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 0.1rem; }
+        .limit-text { font-size: 0.9rem; color: var(--text-secondary); }
+        .limit-text strong { color: var(--text-primary); }
+
+        .resolved-table { width: 100%; border-collapse: collapse; margin: 2rem 0; font-size: 0.88rem; }
+        .resolved-table th {
+            background: var(--bg-tertiary); color: var(--green); font-weight: 600; font-size: 0.72rem;
+            text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; text-align: left; border-bottom: 2px solid var(--green);
+        }
+        .resolved-table td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+        .resolved-table tr:hover td { background: var(--bg-tertiary); }
+        .resolved-table td:first-child { color: var(--text-primary); font-weight: 500; }
+
+        .footer-bar { margin-top: 4rem; padding: 2rem 0; border-top: 1px solid var(--border); text-align: center; }
+        .footer-bar p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0; }
+
+        @media (max-width: 900px) {
+            .sidebar { display: none; }
+            .main { margin-left: 0; padding: 2rem 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <!-- SIDEBAR -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">Camada 2 &mdash; Analise Especializada</div>
+                <div class="sidebar-subtitle">Agente 6: Satisfacao do Publico</div>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-label">Parte 1 &mdash; Fundamentos</div>
+                <a href="#limitacao" class="nav-link"><span class="nav-dot" style="background: var(--accent)"></span>Limitacao da Retencao</a>
+                <a href="#sinais" class="nav-link"><span class="nav-dot" style="background: var(--blue)"></span>Sinais de Satisfacao</a>
+                <a href="#camada-separada" class="nav-link"><span class="nav-dot" style="background: var(--green)"></span>Por Que Camada Separada</a>
+                <a href="#matriz" class="nav-link"><span class="nav-dot" style="background: var(--purple)"></span>Matriz Retencao x Satisfacao</a>
+                <a href="#fundamentos" class="nav-link"><span class="nav-dot" style="background: var(--orange)"></span>Alinhamento c/ Fundamentos</a>
+            </div>
+
+            <div class="nav-section">
+                <div class="nav-label">Parte 2 &mdash; Spec Tecnica</div>
+                <a href="#decisoes" class="nav-link"><span class="nav-dot" style="background: var(--accent)"></span>Decisoes de Design</a>
+                <a href="#fontes" class="nav-link"><span class="nav-dot" style="background: var(--blue)"></span>Fontes de Dados</a>
+                <a href="#metricas" class="nav-link"><span class="nav-dot" style="background: var(--green)"></span>Metricas por Video</a>
+                <a href="#logica" class="nav-link"><span class="nav-dot" style="background: var(--purple)"></span>Logica de Analise (7 passos)</a>
+                <a href="#score" class="nav-link"><span class="nav-dot" style="background: var(--orange)"></span>Score Composto</a>
+                <a href="#relatorio" class="nav-link"><span class="nav-dot" style="background: var(--cyan)"></span>Formato do Relatorio</a>
+                <a href="#memoria" class="nav-link"><span class="nav-dot" style="background: var(--highlight)"></span>Memoria Acumulativa</a>
+                <a href="#limites" class="nav-link"><span class="nav-dot" style="background: var(--warning)"></span>Limites</a>
+                <a href="#resolvidas" class="nav-link"><span class="nav-dot" style="background: var(--green)"></span>Questoes Resolvidas</a>
+            </div>
+        </nav>
+
+        <!-- MAIN CONTENT -->
+        <main class="main">
+
+            <h1><span class="accent">Agente 6</span> &mdash; Satisfacao do Publico</h1>
+            <div class="meta">04-03-2026 &nbsp;|&nbsp; Especificacao completa (brainstorm concluido)</div>
+
+            <div class="highlight-card">
+                <div class="label">Resumo</div>
+                <p>Agente especializado por canal que cruza metricas de satisfacao pos-consumo do YouTube (likes, dislikes, inscritos ganhos, sentimento de comentarios) com a estrutura de copy de cada video. Complementar ao Agente 1 &mdash; retencao mede se o espectador <strong>ficou</strong>. Satisfacao mede se o espectador <strong>gostou de ter ficado</strong>.</p>
+            </div>
+
+            <!-- ========== PARTE 1 ========== -->
+
+            <div class="part-header">
+                <div class="part-number">Parte 1</div>
+                <div class="part-title">Fundamentos &mdash; Por Que Este Agente Existe</div>
+                <p class="part-desc">A teoria por tras da necessidade de medir satisfacao alem de retencao.</p>
+            </div>
+
+            <h2 id="limitacao">A Limitacao da Retencao</h2>
+
+            <p>O Agente de Estrutura de Copy (Agente 1) usa retencao media % como metrica primaria. Isso faz sentido: retencao mede quanto tempo o espectador ficou no video, e tempo investido eh o indicador mais direto de que o conteudo prendeu atencao.</p>
+
+            <div class="insight-box warning">
+                Mas prender atencao e gerar satisfacao nao sao a mesma coisa.
+            </div>
+
+            <p>Um video pode ter retencao alta por mecanismos retoricos &mdash; ganchos de curiosidade, loops abertos, promessas de revelacao &mdash; que mantem o espectador assistindo sem que ele saia genuinamente satisfeito com o que assistiu. O espectador ficou, mas ficou esperando algo que talvez nao tenha sido entregue. A retencao registra sucesso. A experiencia real pode nao ter sido positiva.</p>
+
+            <p>Essa distincao eh cada vez mais relevante porque <strong>o algoritmo do YouTube esta evoluindo nessa direcao</strong>. Historicamente, o algoritmo priorizava sinais de consumo: CTR e retencao. Mas a tendencia clara &mdash; e que so vai se intensificar com o avanco da IA aplicada ao algoritmo &mdash; eh incorporar sinais de satisfacao pos-consumo.</p>
+
+            <div class="insight-box">
+                Nao apenas "o espectador assistiu?" mas <strong>"o espectador gostou de ter assistido?"</strong>
+            </div>
+
+            <p>O YouTube ja tem acesso a esses sinais. O que muda eh o peso que o algoritmo da a eles. E esse peso esta aumentando.</p>
+
+            <div class="divider"></div>
+
+            <h2 id="sinais">O Que Sao Sinais de Satisfacao</h2>
+
+            <p>Enquanto retencao mede o que acontece <strong>DURANTE</strong> o video, sinais de satisfacao medem o que acontece <strong>DEPOIS</strong>:</p>
+
+            <div class="signal-card s1">
+                <div class="signal-title">Likes vs Views</div>
+                <div class="signal-desc">Um espectador que da like fez uma acao voluntaria positiva apos assistir. A razao likes/views eh um termometro direto de quantos espectadores sairam satisfeitos o suficiente para expressar aprovacao. Dislikes indicam o oposto.</div>
+            </div>
+
+            <div class="signal-card s2">
+                <div class="signal-title">Comentarios positivos vs negativos</div>
+                <div class="signal-desc">Comentarios sao o sinal mais rico de satisfacao. Nao apenas a quantidade (engajamento geral) mas o sentimento: elogios, pedidos de mais conteudo, agradecimentos indicam satisfacao genuina. Criticas, frustracao, "clickbait" indicam insatisfacao.</div>
+            </div>
+
+            <div class="signal-card s3">
+                <div class="signal-title">Inscritos ganhos por video</div>
+                <div class="signal-desc"><strong>O sinal mais forte de todos.</strong> Um espectador que se inscreve apos assistir um video esta dizendo: "quero mais disso." Eh uma declaracao de satisfacao tao forte que projeta expectativa futura. A razao inscritos ganhos/views por video eh talvez a metrica mais subestimada de qualidade real.</div>
+            </div>
+
+            <div class="signal-card s4">
+                <div class="signal-title">Comportamento pos-video</div>
+                <div class="signal-desc">Embora nao tenhamos acesso direto via API, o YouTube sabe: o espectador continuou na plataforma? Assistiu outro video do mesmo canal? Ou saiu? Os sinais que TEMOS acesso (likes, comentarios, inscritos) funcionam como proxy observavel desse comportamento invisivel.</div>
+            </div>
+
+            <div class="divider"></div>
+
+            <h2 id="camada-separada">Por Que Camada Separada</h2>
+
+            <div class="insight-box blue">
+                <strong>Agente 1 (Copy):</strong> "Qual estrutura prende mais a atencao do espectador?"
+            </div>
+            <div class="insight-box">
+                <strong>Agente 6 (Satisfacao):</strong> "Qual estrutura deixa o espectador mais satisfeito?"
+            </div>
+
+            <p>Sao perguntas complementares, nao redundantes. E a combinacao das duas eh mais poderosa que qualquer uma isolada.</p>
+
+            <h3 id="matriz">A Matriz Retencao x Satisfacao</h3>
+
+            <table class="matrix-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th class="col-good">Satisfacao Alta</th>
+                        <th class="col-bad">Satisfacao Baixa</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Retencao Alta</td>
+                        <td class="matrix-cell-good">Excelencia real. O espectador ficou E gostou.</td>
+                        <td class="matrix-cell-warn">Alerta. Prende por mecanismo retorico mas nao entrega valor real. Funciona no curto prazo, fragil no longo.</td>
+                    </tr>
+                    <tr>
+                        <td>Retencao Baixa</td>
+                        <td class="matrix-cell-opp">Oportunidade. Conteudo bom mas algo na execucao faz o espectador sair antes de experimentar o valor completo.</td>
+                        <td class="matrix-cell-bad">Problema claro em ambas as dimensoes.</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p>Essa matriz por estrutura de copy eh informacao que nenhum agente gera sozinho. Juntos, criam uma visao muito mais completa da qualidade real do conteudo.</p>
+
+            <div class="divider"></div>
+
+            <h2 id="fundamentos">Alinhamento Com os Fundamentos</h2>
+
+            <div class="signal-card s3">
+                <div class="signal-title">Qualidade como fundacao</div>
+                <div class="signal-desc">Retencao sozinha pode mascarar qualidade superficial. Satisfacao revela qualidade genuina. O espectador saiu sentindo que o tempo foi bem investido?</div>
+            </div>
+
+            <div class="signal-card s2">
+                <div class="signal-title">Alinhamento com a plataforma</div>
+                <div class="signal-desc">O YouTube esta evoluindo para priorizar satisfacao, nao apenas consumo. Medir satisfacao eh alinhar-se com a direcao que a plataforma esta indo, nao com onde ela estava.</div>
+            </div>
+
+            <div class="signal-card s1">
+                <div class="signal-title">Entretenimento como produto</div>
+                <div class="signal-desc">Se o produto eh a experiencia do espectador, satisfacao eh a metrica mais proxima de medir a qualidade do produto. Retencao mede se consumiu. Satisfacao mede se cumpriu a promessa.</div>
+            </div>
+
+            <div class="signal-card s4">
+                <div class="signal-title">A constelacao</div>
+                <div class="signal-desc">Cruzar retencao com satisfacao por estrutura de copy revela padroes invisiveis a qualquer metrica isolada. A interacao entre as duas eh mais informativa que a soma.</div>
+            </div>
+
+
+            <!-- ========== PARTE 2 ========== -->
+
+            <div class="part-header">
+                <div class="part-number">Parte 2</div>
+                <div class="part-title">Especificacao Tecnica &mdash; Como o Agente Funciona</div>
+                <p class="part-desc">Logica, formulas, formato de relatorio e memoria acumulativa.</p>
+            </div>
+
+            <h2 id="decisoes">Decisoes de Design</h2>
+
+            <table class="decision-table">
+                <thead>
+                    <tr><th>Aspecto</th><th>Decisao</th><th>Motivo</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Escopo</td><td>1 agente por canal</td><td>Cada canal tem audiencia e dinamica proprias</td></tr>
+                    <tr><td>Variavel subjetiva</td><td>Estrutura de copy (mesma do Agente 1)</td><td>Permite cruzamento direto com relatorio de retencao</td></tr>
+                    <tr><td>Metricas</td><td>Like Approval, Like Ratio, Sub Ratio, Sentimento</td><td>3 dimensoes: aprovacao, engajamento, conversao</td></tr>
+                    <tr><td>Dislikes</td><td>Sim, via YouTube Analytics</td><td>API publica removeu, mas Analytics fornece</td></tr>
+                    <tr><td>Score</td><td>Composto (0-100) + breakdown individual</td><td>Score para ranking, metricas para diagnostico</td></tr>
+                    <tr><td>Pesos</td><td>Sub 40% + Sentimento 35% + Approval 25%</td><td>Provisorio &mdash; ajustar com dados reais</td></tr>
+                    <tr><td>Normalizacao</td><td>Desvio % da media do canal</td><td>Se auto-ajusta conforme o canal cresce</td></tr>
+                    <tr><td>Maturidade</td><td>7 dias</td><td>Mesmo do Agente 1</td></tr>
+                    <tr><td>Amostra minima</td><td>3 videos por estrutura</td><td>Abaixo: "dados insuficientes"</td></tr>
+                    <tr><td>Volume comentarios</td><td>Usar sempre, flag &lt;10</td><td>Nao descartar, sinalizar confiabilidade</td></tr>
+                    <tr><td>Sentimento input</td><td>Formato TBD</td><td>Automacao do socio fornece</td></tr>
+                    <tr><td>Cruzamento Agente 1</td><td>Relatorios independentes</td><td>Cruzamento eh leitura humana</td></tr>
+                    <tr><td>Recomendacoes</td><td>Nao</td><td>Dados e observacoes. Decisao humana.</td></tr>
+                    <tr><td>Frequencia</td><td>Sob demanda</td><td>Roda quando quiser</td></tr>
+                    <tr><td>Memoria</td><td>Banco acumulativo</td><td>Tendencias ao longo do tempo</td></tr>
+                </tbody>
+            </table>
+
+            <div class="divider"></div>
+
+            <h2 id="fontes">Fontes de Dados</h2>
+
+            <h4>YouTube Analytics API (por video)</h4>
+            <ul>
+                <li><strong>Likes</strong> (count)</li>
+                <li><strong>Dislikes</strong> (count) &mdash; disponivel via Analytics para donos do canal</li>
+                <li><strong>Views</strong> (count)</li>
+                <li><strong>Inscritos ganhos</strong> (subscribers gained)</li>
+                <li><strong>Data de publicacao</strong> &mdash; para filtro de maturidade (7+ dias)</li>
+            </ul>
+
+            <h4>Planilha de Producao</h4>
+            <ul>
+                <li><strong>Coluna A</strong> &mdash; Letra da estrutura de copy (A, B, C, D, E, F, G)</li>
+                <li>Matching por titulo do video ou video ID</li>
+            </ul>
+
+            <h4>Fonte Externa (automacao do socio)</h4>
+            <ul>
+                <li><strong>Score de sentimento de comentarios por video</strong> &mdash; formato TBD (0-100 ou similar)</li>
+                <li>Flag automatica se video tem &lt;10 comentarios</li>
+            </ul>
+
+            <div class="divider"></div>
+
+            <h2 id="metricas">Metricas por Video</h2>
+
+            <div class="metric-row">
+                <div class="metric-box active">
+                    <div class="metric-value" style="color: var(--accent)">95%</div>
+                    <div class="metric-label">Like Approval Rate</div>
+                    <div class="metric-sub">likes / (likes + dislikes)</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-value" style="color: var(--blue)">3.2%</div>
+                    <div class="metric-label">Like Ratio</div>
+                    <div class="metric-sub">likes / views (informativo)</div>
+                </div>
+                <div class="metric-box active">
+                    <div class="metric-value" style="color: var(--green)">0.4%</div>
+                    <div class="metric-label">Sub Ratio</div>
+                    <div class="metric-sub">inscritos ganhos / views</div>
+                </div>
+                <div class="metric-box active">
+                    <div class="metric-value" style="color: var(--purple)">82</div>
+                    <div class="metric-label">Sentimento</div>
+                    <div class="metric-sub">score da automacao (0-100)</div>
+                </div>
+            </div>
+
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Boxes com borda rosa = entram no score composto. Like Ratio eh informativo (evita redundancia com Approval).</p>
+
+            <div class="divider"></div>
+
+            <h2 id="logica">Logica de Analise</h2>
+
+            <div class="steps-row">
+                <div class="step-card s1">
+                    <div class="step-num">Passo 1</div>
+                    <div class="step-title">Coleta</div>
+                    <div class="step-desc">Puxar videos via Analytics, filtrar 7+ dias, cruzar com planilha e sentimento</div>
+                </div>
+                <div class="step-card s2">
+                    <div class="step-num">Passo 2</div>
+                    <div class="step-title">Metricas</div>
+                    <div class="step-desc">Calcular Approval, Like Ratio, Sub Ratio e Sentimento por video</div>
+                </div>
+                <div class="step-card s3">
+                    <div class="step-num">Passo 3</div>
+                    <div class="step-title">Agregar</div>
+                    <div class="step-desc">Medias por estrutura (N&ge;3). Flag "amostra pequena" em sentimento</div>
+                </div>
+                <div class="step-card s4">
+                    <div class="step-num">Passo 4</div>
+                    <div class="step-title">Normalizar</div>
+                    <div class="step-desc">Desvio % de cada estrutura vs media geral do canal</div>
+                </div>
+            </div>
+            <div class="steps-row">
+                <div class="step-card s5">
+                    <div class="step-num">Passo 5</div>
+                    <div class="step-title">Score 0-100</div>
+                    <div class="step-desc">Pesos: Sub 40% + Sentimento 35% + Approval 25%. 50 = media.</div>
+                </div>
+                <div class="step-card s6">
+                    <div class="step-num">Passo 6</div>
+                    <div class="step-title">Anomalias</div>
+                    <div class="step-desc">Flaggar videos com metrica 3x+ acima/abaixo da media da estrutura</div>
+                </div>
+                <div class="step-card s7">
+                    <div class="step-num">Passo 7</div>
+                    <div class="step-title">Temporal</div>
+                    <div class="step-desc">Comparar scores, rankings e tendencias vs analise anterior</div>
+                </div>
+            </div>
+
+            <h3>Normalizacao (Passo 4)</h3>
+
+            <p>Calcular media GERAL do canal para cada metrica. Para cada estrutura:</p>
+
+            <div class="code-block"><span class="key">Desvio</span> <span class="op">=</span> (<span class="val">media_estrutura</span> <span class="op">-</span> <span class="val">media_canal</span>) <span class="op">/</span> <span class="val">media_canal</span> <span class="op">×</span> <span class="num">100</span>
+
+<span class="muted">Exemplo:</span> media canal Sub Ratio = <span class="num">0.35%</span>, estrutura A = <span class="num">0.42%</span>
+         Desvio = (<span class="num">0.42</span> - <span class="num">0.35</span>) / <span class="num">0.35</span> × <span class="num">100</span> = <span class="val">+20.0%</span></div>
+
+            <h2 id="score">Score Composto</h2>
+
+            <div class="score-formula">
+                <div class="score-formula-title">Formula do Score de Satisfacao</div>
+                <div class="score-formula-eq">
+                    Score <span class="op">=</span> (<span class="sub">Sub Ratio</span> <span class="op">×</span> 0.40) <span class="op">+</span> (<span class="sent">Sentimento</span> <span class="op">×</span> 0.35) <span class="op">+</span> (<span class="appr">Approval</span> <span class="op">×</span> 0.25)
+                </div>
+                <div class="score-parts">
+                    <div class="score-part">
+                        <div class="score-part-pct" style="color: var(--green)">40%</div>
+                        <div class="score-part-label">Sub Ratio</div>
+                        <div class="score-part-reason">Sinal mais forte (maior commitment)</div>
+                    </div>
+                    <div class="score-part">
+                        <div class="score-part-pct" style="color: var(--blue)">35%</div>
+                        <div class="score-part-label">Sentimento</div>
+                        <div class="score-part-reason">Sinal mais rico e direto</div>
+                    </div>
+                    <div class="score-part">
+                        <div class="score-part-pct" style="color: var(--accent)">25%</div>
+                        <div class="score-part-label">Approval</div>
+                        <div class="score-part-reason">Valido mas mais superficial</div>
+                    </div>
+                </div>
+            </div>
+
+            <p><strong>Escala:</strong> 50 = media do canal. &gt;50 = acima. &lt;50 = abaixo.</p>
+
+            <div class="insight-box highlight">
+                <strong>Sem sentimento?</strong> Redistribuir: Sub Ratio 53% + Approval 47%. Marcar no relatorio: "Score calculado sem dados de sentimento."
+            </div>
+
+            <p style="font-size: 0.88rem; color: var(--text-muted);">Pesos sao provisorios &mdash; ajustar com dados reais depois das primeiras rodadas.</p>
+
+            <div class="divider"></div>
+
+            <h2 id="relatorio">Formato do Relatorio</h2>
+
+            <div class="report-mock">
+                <div class="report-header">
+                    <div class="report-header-title">Relatorio Satisfacao &mdash; Dark History Narratives | 04-03-2026</div>
+                    <div class="report-header-meta">Videos analisados: 42 (de 51 total, 9 excluidos por maturidade &lt;7 dias) &nbsp;&bull;&nbsp; Media geral: 93% approval | 3.2% like ratio | 0.35% sub ratio | 73 sentimento</div>
+                </div>
+                <div class="report-body">
+
+                    <div class="report-section-title pink">Ranking por Estrutura (Score de Satisfacao)</div>
+                    <table class="report-table">
+                        <thead>
+                            <tr><th>#</th><th>Estrutura</th><th>Score</th><th>Approval</th><th>Like Ratio</th><th>Sub Ratio</th><th>Sentimento</th><th>Videos</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>1</td><td>A</td><td class="score-high">68</td><td>96%</td><td>4.1%</td><td>0.6%</td><td>82</td><td>5</td><td style="color: var(--green)">Acima</td></tr>
+                            <tr><td>2</td><td>C</td><td class="score-mid">55</td><td>94%</td><td>3.5%</td><td>0.4%</td><td>75</td><td>4</td><td style="color: var(--highlight)">Media</td></tr>
+                            <tr><td>3</td><td>B</td><td class="score-low">42</td><td>91%</td><td>2.8%</td><td>0.3%</td><td>68*</td><td>5</td><td style="color: var(--warning)">Abaixo</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="report-text" style="font-size: 0.78rem; color: var(--text-muted);">* = maioria dos videos com &lt;10 comentarios (sentimento baixa confiabilidade)</div>
+
+                    <div class="report-section-title green">Like Approval Rate (likes / likes+dislikes)</div>
+                    <table class="report-table">
+                        <thead><tr><th>Estrutura</th><th>Approval</th><th>vs Media Canal</th><th>Tendencia</th></tr></thead>
+                        <tbody>
+                            <tr><td>A</td><td>96%</td><td style="color: var(--green)">+3.2%</td><td>&#8593;</td></tr>
+                            <tr><td>C</td><td>94%</td><td style="color: var(--text-muted)">+1.1%</td><td>&#8594;</td></tr>
+                            <tr><td>B</td><td>91%</td><td style="color: var(--warning)">-2.1%</td><td>&#8595;</td></tr>
+                        </tbody>
+                    </table>
+
+                    <div class="report-section-title blue">Sub Ratio (inscritos ganhos / views)</div>
+                    <table class="report-table">
+                        <thead><tr><th>Estrutura</th><th>Sub Ratio</th><th>vs Media Canal</th><th>Tendencia</th></tr></thead>
+                        <tbody>
+                            <tr><td>A</td><td>0.6%</td><td style="color: var(--green)">+71.4%</td><td>&#8593;</td></tr>
+                            <tr><td>C</td><td>0.4%</td><td style="color: var(--text-muted)">+14.3%</td><td>&#8594;</td></tr>
+                            <tr><td>B</td><td>0.3%</td><td style="color: var(--warning)">-14.3%</td><td>&#8595;</td></tr>
+                        </tbody>
+                    </table>
+
+                    <div class="report-section-title purple">Sentimento de Comentarios</div>
+                    <table class="report-table">
+                        <thead><tr><th>Estrutura</th><th>Sentimento</th><th>vs Media Canal</th><th>Confiabilidade</th><th>Tendencia</th></tr></thead>
+                        <tbody>
+                            <tr><td>A</td><td>82</td><td style="color: var(--green)">+12.3%</td><td style="color: var(--green)">Alta</td><td>&#8593;</td></tr>
+                            <tr><td>C</td><td>75</td><td style="color: var(--text-muted)">+2.7%</td><td style="color: var(--green)">Alta</td><td>&#8594;</td></tr>
+                            <tr><td>B</td><td>68*</td><td style="color: var(--warning)">-6.8%</td><td style="color: var(--warning)">Baixa &#9888;</td><td>&#8595;</td></tr>
+                        </tbody>
+                    </table>
+
+                    <div class="report-section-title yellow">Observacoes</div>
+                    <div class="report-text">Paragrafos narrativos sobre padroes observados nos dados. O agente descreve o que ve, nao recomenda acoes.</div>
+
+                    <div class="report-section-title red">Anomalias</div>
+                    <div class="report-text">Videos com metricas 3x+ acima ou abaixo da media da sua estrutura.</div>
+
+                    <div class="report-section-title orange">Dados Insuficientes (&lt;3 videos)</div>
+                    <div class="report-text">Estruturas com poucos videos. Dados individuais sem agregacao.</div>
+
+                    <div class="report-section-title blue">vs. Analise Anterior</div>
+                    <div class="report-text">Comparacao temporal: mudancas nos scores, rankings, e metricas individuais.</div>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <h2 id="memoria">Memoria Acumulativa</h2>
+
+            <p>Mesmo modelo do Agente 1: arquivo JSON por rodada, permite tendencias ao longo do tempo.</p>
+
+            <div class="code-block">{
+  <span class="key">"data_analise"</span>: <span class="val">"04-03-2026"</span>,
+  <span class="key">"canal"</span>: <span class="val">"Dark History Narratives"</span>,
+  <span class="key">"videos_analisados"</span>: <span class="num">42</span>,
+  <span class="key">"media_canal"</span>: {
+    <span class="key">"like_approval"</span>: <span class="num">93.0</span>,
+    <span class="key">"like_ratio"</span>: <span class="num">3.2</span>,
+    <span class="key">"sub_ratio"</span>: <span class="num">0.35</span>,
+    <span class="key">"sentimento"</span>: <span class="num">73.0</span>,
+    <span class="key">"sentimento_disponivel"</span>: <span class="val">true</span>
+  },
+  <span class="key">"estruturas"</span>: {
+    <span class="key">"A"</span>: {
+      <span class="key">"score"</span>: <span class="num">68</span>,
+      <span class="key">"like_approval"</span>: <span class="num">96.0</span>,
+      <span class="key">"sub_ratio"</span>: <span class="num">0.6</span>,
+      <span class="key">"sentimento"</span>: <span class="num">82</span>,
+      <span class="key">"sentimento_confiavel"</span>: <span class="val">true</span>,
+      <span class="key">"n_videos"</span>: <span class="num">5</span>,
+      <span class="key">"status"</span>: <span class="val">"Acima"</span>
+    }
+  },
+  <span class="key">"anomalias"</span>: [
+    { <span class="key">"video_id"</span>: <span class="val">"xxx"</span>, <span class="key">"metrica"</span>: <span class="val">"sub_ratio"</span>, <span class="key">"valor"</span>: <span class="num">1.8</span>, <span class="key">"media"</span>: <span class="num">0.6</span> }
+  ]
+}</div>
+
+            <ul>
+                <li>Uma entrada por rodada de analise</li>
+                <li>Resumo da ultima analise no contexto para comparacao temporal (Passo 7)</li>
+                <li>Historico completo para tendencias de longo prazo</li>
+            </ul>
+
+            <div class="divider"></div>
+
+            <h2 id="limites">Limites (escopo deliberado)</h2>
+
+            <div class="limit-card">
+                <div class="limit-icon">&#128683;</div>
+                <div class="limit-text"><strong>Nao cruza com Agente 1</strong> &mdash; relatorios independentes. Cruzamento retencao × satisfacao eh leitura humana.</div>
+            </div>
+            <div class="limit-card">
+                <div class="limit-icon">&#128683;</div>
+                <div class="limit-text"><strong>Nao explica POR QUE</strong> &mdash; mostra que estrutura A tem satisfacao maior, nao teoriza sobre o motivo.</div>
+            </div>
+            <div class="limit-card">
+                <div class="limit-icon">&#128683;</div>
+                <div class="limit-text"><strong>Nao da recomendacoes</strong> &mdash; apresenta dados e observacoes. Decisao de acao eh humana.</div>
+            </div>
+            <div class="limit-card">
+                <div class="limit-icon">&#128683;</div>
+                <div class="limit-text"><strong>Nao compara entre canais</strong> &mdash; cada agente opera no universo de um canal.</div>
+            </div>
+            <div class="limit-card">
+                <div class="limit-icon">&#128683;</div>
+                <div class="limit-text"><strong>Sentimento depende de integracao externa</strong> &mdash; automacao do socio fornece scores. Agente consome, nao gera.</div>
+            </div>
+
+            <div class="divider"></div>
+
+            <h2 id="resolvidas">Questoes Resolvidas no Brainstorm</h2>
+
+            <p>Levantadas no conceito inicial, resolvidas durante a discussao:</p>
+
+            <table class="resolved-table">
+                <thead>
+                    <tr><th>Questao</th><th>Resolucao</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Como calcular a "nota de satisfacao"?</td><td>Score composto 0-100 com pesos: Sub 40%, Sentimento 35%, Approval 25%</td></tr>
+                    <tr><td>Analise de sentimento de comentarios?</td><td>Automacao externa do socio fornece score. Formato TBD.</td></tr>
+                    <tr><td>Normalizacao entre metricas?</td><td>Desvio % da media do canal, mapeamento linear para 0-100</td></tr>
+                    <tr><td>Dislikes disponiveis?</td><td>Sim, via YouTube Analytics (dono do canal)</td></tr>
+                    <tr><td>Volume minimo de comentarios?</td><td>Usar sempre, flag "amostra pequena" quando &lt;10</td></tr>
+                    <tr><td>Cruzamento com Agente 1?</td><td>Relatorios independentes</td></tr>
+                </tbody>
+            </table>
+
+            <div class="footer-bar">
+                <p>Agente 6 &mdash; Satisfacao do Publico &nbsp;|&nbsp; Especificacao completa &nbsp;|&nbsp; 04-03-2026</p>
+            </div>
+
+        </main>
+    </div>
+</body>
+</html>
