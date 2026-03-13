@@ -9608,9 +9608,8 @@ body {
     .main-actions .btn.btn-export,
     .main-actions .btn.btn-history { flex: 1; }
     #tabsArea { margin-top: 0.8rem; }
-    .tabs-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-wrap: nowrap; }
-    .tabs-bar::-webkit-scrollbar { display: none; }
-    .tab-btn { font-size: 0.7rem; padding: 0.5rem 0.8rem; white-space: nowrap; flex-shrink: 0; }
+    .tabs-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-bottom: none; margin-bottom: 1rem; }
+    .tab-btn { font-size: 0.7rem; padding: 0.5rem 0.8rem; white-space: nowrap; border-bottom: 2px solid var(--border); justify-content: center; }
     .report-container { padding: 1rem; font-size: 0.75rem; line-height: 1.6; }
     .modal { padding: 1.2rem; max-width: 95%; }
     .sidebar-actions { flex-wrap: wrap; }
@@ -9623,7 +9622,7 @@ body {
     .main-title { font-size: 0.9rem; }
     .report-container { padding: 0.8rem; font-size: 0.7rem; }
     .channel-name { max-width: 120px; }
-    .tab-btn { font-size: 0.65rem; padding: 0.4rem 0.6rem; }
+    .tab-btn { font-size: 0.65rem; padding: 0.4rem 0.5rem; }
     .main-actions .btn { font-size: 0.7rem; padding: 0.35rem 0.4rem; }
     #reportArea [style*="min-width:140px"] { min-width: 100px !important; }
     #reportArea [style*="min-width:120px"] { min-width: 80px !important; }
