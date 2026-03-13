@@ -9939,18 +9939,21 @@ function renderActiveTab() {
 
 function renderSummaryCards(tabKey, data) {
     var html = '';
+    var mob = window.innerWidth <= 768;
+    var cardS = mob ? 'width:100%;text-align:center;padding:0.8rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);' : 'flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);';
+    var wrapS = mob ? 'display:flex;flex-direction:column;gap:8px;margin-bottom:1.5rem;' : 'display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;';
     if (tabKey === 'copy') {
         var ret = data.channel_avg_retention;
         var vids = data.total_videos_analyzed;
         if (ret != null || vids != null) {
-            html += '<div style="display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">';
+            html += '<div style="' + wrapS + '">';
             if (ret != null) {
-                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="' + cardS + '">';
                 html += '<div style="font-size:1.8rem;font-weight:800;color:var(--accent);font-family:JetBrains Mono,monospace;">' + ret.toFixed(1) + '<span style="font-size:0.8rem;opacity:0.6">%</span></div>';
                 html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Retencao Media</div></div>';
             }
             if (vids != null) {
-                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="' + cardS + '">';
                 html += '<div style="font-size:1.8rem;font-weight:800;color:var(--highlight);font-family:JetBrains Mono,monospace;">' + vids + '</div>';
                 html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Videos Analisados</div></div>';
             }
@@ -9961,20 +9964,20 @@ function renderSummaryCards(tabKey, data) {
         var subR = data.channel_avg_sub_ratio;
         var comR = data.channel_avg_comment_ratio;
         if (appr != null || subR != null) {
-            html += '<div style="display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">';
+            html += '<div style="' + wrapS + '">';
             if (appr != null) {
                 var apprColor = appr >= 90 ? '#00d4aa' : appr >= 70 ? '#ffd93d' : '#ff6b6b';
-                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="' + cardS + '">';
                 html += '<div style="font-size:1.8rem;font-weight:800;color:' + apprColor + ';font-family:JetBrains Mono,monospace;">' + appr.toFixed(1) + '<span style="font-size:0.8rem;opacity:0.6">%</span></div>';
                 html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Aprovacao Media</div></div>';
             }
             if (subR != null) {
-                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="' + cardS + '">';
                 html += '<div style="font-size:1.8rem;font-weight:800;color:var(--accent);font-family:JetBrains Mono,monospace;">' + (subR * 100).toFixed(2) + '<span style="font-size:0.8rem;opacity:0.6">%</span></div>';
                 html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Sub Ratio</div></div>';
             }
             if (comR != null) {
-                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="' + cardS + '">';
                 html += '<div style="font-size:1.8rem;font-weight:800;color:var(--purple);font-family:JetBrains Mono,monospace;">' + (comR * 100).toFixed(2) + '<span style="font-size:0.8rem;opacity:0.6">%</span></div>';
                 html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Comment Ratio</div></div>';
             }
@@ -10002,14 +10005,14 @@ function renderSummaryCards(tabKey, data) {
         var tc = data.theme_count;
         var tv = data.total_videos_analyzed;
         if (tc != null || tv != null) {
-            html += '<div style="display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">';
+            html += '<div style="' + wrapS + '">';
             if (tc != null) {
-                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="' + cardS + '">';
                 html += '<div style="font-size:1.8rem;font-weight:800;color:var(--accent);font-family:JetBrains Mono,monospace;">' + tc + '</div>';
                 html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Temas Identificados</div></div>';
             }
             if (tv != null) {
-                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="' + cardS + '">';
                 html += '<div style="font-size:1.8rem;font-weight:800;color:var(--highlight);font-family:JetBrains Mono,monospace;">' + tv + '</div>';
                 html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Videos Analisados</div></div>';
             }
@@ -10019,12 +10022,12 @@ function renderSummaryCards(tabKey, data) {
         var tv2 = data.total_videos;
         var rn = data.run_number;
         if (tv2 != null) {
-            html += '<div style="display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">';
-            html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+            html += '<div style="' + wrapS + '">';
+            html += '<div style="' + cardS + '">';
             html += '<div style="font-size:1.8rem;font-weight:800;color:var(--purple);font-family:JetBrains Mono,monospace;">' + tv2 + '</div>';
             html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Videos Analisados</div></div>';
             if (rn != null) {
-                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="' + cardS + '">';
                 html += '<div style="font-size:1.8rem;font-weight:800;color:var(--accent);font-family:JetBrains Mono,monospace;">#' + rn + '</div>';
                 html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Execucao</div></div>';
             }
@@ -10033,15 +10036,15 @@ function renderSummaryCards(tabKey, data) {
     } else if (tabKey === 'ordenador') {
         var ts = data.total_scripts;
         var ch = data.channel_health;
-        html += '<div style="display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">';
+        html += '<div style="' + wrapS + '">';
         if (ts != null) {
-            html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+            html += '<div style="' + cardS + '">';
             html += '<div style="font-size:1.8rem;font-weight:800;color:#06b6d4;font-family:JetBrains Mono,monospace;">' + ts + '</div>';
             html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Scripts Pendentes</div></div>';
         }
         if (ch) {
             var hColor = (ch === 'excelente' || ch === 'bom') ? 'var(--green)' : (ch === 'atencao') ? 'var(--yellow)' : 'var(--red)';
-            html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+            html += '<div style="' + cardS + '">';
             html += '<div style="font-size:1.4rem;font-weight:800;color:' + hColor + ';font-family:JetBrains Mono,monospace;">' + ch.toUpperCase() + '</div>';
             html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Saude do Canal</div></div>';
         }
@@ -10849,28 +10852,30 @@ function renderCTRTable() {
     html += '<p style="color:var(--text-secondary);margin:0 0 1rem;font-size:13px">' + videos.length + ' videos com dados</p>';
 
     // Stats cards
-    html += '<div style="display:flex;gap:12px;margin-bottom:1.5rem;flex-wrap:wrap">';
+    var isMobile = window.innerWidth <= 768;
+    var cardStyle = 'background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:' + (isMobile ? '10px 14px' : '12px 20px') + ';text-align:center;' + (isMobile ? 'width:100%' : 'flex:1;min-width:120px');
+    html += '<div style="display:flex;gap:' + (isMobile ? '8px' : '12px') + ';margin-bottom:1.5rem;' + (isMobile ? 'flex-direction:column' : 'flex-wrap:wrap') + '">';
     if (isCTR) {
-        html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
-        html += '<div style="font-size:24px;font-weight:700;color:#f59e0b">' + (stats.avg_ctr_percent || 0).toFixed(2) + '%</div>';
+        html += '<div style="' + cardStyle + '">';
+        html += '<div style="font-size:' + (isMobile ? '20px' : '24px') + ';font-weight:700;color:#f59e0b">' + (stats.avg_ctr_percent || 0).toFixed(2) + '%</div>';
         html += '<div style="font-size:11px;color:var(--text-secondary)">CTR Medio</div></div>';
-        html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
-        html += '<div style="font-size:24px;font-weight:700;color:var(--blue)">' + (stats.total_impressions || 0).toLocaleString() + '</div>';
+        html += '<div style="' + cardStyle + '">';
+        html += '<div style="font-size:' + (isMobile ? '20px' : '24px') + ';font-weight:700;color:var(--blue)">' + (stats.total_impressions || 0).toLocaleString() + '</div>';
         html += '<div style="font-size:11px;color:var(--text-secondary)">Total Impressoes</div></div>';
     } else {
-        html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
-        html += '<div style="font-size:24px;font-weight:700;color:#a78bfa">' + (stats.avg_retention_pct || 0).toFixed(1) + '%</div>';
+        html += '<div style="' + cardStyle + '">';
+        html += '<div style="font-size:' + (isMobile ? '20px' : '24px') + ';font-weight:700;color:#a78bfa">' + (stats.avg_retention_pct || 0).toFixed(1) + '%</div>';
         html += '<div style="font-size:11px;color:var(--text-secondary)">Retencao Media</div></div>';
-        html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
-        html += '<div style="font-size:24px;font-weight:700;color:var(--blue)">' + fmtDuration(stats.avg_view_duration_sec || 0) + '</div>';
+        html += '<div style="' + cardStyle + '">';
+        html += '<div style="font-size:' + (isMobile ? '20px' : '24px') + ';font-weight:700;color:var(--blue)">' + fmtDuration(stats.avg_view_duration_sec || 0) + '</div>';
         html += '<div style="font-size:11px;color:var(--text-secondary)">Duracao Media</div></div>';
-        html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
+        html += '<div style="' + cardStyle + '">';
         var totalWT = 0; videos.forEach(function(v) { totalWT += (v.views || 0) * (v.avg_view_duration || 0); });
-        html += '<div style="font-size:24px;font-weight:700;color:#f59e0b">' + fmtWatchTime(totalWT) + '</div>';
+        html += '<div style="font-size:' + (isMobile ? '20px' : '24px') + ';font-weight:700;color:#f59e0b">' + fmtWatchTime(totalWT) + '</div>';
         html += '<div style="font-size:11px;color:var(--text-secondary)">Watch Time Total</div></div>';
     }
-    html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
-    html += '<div style="font-size:24px;font-weight:700;color:var(--green)">' + videos.length + '</div>';
+    html += '<div style="' + cardStyle + '">';
+    html += '<div style="font-size:' + (isMobile ? '20px' : '24px') + ';font-weight:700;color:var(--green)">' + videos.length + '</div>';
     html += '<div style="font-size:11px;color:var(--text-secondary)">Videos</div></div>';
     html += '</div>';
 
