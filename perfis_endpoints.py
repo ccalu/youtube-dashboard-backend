@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/perfis", tags=["perfis"])
 
 # ── Cache ──────────────────────────────────────────────────────────────
-CACHE_TTL_SECONDS = 300  # 5 min fallback
+CACHE_TTL_SECONDS = 60  # 1 min
 _cache = {}  # {"pub": {"data": ..., "ts": ...}, "proxys": {...}, ...}
 
 SPREADSHEET_ID = "1XL6VhOTVVMmfGNqPyJra2T8KjfFbtJ1o16OZkytvCPc"
