@@ -23,6 +23,7 @@ from collector import YouTubeCollector
 from notifier import NotificationChecker
 from comments_logs import CommentsLogsManager
 from monetization_endpoints import router as monetization_router
+from perfis_endpoints import router as perfis_router
 from financeiro import FinanceiroService
 from analytics import ChannelAnalytics
 
@@ -215,6 +216,7 @@ upload_semaphore = asyncio.Semaphore(3)
 # 💰 MONETIZATION ROUTER
 # ========================================
 app.include_router(monetization_router)
+app.include_router(perfis_router)
 
 # ========================================
 # 🆕 MODELOS PYDANTIC
