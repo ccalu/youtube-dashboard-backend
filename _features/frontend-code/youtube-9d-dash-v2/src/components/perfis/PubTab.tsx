@@ -240,10 +240,10 @@ function PubAlerts({ alerts }: { alerts: PubAlert[] }) {
               key={`${a.channel}-${i}`}
               className="flex items-center gap-3 py-1.5 px-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
             >
+              <SubnichoBadge name={a.subnicho} />
               <span className="text-sm text-white/80 font-medium whitespace-nowrap">
                 {a.channel}
               </span>
-              <SubnichoBadge name={a.subnicho} />
               <span className="text-xs text-white/50 ml-auto whitespace-nowrap">{a.message}</span>
             </div>
           ))}

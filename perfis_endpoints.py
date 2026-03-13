@@ -379,8 +379,14 @@ async def get_perfis_proxys():
         if not conta:
             continue
 
+        # Extract subnicho from conta code (e.g. "C001" → "Histórias Sombrias")
+        code_match = re.match(r'(C\d{3})', conta)
+        subnicho = SUBNICHOS.get(code_match.group(1), "") if code_match else ""
+
         channels.append({
             "conta": conta,
+            "subnicho": subnicho,
+            "subnicho_code": code_match.group(1) if code_match else "",
             "username": row[1].strip() if len(row) > 1 else "",
             "email": row[2].strip() if len(row) > 2 else "",
             "password": row[3].strip() if len(row) > 3 else "",
