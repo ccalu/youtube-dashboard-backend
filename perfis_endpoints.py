@@ -528,6 +528,17 @@ async def get_perfis_desmonetizados():
 
     demonetizations.sort(key=_reapply_sort_key)
 
+    # Sort transfers: "virou" filled first, then by conta natural order
+    def _transfer_sort_key(t):
+        virou = t.get("became", "").strip()
+        has_virou = 0 if (virou and virou != "-") else 1
+        conta = t.get("conta", "")
+        parts = re.findall(r'(\d+|\D+)', conta)
+        natural = [int(p) if p.isdigit() else p.lower() for p in parts]
+        return (has_virou, natural)
+
+    transfers.sort(key=_transfer_sort_key)
+
     result = {
         "demonetizations": demonetizations,
         "transfers": transfers,
