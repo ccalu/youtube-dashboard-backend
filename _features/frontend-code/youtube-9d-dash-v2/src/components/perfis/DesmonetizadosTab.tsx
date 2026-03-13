@@ -127,6 +127,18 @@ export function DesmonetizadosTab() {
   const [showHistorico, setShowHistorico] = useState(false);
   const [showTransfers, setShowTransfers] = useState(false);
 
+  // Group demonetizations by reason, preserving backend sort order (soonest reapply first)
+  const groupedDemonetizations = useMemo(() => {
+    if (!data?.demonetizations) return [];
+    const groups = new Map<string, Demonetization[]>();
+    for (const d of data.demonetizations) {
+      const reason = d.reason || 'Desconhecido';
+      if (!groups.has(reason)) groups.set(reason, []);
+      groups.get(reason)!.push(d);
+    }
+    return Array.from(groups.entries());
+  }, [data?.demonetizations]);
+
   const handleCopy = (text: string, fieldId: string) => {
     navigator.clipboard.writeText(text);
     setCopiedField(fieldId);
@@ -244,47 +256,51 @@ export function DesmonetizadosTab() {
         </button>
 
         {showHistorico && (
-          <div className="overflow-x-auto border-t border-white/[0.06]">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/[0.06]">
-                  <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Conta</th>
-                  <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Nome Canal</th>
-                  <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Desmonetizado</th>
-                  <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Pedir Revisao</th>
-                  <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Motivo</th>
-                  <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data?.demonetizations.map((d, i) => {
-                  const canReapply = isReapplyPast(d.date_reapply);
-                  return (
-                    <tr
-                      key={`demo-${i}`}
-                      className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors"
-                    >
-                      <td className="py-2 px-3 text-white/90 font-medium whitespace-nowrap">{d.conta}</td>
-                      <td className="py-2 px-3 text-white/70 whitespace-nowrap">{d.channel_name}</td>
-                      <td className="py-2 px-3 text-white/60 whitespace-nowrap">{d.date_demonetized}</td>
-                      <td className={`py-2 px-3 whitespace-nowrap ${canReapply ? 'text-green-400 font-medium' : 'text-white/60'}`}>
-                        {d.date_reapply || '-'}
-                        {canReapply && <span className="ml-1.5 text-xs text-green-400/70">✓</span>}
-                      </td>
-                      <td className="py-2 px-3 whitespace-nowrap">{reasonBadge(d.reason)}</td>
-                      <td className="py-2 px-3 text-white/60 whitespace-nowrap">{d.status || '-'}</td>
-                    </tr>
-                  );
-                })}
-                {(!data?.demonetizations || data.demonetizations.length === 0) && (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-white/40 text-sm">
-                      Nenhum registro de desmonetizacao
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+          <div className="border-t border-white/[0.06] px-4 py-3 space-y-4">
+            {groupedDemonetizations.length === 0 && (
+              <p className="py-8 text-center text-white/40 text-sm">Nenhum registro de desmonetizacao</p>
+            )}
+            {groupedDemonetizations.map(([reason, items]) => (
+              <div key={reason}>
+                <div className="flex items-center gap-2 mb-2">
+                  {reasonBadge(reason)}
+                  <span className="text-xs text-white/40">{items.length} canal{items.length !== 1 ? 'is' : ''}</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-white/[0.06]">
+                        <th className="text-left py-1.5 px-3 text-xs text-white/50 font-medium">Conta</th>
+                        <th className="text-left py-1.5 px-3 text-xs text-white/50 font-medium">Nome Canal</th>
+                        <th className="text-left py-1.5 px-3 text-xs text-white/50 font-medium">Desmonetizado</th>
+                        <th className="text-left py-1.5 px-3 text-xs text-white/50 font-medium">Pedir Revisao</th>
+                        <th className="text-left py-1.5 px-3 text-xs text-white/50 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((d, i) => {
+                        const canReapply = isReapplyPast(d.date_reapply);
+                        return (
+                          <tr
+                            key={`demo-${reason}-${i}`}
+                            className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors"
+                          >
+                            <td className="py-2 px-3 text-white/90 font-medium whitespace-nowrap">{d.conta}</td>
+                            <td className="py-2 px-3 text-white/70 whitespace-nowrap">{d.channel_name}</td>
+                            <td className="py-2 px-3 text-white/60 whitespace-nowrap">{d.date_demonetized}</td>
+                            <td className={`py-2 px-3 whitespace-nowrap ${canReapply ? 'text-green-400 font-medium' : 'text-white/60'}`}>
+                              {d.date_reapply || '-'}
+                              {canReapply && <span className="ml-1.5 text-xs text-green-400/70">✓</span>}
+                            </td>
+                            <td className="py-2 px-3 text-white/60 whitespace-nowrap">{d.status || '-'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </Card>
