@@ -6368,6 +6368,7 @@ DASH_UPLOAD_HTML = '''
 
         /* ===== RESPONSIVE MOBILE ===== */
         @media (max-width: 768px) {
+            body { padding-bottom: 0; }
             .page-header { padding: 14px 12px 12px; flex-wrap: nowrap; gap: 8px; overflow: hidden; }
             .page-header > div:first-child { min-width: 0; flex-shrink: 1; }
             .header-title { font-size: 19px; letter-spacing: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -6400,7 +6401,8 @@ DASH_UPLOAD_HTML = '''
             .video-title { max-width: 150px; }
             .cell-actions { gap: 6px; }
             .btn-icon { width: 36px; height: 36px; font-size: 18px; }
-            .status-bar { padding: 8px 12px; font-size: 11px; }
+            .status-bar { display: none; }
+            .flag-mobile { display: inline-flex; align-items: center; flex-shrink: 0; }
             .modal-panel { width: 96%; max-height: 85vh; }
             .modal-overlay { padding-top: 2vh; }
             .modal-header { padding: 14px 16px; }
@@ -6535,6 +6537,17 @@ DASH_UPLOAD_HTML = '''
             var l = lingua.toLowerCase();
             var mapa = {'pt':'PT','portugues':'PT','portuguese':'PT','en':'EN','ingles':'EN','english':'EN','es':'ES','espanhol':'ES','spanish':'ES','de':'DE','alemao':'DE','german':'DE','fr':'FR','frances':'FR','french':'FR','it':'IT','italiano':'IT','italian':'IT','pl':'PL','polones':'PL','polish':'PL','ru':'RU','russo':'RU','russian':'RU','ja':'JP','japones':'JP','japanese':'JP','ko':'KR','coreano':'KR','korean':'KR','tr':'TR','turco':'TR','turkish':'TR','ar':'AR','arabic':'AR','arabe':'AR'};
             return mapa[l] || '';
+        }
+        function getFlagCode(lingua) {
+            if (!lingua) return '';
+            var l = lingua.toLowerCase();
+            var mapa = {'pt':'br','portugues':'br','portuguese':'br','en':'us','ingles':'us','english':'us','es':'es','espanhol':'es','spanish':'es','de':'de','alemao':'de','german':'de','fr':'fr','frances':'fr','french':'fr','it':'it','italiano':'it','italian':'it','pl':'pl','polones':'pl','polish':'pl','ru':'ru','russo':'ru','russian':'ru','ja':'jp','japones':'jp','japanese':'jp','ko':'kr','coreano':'kr','korean':'kr','tr':'tr','turco':'tr','turkish':'tr','ar':'sa','arabic':'sa','arabe':'sa'};
+            return mapa[l] || '';
+        }
+        function getFlagImg(lingua) {
+            var code = getFlagCode(lingua);
+            if (!code) return '';
+            return '<img src="https://flagcdn.com/16x12/' + code + '.png" width="16" height="12" alt="' + code + '" style="vertical-align:middle;border-radius:1px;">';
         }
         function toggleFiltro(status) {
             document.querySelectorAll('.stat-card').forEach(function(c) { c.classList.remove('active'); });
@@ -6733,8 +6746,11 @@ DASH_UPLOAD_HTML = '''
                             html += '<table class="modal-table"><thead><tr><th>Canal</th><th>Video</th><th>Status</th><th>Horario</th></tr></thead><tbody>';
                             canaisSucesso.forEach(function(canal) {
                                 var sigla = getSiglaIdioma(canal.lingua);
-                                html += '<tr><td style="color:var(--text-primary);font-weight:500;white-space:nowrap;">' + escapeHtml(canal.nome);
-                                if (sigla) html += ' <span class="lang-tag">' + sigla + '</span>';
+                                var flagHtml = getFlagImg(canal.lingua);
+                                html += '<tr><td style="color:var(--text-primary);font-weight:500;white-space:nowrap;">';
+                                if (mob && flagHtml) html += '<span class="flag-mobile">' + flagHtml + '</span> ';
+                                html += escapeHtml(canal.nome);
+                                if (!mob && sigla) html += ' <span class="lang-tag">' + sigla + '</span>';
                                 html += '</td><td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(truncarTitulo(canal.video_titulo)) + '</td>';
                                 html += '<td style="color:var(--success);font-weight:500;">&#x2705;' + (mob ? '' : ' Sucesso') + '</td>';
                                 html += '<td style="color:var(--text-tertiary);">' + (canal.hora || '-') + '</td></tr>';
@@ -6758,6 +6774,7 @@ DASH_UPLOAD_HTML = '''
                 if (xhr.readyState === 4 && xhr.status === 200) {
                     try {
                         var data = JSON.parse(xhr.responseText);
+                        var mob = isMobile();
                         var el;
                         el = document.getElementById('total'); if (el) el.textContent = data.stats.total || 0;
                         el = document.getElementById('sucesso'); if (el) el.textContent = data.stats.sucesso || 0;
@@ -6818,9 +6835,12 @@ DASH_UPLOAD_HTML = '''
                                     else if (canal.status === 'sem_video') { badgeClass = 'status-badge--sem_video'; badgeText = 'Sem Video'; }
                                     else if (canal.status === 'erro') { badgeClass = 'status-badge--error'; badgeText = 'Erro'; }
                                     html += '<tr>';
-                                    html += '<td><div class="cell-channel"><span class="channel-name">' + escapeHtml(canal.channel_name) + '</span>';
+                                    html += '<td><div class="cell-channel">';
                                     var sigla = getSiglaIdioma(canal.lingua);
-                                    if (sigla) html += '<span class="lang-tag">' + sigla + '</span>';
+                                    var flagHtml = getFlagImg(canal.lingua);
+                                    if (mob && flagHtml) html += '<span class="flag-mobile">' + flagHtml + '</span>';
+                                    html += '<span class="channel-name">' + escapeHtml(canal.channel_name) + '</span>';
+                                    if (!mob && sigla) html += '<span class="lang-tag">' + sigla + '</span>';
                                     if (canal.is_monetized) html += '<span class="monetized-dot"></span>';
                                     html += '</div></td>';
                                     html += '<td><span class="status-badge ' + badgeClass + '">' + badgeText + '</span></td>';
@@ -6920,10 +6940,12 @@ DASH_UPLOAD_HTML = '''
                     for (var j = 0; j < readyChannels.length; j++) {
                         var ch = readyChannels[j];
                         var sigla = getSiglaIdioma(ch.lingua);
+                        var flagHtml = getFlagImg(ch.lingua);
                         html += '<label class="batch-channel-row" style="margin:0;">';
                         html += '<input type="checkbox" class="batch-checkbox" data-channel-id="' + ch.channel_id + '" onchange="batchUpdateCount()">';
+                        if (isMobile() && flagHtml) html += '<span class="flag-mobile">' + flagHtml + '</span>';
                         html += '<span style="flex:1;font-weight:500;color:var(--text-primary);">' + escapeHtml(ch.channel_name) + '</span>';
-                        if (sigla) html += '<span class="lang-tag">' + sigla + '</span>';
+                        if (!isMobile() && sigla) html += '<span class="lang-tag">' + sigla + '</span>';
                         if (ch.is_monetized) html += '<span class="monetized-dot"></span>';
                         if (ch.video_titulo) html += '<span class="batch-video-hint">' + escapeHtml(ch.video_titulo) + '</span>';
                         html += '</label>';
@@ -9609,8 +9631,8 @@ body {
     .main-actions .btn.btn-history { flex: 1; }
     #tabsArea { margin-top: 0.2rem; }
     .tabs-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; border-bottom: none; margin-bottom: 0.8rem; }
-    .tab-btn { font-size: 0.7rem; padding: 0.5rem 0.6rem; white-space: nowrap; border-bottom: 2px solid var(--border); justify-content: center; align-items: center; gap: 0.3rem; margin-bottom: 0; }
-    .tab-dot { flex-shrink: 0; }
+    .tab-btn { font-size: 0.7rem; padding: 0.5rem 0.6rem 0.5rem 1.1rem; white-space: nowrap; border-bottom: 2px solid var(--border); justify-content: center; align-items: center; gap: 0; margin-bottom: 0; position: relative; }
+    .tab-dot { flex-shrink: 0; position: absolute; left: 0.35rem; top: 50%; transform: translateY(-50%); }
     .report-container { padding: 1rem; font-size: 0.75rem; line-height: 1.6; }
     .modal { padding: 1.2rem; max-width: 95%; }
     .sidebar-actions { flex-wrap: wrap; }
