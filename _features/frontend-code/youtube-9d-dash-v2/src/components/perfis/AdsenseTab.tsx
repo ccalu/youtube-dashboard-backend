@@ -222,7 +222,7 @@ export function AdsenseTab() {
                   {owner}
                 </span>
                 <span className="text-xs text-white/40">
-                  {accounts.length} conta{accounts.length !== 1 ? 's' : ''} — {totalChannels} canal{totalChannels !== 1 ? 'is' : ''}
+                  {accounts.length} conta{accounts.length !== 1 ? 's' : ''} — {totalChannels} {totalChannels !== 1 ? 'canais' : 'canal'}
                 </span>
               </div>
 
@@ -252,7 +252,7 @@ export function AdsenseTab() {
                             <CreditCard className={`w-4 h-4 flex-shrink-0 ${colors.text}`} />
                             <span className="text-sm font-medium text-white/90 truncate">{account.name}</span>
                             <span className="text-xs text-white/40">
-                              {account.channels.length} canal{account.channels.length !== 1 ? 'is' : ''}
+                              {account.channels.length} {account.channels.length !== 1 ? 'canais' : 'canal'}
                             </span>
                           </div>
                           <div className="flex items-center gap-4 mt-1 ml-7">
