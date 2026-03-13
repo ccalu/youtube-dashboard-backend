@@ -460,7 +460,7 @@ function PubChannelsList({ channels }: { channels: PubChannel[] }) {
               </span>
               {prioCount > 0 && (
                 <span className="text-xs px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-400 border border-teal-500/30">
-                  {prioCount} prio
+                  {prioCount} prioridade
                 </span>
               )}
             </button>
