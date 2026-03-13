@@ -570,6 +570,9 @@ async def get_perfis_adsense():
     if current_account:
         accounts.append(current_account)
 
+    # Remove accounts without a name (empty rows parsed as blocks)
+    accounts = [a for a in accounts if a["name"].strip()]
+
     stats = {
         "total_accounts": len(accounts),
         "total_channels_linked": sum(len(a["channels"]) for a in accounts),
