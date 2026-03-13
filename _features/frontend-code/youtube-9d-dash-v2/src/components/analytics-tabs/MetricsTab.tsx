@@ -71,7 +71,7 @@ export const MetricsTab: React.FC<MetricsTabProps> = ({ canal }) => {
   return (
     <div className="space-y-4 fade-in">
       {/* Views Grid - 3 colunas */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
         <Card className="border-0" style={{ backgroundColor: CORES_METRICAS.views.fundo + '5E' }}>
           <CardContent className="p-3 sm:p-6 pt-3 pb-2 sm:pt-4 sm:pb-3">
             <div className={`flex items-center gap-1.5 ${CORES_METRICAS.views.texto} mb-1`}>
@@ -110,7 +110,7 @@ export const MetricsTab: React.FC<MetricsTabProps> = ({ canal }) => {
       </div>
 
       {/* Growth & Performance */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
         {/* Growth 7d */}
         <Card className="border-0" style={{ backgroundColor: growth7dColor.fundo + '5E' }}>
           <CardContent className="p-3 sm:p-6 pt-3 pb-2 sm:pt-4 sm:pb-3">
@@ -173,7 +173,7 @@ export const MetricsTab: React.FC<MetricsTabProps> = ({ canal }) => {
           </CardTitle>
         </CardHeader>
         <CardContent className="py-2 sm:py-3">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
             <div className="bg-white/10 rounded-lg p-2 sm:p-3 text-center">
               <Video className="h-4 w-4 sm:h-5 sm:w-5 text-blue-200 mx-auto mb-1" />
               <p className="text-[10px] sm:text-xs text-blue-200">Vídeos 7d</p>

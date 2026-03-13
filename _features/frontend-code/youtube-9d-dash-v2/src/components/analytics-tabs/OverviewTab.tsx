@@ -83,7 +83,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ canal }) => {
       </Card>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
         {/* Inscritos */}
         <Card className="border-0" style={{ backgroundColor: CORES_STATS.inscritos.fundo + '5E' }}>
           <CardContent className="p-3 sm:p-6 pt-3 sm:pt-4">
