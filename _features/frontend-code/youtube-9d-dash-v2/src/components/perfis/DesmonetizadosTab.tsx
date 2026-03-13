@@ -277,7 +277,7 @@ export function DesmonetizadosTab() {
                         <td colSpan={5} className="py-2 px-3">
                           <div className="flex items-center gap-2">
                             {reasonBadge(reason)}
-                            <span className="text-xs text-white/40">{items.length} canal{items.length !== 1 ? 'is' : ''}</span>
+                            <span className="text-xs text-white/40">{items.length} {items.length !== 1 ? 'canais' : 'canal'}</span>
                           </div>
                         </td>
                       </tr>
