@@ -31,7 +31,7 @@ export function PerfisTab() {
       {/* Header with sub-tabs + spreadsheet link */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         {/* Sub-tabs */}
-        <div className="flex gap-1.5 p-1 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+        <div className="flex gap-1.5 p-1 rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-x-auto">
           {SUB_TABS.map((tab) => {
             const isActive = activeSubTab === tab.id;
             const colors = TAB_COLORS[tab.color];

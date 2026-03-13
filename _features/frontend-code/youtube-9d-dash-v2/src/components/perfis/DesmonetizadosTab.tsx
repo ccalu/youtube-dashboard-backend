@@ -137,7 +137,7 @@ export function DesmonetizadosTab() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06]">
               <div className="h-4 w-24 bg-white/[0.06] rounded animate-pulse mb-2" />
@@ -183,7 +183,7 @@ export function DesmonetizadosTab() {
   return (
     <div className="space-y-4">
       {/* Stat Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06]">
           <p className="text-xs text-white/60 mb-1">Total Desmonetizados</p>
           <div className="flex items-center gap-2">

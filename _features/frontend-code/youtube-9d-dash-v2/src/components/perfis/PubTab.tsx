@@ -234,27 +234,29 @@ function PubAlerts({ alerts }: { alerts: PubAlert[] }) {
         <h4 className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-2">
           {ALERT_TYPE_LABELS[type] || type} ({items.length})
         </h4>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-white/[0.06]">
-              <th className="text-left py-1.5 px-2 text-xs text-white/40 font-medium w-[130px]">Subnicho</th>
-              <th className="text-left py-1.5 px-2 text-xs text-white/40 font-medium">Canal</th>
-              <th className="text-right py-1.5 px-2 text-xs text-white/40 font-medium">Info</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((a, i) => (
-              <tr
-                key={`${a.channel}-${i}`}
-                className="border-b border-white/[0.02] hover:bg-white/[0.03] transition-colors"
-              >
-                <td className="py-1.5 px-2"><SubnichoBadge name={a.subnicho} /></td>
-                <td className="py-1.5 px-2 text-white/80 font-medium whitespace-nowrap">{a.channel}</td>
-                <td className="py-1.5 px-2 text-xs text-white/50 text-right whitespace-nowrap">{a.message}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-white/[0.06]">
+                <th className="text-left py-1.5 px-2 text-xs text-white/40 font-medium w-[130px] hidden sm:table-cell">Subnicho</th>
+                <th className="text-left py-1.5 px-2 text-xs text-white/40 font-medium">Canal</th>
+                <th className="text-right py-1.5 px-2 text-xs text-white/40 font-medium">Info</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {items.map((a, i) => (
+                <tr
+                  key={`${a.channel}-${i}`}
+                  className="border-b border-white/[0.02] hover:bg-white/[0.03] transition-colors"
+                >
+                  <td className="py-1.5 px-2 hidden sm:table-cell"><SubnichoBadge name={a.subnicho} /></td>
+                  <td className="py-1.5 px-2 text-white/80 font-medium whitespace-nowrap">{a.channel}</td>
+                  <td className="py-1.5 px-2 text-xs text-white/50 text-right whitespace-nowrap">{a.message}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   };
@@ -443,11 +445,11 @@ function PubChannelsList({ channels }: { channels: PubChannel[] }) {
           >
             <button
               onClick={() => toggleGroup(group.key)}
-              className="w-full flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/[0.02]"
+              className="w-full flex flex-wrap items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 transition-colors hover:bg-white/[0.02]"
             >
               {isExpanded
-                ? <ChevronDown className="w-4 h-4 text-white/40" />
-                : <ChevronRight className="w-4 h-4 text-white/40" />
+                ? <ChevronDown className="w-4 h-4 text-white/40 flex-shrink-0" />
+                : <ChevronRight className="w-4 h-4 text-white/40 flex-shrink-0" />
               }
               <span
                 className="px-2.5 py-0.5 rounded-full text-xs font-bold text-white/90"

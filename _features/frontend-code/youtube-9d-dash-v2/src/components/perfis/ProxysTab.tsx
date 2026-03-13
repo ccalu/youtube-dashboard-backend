@@ -146,7 +146,7 @@ export function ProxysTab() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06]">
               <div className="h-4 w-24 bg-white/[0.06] rounded animate-pulse mb-2" />
@@ -186,7 +186,7 @@ export function ProxysTab() {
   return (
     <div className="space-y-4">
       {/* Stat Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Card className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06]">
           <p className="text-xs text-white/60 mb-1">Total Contas</p>
           <div className="flex items-center gap-2">
@@ -211,7 +211,7 @@ export function ProxysTab() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Filter className="w-3.5 h-3.5 text-white/30" />
 
         <DropdownMenu>
@@ -289,7 +289,7 @@ export function ProxysTab() {
               {/* Group header */}
               <button
                 onClick={() => toggleGroup(group.code)}
-                className="w-full flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/[0.02]"
+                className="w-full flex flex-wrap items-center gap-2 sm:gap-3 px-3 sm:px-4 py-3 transition-colors hover:bg-white/[0.02]"
               >
                 {isCollapsed
                   ? <ChevronRight className="w-4 h-4 text-white/40" />
