@@ -73,7 +73,7 @@ export const MetricsTab: React.FC<MetricsTabProps> = ({ canal }) => {
       {/* Views Grid - 3 colunas */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
         <Card className="border-0" style={{ backgroundColor: CORES_METRICAS.views.fundo + '5E' }}>
-          <CardContent className="pt-3 pb-2 sm:pt-4 sm:pb-3">
+          <CardContent className="p-3 sm:p-6 pt-3 pb-2 sm:pt-4 sm:pb-3">
             <div className={`flex items-center gap-1.5 ${CORES_METRICAS.views.texto} mb-1`}>
               <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span className="text-[10px] sm:text-xs">Views 7d</span>
@@ -85,7 +85,7 @@ export const MetricsTab: React.FC<MetricsTabProps> = ({ canal }) => {
         </Card>
 
         <Card className="border-0" style={{ backgroundColor: CORES_METRICAS.views.fundo + '5E' }}>
-          <CardContent className="pt-3 pb-2 sm:pt-4 sm:pb-3">
+          <CardContent className="p-3 sm:p-6 pt-3 pb-2 sm:pt-4 sm:pb-3">
             <div className={`flex items-center gap-1.5 ${CORES_METRICAS.views.texto} mb-1`}>
               <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span className="text-[10px] sm:text-xs">Views 15d</span>
@@ -97,7 +97,7 @@ export const MetricsTab: React.FC<MetricsTabProps> = ({ canal }) => {
         </Card>
 
         <Card className="border-0" style={{ backgroundColor: CORES_METRICAS.views.fundo + '5E' }}>
-          <CardContent className="pt-3 pb-2 sm:pt-4 sm:pb-3">
+          <CardContent className="p-3 sm:p-6 pt-3 pb-2 sm:pt-4 sm:pb-3">
             <div className={`flex items-center gap-1.5 ${CORES_METRICAS.views.texto} mb-1`}>
               <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span className="text-[10px] sm:text-xs">Views 30d</span>
@@ -113,7 +113,7 @@ export const MetricsTab: React.FC<MetricsTabProps> = ({ canal }) => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
         {/* Growth 7d */}
         <Card className="border-0" style={{ backgroundColor: growth7dColor.fundo + '5E' }}>
-          <CardContent className="pt-3 pb-2 sm:pt-4 sm:pb-3">
+          <CardContent className="p-3 sm:p-6 pt-3 pb-2 sm:pt-4 sm:pb-3">
             <div className={`flex items-center gap-1.5 ${growth7dColor.texto} mb-1`}>
               {renderGrowthIcon(growth7d, "h-3.5 w-3.5 sm:h-4 sm:w-4")}
               <span className="text-[10px] sm:text-xs">Growth 7d</span>
@@ -126,7 +126,7 @@ export const MetricsTab: React.FC<MetricsTabProps> = ({ canal }) => {
 
         {/* Growth 30d */}
         <Card className="border-0" style={{ backgroundColor: growth30dColor.fundo + '5E' }}>
-          <CardContent className="pt-3 pb-2 sm:pt-4 sm:pb-3">
+          <CardContent className="p-3 sm:p-6 pt-3 pb-2 sm:pt-4 sm:pb-3">
             <div className={`flex items-center gap-1.5 ${growth30dColor.texto} mb-1`}>
               {renderGrowthIcon(growth30d, "h-3.5 w-3.5 sm:h-4 sm:w-4")}
               <span className="text-[10px] sm:text-xs">Growth 30d</span>
@@ -139,7 +139,7 @@ export const MetricsTab: React.FC<MetricsTabProps> = ({ canal }) => {
 
         {/* Engagement Rate - Laranja */}
         <Card className="border-0" style={{ backgroundColor: CORES_METRICAS.engagement.fundo + '5E' }}>
-          <CardContent className="pt-3 pb-2 sm:pt-4 sm:pb-3">
+          <CardContent className="p-3 sm:p-6 pt-3 pb-2 sm:pt-4 sm:pb-3">
             <div className={`flex items-center gap-1.5 ${CORES_METRICAS.engagement.texto} mb-1`}>
               <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span className="text-[10px] sm:text-xs">Engagement</span>
@@ -152,7 +152,7 @@ export const MetricsTab: React.FC<MetricsTabProps> = ({ canal }) => {
 
         {/* Score - Cor dinâmica */}
         <Card className="border-0" style={{ backgroundColor: scoreColor.fundo + '5E' }}>
-          <CardContent className="pt-3 pb-2 sm:pt-4 sm:pb-3">
+          <CardContent className="p-3 sm:p-6 pt-3 pb-2 sm:pt-4 sm:pb-3">
             <div className={`flex items-center gap-1.5 ${scoreColor.texto} mb-1`}>
               <Target className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span className="text-[10px] sm:text-xs">Score</span>

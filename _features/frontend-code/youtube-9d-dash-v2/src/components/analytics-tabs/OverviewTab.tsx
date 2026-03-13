@@ -86,7 +86,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ canal }) => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
         {/* Inscritos */}
         <Card className="border-0" style={{ backgroundColor: CORES_STATS.inscritos.fundo + '5E' }}>
-          <CardContent className="pt-3 sm:pt-4">
+          <CardContent className="p-3 sm:p-6 pt-3 sm:pt-4">
             <div className={`flex items-center gap-1.5 ${CORES_STATS.inscritos.texto} mb-1`}>
               <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span className="text-[10px] sm:text-xs">Inscritos</span>
@@ -111,7 +111,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ canal }) => {
 
         {/* Views 7d - Diferença Absoluta */}
         <Card className="border-0" style={{ backgroundColor: CORES_STATS.views.fundo + '5E' }}>
-          <CardContent className="pt-3 sm:pt-4">
+          <CardContent className="p-3 sm:p-6 pt-3 sm:pt-4">
             <div className={`flex items-center gap-1.5 ${CORES_STATS.views.texto} mb-1`}>
               <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span className="text-[10px] sm:text-xs">Views 7d</span>
@@ -144,7 +144,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ canal }) => {
 
         {/* Views 30d - Diferença Absoluta */}
         <Card className="border-0" style={{ backgroundColor: CORES_STATS.views.fundo + '5E' }}>
-          <CardContent className="pt-3 sm:pt-4">
+          <CardContent className="p-3 sm:p-6 pt-3 sm:pt-4">
             <div className={`flex items-center gap-1.5 ${CORES_STATS.views.texto} mb-1`}>
               <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span className="text-[10px] sm:text-xs">Views 30d</span>
@@ -177,7 +177,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ canal }) => {
 
         {/* Vídeos Publicados */}
         <Card className="border-0" style={{ backgroundColor: CORES_STATS.videos.fundo + '5E' }}>
-          <CardContent className="pt-3 sm:pt-4">
+          <CardContent className="p-3 sm:p-6 pt-3 sm:pt-4">
             <div className={`flex items-center gap-1.5 ${CORES_STATS.videos.texto} mb-1`}>
               <Video className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               <span className="text-[10px] sm:text-xs">Vídeos (7d)</span>
