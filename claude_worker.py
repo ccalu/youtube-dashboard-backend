@@ -52,19 +52,23 @@ HEADERS = {
 
 
 def fetch_pending_job():
-    """Busca proximo job pending (FIFO)."""
+    """Busca proximo job pending, respeitando dependencias (temas → motores → ordenador)."""
     resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/agent_jobs",
         params={
             "status": "eq.pending",
             "order": "created_at.asc",
-            "limit": "1",
+            "limit": "10",
         },
         headers=HEADERS,
     )
-    if resp.status_code == 200 and resp.json():
-        return resp.json()[0]
-    return None
+    if resp.status_code != 200 or not resp.json():
+        return None
+
+    # Priorizar por dependencia: temas primeiro, depois motores, depois ordenador
+    priority = {"temas": 0, "motores": 1, "ordenador": 2}
+    jobs = sorted(resp.json(), key=lambda j: priority.get(j.get("agent_type", ""), 99))
+    return jobs[0] if jobs else None
 
 
 def update_job(job_id: int, **fields):
@@ -110,6 +114,26 @@ def process_ordenador_job(job):
     return result
 
 
+def _has_pending_dependency(channel_id: str, agent_type: str) -> bool:
+    """Verifica se existe job pendente/processing de um agente que precisa rodar antes."""
+    deps = {"motores": "temas", "ordenador": "motores"}
+    required = deps.get(agent_type)
+    if not required:
+        return False
+
+    resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/agent_jobs",
+        params={
+            "channel_id": f"eq.{channel_id}",
+            "agent_type": f"eq.{required}",
+            "status": "in.(pending,processing)",
+            "limit": "1",
+        },
+        headers=HEADERS,
+    )
+    return resp.status_code == 200 and len(resp.json()) > 0
+
+
 def process_job(job):
     """Processa um job pendente."""
     job_id = job["id"]
@@ -117,6 +141,12 @@ def process_job(job):
     channel_id = job["channel_id"]
 
     logger.info(f"=== Job #{job_id}: {agent_type} para {channel_id} ===")
+
+    # Verificar dependencias — se o agente anterior ainda nao rodou, pular por agora
+    if _has_pending_dependency(channel_id, agent_type):
+        dep_name = {"motores": "temas", "ordenador": "motores"}[agent_type]
+        logger.info(f"Job #{job_id}: aguardando {dep_name} para {channel_id} — pulando por agora")
+        return
 
     # Marcar como processing
     update_job(job_id,
