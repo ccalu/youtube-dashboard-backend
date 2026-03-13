@@ -28,8 +28,9 @@ export function obterCorSubnicho(subniche: string): { fundo: string; borda: stri
     case 'Relatos de Guerra':
       return { fundo: '#65A30D', borda: '#4D7C0F', gradient: 'linear-gradient(135deg, #84CC16 0%, #65A30D 50%, #4D7C0F 100%)' };
 
-    // 💣 Frentes de Guerra - Verde escuro militar
+    // 💣 Frentes de Batalha / Frentes de Guerra - Verde escuro militar
     case 'Frentes de Guerra':
+    case 'Frentes de Batalha':
       return { fundo: '#166534', borda: '#14532D', gradient: 'linear-gradient(135deg, #22C55E 0%, #166534 50%, #14532D 100%)' };
 
     // 💀 Culturas Macabras - Vinho tinto sinistro
@@ -120,10 +121,6 @@ export function obterCorSubnicho(subniche: string): { fundo: string; borda: stri
     // 📖 Biografias - Bronze equilibrado
     case 'Biografias':
       return { fundo: '#92400E', borda: '#78350F', gradient: 'linear-gradient(135deg, #D97706 0%, #92400E 50%, #78350F 100%)' };
-
-    // ⚔️ Frentes de Batalha - Verde escuro militar
-    case 'Frentes de Batalha':
-      return { fundo: '#166534', borda: '#14532D', gradient: 'linear-gradient(135deg, #22C55E 0%, #166534 50%, #14532D 100%)' };
 
     // ⚙️ Cor padrão (fallback para subniches não mapeados)
     default:
