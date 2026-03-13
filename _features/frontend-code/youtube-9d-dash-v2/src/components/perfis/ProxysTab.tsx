@@ -67,6 +67,7 @@ export function ProxysTab() {
   const { data, isLoading, isError, error, refetch } = useQuery<ProxysData>({
     queryKey: ['perfis-proxys'],
     queryFn: fetchProxys,
+    staleTime: 60_000,
   });
 
   const [copiedField, setCopiedField] = useState<string | null>(null);

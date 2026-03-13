@@ -111,6 +111,7 @@ export function AdsenseTab() {
   const { data, isLoading, isError, error, refetch } = useQuery<AdsenseData>({
     queryKey: ['perfis-adsense'],
     queryFn: fetchAdsense,
+    staleTime: 60_000,
   });
 
   const [copiedField, setCopiedField] = useState<string | null>(null);

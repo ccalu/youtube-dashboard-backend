@@ -582,7 +582,7 @@ export default function PubTab() {
   const { data, isLoading, isError, error, refetch } = useQuery<PubData>({
     queryKey: ['perfis-pub'],
     queryFn: fetchPubData,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
 

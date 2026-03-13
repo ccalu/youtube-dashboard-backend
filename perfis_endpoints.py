@@ -20,6 +20,10 @@ router = APIRouter(prefix="/api/perfis", tags=["perfis"])
 CACHE_TTL_SECONDS = 60  # 1 min
 _cache = {}  # {"pub": {"data": ..., "ts": ...}, "proxys": {...}, ...}
 
+def clear_perfis_cache():
+    """Clear all perfis cache — called by main.py cache/clear endpoint."""
+    _cache.clear()
+
 SPREADSHEET_ID = "1XL6VhOTVVMmfGNqPyJra2T8KjfFbtJ1o16OZkytvCPc"
 
 # Subnichos nomenclatura

@@ -120,6 +120,7 @@ export function DesmonetizadosTab() {
   const { data, isLoading, isError, error, refetch } = useQuery<DesmonetizadosData>({
     queryKey: ['perfis-desmonetizados'],
     queryFn: fetchDesmonetizados,
+    staleTime: 60_000,
   });
 
   const [copiedField, setCopiedField] = useState<string | null>(null);

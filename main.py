@@ -23,7 +23,7 @@ from collector import YouTubeCollector
 from notifier import NotificationChecker
 from comments_logs import CommentsLogsManager
 from monetization_endpoints import router as monetization_router
-from perfis_endpoints import router as perfis_router
+from perfis_endpoints import router as perfis_router, clear_perfis_cache
 from financeiro import FinanceiroService
 from analytics import ChannelAnalytics
 
@@ -3003,7 +3003,10 @@ async def clear_all_cache():
             logger.warning(f"Could not refresh MVs: {e}")
             mv_refreshed = False
 
-        logger.info("🧹 Cache limpo: Dashboard, Tabela e Comentários")
+        # Limpar cache de perfis (Google Sheets)
+        clear_perfis_cache()
+
+        logger.info("🧹 Cache limpo: Dashboard, Tabela, Comentários e Perfis")
 
         return {
             "message": "Cache limpo com sucesso",
