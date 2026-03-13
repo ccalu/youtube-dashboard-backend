@@ -117,8 +117,8 @@ export function CalendarEventsList({ eventsMap, currentYear, currentMonth }: Cal
   if (sortedDates.length === 0) {
     return (
       <div className="flex gap-3">
-        <div className="hidden sm:block min-w-[130px]" />
-        <Card className="p-4 bg-card border-border/50 flex-1">
+        <div className="hidden sm:block min-w-[130px] shrink-0" />
+        <Card className="p-4 bg-card border-border/50 flex-1 min-w-0">
           <p className="text-sm text-muted-foreground text-center py-4">Nenhum evento neste mês.</p>
         </Card>
       </div>
@@ -129,11 +129,53 @@ export function CalendarEventsList({ eventsMap, currentYear, currentMonth }: Cal
     <>
       <div className="flex gap-3">
         {/* Spacer to align with legend sidebar */}
-        <div className="hidden sm:block min-w-[130px]" />
+        <div className="hidden sm:block min-w-[130px] shrink-0" />
 
-        <Card className="p-3 sm:p-4 bg-card border-border/50 flex-1">
+        <Card className="p-3 sm:p-4 bg-card border-border/50 flex-1 min-w-0">
           <h3 className="text-sm font-semibold text-foreground mb-3">📋 Eventos do Mês</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-x divide-border/30">
+          {/* Mobile: single column list */}
+          <div className="sm:hidden space-y-3">
+            {sortedDates.map(({ dateStr, events }) => (
+              <div key={dateStr} className="border-b border-border/20 pb-2 last:border-0 last:pb-0">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    {formatDateLabel(dateStr)}
+                  </span>
+                  <span className="text-xs leading-none">{getDateCategoryEmojis(events)}</span>
+                </div>
+                <div className="space-y-0 border-l-2 border-border/40 pl-2">
+                  {events.map(event => {
+                    const socio = getSocioByKey(event.created_by);
+                    return (
+                      <div
+                        key={event.id}
+                        className="flex items-center gap-1.5 px-1.5 py-0.5 group"
+                      >
+                        {socio && <span className="text-xs shrink-0">{socio.emoji}</span>}
+                        <span
+                          role="button"
+                          onClick={() => setEditingEvent(event)}
+                          className="text-xs text-foreground truncate cursor-pointer hover:text-primary hover:underline transition-colors"
+                        >
+                          {event.title}
+                        </span>
+                        <span
+                          role="button"
+                          onClick={() => setDeletingId(event.id)}
+                          className="p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive shrink-0"
+                        >
+                          <Trash2 className="h-2.5 w-2.5" />
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: multi-column grid */}
+          <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 divide-x divide-border/30">
             {columns.slice(0, 4).map((col, colIdx) => (
               <div key={colIdx} className="space-y-3 px-4 first:pl-0 last:pr-0">
                 {col.map(({ dateStr, events }) => (
