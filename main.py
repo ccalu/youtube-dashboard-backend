@@ -6538,16 +6538,11 @@ DASH_UPLOAD_HTML = '''
             var mapa = {'pt':'PT','portugues':'PT','portuguese':'PT','en':'EN','ingles':'EN','english':'EN','es':'ES','espanhol':'ES','spanish':'ES','de':'DE','alemao':'DE','german':'DE','fr':'FR','frances':'FR','french':'FR','it':'IT','italiano':'IT','italian':'IT','pl':'PL','polones':'PL','polish':'PL','ru':'RU','russo':'RU','russian':'RU','ja':'JP','japones':'JP','japanese':'JP','ko':'KR','coreano':'KR','korean':'KR','tr':'TR','turco':'TR','turkish':'TR','ar':'AR','arabic':'AR','arabe':'AR'};
             return mapa[l] || '';
         }
-        function getFlagCode(lingua) {
+        function getFlagEmoji(lingua) {
             if (!lingua) return '';
             var l = lingua.toLowerCase();
-            var mapa = {'pt':'br','portugues':'br','portuguese':'br','en':'us','ingles':'us','english':'us','es':'es','espanhol':'es','spanish':'es','de':'de','alemao':'de','german':'de','fr':'fr','frances':'fr','french':'fr','it':'it','italiano':'it','italian':'it','pl':'pl','polones':'pl','polish':'pl','ru':'ru','russo':'ru','russian':'ru','ja':'jp','japones':'jp','japanese':'jp','ko':'kr','coreano':'kr','korean':'kr','tr':'tr','turco':'tr','turkish':'tr','ar':'sa','arabic':'sa','arabe':'sa'};
+            var mapa = {'pt':'\uD83C\uDDE7\uD83C\uDDF7','portugues':'\uD83C\uDDE7\uD83C\uDDF7','portuguese':'\uD83C\uDDE7\uD83C\uDDF7','en':'\uD83C\uDDFA\uD83C\uDDF8','ingles':'\uD83C\uDDFA\uD83C\uDDF8','english':'\uD83C\uDDFA\uD83C\uDDF8','es':'\uD83C\uDDEA\uD83C\uDDF8','espanhol':'\uD83C\uDDEA\uD83C\uDDF8','spanish':'\uD83C\uDDEA\uD83C\uDDF8','de':'\uD83C\uDDE9\uD83C\uDDEA','alemao':'\uD83C\uDDE9\uD83C\uDDEA','german':'\uD83C\uDDE9\uD83C\uDDEA','fr':'\uD83C\uDDEB\uD83C\uDDF7','frances':'\uD83C\uDDEB\uD83C\uDDF7','french':'\uD83C\uDDEB\uD83C\uDDF7','it':'\uD83C\uDDEE\uD83C\uDDF9','italiano':'\uD83C\uDDEE\uD83C\uDDF9','italian':'\uD83C\uDDEE\uD83C\uDDF9','pl':'\uD83C\uDDF5\uD83C\uDDF1','polones':'\uD83C\uDDF5\uD83C\uDDF1','polish':'\uD83C\uDDF5\uD83C\uDDF1','ru':'\uD83C\uDDF7\uD83C\uDDFA','russo':'\uD83C\uDDF7\uD83C\uDDFA','russian':'\uD83C\uDDF7\uD83C\uDDFA','ja':'\uD83C\uDDEF\uD83C\uDDF5','japones':'\uD83C\uDDEF\uD83C\uDDF5','japanese':'\uD83C\uDDEF\uD83C\uDDF5','ko':'\uD83C\uDDF0\uD83C\uDDF7','coreano':'\uD83C\uDDF0\uD83C\uDDF7','korean':'\uD83C\uDDF0\uD83C\uDDF7','tr':'\uD83C\uDDF9\uD83C\uDDF7','turco':'\uD83C\uDDF9\uD83C\uDDF7','turkish':'\uD83C\uDDF9\uD83C\uDDF7','ar':'\uD83C\uDDF8\uD83C\uDDE6','arabic':'\uD83C\uDDF8\uD83C\uDDE6','arabe':'\uD83C\uDDF8\uD83C\uDDE6'};
             return mapa[l] || '';
-        }
-        function getFlagImg(lingua) {
-            var code = getFlagCode(lingua);
-            if (!code) return '';
-            return '<img src="https://flagcdn.com/16x12/' + code + '.png" width="16" height="12" alt="' + code + '" style="vertical-align:middle;border-radius:1px;">';
         }
         function toggleFiltro(status) {
             document.querySelectorAll('.stat-card').forEach(function(c) { c.classList.remove('active'); });
@@ -6746,7 +6741,7 @@ DASH_UPLOAD_HTML = '''
                             html += '<table class="modal-table"><thead><tr><th>Canal</th><th>Video</th><th>Status</th><th>Horario</th></tr></thead><tbody>';
                             canaisSucesso.forEach(function(canal) {
                                 var sigla = getSiglaIdioma(canal.lingua);
-                                var flagHtml = getFlagImg(canal.lingua);
+                                var flagHtml = getFlagEmoji(canal.lingua);
                                 html += '<tr><td style="color:var(--text-primary);font-weight:500;white-space:nowrap;">';
                                 if (mob && flagHtml) html += '<span class="flag-mobile">' + flagHtml + '</span> ';
                                 html += escapeHtml(canal.nome);
@@ -6837,7 +6832,7 @@ DASH_UPLOAD_HTML = '''
                                     html += '<tr>';
                                     html += '<td><div class="cell-channel">';
                                     var sigla = getSiglaIdioma(canal.lingua);
-                                    var flagHtml = getFlagImg(canal.lingua);
+                                    var flagHtml = getFlagEmoji(canal.lingua);
                                     if (mob && flagHtml) html += '<span class="flag-mobile">' + flagHtml + '</span>';
                                     html += '<span class="channel-name">' + escapeHtml(canal.channel_name) + '</span>';
                                     if (!mob && sigla) html += '<span class="lang-tag">' + sigla + '</span>';
@@ -6940,7 +6935,7 @@ DASH_UPLOAD_HTML = '''
                     for (var j = 0; j < readyChannels.length; j++) {
                         var ch = readyChannels[j];
                         var sigla = getSiglaIdioma(ch.lingua);
-                        var flagHtml = getFlagImg(ch.lingua);
+                        var flagHtml = getFlagEmoji(ch.lingua);
                         html += '<label class="batch-channel-row" style="margin:0;">';
                         html += '<input type="checkbox" class="batch-checkbox" data-channel-id="' + ch.channel_id + '" onchange="batchUpdateCount()">';
                         if (isMobile() && flagHtml) html += '<span class="flag-mobile">' + flagHtml + '</span>';
@@ -9529,6 +9524,7 @@ body {
 [data-agent="autenticidade"] .tab-dot.has-data { background: #EF4444; }
 [data-agent="temas"] .tab-dot.has-data { background: #F87315; }
 [data-agent="motores"] .tab-dot.has-data { background: #A855F7; }
+[data-agent="ordenador"] .tab-dot.has-data { background: #06b6d4; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 .tab-run-btn {
