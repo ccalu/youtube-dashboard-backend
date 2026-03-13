@@ -9607,9 +9607,10 @@ body {
     .main-actions .btn.btn-ctr,
     .main-actions .btn.btn-export,
     .main-actions .btn.btn-history { flex: 1; }
-    #tabsArea { margin-top: 0.8rem; }
-    .tabs-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-bottom: none; margin-bottom: 1rem; }
-    .tab-btn { font-size: 0.7rem; padding: 0.5rem 0.8rem; white-space: nowrap; border-bottom: 2px solid var(--border); justify-content: center; }
+    #tabsArea { margin-top: 0.2rem; }
+    .tabs-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; border-bottom: none; margin-bottom: 0.8rem; }
+    .tab-btn { font-size: 0.7rem; padding: 0.5rem 0.6rem; white-space: nowrap; border-bottom: 2px solid var(--border); justify-content: center; align-items: center; gap: 0.3rem; margin-bottom: 0; }
+    .tab-dot { flex-shrink: 0; }
     .report-container { padding: 1rem; font-size: 0.75rem; line-height: 1.6; }
     .modal { padding: 1.2rem; max-width: 95%; }
     .sidebar-actions { flex-wrap: wrap; }
