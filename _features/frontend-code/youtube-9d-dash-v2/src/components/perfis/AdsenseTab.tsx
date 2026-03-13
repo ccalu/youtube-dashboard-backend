@@ -49,6 +49,12 @@ const OWNER_COLORS: Record<string, { bg: string; border: string; text: string; b
     text: 'text-red-400',
     badge: 'bg-red-500/20 text-red-400 border-red-500/30',
   },
+  MARCELO: {
+    bg: 'rgba(239, 68, 68, 0.06)',
+    border: 'rgba(239, 68, 68, 0.20)',
+    text: 'text-red-400',
+    badge: 'bg-red-500/20 text-red-400 border-red-500/30',
+  },
   MICHA: {
     bg: 'rgba(34, 197, 94, 0.06)',
     border: 'rgba(34, 197, 94, 0.20)',
@@ -77,7 +83,9 @@ const DEFAULT_OWNER_COLOR = {
 };
 
 function getOwnerColor(owner: string) {
-  return OWNER_COLORS[owner.toUpperCase()] || DEFAULT_OWNER_COLOR;
+  // Normalize: remove accents + uppercase
+  const normalized = owner.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return OWNER_COLORS[normalized] || DEFAULT_OWNER_COLOR;
 }
 
 const monetizationBadge = (mon: string) => {
