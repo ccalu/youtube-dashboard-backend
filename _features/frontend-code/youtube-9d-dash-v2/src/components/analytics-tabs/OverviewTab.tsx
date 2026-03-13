@@ -44,21 +44,22 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ canal }) => {
           backgroundColor: cores.fundo + '5E'
         }}
       >
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-xl font-bold text-white">
+        <CardHeader className="pb-2 px-3 sm:px-6">
+          <div className="flex items-start sm:items-center justify-between gap-2 flex-wrap">
+            <CardTitle className="text-base sm:text-xl font-bold text-white">
               {getSubnichoEmoji(canal.subnicho)} {canal.nome_canal}
             </CardTitle>
             {canal.url_canal && (
-              <Button asChild variant="outline" size="sm">
+              <Button asChild variant="outline" size="sm" className="text-xs h-7 sm:h-9">
                 <a
                   href={canal.url_canal}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2"
+                  className="flex items-center gap-1.5"
                 >
-                  <ExternalLink className="h-4 w-4" />
-                  Abrir no YouTube
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Abrir no YouTube</span>
+                  <span className="sm:hidden">YouTube</span>
                 </a>
               </Button>
             )}
@@ -82,15 +83,15 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ canal }) => {
       </Card>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
         {/* Inscritos */}
         <Card className="border-0" style={{ backgroundColor: CORES_STATS.inscritos.fundo + '5E' }}>
-          <CardContent className="pt-4">
-            <div className={`flex items-center gap-2 ${CORES_STATS.inscritos.texto} mb-1`}>
-              <Users className="h-4 w-4" />
-              <span className="text-xs">Inscritos</span>
+          <CardContent className="pt-3 sm:pt-4">
+            <div className={`flex items-center gap-1.5 ${CORES_STATS.inscritos.texto} mb-1`}>
+              <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="text-[10px] sm:text-xs">Inscritos</span>
             </div>
-            <p className="text-xl font-bold text-white">
+            <p className="text-base sm:text-xl font-bold text-white">
               {formatNumber(canal.inscritos || 0)}
             </p>
             {inscritosDiff !== 0 && (
@@ -110,12 +111,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ canal }) => {
 
         {/* Views 7d - Diferença Absoluta */}
         <Card className="border-0" style={{ backgroundColor: CORES_STATS.views.fundo + '5E' }}>
-          <CardContent className="pt-4">
-            <div className={`flex items-center gap-2 ${CORES_STATS.views.texto} mb-1`}>
-              <Eye className="h-4 w-4" />
-              <span className="text-xs">Views 7d</span>
+          <CardContent className="pt-3 sm:pt-4">
+            <div className={`flex items-center gap-1.5 ${CORES_STATS.views.texto} mb-1`}>
+              <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="text-[10px] sm:text-xs">Views 7d</span>
             </div>
-            <p className="text-xl font-bold text-white">
+            <p className="text-base sm:text-xl font-bold text-white">
               {formatNumber(canal.views_7d || 0)}
             </p>
             {canal.views_diff_7d != null ? (
@@ -143,12 +144,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ canal }) => {
 
         {/* Views 30d - Diferença Absoluta */}
         <Card className="border-0" style={{ backgroundColor: CORES_STATS.views.fundo + '5E' }}>
-          <CardContent className="pt-4">
-            <div className={`flex items-center gap-2 ${CORES_STATS.views.texto} mb-1`}>
-              <Eye className="h-4 w-4" />
-              <span className="text-xs">Views 30d</span>
+          <CardContent className="pt-3 sm:pt-4">
+            <div className={`flex items-center gap-1.5 ${CORES_STATS.views.texto} mb-1`}>
+              <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="text-[10px] sm:text-xs">Views 30d</span>
             </div>
-            <p className="text-xl font-bold text-white">
+            <p className="text-base sm:text-xl font-bold text-white">
               {formatNumber(canal.views_30d || 0)}
             </p>
             {canal.views_diff_30d != null ? (
@@ -176,12 +177,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ canal }) => {
 
         {/* Vídeos Publicados */}
         <Card className="border-0" style={{ backgroundColor: CORES_STATS.videos.fundo + '5E' }}>
-          <CardContent className="pt-4">
-            <div className={`flex items-center gap-2 ${CORES_STATS.videos.texto} mb-1`}>
-              <Video className="h-4 w-4" />
-              <span className="text-xs">Vídeos (7d)</span>
+          <CardContent className="pt-3 sm:pt-4">
+            <div className={`flex items-center gap-1.5 ${CORES_STATS.videos.texto} mb-1`}>
+              <Video className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="text-[10px] sm:text-xs">Vídeos (7d)</span>
             </div>
-            <p className="text-xl font-bold text-white">
+            <p className="text-base sm:text-xl font-bold text-white">
               {canal.videos_publicados_7d ?? 0}
             </p>
           </CardContent>
