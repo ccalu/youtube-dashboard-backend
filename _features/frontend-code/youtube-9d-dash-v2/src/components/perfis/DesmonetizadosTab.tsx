@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { AlertTriangle, ArrowRightLeft, RefreshCw, ShieldX } from 'lucide-react';
+import { AlertTriangle, ArrowRightLeft, RefreshCw, ShieldX, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface Demonetization {
@@ -73,6 +72,12 @@ const reasonBadge = (reason: string) => {
   }
 };
 
+const REASON_COLORS: Record<string, string> = {
+  'Inauthentic content': 'text-red-400',
+  'Related Channel': 'text-orange-400',
+  'Sexually gratifying content': 'text-purple-400',
+};
+
 const transferStatusBadge = (status: string) => {
   switch (status) {
     case 'done':
@@ -102,6 +107,15 @@ const transferStatusBadge = (status: string) => {
   }
 };
 
+/** Check if reapply date is in the past (can reapply now) */
+function isReapplyPast(dateStr: string): boolean {
+  if (!dateStr) return false;
+  const parts = dateStr.split('/');
+  if (parts.length !== 3) return false;
+  const d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+  return d <= new Date();
+}
+
 export function DesmonetizadosTab() {
   const { data, isLoading, isError, error, refetch } = useQuery<DesmonetizadosData>({
     queryKey: ['perfis-desmonetizados'],
@@ -109,6 +123,8 @@ export function DesmonetizadosTab() {
   });
 
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [showHistorico, setShowHistorico] = useState(false);
+  const [showTransfers, setShowTransfers] = useState(false);
 
   const handleCopy = (text: string, fieldId: string) => {
     navigator.clipboard.writeText(text);
@@ -174,18 +190,26 @@ export function DesmonetizadosTab() {
             <span className="text-2xl font-bold text-white/90">{stats?.total_demonetized ?? 0}</span>
           </div>
         </Card>
+
+        {/* Motivos — vertical list */}
         <Card className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06]">
           <p className="text-xs text-white/60 mb-2">Por Motivo</p>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-col gap-1.5">
             {stats?.reasons &&
               Object.entries(stats.reasons).map(([reason, count]) => (
-                <span key={reason} className="text-xs">
-                  {reasonBadge(reason)}{' '}
-                  <span className="text-white/50 ml-0.5">{count}</span>
-                </span>
+                <div key={reason} className="flex items-center justify-between gap-2">
+                  <span className={`text-xs font-medium ${REASON_COLORS[reason] || 'text-white/50'}`}>
+                    {reason}
+                  </span>
+                  <span className="text-xs font-bold text-white/70">{count}</span>
+                </div>
               ))}
+            {(!stats?.reasons || Object.keys(stats.reasons).length === 0) && (
+              <span className="text-xs text-white/30">Nenhum</span>
+            )}
           </div>
         </Card>
+
         <Card className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06]">
           <p className="text-xs text-white/60 mb-1">Transfers Pendentes</p>
           <div className="flex items-center gap-2">
@@ -195,107 +219,157 @@ export function DesmonetizadosTab() {
         </Card>
       </div>
 
-      {/* Demonetization History Table */}
-      <div>
-        <h3 className="text-sm font-medium text-white/90 mb-3 flex items-center gap-2">
+      {/* Collapsible: Historico de Desmonetizacoes */}
+      <Card
+        className="rounded-xl border overflow-hidden"
+        style={{
+          backgroundColor: 'rgba(239, 68, 68, 0.06)',
+          borderColor: 'rgba(239, 68, 68, 0.20)',
+        }}
+      >
+        <button
+          onClick={() => setShowHistorico(!showHistorico)}
+          className="w-full flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/[0.02]"
+        >
+          {showHistorico
+            ? <ChevronDown className="w-4 h-4 text-white/40" />
+            : <ChevronRight className="w-4 h-4 text-white/40" />
+          }
           <AlertTriangle className="w-4 h-4 text-red-400" />
-          Historico de Desmonetizacoes
-        </h3>
-        <Card className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-white/[0.06]">
-                <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Conta</th>
-                <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Nome Canal</th>
-                <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Data Desmonetizacao</th>
-                <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Data Pedir Revisao</th>
-                <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Motivo</th>
-                <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data?.demonetizations.map((d, i) => (
-                <tr
-                  key={`demo-${i}`}
-                  className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors"
-                >
-                  <td className="py-2 px-3 text-white/90 font-medium whitespace-nowrap">{d.conta}</td>
-                  <td className="py-2 px-3 text-white/70 whitespace-nowrap">{d.channel_name}</td>
-                  <td className="py-2 px-3 text-white/60 whitespace-nowrap">{d.date_demonetized}</td>
-                  <td className="py-2 px-3 text-white/60 whitespace-nowrap">{d.date_reapply}</td>
-                  <td className="py-2 px-3 whitespace-nowrap">{reasonBadge(d.reason)}</td>
-                  <td className="py-2 px-3 text-white/60 whitespace-nowrap">{d.status}</td>
-                </tr>
-              ))}
-              {(!data?.demonetizations || data.demonetizations.length === 0) && (
-                <tr>
-                  <td colSpan={6} className="py-8 text-center text-white/40 text-sm">
-                    Nenhum registro de desmonetizacao
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </Card>
-      </div>
+          <span className="text-sm font-medium text-white/90">Historico de Desmonetizacoes</span>
+          <span className="text-xs text-white/40 ml-auto">
+            {data?.demonetizations.length ?? 0} registro{(data?.demonetizations.length ?? 0) !== 1 ? 's' : ''}
+          </span>
+        </button>
 
-      {/* Owner Transfer Table */}
-      <div>
-        <h3 className="text-sm font-medium text-white/90 mb-3 flex items-center gap-2">
-          <ArrowRightLeft className="w-4 h-4 text-cyan-400" />
-          Troca de Owner
-        </h3>
-        <Card className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-white/[0.06]">
-                <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Conta</th>
-                <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Nome Canal</th>
-                <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Gmail Novo</th>
-                <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Data Owner Novo</th>
-                <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Data Troca</th>
-                <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Status</th>
-                <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Virou</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data?.transfers.map((t, i) => (
-                <tr
-                  key={`transfer-${i}`}
-                  className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors"
-                >
-                  <td className="py-2 px-3 text-white/90 font-medium whitespace-nowrap">{t.conta}</td>
-                  <td className="py-2 px-3 text-white/70 whitespace-nowrap">{t.channel_name}</td>
-                  <td className="py-2 px-3 whitespace-nowrap">
-                    <span
-                      onClick={() => handleCopy(t.new_email, `transfer-email-${i}`)}
-                      className="cursor-pointer hover:text-cyan-400 transition-colors relative text-white/70"
+        {showHistorico && (
+          <div className="overflow-x-auto border-t border-white/[0.06]">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/[0.06]">
+                  <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Conta</th>
+                  <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Nome Canal</th>
+                  <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Desmonetizado</th>
+                  <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Pedir Revisao</th>
+                  <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Motivo</th>
+                  <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data?.demonetizations.map((d, i) => {
+                  const canReapply = isReapplyPast(d.date_reapply);
+                  return (
+                    <tr
+                      key={`demo-${i}`}
+                      className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors"
                     >
-                      {t.new_email}
-                      {copiedField === `transfer-email-${i}` && (
-                        <span className="absolute -top-6 left-0 text-xs text-green-400 bg-black/80 px-2 py-1 rounded whitespace-nowrap z-10">
-                          Copiado!
-                        </span>
-                      )}
-                    </span>
-                  </td>
-                  <td className="py-2 px-3 text-white/60 whitespace-nowrap">{t.date_new_owner}</td>
-                  <td className="py-2 px-3 text-white/60 whitespace-nowrap">{t.date_transfer}</td>
-                  <td className="py-2 px-3 whitespace-nowrap">{transferStatusBadge(t.status)}</td>
-                  <td className="py-2 px-3 text-white/60 whitespace-nowrap">{t.became || '-'}</td>
+                      <td className="py-2 px-3 text-white/90 font-medium whitespace-nowrap">{d.conta}</td>
+                      <td className="py-2 px-3 text-white/70 whitespace-nowrap">{d.channel_name}</td>
+                      <td className="py-2 px-3 text-white/60 whitespace-nowrap">{d.date_demonetized}</td>
+                      <td className={`py-2 px-3 whitespace-nowrap ${canReapply ? 'text-green-400 font-medium' : 'text-white/60'}`}>
+                        {d.date_reapply || '-'}
+                        {canReapply && <span className="ml-1.5 text-xs text-green-400/70">✓</span>}
+                      </td>
+                      <td className="py-2 px-3 whitespace-nowrap">{reasonBadge(d.reason)}</td>
+                      <td className="py-2 px-3 text-white/60 whitespace-nowrap">{d.status || '-'}</td>
+                    </tr>
+                  );
+                })}
+                {(!data?.demonetizations || data.demonetizations.length === 0) && (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-white/40 text-sm">
+                      Nenhum registro de desmonetizacao
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {/* Collapsible: Troca de Owner */}
+      <Card
+        className="rounded-xl border overflow-hidden"
+        style={{
+          backgroundColor: 'rgba(6, 182, 212, 0.06)',
+          borderColor: 'rgba(6, 182, 212, 0.20)',
+        }}
+      >
+        <button
+          onClick={() => setShowTransfers(!showTransfers)}
+          className="w-full flex items-center gap-3 px-4 py-3 transition-colors hover:bg-white/[0.02]"
+        >
+          {showTransfers
+            ? <ChevronDown className="w-4 h-4 text-white/40" />
+            : <ChevronRight className="w-4 h-4 text-white/40" />
+          }
+          <ArrowRightLeft className="w-4 h-4 text-cyan-400" />
+          <span className="text-sm font-medium text-white/90">Troca de Owner</span>
+          <span className="text-xs text-white/40 ml-auto">
+            {data?.transfers.length ?? 0} registro{(data?.transfers.length ?? 0) !== 1 ? 's' : ''}
+          </span>
+        </button>
+
+        {showTransfers && (
+          <div className="overflow-x-auto border-t border-white/[0.06]">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/[0.06]">
+                  <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Conta</th>
+                  <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Nome Canal</th>
+                  <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Gmail Novo</th>
+                  <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Data Owner Novo</th>
+                  <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Data Troca</th>
+                  <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Status</th>
+                  <th className="text-left py-2 px-3 text-xs text-white/50 font-medium">Virou</th>
                 </tr>
-              ))}
-              {(!data?.transfers || data.transfers.length === 0) && (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-white/40 text-sm">
-                    Nenhuma troca de owner registrada
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </Card>
-      </div>
+              </thead>
+              <tbody>
+                {data?.transfers.map((t, i) => (
+                  <tr
+                    key={`transfer-${i}`}
+                    className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors"
+                  >
+                    <td className="py-2 px-3 text-white/90 font-medium whitespace-nowrap">{t.conta}</td>
+                    <td className="py-2 px-3 text-white/70 whitespace-nowrap">{t.channel_name}</td>
+                    <td className="py-2 px-3 whitespace-nowrap">
+                      <span
+                        onClick={() => handleCopy(t.new_email, `transfer-email-${i}`)}
+                        className="cursor-pointer hover:text-cyan-400 transition-colors relative text-white/70"
+                      >
+                        {t.new_email || '-'}
+                        {copiedField === `transfer-email-${i}` && (
+                          <span className="absolute -top-6 left-0 text-xs text-green-400 bg-black/80 px-2 py-1 rounded whitespace-nowrap z-10">
+                            Copiado!
+                          </span>
+                        )}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 text-white/60 whitespace-nowrap">{t.date_new_owner || '-'}</td>
+                    <td className="py-2 px-3 text-white/60 whitespace-nowrap">{t.date_transfer || '-'}</td>
+                    <td className="py-2 px-3 whitespace-nowrap">{transferStatusBadge(t.status)}</td>
+                    <td className="py-2 px-3 text-white/60 whitespace-nowrap">{t.became || '-'}</td>
+                  </tr>
+                ))}
+                {(!data?.transfers || data.transfers.length === 0) && (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-white/40 text-sm">
+                      Nenhuma troca de owner registrada
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {data?.cached_at && (
+        <p className="text-xs text-white/30 text-right">
+          Cache: {new Date(data.cached_at).toLocaleString('pt-BR')}
+        </p>
+      )}
     </div>
   );
 }

@@ -449,11 +449,21 @@ async def get_perfis_desmonetizados():
         # Left side — demonetization history
         conta_left = row[0].strip() if len(row) > 0 else ""
         if conta_left:
+            date_demonetized = row[2].strip() if len(row) > 2 else ""
+            date_reapply = row[3].strip() if len(row) > 3 else ""
+
+            # Auto-fill date_reapply: +90 days from demonetized date
+            if not date_reapply and date_demonetized:
+                parsed = _parse_date(date_demonetized)
+                if parsed:
+                    reapply = parsed + timedelta(days=90)
+                    date_reapply = reapply.strftime("%d/%m/%Y")
+
             demonetizations.append({
                 "conta": conta_left,
                 "channel_name": row[1].strip() if len(row) > 1 else "",
-                "date_demonetized": row[2].strip() if len(row) > 2 else "",
-                "date_reapply": row[3].strip() if len(row) > 3 else "",
+                "date_demonetized": date_demonetized,
+                "date_reapply": date_reapply,
                 "reason": row[4].strip() if len(row) > 4 else "",
                 "status": row[5].strip() if len(row) > 5 else "",
             })
@@ -486,6 +496,13 @@ async def get_perfis_desmonetizados():
         "transfers_waiting": sum(1 for t in transfers if t["status"].lower() == "waiting"),
         "transfers_todo": sum(1 for t in transfers if t["status"].lower() == "to do"),
     }
+
+    # Sort demonetizations by soonest reapply date (earliest first, empty last)
+    def _reapply_sort_key(d):
+        parsed = _parse_date(d["date_reapply"])
+        return (0, parsed) if parsed else (1, date.max)
+
+    demonetizations.sort(key=_reapply_sort_key)
 
     result = {
         "demonetizations": demonetizations,
