@@ -174,6 +174,11 @@ def _generate_alerts(channels: list, today: date) -> list:
             continue
         if ch.get("inactive"):
             continue
+        # Skip desmonetizados and channels with priority = NÃO
+        if "desmon" in ch.get("monetized", "").lower():
+            continue
+        if ch.get("priority", "").upper() in ("NÃO", "NAO", "NO"):
+            continue
 
         subnicho_code, subnicho_name = _get_subnicho(ch["name"])
         scripts_remaining = ch.get("scripts_total", 0) - ch.get("scripts_done", 0)
