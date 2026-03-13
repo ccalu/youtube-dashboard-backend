@@ -455,13 +455,6 @@ async def get_perfis_desmonetizados():
             date_demonetized = row[2].strip() if len(row) > 2 else ""
             date_reapply = row[3].strip() if len(row) > 3 else ""
 
-            # Auto-fill date_reapply: +90 days from demonetized date
-            if not date_reapply and date_demonetized:
-                parsed = _parse_date(date_demonetized)
-                if parsed:
-                    reapply = parsed + timedelta(days=90)
-                    date_reapply = reapply.strftime("%d/%m/%Y")
-
             demonetizations.append({
                 "conta": conta_left,
                 "channel_name": row[1].strip() if len(row) > 1 else "",
