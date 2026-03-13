@@ -6538,11 +6538,12 @@ DASH_UPLOAD_HTML = '''
             var mapa = {'pt':'PT','portugues':'PT','portuguese':'PT','en':'EN','ingles':'EN','english':'EN','es':'ES','espanhol':'ES','spanish':'ES','de':'DE','alemao':'DE','german':'DE','fr':'FR','frances':'FR','french':'FR','it':'IT','italiano':'IT','italian':'IT','pl':'PL','polones':'PL','polish':'PL','ru':'RU','russo':'RU','russian':'RU','ja':'JP','japones':'JP','japanese':'JP','ko':'KR','coreano':'KR','korean':'KR','tr':'TR','turco':'TR','turkish':'TR','ar':'AR','arabic':'AR','arabe':'AR'};
             return mapa[l] || '';
         }
+        function _f(a,b){return String.fromCodePoint(0x1F1E6+a,0x1F1E6+b);}
         function getFlagEmoji(lingua) {
             if (!lingua) return '';
             var l = lingua.toLowerCase();
-            var mapa = {'pt':'\uD83C\uDDE7\uD83C\uDDF7','portugues':'\uD83C\uDDE7\uD83C\uDDF7','portuguese':'\uD83C\uDDE7\uD83C\uDDF7','en':'\uD83C\uDDFA\uD83C\uDDF8','ingles':'\uD83C\uDDFA\uD83C\uDDF8','english':'\uD83C\uDDFA\uD83C\uDDF8','es':'\uD83C\uDDEA\uD83C\uDDF8','espanhol':'\uD83C\uDDEA\uD83C\uDDF8','spanish':'\uD83C\uDDEA\uD83C\uDDF8','de':'\uD83C\uDDE9\uD83C\uDDEA','alemao':'\uD83C\uDDE9\uD83C\uDDEA','german':'\uD83C\uDDE9\uD83C\uDDEA','fr':'\uD83C\uDDEB\uD83C\uDDF7','frances':'\uD83C\uDDEB\uD83C\uDDF7','french':'\uD83C\uDDEB\uD83C\uDDF7','it':'\uD83C\uDDEE\uD83C\uDDF9','italiano':'\uD83C\uDDEE\uD83C\uDDF9','italian':'\uD83C\uDDEE\uD83C\uDDF9','pl':'\uD83C\uDDF5\uD83C\uDDF1','polones':'\uD83C\uDDF5\uD83C\uDDF1','polish':'\uD83C\uDDF5\uD83C\uDDF1','ru':'\uD83C\uDDF7\uD83C\uDDFA','russo':'\uD83C\uDDF7\uD83C\uDDFA','russian':'\uD83C\uDDF7\uD83C\uDDFA','ja':'\uD83C\uDDEF\uD83C\uDDF5','japones':'\uD83C\uDDEF\uD83C\uDDF5','japanese':'\uD83C\uDDEF\uD83C\uDDF5','ko':'\uD83C\uDDF0\uD83C\uDDF7','coreano':'\uD83C\uDDF0\uD83C\uDDF7','korean':'\uD83C\uDDF0\uD83C\uDDF7','tr':'\uD83C\uDDF9\uD83C\uDDF7','turco':'\uD83C\uDDF9\uD83C\uDDF7','turkish':'\uD83C\uDDF9\uD83C\uDDF7','ar':'\uD83C\uDDF8\uD83C\uDDE6','arabic':'\uD83C\uDDF8\uD83C\uDDE6','arabe':'\uD83C\uDDF8\uD83C\uDDE6'};
-            return mapa[l] || '';
+            var m = {'pt':_f(1,17),'portugues':_f(1,17),'portuguese':_f(1,17),'en':_f(20,18),'ingles':_f(20,18),'english':_f(20,18),'es':_f(4,18),'espanhol':_f(4,18),'spanish':_f(4,18),'de':_f(3,4),'alemao':_f(3,4),'german':_f(3,4),'fr':_f(5,17),'frances':_f(5,17),'french':_f(5,17),'it':_f(8,19),'italiano':_f(8,19),'italian':_f(8,19),'pl':_f(15,11),'polones':_f(15,11),'polish':_f(15,11),'ru':_f(17,20),'russo':_f(17,20),'russian':_f(17,20),'ja':_f(9,15),'japones':_f(9,15),'japanese':_f(9,15),'ko':_f(10,17),'coreano':_f(10,17),'korean':_f(10,17),'tr':_f(19,17),'turco':_f(19,17),'turkish':_f(19,17),'ar':_f(18,0),'arabic':_f(18,0),'arabe':_f(18,0)};
+            return m[l] || '';
         }
         function toggleFiltro(status) {
             document.querySelectorAll('.stat-card').forEach(function(c) { c.classList.remove('active'); });
