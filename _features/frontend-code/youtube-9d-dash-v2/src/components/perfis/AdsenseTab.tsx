@@ -56,6 +56,12 @@ const OWNER_COLORS: Record<string, { bg: string; border: string; text: string; b
     badge: 'bg-green-500/20 text-green-400 border-green-500/30',
   },
   ARTHUR: {
+    bg: 'rgba(34, 197, 94, 0.06)',
+    border: 'rgba(34, 197, 94, 0.20)',
+    text: 'text-green-400',
+    badge: 'bg-green-500/20 text-green-400 border-green-500/30',
+  },
+  JOAO: {
     bg: 'rgba(249, 115, 22, 0.06)',
     border: 'rgba(249, 115, 22, 0.20)',
     text: 'text-orange-400',
