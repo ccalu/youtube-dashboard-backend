@@ -177,7 +177,7 @@ def _generate_alerts(channels: list, today: date) -> list:
                 "subnicho": subnicho_name,
                 "type": "sem_programar",
                 "severity": "red",
-                "message": f"Sem programar — última pub {ch['last_pub']}, {ch['programar']} disponíveis",
+                "message": f"Última pub {ch['last_pub']} — {ch['programar']} disponíveis",
                 "monetized": ch.get("monetized", ""),
             })
         elif last_pub is None and ch.get("config", "").upper() == "SIM":
@@ -186,7 +186,7 @@ def _generate_alerts(channels: list, today: date) -> list:
                 "subnicho": subnicho_name,
                 "type": "nunca_publicou",
                 "severity": "red",
-                "message": "Nunca publicou — config pronto",
+                "message": "Config pronto",
                 "monetized": ch.get("monetized", ""),
             })
 
@@ -197,7 +197,7 @@ def _generate_alerts(channels: list, today: date) -> list:
                 "subnicho": subnicho_name,
                 "type": "scripts_critico",
                 "severity": "red",
-                "message": f"Apenas {scripts_remaining} scripts restantes ({ch['scripts_done']}/{ch['scripts_total']})",
+                "message": f"{scripts_remaining} restantes ({ch['scripts_done']}/{ch['scripts_total']})",
                 "monetized": ch.get("monetized", ""),
             })
         # ATENÇÃO: scripts < 5
@@ -207,7 +207,7 @@ def _generate_alerts(channels: list, today: date) -> list:
                 "subnicho": subnicho_name,
                 "type": "scripts_baixo",
                 "severity": "yellow",
-                "message": f"Scripts acabando — {scripts_remaining} restantes ({ch['scripts_done']}/{ch['scripts_total']})",
+                "message": f"{scripts_remaining} restantes ({ch['scripts_done']}/{ch['scripts_total']})",
                 "monetized": ch.get("monetized", ""),
             })
 
@@ -218,7 +218,7 @@ def _generate_alerts(channels: list, today: date) -> list:
                 "subnicho": subnicho_name,
                 "type": "programar_amanha",
                 "severity": "yellow",
-                "message": f"Último programado é amanhã ({ch['last_pub']}) — {ch['programar']} disponíveis",
+                "message": f"Amanhã ({ch['last_pub']}) — {ch['programar']} disponíveis",
                 "monetized": ch.get("monetized", ""),
             })
 
