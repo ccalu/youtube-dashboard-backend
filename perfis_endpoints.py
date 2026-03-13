@@ -5,10 +5,12 @@ Planilha: 1XL6VhOTVVMmfGNqPyJra2T8KjfFbtJ1o16OZkytvCPc
 """
 
 from fastapi import APIRouter, HTTPException
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 import logging
 import time
 import re
+
+_BRT = timezone(timedelta(hours=-3))
 
 logger = logging.getLogger(__name__)
 
@@ -345,7 +347,7 @@ async def get_perfis_pub():
         },
         "alerts": alerts,
         "channels": channels,
-        "cached_at": datetime.now().isoformat(),
+        "cached_at": datetime.now(_BRT).isoformat(),
     }
 
     _set_cache("pub", result)
@@ -413,7 +415,7 @@ async def get_perfis_proxys():
     result = {
         "channels": channels,
         "stats": stats,
-        "cached_at": datetime.now().isoformat(),
+        "cached_at": datetime.now(_BRT).isoformat(),
     }
 
     _set_cache("proxys", result)
@@ -489,7 +491,7 @@ async def get_perfis_desmonetizados():
         "demonetizations": demonetizations,
         "transfers": transfers,
         "stats": stats,
-        "cached_at": datetime.now().isoformat(),
+        "cached_at": datetime.now(_BRT).isoformat(),
     }
 
     _set_cache("desmonetizados", result)
@@ -580,7 +582,7 @@ async def get_perfis_adsense():
     result = {
         "accounts": accounts,
         "stats": stats,
-        "cached_at": datetime.now().isoformat(),
+        "cached_at": datetime.now(_BRT).isoformat(),
     }
 
     _set_cache("adsense", result)

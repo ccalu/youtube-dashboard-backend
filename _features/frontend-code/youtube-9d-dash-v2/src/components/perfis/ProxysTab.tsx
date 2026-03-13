@@ -109,8 +109,22 @@ export function ProxysTab() {
       groups[key].channels.push(ch);
     }
 
-    // Sort groups by code
-    return Object.values(groups).sort((a, b) => a.code.localeCompare(b.code));
+    // Sort groups by code, and within each group: ativos first
+    const sorted = Object.values(groups).sort((a, b) => a.code.localeCompare(b.code));
+    for (const g of sorted) {
+      g.channels.sort((a, b) => {
+        // Monetizados first, then ativos, then OFF
+        const monOrder = (ch: ProxyChannel) => {
+          const mon = ch.monetization.toUpperCase();
+          if (mon === 'ATIVA' || mon === 'ATIVO') return 0;
+          const st = ch.status.toUpperCase();
+          if (st === 'OFF') return 2;
+          return 1;
+        };
+        return monOrder(a) - monOrder(b) || a.conta.localeCompare(b.conta);
+      });
+    }
+    return sorted;
   }, [data?.channels, statusFilter, monetizationFilter]);
 
   const totalFiltered = useMemo(() => groupedChannels.reduce((s, g) => s + g.channels.length, 0), [groupedChannels]);
