@@ -174,8 +174,8 @@ export function AppSidebar({
 
   // Empresa nav items (new category)
   const empresaNavItems: NavigationItem[] = [
-    { id: 'monetization', title: 'Monetização', icon: DollarSign, activeColor: 'bg-green-500' },
     { id: 'financeiro-ext', title: 'Financeiro', icon: Wallet, activeColor: 'bg-emerald-500' },
+    { id: 'monetization', title: 'Monetização', icon: DollarSign, activeColor: 'bg-green-500' },
     { id: 'perfis', title: 'Perfis', icon: Users, badge: perfisAlertCount, activeColor: 'bg-teal-500' },
   ];
 
