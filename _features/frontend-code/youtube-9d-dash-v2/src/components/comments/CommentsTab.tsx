@@ -142,8 +142,8 @@ export function CommentsTab() {
   const { data: summary, isLoading: loadingSummary } = useQuery({
     queryKey: ['comments-summary'],
     queryFn: () => apiService.getCommentsSummary(),
-    staleTime: 1000 * 60 * 60,
-    gcTime: 1000 * 60 * 120,
+    staleTime: 1000 * 60 * 60 * 4,
+    gcTime: 1000 * 60 * 60 * 5,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
@@ -151,8 +151,8 @@ export function CommentsTab() {
   const { data: channels, isLoading: loadingChannels } = useQuery({
     queryKey: ['monetized-channels-comments'],
     queryFn: () => apiService.getMonetizedChannelsComments(),
-    staleTime: 1000 * 60 * 60,
-    gcTime: 1000 * 60 * 120,
+    staleTime: 1000 * 60 * 60 * 4,
+    gcTime: 1000 * 60 * 60 * 5,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
