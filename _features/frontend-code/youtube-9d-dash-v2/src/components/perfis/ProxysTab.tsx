@@ -281,8 +281,8 @@ export function ProxysTab() {
               key={group.code}
               className="rounded-xl border overflow-hidden"
               style={{
-                backgroundColor: cores.fundo + '0A',
-                borderColor: cores.borda + '30',
+                backgroundColor: cores.fundo + '18',
+                borderColor: cores.borda + '50',
               }}
             >
               {/* Group header */}
