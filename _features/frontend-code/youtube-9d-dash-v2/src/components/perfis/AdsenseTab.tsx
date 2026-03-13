@@ -256,6 +256,9 @@ export function AdsenseTab() {
                             </span>
                           </div>
                           <div className="flex items-center gap-4 mt-1 ml-7">
+                            {account.cnpj && (
+                              <span className="text-xs text-white/40">CNPJ: {account.cnpj}</span>
+                            )}
                             <span
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -270,9 +273,6 @@ export function AdsenseTab() {
                                 </span>
                               )}
                             </span>
-                            {account.cnpj && (
-                              <span className="text-xs text-white/40">CNPJ: {account.cnpj}</span>
-                            )}
                           </div>
                         </div>
                         {isExpanded
