@@ -614,6 +614,15 @@ async def get_perfis_adsense():
     # Remove accounts without a name (empty rows parsed as blocks)
     accounts = [a for a in accounts if a["name"].strip()]
 
+    # Sort channels within each account by conta (natural order: C001, C001.1, C003...)
+    def _conta_sort_key(ch):
+        s = ch.get("conta", "")
+        parts = re.findall(r'(\d+|\D+)', s)
+        return [int(p) if p.isdigit() else p.lower() for p in parts]
+
+    for a in accounts:
+        a["channels"].sort(key=_conta_sort_key)
+
     stats = {
         "total_accounts": len(accounts),
         "total_channels_linked": sum(len(a["channels"]) for a in accounts),
