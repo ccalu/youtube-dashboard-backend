@@ -117,6 +117,14 @@ export function obterCorSubnicho(subniche: string): { fundo: string; borda: stri
         gradient: 'linear-gradient(135deg, #F9A8D4 0%, #E879A0 50%, #DB2777 100%)'
       };
 
+    // 📖 Biografias - Bronze equilibrado
+    case 'Biografias':
+      return { fundo: '#92400E', borda: '#78350F', gradient: 'linear-gradient(135deg, #D97706 0%, #92400E 50%, #78350F 100%)' };
+
+    // ⚔️ Frentes de Batalha - Verde escuro militar
+    case 'Frentes de Batalha':
+      return { fundo: '#166534', borda: '#14532D', gradient: 'linear-gradient(135deg, #22C55E 0%, #166534 50%, #14532D 100%)' };
+
     // ⚙️ Cor padrão (fallback para subniches não mapeados)
     default:
       return { fundo: '#6B7280', borda: '#9CA3AF', gradient: 'linear-gradient(135deg, #9CA3AF 0%, #6B7280 50%, #4B5563 100%)' };

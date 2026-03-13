@@ -66,7 +66,7 @@ export function ProxysTab() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('Todos');
   const [monetizationFilter, setMonetizationFilter] = useState<string>('Todos');
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   const handleCopy = (text: string, fieldId: string) => {
     navigator.clipboard.writeText(text);
@@ -75,7 +75,7 @@ export function ProxysTab() {
   };
 
   const toggleGroup = (code: string) => {
-    setCollapsedGroups((prev) => {
+    setExpandedGroups((prev) => {
       const next = new Set(prev);
       if (next.has(code)) next.delete(code);
       else next.add(code);
@@ -189,32 +189,47 @@ export function ProxysTab() {
         </Card>
       </div>
 
-      {/* Filters as dropdown-style selects */}
-      <div className="flex flex-wrap gap-3 items-center">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-white/50">Status:</span>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/[0.06] text-white/80 border border-white/[0.1] outline-none cursor-pointer"
-          >
-            <option value="Todos">Todos</option>
-            <option value="ATIVO">Ativo</option>
-            <option value="OFF">Off</option>
-          </select>
+      {/* Filters */}
+      <div className="flex flex-wrap gap-4 items-center">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-white/50 mr-1">Status:</span>
+          {['Todos', 'ATIVO', 'OFF'].map((opt) => (
+            <button
+              key={opt}
+              onClick={() => setStatusFilter(opt)}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                statusFilter === opt
+                  ? opt === 'OFF'
+                    ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    : opt === 'ATIVO'
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                      : 'bg-white/[0.12] text-white border border-white/[0.15]'
+                  : 'bg-white/[0.03] text-white/40 border border-white/[0.06] hover:bg-white/[0.06] hover:text-white/60'
+              }`}
+            >
+              {opt === 'Todos' ? 'Todos' : opt === 'ATIVO' ? 'Ativo' : 'Off'}
+            </button>
+          ))}
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-white/50">Monetização:</span>
-          <select
-            value={monetizationFilter}
-            onChange={(e) => setMonetizationFilter(e.target.value)}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/[0.06] text-white/80 border border-white/[0.1] outline-none cursor-pointer"
-          >
-            <option value="Todos">Todos</option>
-            <option value="ATIVA">Ativa</option>
-            <option value="OFF">Off</option>
-            <option value="DESMONETIZADA">Desmonetizada</option>
-          </select>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-white/50 mr-1">Monet:</span>
+          {['Todos', 'ATIVA', 'OFF', 'DESMONETIZADA'].map((opt) => (
+            <button
+              key={opt}
+              onClick={() => setMonetizationFilter(opt)}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                monetizationFilter === opt
+                  ? opt === 'DESMONETIZADA'
+                    ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    : opt === 'ATIVA'
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                      : 'bg-white/[0.12] text-white border border-white/[0.15]'
+                  : 'bg-white/[0.03] text-white/40 border border-white/[0.06] hover:bg-white/[0.06] hover:text-white/60'
+              }`}
+            >
+              {opt === 'Todos' ? 'Todos' : opt === 'ATIVA' ? 'Ativa' : opt === 'DESMONETIZADA' ? 'Desmon' : 'Off'}
+            </button>
+          ))}
         </div>
         <span className="text-xs text-white/30 ml-auto">
           {totalFiltered} conta{totalFiltered !== 1 ? 's' : ''}
@@ -225,7 +240,7 @@ export function ProxysTab() {
       <div className="space-y-3">
         {groupedChannels.map((group) => {
           const cores = obterCorSubnicho(group.name);
-          const isCollapsed = collapsedGroups.has(group.code);
+          const isCollapsed = !expandedGroups.has(group.code);
 
           return (
             <Card

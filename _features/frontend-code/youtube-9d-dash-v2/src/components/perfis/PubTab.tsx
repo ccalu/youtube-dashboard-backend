@@ -276,8 +276,12 @@ function PubAlerts({ alerts }: { alerts: PubAlert[] }) {
     );
   };
 
+  const hasRed = redAlerts.length > 0;
+  const hasYellow = yellowAlerts.length > 0;
+  const hasBoth = hasRed && hasYellow;
+
   return (
-    <div className="space-y-3">
+    <div className={hasBoth ? 'grid grid-cols-1 lg:grid-cols-2 gap-3' : 'space-y-3'}>
       {renderSection(
         redAlerts,
         '🚨',
