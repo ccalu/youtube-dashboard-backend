@@ -439,8 +439,8 @@ function PubChannelsList({ channels }: { channels: PubChannel[] }) {
             key={group.key}
             className="rounded-xl border overflow-hidden"
             style={{
-              backgroundColor: cores.fundo + '18',
-              borderColor: cores.borda + '50',
+              backgroundColor: cores.fundo + '30',
+              borderColor: cores.borda + '80',
             }}
           >
             <button
