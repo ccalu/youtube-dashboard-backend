@@ -12,6 +12,7 @@ import {
   RefreshCw,
   ExternalLink,
 } from 'lucide-react';
+import { obterCorSubnicho } from '@/utils/subnichoColors';
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -185,63 +186,91 @@ function PubCards({ summary }: { summary: PubSummary }) {
   );
 }
 
+// ── Subnicho Badge with color ─────────────────────────────────────────
+
+function SubnichoBadge({ name }: { name: string }) {
+  const cores = obterCorSubnicho(name);
+  return (
+    <span
+      className="px-2 py-0.5 rounded-full text-xs font-medium text-white/90 whitespace-nowrap"
+      style={{ backgroundColor: cores.fundo + '40', borderColor: cores.borda, border: `1px solid ${cores.borda}60` }}
+    >
+      {name}
+    </span>
+  );
+}
+
 // ── PubAlerts (inline) ─────────────────────────────────────────────────
 
 function PubAlerts({ alerts }: { alerts: PubAlert[] }) {
-  const [expandedRed, setExpandedRed] = useState(false);
-  const [expandedYellow, setExpandedYellow] = useState(false);
-
   const redAlerts = alerts.filter((a) => a.severity === 'red');
   const yellowAlerts = alerts.filter((a) => a.severity === 'yellow');
 
   if (redAlerts.length === 0 && yellowAlerts.length === 0) return null;
 
-  const renderAlertList = (
-    items: PubAlert[],
-    expanded: boolean,
-    setExpanded: (v: boolean) => void,
-    label: string,
-    dotClass: string,
-    borderClass: string,
-  ) => {
-    if (items.length === 0) return null;
-    const visible = expanded ? items : items.slice(0, 5);
-    const hasMore = items.length > 5;
+  // Group alerts by type
+  const groupByType = (items: PubAlert[]) => {
+    const groups: Record<string, PubAlert[]> = {};
+    for (const a of items) {
+      const key = a.type;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(a);
+    }
+    return groups;
+  };
 
+  const ALERT_TYPE_LABELS: Record<string, string> = {
+    sem_programar: 'Sem Programar',
+    nunca_publicou: 'Nunca Publicou',
+    scripts_critico: 'Scripts Críticos',
+    scripts_baixo: 'Scripts Acabando',
+    programar_amanha: 'Último Programado',
+  };
+
+  const renderAlertTable = (items: PubAlert[], type: string) => {
+    if (items.length === 0) return null;
     return (
-      <Card
-        className={`p-4 rounded-xl bg-white/[0.03] border ${borderClass}`}
-      >
-        <h3 className="text-sm font-semibold text-white/90 mb-3">{label}</h3>
-        <div className="space-y-2">
-          {visible.map((a, i) => (
-            <div key={`${a.channel}-${i}`} className="flex items-center gap-2 text-sm">
-              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dotClass}`} />
-              <span className="text-white/80 font-medium whitespace-nowrap">
+      <div key={type} className="mb-4 last:mb-0">
+        <h4 className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-2">
+          {ALERT_TYPE_LABELS[type] || type}
+        </h4>
+        <div className="space-y-1.5">
+          {items.map((a, i) => (
+            <div
+              key={`${a.channel}-${i}`}
+              className="flex items-center gap-3 py-1.5 px-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+            >
+              <span className="text-sm text-white/80 font-medium whitespace-nowrap min-w-[120px]">
                 {a.channel}
               </span>
-              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-white/[0.06] text-white/50">
-                {a.subnicho}
-              </span>
-              <span className="text-white/60 text-xs truncate">{a.message}</span>
+              <SubnichoBadge name={a.subnicho} />
+              <span className="text-xs text-white/50 truncate flex-1">{a.message}</span>
             </div>
           ))}
         </div>
-        {hasMore && (
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="mt-2 text-xs text-white/50 hover:text-white/80 transition-colors flex items-center gap-1"
-          >
-            {expanded ? (
-              <>
-                <ChevronDown className="w-3 h-3" /> recolher
-              </>
-            ) : (
-              <>
-                <ChevronRight className="w-3 h-3" /> ver todos ({items.length})
-              </>
-            )}
-          </button>
+      </div>
+    );
+  };
+
+  const renderSection = (
+    items: PubAlert[],
+    emoji: string,
+    label: string,
+    borderClass: string,
+    bgClass: string,
+  ) => {
+    if (items.length === 0) return null;
+    const groups = groupByType(items);
+
+    return (
+      <Card className={`p-4 rounded-xl ${bgClass} border ${borderClass}`}>
+        <h3 className="text-sm font-semibold text-white/90 mb-4 flex items-center gap-2">
+          <span>{emoji}</span>
+          <span>{label}</span>
+          <span className="text-xs text-white/40 font-normal">({items.length})</span>
+        </h3>
+        {Object.entries(groups).map(([type, groupItems]) =>
+          renderAlertTable(groupItems, type)
         )}
       </Card>
     );
@@ -249,21 +278,19 @@ function PubAlerts({ alerts }: { alerts: PubAlert[] }) {
 
   return (
     <div className="space-y-3">
-      {renderAlertList(
+      {renderSection(
         redAlerts,
-        expandedRed,
-        setExpandedRed,
+        '🚨',
         'URGENTE',
-        'bg-red-500',
         'border-red-500/20',
+        'bg-red-500/[0.03]',
       )}
-      {renderAlertList(
+      {renderSection(
         yellowAlerts,
-        expandedYellow,
-        setExpandedYellow,
-        'ATENCAO',
-        'bg-yellow-500',
+        '⚠️',
+        'ATENÇÃO',
         'border-yellow-500/20',
+        'bg-yellow-500/[0.03]',
       )}
     </div>
   );
