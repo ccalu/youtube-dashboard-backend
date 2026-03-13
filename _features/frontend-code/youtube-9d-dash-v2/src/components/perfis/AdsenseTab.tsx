@@ -44,10 +44,10 @@ const OWNER_COLORS: Record<string, { bg: string; border: string; text: string; b
     badge: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   },
   CELLIBS: {
-    bg: 'rgba(168, 85, 247, 0.06)',
-    border: 'rgba(168, 85, 247, 0.20)',
-    text: 'text-purple-400',
-    badge: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+    bg: 'rgba(239, 68, 68, 0.06)',
+    border: 'rgba(239, 68, 68, 0.20)',
+    text: 'text-red-400',
+    badge: 'bg-red-500/20 text-red-400 border-red-500/30',
   },
   MICHA: {
     bg: 'rgba(34, 197, 94, 0.06)',
