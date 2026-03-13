@@ -70,10 +70,10 @@ export function obterCorSubnicho(subniche: string): { fundo: string; borda: stri
     case 'Guerras e Civilizacoes':
       return { fundo: '#EA580C', borda: '#C2410C', gradient: 'linear-gradient(135deg, #FB923C 0%, #EA580C 50%, #C2410C 100%)' };
 
-    // 🕵️ Conspiração - Slate azulado sombrio
+    // 🕵️ Conspiração - Vermelho escuro sangue
     case 'Conspiração':
     case 'Conspiracao':
-      return { fundo: '#475569', borda: '#334155', gradient: 'linear-gradient(135deg, #94A3B8 0%, #475569 50%, #334155 100%)' };
+      return { fundo: '#991B1B', borda: '#7F1D1D', gradient: 'linear-gradient(135deg, #DC2626 0%, #991B1B 50%, #7F1D1D 100%)' };
 
     // 💼 Empreendedorismo - Dourado/Amarelo
     case 'Empreendedorismo':

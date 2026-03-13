@@ -309,11 +309,27 @@ function PubAlerts({ alerts }: { alerts: PubAlert[] }) {
 
 // ── PubChannelsList (grouped by subnicho, collapsible, paginated) ─────
 
-const PAGE_SIZE = 10;
+// Fixed subnicho order (same as Tabela tab)
+const SUBNICHO_ORDER = [
+  'reis perversos',
+  'historias sombrias',
+  'culturas macabras',
+  'relatos de guerra',
+  'frentes de batalha',
+  'guerras e civilizacoes',
+  'terror',
+  'biografias',
+  'misterios',
+  'conspiracao',
+  'licoes de vida',
+  'registros malditos',
+];
+
+const normalizeStr = (s: string) =>
+  s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 function PubChannelsList({ channels }: { channels: PubChannel[] }) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const [page, setPage] = useState(0);
 
   const toggleGroup = (key: string) => {
     setExpandedGroups((prev) => {
@@ -342,24 +358,33 @@ function PubChannelsList({ channels }: { channels: PubChannel[] }) {
     });
 
     // Group by subnicho
-    const grps: { key: string; name: string; channels: PubChannel[] }[] = [];
     const grpMap: Record<string, PubChannel[]> = {};
     for (const ch of act) {
-      const key = ch.subnicho || 'Outros';
-      if (!grpMap[key]) {
-        grpMap[key] = [];
-        grps.push({ key, name: key, channels: grpMap[key] });
-      }
+      const key = ch.subnicho || '(Indefinido)';
+      if (!grpMap[key]) grpMap[key] = [];
       grpMap[key].push(ch);
     }
+
+    // Sort groups by fixed order, indefinido near-last, unknown at end
+    const grps = Object.entries(grpMap)
+      .map(([name, chs]) => ({ key: name, name, channels: chs }))
+      .sort((a, b) => {
+        const aN = normalizeStr(a.name);
+        const bN = normalizeStr(b.name);
+        const aIsIndef = aN.includes('indefinido');
+        const bIsIndef = bN.includes('indefinido');
+        if (aIsIndef && !bIsIndef) return 1;
+        if (!aIsIndef && bIsIndef) return -1;
+        const aIdx = SUBNICHO_ORDER.findIndex((s) => aN.includes(s));
+        const bIdx = SUBNICHO_ORDER.findIndex((s) => bN.includes(s));
+        const aOrder = aIdx >= 0 ? aIdx : SUBNICHO_ORDER.length;
+        const bOrder = bIdx >= 0 ? bIdx : SUBNICHO_ORDER.length;
+        return aOrder - bOrder;
+      });
 
     inact.sort((a, b) => a.name.localeCompare(b.name));
     return { groups: grps, inactive: inact };
   }, [channels]);
-
-  // Pagination
-  const totalPages = Math.ceil(groups.length / PAGE_SIZE);
-  const pagedGroups = groups.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const renderRow = (ch: PubChannel) => (
     <tr
@@ -397,33 +422,12 @@ function PubChannelsList({ channels }: { channels: PubChannel[] }) {
   return (
     <div className="space-y-2">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white/70">
-          Todos os Canais ({channels.filter((c) => !c.inactive).length})
-        </h3>
-        {totalPages > 1 && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0}
-              className="px-2 py-1 rounded text-xs text-white/50 hover:text-white/80 disabled:opacity-30 disabled:cursor-not-allowed bg-white/[0.04]"
-            >
-              ←
-            </button>
-            <span className="text-xs text-white/40">{page + 1}/{totalPages}</span>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page >= totalPages - 1}
-              className="px-2 py-1 rounded text-xs text-white/50 hover:text-white/80 disabled:opacity-30 disabled:cursor-not-allowed bg-white/[0.04]"
-            >
-              →
-            </button>
-          </div>
-        )}
-      </div>
+      <h3 className="text-sm font-semibold text-white/70">
+        Todos os Canais ({channels.filter((c) => !c.inactive).length})
+      </h3>
 
       {/* Grouped cards */}
-      {pagedGroups.map((group) => {
+      {groups.map((group) => {
         const cores = obterCorSubnicho(group.name);
         const isExpanded = expandedGroups.has(group.key);
         const prioCount = group.channels.filter((c) => c.priority === 'SIM').length;
