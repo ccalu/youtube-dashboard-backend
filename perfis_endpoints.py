@@ -482,6 +482,26 @@ async def get_perfis_desmonetizados():
                 "became": row[15].strip() if len(row) > 15 else "",
             })
 
+    # Deduplicate by (conta, date_demonetized)
+    seen_demo = set()
+    unique_demo = []
+    for d in demonetizations:
+        key = (d["conta"], d["date_demonetized"])
+        if key not in seen_demo:
+            seen_demo.add(key)
+            unique_demo.append(d)
+    demonetizations = unique_demo
+
+    # Deduplicate transfers by (conta, new_email)
+    seen_transfer = set()
+    unique_transfer = []
+    for t in transfers:
+        key = (t["conta"], t["new_email"])
+        if key not in seen_transfer:
+            seen_transfer.add(key)
+            unique_transfer.append(t)
+    transfers = unique_transfer
+
     # Stats
     reasons = {}
     for d in demonetizations:
