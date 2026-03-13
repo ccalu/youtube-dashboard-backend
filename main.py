@@ -9634,6 +9634,18 @@ body {
     .sidebar-actions { flex-wrap: wrap; }
     .sidebar-actions .btn { font-size: 0.7rem; padding: 0.4rem 0.6rem; }
     .export-menu { right: auto; left: 0; }
+    .modal { padding: 1rem; max-width: 95%; }
+    .modal h3 { font-size: 0.9rem; }
+    .history-item { padding: 0.5rem 0.6rem; flex-wrap: wrap; gap: 0.3rem; }
+    .history-date { font-size: 0.75rem; }
+    .history-info { display: none; }
+    .history-del-btn { margin-left: auto; }
+    .hist-date-row { padding: 0.5rem 0.6rem; flex-wrap: wrap; gap: 4px; }
+    .hist-date-row > div:last-child { width: 100%; }
+    .hist-date-label { font-size: 0.75rem; }
+    .hist-channel-row { padding: 0.4rem 0.6rem; flex-wrap: wrap; gap: 4px; }
+    .hist-channel-row > div:first-child > div { margin-top: 4px; }
+    .agent-tag { font-size: 0.55rem; padding: 1px 4px; }
 }
 
 @media (max-width: 480px) {
