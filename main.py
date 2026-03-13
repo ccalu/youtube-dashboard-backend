@@ -8880,7 +8880,7 @@ DASH_AGENTES_HTML = '''<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect rx='20' width='100' height='100' fill='%230a0a0f'/><path d='M25 70L40 45L55 55L75 30' stroke='%2300d4aa' stroke-width='7' stroke-linecap='round' stroke-linejoin='round' fill='none'/><circle cx='75' cy='30' r='6' fill='%2300d4aa'/></svg>">
 <title>Central de Agentes - Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8907,13 +8907,14 @@ DASH_AGENTES_HTML = '''<!DOCTYPE html>
     --border: rgba(255, 255, 255, 0.08);
 }
 * { margin:0; padding:0; box-sizing:border-box; }
+html, body { overflow-x: hidden; max-width: 100vw; }
 body {
     font-family: 'Plus Jakarta Sans', sans-serif;
     background: var(--bg-primary);
     color: var(--text-primary);
     line-height: 1.6;
 }
-.container { display:flex; min-height:100vh; }
+.container { display:flex; min-height:100vh; overflow-x: hidden; max-width: 100vw; }
 
 /* Sidebar */
 .sidebar {
@@ -9056,6 +9057,7 @@ body {
     flex: 1;
     padding: 2rem 3rem;
     min-height: 100vh;
+    overflow-x: hidden;
 }
 .main-header {
     display: flex;
@@ -9079,6 +9081,7 @@ body {
     line-height: 1.8;
     white-space: pre-wrap;
     word-break: break-word;
+    overflow-x: hidden;
 }
 /* === Report Header & Title === */
 .report-header-line {
@@ -9594,7 +9597,7 @@ body {
     .sidebar.open { transform: translateX(0); }
     .sidebar { padding-top: 60px; }
     .sidebar-title { display: none; }
-    .main { margin-left: 0; padding: 1rem; padding-top: 60px; }
+    .main { margin-left: 0; padding: 1rem; padding-top: 60px; max-width: 100vw; overflow-x: hidden; }
     .main-header { flex-direction: column; align-items: flex-start; gap: 0.8rem; }
     .main-title { font-size: 1rem; }
     .main-title.default-text { display: none; }
@@ -9622,6 +9625,8 @@ body {
     .channel-name { max-width: 120px; }
     .tab-btn { font-size: 0.65rem; padding: 0.4rem 0.6rem; }
     .main-actions .btn { font-size: 0.7rem; padding: 0.35rem 0.4rem; }
+    #reportArea [style*="min-width:140px"] { min-width: 100px !important; }
+    #reportArea [style*="min-width:120px"] { min-width: 80px !important; }
 }
 </style>
 </head>
