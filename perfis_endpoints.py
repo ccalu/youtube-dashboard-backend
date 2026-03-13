@@ -70,13 +70,16 @@ def _set_cache(key: str, data):
 
 
 def _parse_date(date_str: str) -> date | None:
-    """Parse DD/MM/YYYY date string."""
+    """Parse date string — supports DD/MM/YYYY, DD/MM/YY, YYYY-MM-DD."""
     if not date_str or not date_str.strip():
         return None
-    try:
-        return datetime.strptime(date_str.strip(), "%d/%m/%Y").date()
-    except ValueError:
-        return None
+    s = date_str.strip()
+    for fmt in ("%d/%m/%Y", "%d/%m/%y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(s, fmt).date()
+        except ValueError:
+            continue
+    return None
 
 
 def _parse_float(val: str) -> float:
@@ -448,7 +451,7 @@ async def get_perfis_desmonetizados():
     for row in all_rows[1:]:  # Skip header
         # Left side — demonetization history
         conta_left = row[0].strip() if len(row) > 0 else ""
-        if conta_left:
+        if conta_left and "COMPRAR" not in conta_left.upper():
             date_demonetized = row[2].strip() if len(row) > 2 else ""
             date_reapply = row[3].strip() if len(row) > 3 else ""
 
@@ -470,7 +473,7 @@ async def get_perfis_desmonetizados():
 
         # Right side — owner transfers (cols 8-15)
         conta_right = row[8].strip() if len(row) > 8 else ""
-        if conta_right:
+        if conta_right and "COMPRAR" not in conta_right.upper():
             transfers.append({
                 "conta": conta_right,
                 "channel_name": row[9].strip() if len(row) > 9 else "",
