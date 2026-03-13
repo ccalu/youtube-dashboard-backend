@@ -256,28 +256,31 @@ export function DesmonetizadosTab() {
         </button>
 
         {showHistorico && (
-          <div className="border-t border-white/[0.06] px-4 py-3 space-y-4">
-            {groupedDemonetizations.length === 0 && (
+          <div className="border-t border-white/[0.06] overflow-x-auto">
+            {groupedDemonetizations.length === 0 ? (
               <p className="py-8 text-center text-white/40 text-sm">Nenhum registro de desmonetizacao</p>
-            )}
-            {groupedDemonetizations.map(([reason, items]) => (
-              <div key={reason}>
-                <div className="flex items-center gap-2 mb-2">
-                  {reasonBadge(reason)}
-                  <span className="text-xs text-white/40">{items.length} canal{items.length !== 1 ? 'is' : ''}</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-white/[0.06]">
-                        <th className="text-left py-1.5 px-3 text-xs text-white/50 font-medium">Conta</th>
-                        <th className="text-left py-1.5 px-3 text-xs text-white/50 font-medium">Nome Canal</th>
-                        <th className="text-left py-1.5 px-3 text-xs text-white/50 font-medium">Desmonetizado</th>
-                        <th className="text-left py-1.5 px-3 text-xs text-white/50 font-medium">Pedir Revisao</th>
-                        <th className="text-left py-1.5 px-3 text-xs text-white/50 font-medium">Status</th>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/[0.06]">
+                    <th className="text-left py-1.5 px-3 text-xs text-white/50 font-medium">Conta</th>
+                    <th className="text-left py-1.5 px-3 text-xs text-white/50 font-medium">Nome Canal</th>
+                    <th className="text-left py-1.5 px-3 text-xs text-white/50 font-medium">Desmonetizado</th>
+                    <th className="text-left py-1.5 px-3 text-xs text-white/50 font-medium">Pedir Revisao</th>
+                    <th className="text-left py-1.5 px-3 text-xs text-white/50 font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupedDemonetizations.map(([reason, items]) => (
+                    <>
+                      <tr key={`header-${reason}`} className="bg-white/[0.02]">
+                        <td colSpan={5} className="py-2 px-3">
+                          <div className="flex items-center gap-2">
+                            {reasonBadge(reason)}
+                            <span className="text-xs text-white/40">{items.length} canal{items.length !== 1 ? 'is' : ''}</span>
+                          </div>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
                       {items.map((d, i) => {
                         const canReapply = isReapplyPast(d.date_reapply);
                         return (
@@ -296,11 +299,11 @@ export function DesmonetizadosTab() {
                           </tr>
                         );
                       })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ))}
+                    </>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
       </Card>
