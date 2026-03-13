@@ -234,20 +234,27 @@ function PubAlerts({ alerts }: { alerts: PubAlert[] }) {
         <h4 className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-2">
           {ALERT_TYPE_LABELS[type] || type} ({items.length})
         </h4>
-        <div className="space-y-1.5">
-          {items.map((a, i) => (
-            <div
-              key={`${a.channel}-${i}`}
-              className="flex items-center gap-3 py-1.5 px-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
-            >
-              <SubnichoBadge name={a.subnicho} />
-              <span className="text-sm text-white/80 font-medium whitespace-nowrap">
-                {a.channel}
-              </span>
-              <span className="text-xs text-white/50 ml-auto whitespace-nowrap">{a.message}</span>
-            </div>
-          ))}
-        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-white/[0.06]">
+              <th className="text-left py-1.5 px-2 text-xs text-white/40 font-medium w-[130px]">Subnicho</th>
+              <th className="text-left py-1.5 px-2 text-xs text-white/40 font-medium">Canal</th>
+              <th className="text-right py-1.5 px-2 text-xs text-white/40 font-medium">Info</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((a, i) => (
+              <tr
+                key={`${a.channel}-${i}`}
+                className="border-b border-white/[0.02] hover:bg-white/[0.03] transition-colors"
+              >
+                <td className="py-1.5 px-2"><SubnichoBadge name={a.subnicho} /></td>
+                <td className="py-1.5 px-2 text-white/80 font-medium whitespace-nowrap">{a.channel}</td>
+                <td className="py-1.5 px-2 text-xs text-white/50 text-right whitespace-nowrap">{a.message}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     );
   };

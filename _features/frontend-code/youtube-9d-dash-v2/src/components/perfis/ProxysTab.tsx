@@ -1,8 +1,14 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
-import { Monitor, Power, PowerOff, ExternalLink, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
+import { Monitor, Power, PowerOff, ExternalLink, RefreshCw, ChevronDown, ChevronRight, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { obterCorSubnicho } from '@/utils/subnichoColors';
 
 interface ProxyChannel {
@@ -169,7 +175,7 @@ export function ProxysTab() {
         <Card className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06]">
           <p className="text-xs text-white/60 mb-1">Total Contas</p>
           <div className="flex items-center gap-2">
-            <Monitor className="w-4 h-4 text-white/40" />
+            <Monitor className="w-4 h-4 text-blue-400" />
             <span className="text-2xl font-bold text-white/90">{stats?.total ?? 0}</span>
           </div>
         </Card>
@@ -190,47 +196,61 @@ export function ProxysTab() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-4 items-center">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-white/50 mr-1">Status:</span>
-          {['Todos', 'ATIVO', 'OFF'].map((opt) => (
-            <button
-              key={opt}
-              onClick={() => setStatusFilter(opt)}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-                statusFilter === opt
-                  ? opt === 'OFF'
-                    ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                    : opt === 'ATIVO'
-                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                      : 'bg-white/[0.12] text-white border border-white/[0.15]'
-                  : 'bg-white/[0.03] text-white/40 border border-white/[0.06] hover:bg-white/[0.06] hover:text-white/60'
-              }`}
-            >
-              {opt === 'Todos' ? 'Todos' : opt === 'ATIVO' ? 'Ativo' : 'Off'}
+      <div className="flex items-center gap-2">
+        <Filter className="w-3.5 h-3.5 text-white/30" />
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/[0.04] border border-white/[0.08] text-white/70 hover:bg-white/[0.08] transition-colors">
+              Status: {statusFilter === 'Todos' ? 'Todos' : statusFilter === 'ATIVO' ? 'Ativo' : 'Off'}
+              <ChevronDown className="w-3 h-3 text-white/40" />
             </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-white/50 mr-1">Monet:</span>
-          {['Todos', 'ATIVA', 'OFF', 'DESMONETIZADA'].map((opt) => (
-            <button
-              key={opt}
-              onClick={() => setMonetizationFilter(opt)}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-                monetizationFilter === opt
-                  ? opt === 'DESMONETIZADA'
-                    ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                    : opt === 'ATIVA'
-                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                      : 'bg-white/[0.12] text-white border border-white/[0.15]'
-                  : 'bg-white/[0.03] text-white/40 border border-white/[0.06] hover:bg-white/[0.06] hover:text-white/60'
-              }`}
-            >
-              {opt === 'Todos' ? 'Todos' : opt === 'ATIVA' ? 'Ativa' : opt === 'DESMONETIZADA' ? 'Desmon' : 'Off'}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-[120px]">
+            {[
+              { value: 'Todos', label: 'Todos' },
+              { value: 'ATIVO', label: 'Ativo' },
+              { value: 'OFF', label: 'Off' },
+            ].map((opt) => (
+              <DropdownMenuItem
+                key={opt.value}
+                onClick={() => setStatusFilter(opt.value)}
+                className={statusFilter === opt.value ? 'font-semibold' : ''}
+              >
+                {opt.value === 'ATIVO' && <span className="w-2 h-2 rounded-full bg-green-500 mr-2" />}
+                {opt.value === 'OFF' && <span className="w-2 h-2 rounded-full bg-red-500 mr-2" />}
+                {opt.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/[0.04] border border-white/[0.08] text-white/70 hover:bg-white/[0.08] transition-colors">
+              Monet: {monetizationFilter === 'Todos' ? 'Todos' : monetizationFilter === 'ATIVA' ? 'Ativa' : monetizationFilter === 'DESMONETIZADA' ? 'Desmon' : 'Off'}
+              <ChevronDown className="w-3 h-3 text-white/40" />
             </button>
-          ))}
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-[150px]">
+            {[
+              { value: 'Todos', label: 'Todos', dot: '' },
+              { value: 'ATIVA', label: 'Ativa', dot: 'bg-green-500' },
+              { value: 'OFF', label: 'Off', dot: 'bg-white/40' },
+              { value: 'DESMONETIZADA', label: 'Desmonetizada', dot: 'bg-red-500' },
+            ].map((opt) => (
+              <DropdownMenuItem
+                key={opt.value}
+                onClick={() => setMonetizationFilter(opt.value)}
+                className={monetizationFilter === opt.value ? 'font-semibold' : ''}
+              >
+                {opt.dot && <span className={`w-2 h-2 rounded-full ${opt.dot} mr-2`} />}
+                {opt.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <span className="text-xs text-white/30 ml-auto">
           {totalFiltered} conta{totalFiltered !== 1 ? 's' : ''}
         </span>
