@@ -528,8 +528,12 @@ async def get_perfis_adsense():
         if col_b == "ADSENSE":
             if current_account:
                 accounts.append(current_account)
+            # Extract owner from parentheses: "CRIAS AI (LUCCA)" → "LUCCA"
+            owner_match = re.search(r'\(([^)]+)\)', col_c)
+            owner = owner_match.group(1).strip() if owner_match else ""
             current_account = {
                 "name": col_c,
+                "owner": owner,
                 "email": "",
                 "cnpj": "",
                 "channels": [],
@@ -563,6 +567,9 @@ async def get_perfis_adsense():
 
     if current_account:
         accounts.append(current_account)
+
+    # Filter out accounts with 0 channels
+    accounts = [a for a in accounts if len(a["channels"]) > 0]
 
     stats = {
         "total_accounts": len(accounts),
