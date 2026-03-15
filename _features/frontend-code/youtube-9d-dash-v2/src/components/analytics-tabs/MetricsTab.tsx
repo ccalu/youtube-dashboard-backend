@@ -71,38 +71,38 @@ export const MetricsTab: React.FC<MetricsTabProps> = ({ canal }) => {
   return (
     <div className="space-y-4 fade-in">
       {/* Views Grid - 3 colunas */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
         <Card className="border-0" style={{ backgroundColor: CORES_METRICAS.views.fundo + '5E' }}>
-          <CardContent className="pt-4 pb-3">
-            <div className={`flex items-center gap-2 ${CORES_METRICAS.views.texto} mb-1`}>
-              <Eye className="h-4 w-4" />
-              <span className="text-xs">Views 7d</span>
+          <CardContent className="p-3 sm:p-6 pt-3 pb-2 sm:pt-4 sm:pb-3">
+            <div className={`flex items-center gap-1.5 ${CORES_METRICAS.views.texto} mb-1`}>
+              <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="text-[10px] sm:text-xs">Views 7d</span>
             </div>
-            <p className="text-lg font-bold text-white">
+            <p className="text-base sm:text-lg font-bold text-white">
               {formatNumber(canal.views_7d || 0)}
             </p>
           </CardContent>
         </Card>
 
         <Card className="border-0" style={{ backgroundColor: CORES_METRICAS.views.fundo + '5E' }}>
-          <CardContent className="pt-4 pb-3">
-            <div className={`flex items-center gap-2 ${CORES_METRICAS.views.texto} mb-1`}>
-              <Eye className="h-4 w-4" />
-              <span className="text-xs">Views 15d</span>
+          <CardContent className="p-3 sm:p-6 pt-3 pb-2 sm:pt-4 sm:pb-3">
+            <div className={`flex items-center gap-1.5 ${CORES_METRICAS.views.texto} mb-1`}>
+              <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="text-[10px] sm:text-xs">Views 15d</span>
             </div>
-            <p className="text-lg font-bold text-white">
+            <p className="text-base sm:text-lg font-bold text-white">
               {formatNumber(canal.views_15d || 0)}
             </p>
           </CardContent>
         </Card>
 
         <Card className="border-0" style={{ backgroundColor: CORES_METRICAS.views.fundo + '5E' }}>
-          <CardContent className="pt-4 pb-3">
-            <div className={`flex items-center gap-2 ${CORES_METRICAS.views.texto} mb-1`}>
-              <Eye className="h-4 w-4" />
-              <span className="text-xs">Views 30d</span>
+          <CardContent className="p-3 sm:p-6 pt-3 pb-2 sm:pt-4 sm:pb-3">
+            <div className={`flex items-center gap-1.5 ${CORES_METRICAS.views.texto} mb-1`}>
+              <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="text-[10px] sm:text-xs">Views 30d</span>
             </div>
-            <p className="text-lg font-bold text-white">
+            <p className="text-base sm:text-lg font-bold text-white">
               {formatNumber(canal.views_30d || 0)}
             </p>
           </CardContent>
@@ -110,15 +110,15 @@ export const MetricsTab: React.FC<MetricsTabProps> = ({ canal }) => {
       </div>
 
       {/* Growth & Performance */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
         {/* Growth 7d */}
         <Card className="border-0" style={{ backgroundColor: growth7dColor.fundo + '5E' }}>
-          <CardContent className="pt-4 pb-3">
-            <div className={`flex items-center gap-2 ${growth7dColor.texto} mb-1`}>
-              {renderGrowthIcon(growth7d, "h-4 w-4")}
-              <span className="text-xs">Growth 7d</span>
+          <CardContent className="p-3 sm:p-6 pt-3 pb-2 sm:pt-4 sm:pb-3">
+            <div className={`flex items-center gap-1.5 ${growth7dColor.texto} mb-1`}>
+              {renderGrowthIcon(growth7d, "h-3.5 w-3.5 sm:h-4 sm:w-4")}
+              <span className="text-[10px] sm:text-xs">Growth 7d</span>
             </div>
-            <p className="text-lg font-bold text-white">
+            <p className="text-base sm:text-lg font-bold text-white">
               {formatGrowth(growth7d)}
             </p>
           </CardContent>
@@ -126,12 +126,12 @@ export const MetricsTab: React.FC<MetricsTabProps> = ({ canal }) => {
 
         {/* Growth 30d */}
         <Card className="border-0" style={{ backgroundColor: growth30dColor.fundo + '5E' }}>
-          <CardContent className="pt-4 pb-3">
-            <div className={`flex items-center gap-2 ${growth30dColor.texto} mb-1`}>
-              {renderGrowthIcon(growth30d, "h-4 w-4")}
-              <span className="text-xs">Growth 30d</span>
+          <CardContent className="p-3 sm:p-6 pt-3 pb-2 sm:pt-4 sm:pb-3">
+            <div className={`flex items-center gap-1.5 ${growth30dColor.texto} mb-1`}>
+              {renderGrowthIcon(growth30d, "h-3.5 w-3.5 sm:h-4 sm:w-4")}
+              <span className="text-[10px] sm:text-xs">Growth 30d</span>
             </div>
-            <p className="text-lg font-bold text-white">
+            <p className="text-base sm:text-lg font-bold text-white">
               {formatGrowth(growth30d)}
             </p>
           </CardContent>
@@ -139,12 +139,12 @@ export const MetricsTab: React.FC<MetricsTabProps> = ({ canal }) => {
 
         {/* Engagement Rate - Laranja */}
         <Card className="border-0" style={{ backgroundColor: CORES_METRICAS.engagement.fundo + '5E' }}>
-          <CardContent className="pt-4 pb-3">
-            <div className={`flex items-center gap-2 ${CORES_METRICAS.engagement.texto} mb-1`}>
-              <Zap className="h-4 w-4" />
-              <span className="text-xs">Engagement</span>
+          <CardContent className="p-3 sm:p-6 pt-3 pb-2 sm:pt-4 sm:pb-3">
+            <div className={`flex items-center gap-1.5 ${CORES_METRICAS.engagement.texto} mb-1`}>
+              <Zap className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="text-[10px] sm:text-xs">Engagement</span>
             </div>
-            <p className="text-lg font-bold text-white">
+            <p className="text-base sm:text-lg font-bold text-white">
               {engagementRate.toFixed(2)}%
             </p>
           </CardContent>
@@ -152,12 +152,12 @@ export const MetricsTab: React.FC<MetricsTabProps> = ({ canal }) => {
 
         {/* Score - Cor dinâmica */}
         <Card className="border-0" style={{ backgroundColor: scoreColor.fundo + '5E' }}>
-          <CardContent className="pt-4 pb-3">
-            <div className={`flex items-center gap-2 ${scoreColor.texto} mb-1`}>
-              <Target className="h-4 w-4" />
-              <span className="text-xs">Score</span>
+          <CardContent className="p-3 sm:p-6 pt-3 pb-2 sm:pt-4 sm:pb-3">
+            <div className={`flex items-center gap-1.5 ${scoreColor.texto} mb-1`}>
+              <Target className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="text-[10px] sm:text-xs">Score</span>
             </div>
-            <p className="text-lg font-bold text-white">
+            <p className="text-base sm:text-lg font-bold text-white">
               {score.toFixed(0)}
             </p>
           </CardContent>
@@ -172,30 +172,30 @@ export const MetricsTab: React.FC<MetricsTabProps> = ({ canal }) => {
             Resumo de Performance
           </CardTitle>
         </CardHeader>
-        <CardContent className="py-3">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-white/10 rounded-lg p-3 text-center">
-              <Video className="h-5 w-5 text-blue-200 mx-auto mb-1" />
-              <p className="text-xs text-blue-200">Vídeos 7d</p>
-              <p className="font-bold text-white text-lg">{canal.videos_publicados_7d ?? 0}</p>
+        <CardContent className="py-2 sm:py-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
+            <div className="bg-white/10 rounded-lg p-2 sm:p-3 text-center">
+              <Video className="h-4 w-4 sm:h-5 sm:w-5 text-blue-200 mx-auto mb-1" />
+              <p className="text-[10px] sm:text-xs text-blue-200">Vídeos 7d</p>
+              <p className="font-bold text-white text-base sm:text-lg">{canal.videos_publicados_7d ?? 0}</p>
             </div>
-            
-            <div className="bg-white/10 rounded-lg p-3 text-center">
-              <Eye className="h-5 w-5 text-blue-200 mx-auto mb-1" />
-              <p className="text-xs text-blue-200">Média/Vídeo</p>
-              <p className="font-bold text-white text-lg">{formatNumber(avgViewsPerVideo)}</p>
+
+            <div className="bg-white/10 rounded-lg p-2 sm:p-3 text-center">
+              <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-blue-200 mx-auto mb-1" />
+              <p className="text-[10px] sm:text-xs text-blue-200">Média/Vídeo</p>
+              <p className="font-bold text-white text-base sm:text-lg">{formatNumber(avgViewsPerVideo)}</p>
             </div>
-            
-            <div className="bg-white/10 rounded-lg p-3 text-center">
-              <Calendar className="h-5 w-5 text-blue-200 mx-auto mb-1" />
-              <p className="text-xs text-blue-200">Freq. Upload</p>
-              <p className="font-bold text-white text-lg">{uploadFrequency}/dia</p>
+
+            <div className="bg-white/10 rounded-lg p-2 sm:p-3 text-center">
+              <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-blue-200 mx-auto mb-1" />
+              <p className="text-[10px] sm:text-xs text-blue-200">Freq. Upload</p>
+              <p className="font-bold text-white text-base sm:text-lg">{uploadFrequency}/dia</p>
             </div>
-            
-            <div className="bg-white/10 rounded-lg p-3 text-center">
-              <TrendingUp className="h-5 w-5 text-blue-200 mx-auto mb-1" />
-              <p className="text-xs text-blue-200">7d vs 30d</p>
-              <p className="font-bold text-white text-lg">{views7dPct}%</p>
+
+            <div className="bg-white/10 rounded-lg p-2 sm:p-3 text-center">
+              <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-blue-200 mx-auto mb-1" />
+              <p className="text-[10px] sm:text-xs text-blue-200">7d vs 30d</p>
+              <p className="font-bold text-white text-base sm:text-lg">{views7dPct}%</p>
             </div>
           </div>
         </CardContent>

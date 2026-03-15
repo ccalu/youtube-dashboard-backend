@@ -28,8 +28,9 @@ export function obterCorSubnicho(subniche: string): { fundo: string; borda: stri
     case 'Relatos de Guerra':
       return { fundo: '#65A30D', borda: '#4D7C0F', gradient: 'linear-gradient(135deg, #84CC16 0%, #65A30D 50%, #4D7C0F 100%)' };
 
-    // 💣 Frentes de Guerra - Verde escuro militar
+    // 💣 Frentes de Batalha / Frentes de Guerra - Verde escuro militar
     case 'Frentes de Guerra':
+    case 'Frentes de Batalha':
       return { fundo: '#166534', borda: '#14532D', gradient: 'linear-gradient(135deg, #22C55E 0%, #166534 50%, #14532D 100%)' };
 
     // 💀 Culturas Macabras - Vinho tinto sinistro
@@ -69,10 +70,10 @@ export function obterCorSubnicho(subniche: string): { fundo: string; borda: stri
     case 'Guerras e Civilizacoes':
       return { fundo: '#EA580C', borda: '#C2410C', gradient: 'linear-gradient(135deg, #FB923C 0%, #EA580C 50%, #C2410C 100%)' };
 
-    // 🕵️ Conspiração - Ciano escuro misterioso
+    // 🕵️ Conspiração - Azul tradicional
     case 'Conspiração':
     case 'Conspiracao':
-      return { fundo: '#0891B2', borda: '#0E7490', gradient: 'linear-gradient(135deg, #22D3EE 0%, #0891B2 50%, #0E7490 100%)' };
+      return { fundo: '#0375E8', borda: '#0258B0', gradient: 'linear-gradient(135deg, #3B9BFF 0%, #0375E8 50%, #0258B0 100%)' };
 
     // 💼 Empreendedorismo - Dourado/Amarelo
     case 'Empreendedorismo':
@@ -116,6 +117,10 @@ export function obterCorSubnicho(subniche: string): { fundo: string; borda: stri
         borda: '#DB2777',
         gradient: 'linear-gradient(135deg, #F9A8D4 0%, #E879A0 50%, #DB2777 100%)'
       };
+
+    // 📖 Biografias - Bronze equilibrado
+    case 'Biografias':
+      return { fundo: '#92400E', borda: '#78350F', gradient: 'linear-gradient(135deg, #D97706 0%, #92400E 50%, #78350F 100%)' };
 
     // ⚙️ Cor padrão (fallback para subniches não mapeados)
     default:

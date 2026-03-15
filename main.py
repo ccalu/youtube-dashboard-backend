@@ -23,6 +23,7 @@ from collector import YouTubeCollector
 from notifier import NotificationChecker
 from comments_logs import CommentsLogsManager
 from monetization_endpoints import router as monetization_router
+from perfis_endpoints import router as perfis_router, clear_perfis_cache
 from financeiro import FinanceiroService
 from analytics import ChannelAnalytics
 
@@ -215,6 +216,7 @@ upload_semaphore = asyncio.Semaphore(3)
 # 💰 MONETIZATION ROUTER
 # ========================================
 app.include_router(monetization_router)
+app.include_router(perfis_router)
 
 # ========================================
 # 🆕 MODELOS PYDANTIC
@@ -3001,7 +3003,10 @@ async def clear_all_cache():
             logger.warning(f"Could not refresh MVs: {e}")
             mv_refreshed = False
 
-        logger.info("🧹 Cache limpo: Dashboard, Tabela e Comentários")
+        # Limpar cache de perfis (Google Sheets)
+        clear_perfis_cache()
+
+        logger.info("🧹 Cache limpo: Dashboard, Tabela, Comentários e Perfis")
 
         return {
             "message": "Cache limpo com sucesso",
@@ -6363,6 +6368,7 @@ DASH_UPLOAD_HTML = '''
 
         /* ===== RESPONSIVE MOBILE ===== */
         @media (max-width: 768px) {
+            body { padding-bottom: 0; }
             .page-header { padding: 14px 12px 12px; flex-wrap: nowrap; gap: 8px; overflow: hidden; }
             .page-header > div:first-child { min-width: 0; flex-shrink: 1; }
             .header-title { font-size: 19px; letter-spacing: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -6395,7 +6401,8 @@ DASH_UPLOAD_HTML = '''
             .video-title { max-width: 150px; }
             .cell-actions { gap: 6px; }
             .btn-icon { width: 36px; height: 36px; font-size: 18px; }
-            .status-bar { padding: 8px 12px; font-size: 11px; }
+            .status-bar { display: none; }
+            .flag-mobile { display: inline-flex; align-items: center; flex-shrink: 0; }
             .modal-panel { width: 96%; max-height: 85vh; }
             .modal-overlay { padding-top: 2vh; }
             .modal-header { padding: 14px 16px; }
@@ -6530,6 +6537,13 @@ DASH_UPLOAD_HTML = '''
             var l = lingua.toLowerCase();
             var mapa = {'pt':'PT','portugues':'PT','portuguese':'PT','en':'EN','ingles':'EN','english':'EN','es':'ES','espanhol':'ES','spanish':'ES','de':'DE','alemao':'DE','german':'DE','fr':'FR','frances':'FR','french':'FR','it':'IT','italiano':'IT','italian':'IT','pl':'PL','polones':'PL','polish':'PL','ru':'RU','russo':'RU','russian':'RU','ja':'JP','japones':'JP','japanese':'JP','ko':'KR','coreano':'KR','korean':'KR','tr':'TR','turco':'TR','turkish':'TR','ar':'AR','arabic':'AR','arabe':'AR'};
             return mapa[l] || '';
+        }
+        function _f(a,b){return String.fromCodePoint(0x1F1E6+a,0x1F1E6+b);}
+        function getFlagEmoji(lingua) {
+            if (!lingua) return '';
+            var l = lingua.toLowerCase();
+            var m = {'pt':_f(1,17),'portugues':_f(1,17),'portuguese':_f(1,17),'en':_f(20,18),'ingles':_f(20,18),'english':_f(20,18),'es':_f(4,18),'espanhol':_f(4,18),'spanish':_f(4,18),'de':_f(3,4),'alemao':_f(3,4),'german':_f(3,4),'fr':_f(5,17),'frances':_f(5,17),'french':_f(5,17),'it':_f(8,19),'italiano':_f(8,19),'italian':_f(8,19),'pl':_f(15,11),'polones':_f(15,11),'polish':_f(15,11),'ru':_f(17,20),'russo':_f(17,20),'russian':_f(17,20),'ja':_f(9,15),'japones':_f(9,15),'japanese':_f(9,15),'ko':_f(10,17),'coreano':_f(10,17),'korean':_f(10,17),'tr':_f(19,17),'turco':_f(19,17),'turkish':_f(19,17),'ar':_f(18,0),'arabic':_f(18,0),'arabe':_f(18,0)};
+            return m[l] || '';
         }
         function toggleFiltro(status) {
             document.querySelectorAll('.stat-card').forEach(function(c) { c.classList.remove('active'); });
@@ -6728,8 +6742,11 @@ DASH_UPLOAD_HTML = '''
                             html += '<table class="modal-table"><thead><tr><th>Canal</th><th>Video</th><th>Status</th><th>Horario</th></tr></thead><tbody>';
                             canaisSucesso.forEach(function(canal) {
                                 var sigla = getSiglaIdioma(canal.lingua);
-                                html += '<tr><td style="color:var(--text-primary);font-weight:500;white-space:nowrap;">' + escapeHtml(canal.nome);
-                                if (sigla) html += ' <span class="lang-tag">' + sigla + '</span>';
+                                var flagHtml = getFlagEmoji(canal.lingua);
+                                html += '<tr><td style="color:var(--text-primary);font-weight:500;white-space:nowrap;">';
+                                if (mob && flagHtml) html += '<span class="flag-mobile">' + flagHtml + '</span> ';
+                                html += escapeHtml(canal.nome);
+                                if (!mob && sigla) html += ' <span class="lang-tag">' + sigla + '</span>';
                                 html += '</td><td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escapeHtml(truncarTitulo(canal.video_titulo)) + '</td>';
                                 html += '<td style="color:var(--success);font-weight:500;">&#x2705;' + (mob ? '' : ' Sucesso') + '</td>';
                                 html += '<td style="color:var(--text-tertiary);">' + (canal.hora || '-') + '</td></tr>';
@@ -6753,6 +6770,7 @@ DASH_UPLOAD_HTML = '''
                 if (xhr.readyState === 4 && xhr.status === 200) {
                     try {
                         var data = JSON.parse(xhr.responseText);
+                        var mob = isMobile();
                         var el;
                         el = document.getElementById('total'); if (el) el.textContent = data.stats.total || 0;
                         el = document.getElementById('sucesso'); if (el) el.textContent = data.stats.sucesso || 0;
@@ -6813,9 +6831,12 @@ DASH_UPLOAD_HTML = '''
                                     else if (canal.status === 'sem_video') { badgeClass = 'status-badge--sem_video'; badgeText = 'Sem Video'; }
                                     else if (canal.status === 'erro') { badgeClass = 'status-badge--error'; badgeText = 'Erro'; }
                                     html += '<tr>';
-                                    html += '<td><div class="cell-channel"><span class="channel-name">' + escapeHtml(canal.channel_name) + '</span>';
+                                    html += '<td><div class="cell-channel">';
                                     var sigla = getSiglaIdioma(canal.lingua);
-                                    if (sigla) html += '<span class="lang-tag">' + sigla + '</span>';
+                                    var flagHtml = getFlagEmoji(canal.lingua);
+                                    if (mob && flagHtml) html += '<span class="flag-mobile">' + flagHtml + '</span>';
+                                    html += '<span class="channel-name">' + escapeHtml(canal.channel_name) + '</span>';
+                                    if (!mob && sigla) html += '<span class="lang-tag">' + sigla + '</span>';
                                     if (canal.is_monetized) html += '<span class="monetized-dot"></span>';
                                     html += '</div></td>';
                                     html += '<td><span class="status-badge ' + badgeClass + '">' + badgeText + '</span></td>';
@@ -6915,10 +6936,12 @@ DASH_UPLOAD_HTML = '''
                     for (var j = 0; j < readyChannels.length; j++) {
                         var ch = readyChannels[j];
                         var sigla = getSiglaIdioma(ch.lingua);
+                        var flagHtml = getFlagEmoji(ch.lingua);
                         html += '<label class="batch-channel-row" style="margin:0;">';
                         html += '<input type="checkbox" class="batch-checkbox" data-channel-id="' + ch.channel_id + '" onchange="batchUpdateCount()">';
+                        if (isMobile() && flagHtml) html += '<span class="flag-mobile">' + flagHtml + '</span>';
                         html += '<span style="flex:1;font-weight:500;color:var(--text-primary);">' + escapeHtml(ch.channel_name) + '</span>';
-                        if (sigla) html += '<span class="lang-tag">' + sigla + '</span>';
+                        if (!isMobile() && sigla) html += '<span class="lang-tag">' + sigla + '</span>';
                         if (ch.is_monetized) html += '<span class="monetized-dot"></span>';
                         if (ch.video_titulo) html += '<span class="batch-video-hint">' + escapeHtml(ch.video_titulo) + '</span>';
                         html += '</label>';
@@ -8875,7 +8898,7 @@ DASH_AGENTES_HTML = '''<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect rx='20' width='100' height='100' fill='%230a0a0f'/><path d='M25 70L40 45L55 55L75 30' stroke='%2300d4aa' stroke-width='7' stroke-linecap='round' stroke-linejoin='round' fill='none'/><circle cx='75' cy='30' r='6' fill='%2300d4aa'/></svg>">
 <title>Central de Agentes - Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -8902,13 +8925,14 @@ DASH_AGENTES_HTML = '''<!DOCTYPE html>
     --border: rgba(255, 255, 255, 0.08);
 }
 * { margin:0; padding:0; box-sizing:border-box; }
+html, body { overflow-x: hidden; max-width: 100vw; }
 body {
     font-family: 'Plus Jakarta Sans', sans-serif;
     background: var(--bg-primary);
     color: var(--text-primary);
     line-height: 1.6;
 }
-.container { display:flex; min-height:100vh; }
+.container { display:flex; min-height:100vh; overflow-x: hidden; max-width: 100vw; }
 
 /* Sidebar */
 .sidebar {
@@ -9051,6 +9075,7 @@ body {
     flex: 1;
     padding: 2rem 3rem;
     min-height: 100vh;
+    overflow-x: hidden;
 }
 .main-header {
     display: flex;
@@ -9074,6 +9099,7 @@ body {
     line-height: 1.8;
     white-space: pre-wrap;
     word-break: break-word;
+    overflow-x: hidden;
 }
 /* === Report Header & Title === */
 .report-header-line {
@@ -9499,6 +9525,7 @@ body {
 [data-agent="autenticidade"] .tab-dot.has-data { background: #EF4444; }
 [data-agent="temas"] .tab-dot.has-data { background: #F87315; }
 [data-agent="motores"] .tab-dot.has-data { background: #A855F7; }
+[data-agent="ordenador"] .tab-dot.has-data { background: #06b6d4; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 .tab-run-btn {
@@ -9589,7 +9616,7 @@ body {
     .sidebar.open { transform: translateX(0); }
     .sidebar { padding-top: 60px; }
     .sidebar-title { display: none; }
-    .main { margin-left: 0; padding: 1rem; padding-top: 60px; }
+    .main { margin-left: 0; padding: 1rem; padding-top: 60px; max-width: 100vw; overflow-x: hidden; }
     .main-header { flex-direction: column; align-items: flex-start; gap: 0.8rem; }
     .main-title { font-size: 1rem; }
     .main-title.default-text { display: none; }
@@ -9599,15 +9626,27 @@ body {
     .main-actions .btn.btn-ctr,
     .main-actions .btn.btn-export,
     .main-actions .btn.btn-history { flex: 1; }
-    #tabsArea { margin-top: 0.8rem; }
-    .tabs-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-wrap: nowrap; }
-    .tabs-bar::-webkit-scrollbar { display: none; }
-    .tab-btn { font-size: 0.7rem; padding: 0.5rem 0.8rem; white-space: nowrap; flex-shrink: 0; }
+    #tabsArea { margin-top: 0.2rem; }
+    .tabs-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; border-bottom: none; margin-bottom: 0.8rem; }
+    .tab-btn { font-size: 0.7rem; padding: 0.5rem 0.6rem 0.5rem 1.1rem; white-space: nowrap; border-bottom: 2px solid var(--border); justify-content: center; align-items: center; gap: 0; margin-bottom: 0; position: relative; }
+    .tab-dot { flex-shrink: 0; position: absolute; left: 0.35rem; top: 50%; transform: translateY(-50%); }
     .report-container { padding: 1rem; font-size: 0.75rem; line-height: 1.6; }
     .modal { padding: 1.2rem; max-width: 95%; }
     .sidebar-actions { flex-wrap: wrap; }
     .sidebar-actions .btn { font-size: 0.7rem; padding: 0.4rem 0.6rem; }
     .export-menu { right: auto; left: 0; }
+    .modal { padding: 1rem; max-width: 95%; }
+    .modal h3 { font-size: 0.9rem; }
+    .history-item { padding: 0.5rem 0.6rem; flex-wrap: wrap; gap: 0.3rem; }
+    .history-date { font-size: 0.75rem; }
+    .history-info { display: none; }
+    .history-del-btn { margin-left: auto; }
+    .hist-date-row { padding: 0.5rem 0.6rem; flex-wrap: wrap; gap: 4px; }
+    .hist-date-row > div:last-child { width: 100%; }
+    .hist-date-label { font-size: 0.75rem; }
+    .hist-channel-row { padding: 0.4rem 0.6rem; flex-wrap: wrap; gap: 4px; }
+    .hist-channel-row > div:first-child > div { margin-top: 4px; }
+    .agent-tag { font-size: 0.55rem; padding: 1px 4px; }
 }
 
 @media (max-width: 480px) {
@@ -9615,8 +9654,10 @@ body {
     .main-title { font-size: 0.9rem; }
     .report-container { padding: 0.8rem; font-size: 0.7rem; }
     .channel-name { max-width: 120px; }
-    .tab-btn { font-size: 0.65rem; padding: 0.4rem 0.6rem; }
+    .tab-btn { font-size: 0.65rem; padding: 0.4rem 0.5rem; }
     .main-actions .btn { font-size: 0.7rem; padding: 0.35rem 0.4rem; }
+    #reportArea [style*="min-width:140px"] { min-width: 100px !important; }
+    #reportArea [style*="min-width:120px"] { min-width: 80px !important; }
 }
 </style>
 </head>
@@ -9898,18 +9939,21 @@ function renderActiveTab() {
 
 function renderSummaryCards(tabKey, data) {
     var html = '';
+    var mob = window.innerWidth <= 768;
+    var cardS = mob ? 'width:100%;text-align:center;padding:0.8rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);' : 'flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);';
+    var wrapS = mob ? 'display:flex;flex-direction:column;gap:8px;margin-bottom:1.5rem;' : 'display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;';
     if (tabKey === 'copy') {
         var ret = data.channel_avg_retention;
         var vids = data.total_videos_analyzed;
         if (ret != null || vids != null) {
-            html += '<div style="display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">';
+            html += '<div style="' + wrapS + '">';
             if (ret != null) {
-                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="' + cardS + '">';
                 html += '<div style="font-size:1.8rem;font-weight:800;color:var(--accent);font-family:JetBrains Mono,monospace;">' + ret.toFixed(1) + '<span style="font-size:0.8rem;opacity:0.6">%</span></div>';
                 html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Retencao Media</div></div>';
             }
             if (vids != null) {
-                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="' + cardS + '">';
                 html += '<div style="font-size:1.8rem;font-weight:800;color:var(--highlight);font-family:JetBrains Mono,monospace;">' + vids + '</div>';
                 html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Videos Analisados</div></div>';
             }
@@ -9920,20 +9964,20 @@ function renderSummaryCards(tabKey, data) {
         var subR = data.channel_avg_sub_ratio;
         var comR = data.channel_avg_comment_ratio;
         if (appr != null || subR != null) {
-            html += '<div style="display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">';
+            html += '<div style="' + wrapS + '">';
             if (appr != null) {
                 var apprColor = appr >= 90 ? '#00d4aa' : appr >= 70 ? '#ffd93d' : '#ff6b6b';
-                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="' + cardS + '">';
                 html += '<div style="font-size:1.8rem;font-weight:800;color:' + apprColor + ';font-family:JetBrains Mono,monospace;">' + appr.toFixed(1) + '<span style="font-size:0.8rem;opacity:0.6">%</span></div>';
                 html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Aprovacao Media</div></div>';
             }
             if (subR != null) {
-                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="' + cardS + '">';
                 html += '<div style="font-size:1.8rem;font-weight:800;color:var(--accent);font-family:JetBrains Mono,monospace;">' + (subR * 100).toFixed(2) + '<span style="font-size:0.8rem;opacity:0.6">%</span></div>';
                 html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Sub Ratio</div></div>';
             }
             if (comR != null) {
-                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="' + cardS + '">';
                 html += '<div style="font-size:1.8rem;font-weight:800;color:var(--purple);font-family:JetBrains Mono,monospace;">' + (comR * 100).toFixed(2) + '<span style="font-size:0.8rem;opacity:0.6">%</span></div>';
                 html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Comment Ratio</div></div>';
             }
@@ -9961,14 +10005,14 @@ function renderSummaryCards(tabKey, data) {
         var tc = data.theme_count;
         var tv = data.total_videos_analyzed;
         if (tc != null || tv != null) {
-            html += '<div style="display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">';
+            html += '<div style="' + wrapS + '">';
             if (tc != null) {
-                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="' + cardS + '">';
                 html += '<div style="font-size:1.8rem;font-weight:800;color:var(--accent);font-family:JetBrains Mono,monospace;">' + tc + '</div>';
                 html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Temas Identificados</div></div>';
             }
             if (tv != null) {
-                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="' + cardS + '">';
                 html += '<div style="font-size:1.8rem;font-weight:800;color:var(--highlight);font-family:JetBrains Mono,monospace;">' + tv + '</div>';
                 html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Videos Analisados</div></div>';
             }
@@ -9978,12 +10022,12 @@ function renderSummaryCards(tabKey, data) {
         var tv2 = data.total_videos;
         var rn = data.run_number;
         if (tv2 != null) {
-            html += '<div style="display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">';
-            html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+            html += '<div style="' + wrapS + '">';
+            html += '<div style="' + cardS + '">';
             html += '<div style="font-size:1.8rem;font-weight:800;color:var(--purple);font-family:JetBrains Mono,monospace;">' + tv2 + '</div>';
             html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Videos Analisados</div></div>';
             if (rn != null) {
-                html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+                html += '<div style="' + cardS + '">';
                 html += '<div style="font-size:1.8rem;font-weight:800;color:var(--accent);font-family:JetBrains Mono,monospace;">#' + rn + '</div>';
                 html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Execucao</div></div>';
             }
@@ -9992,15 +10036,15 @@ function renderSummaryCards(tabKey, data) {
     } else if (tabKey === 'ordenador') {
         var ts = data.total_scripts;
         var ch = data.channel_health;
-        html += '<div style="display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">';
+        html += '<div style="' + wrapS + '">';
         if (ts != null) {
-            html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+            html += '<div style="' + cardS + '">';
             html += '<div style="font-size:1.8rem;font-weight:800;color:#06b6d4;font-family:JetBrains Mono,monospace;">' + ts + '</div>';
             html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Scripts Pendentes</div></div>';
         }
         if (ch) {
             var hColor = (ch === 'excelente' || ch === 'bom') ? 'var(--green)' : (ch === 'atencao') ? 'var(--yellow)' : 'var(--red)';
-            html += '<div style="flex:1;min-width:140px;text-align:center;padding:1rem;background:var(--bg-tertiary);border-radius:10px;border:1px solid var(--border);">';
+            html += '<div style="' + cardS + '">';
             html += '<div style="font-size:1.4rem;font-weight:800;color:' + hColor + ';font-family:JetBrains Mono,monospace;">' + ch.toUpperCase() + '</div>';
             html += '<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:0.2rem;">Saude do Canal</div></div>';
         }
@@ -10808,28 +10852,30 @@ function renderCTRTable() {
     html += '<p style="color:var(--text-secondary);margin:0 0 1rem;font-size:13px">' + videos.length + ' videos com dados</p>';
 
     // Stats cards
-    html += '<div style="display:flex;gap:12px;margin-bottom:1.5rem;flex-wrap:wrap">';
+    var isMobile = window.innerWidth <= 768;
+    var cardStyle = 'background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:' + (isMobile ? '10px 14px' : '12px 20px') + ';text-align:center;' + (isMobile ? 'width:100%' : 'flex:1;min-width:120px');
+    html += '<div style="display:flex;gap:' + (isMobile ? '8px' : '12px') + ';margin-bottom:1.5rem;' + (isMobile ? 'flex-direction:column' : 'flex-wrap:wrap') + '">';
     if (isCTR) {
-        html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
-        html += '<div style="font-size:24px;font-weight:700;color:#f59e0b">' + (stats.avg_ctr_percent || 0).toFixed(2) + '%</div>';
+        html += '<div style="' + cardStyle + '">';
+        html += '<div style="font-size:' + (isMobile ? '20px' : '24px') + ';font-weight:700;color:#f59e0b">' + (stats.avg_ctr_percent || 0).toFixed(2) + '%</div>';
         html += '<div style="font-size:11px;color:var(--text-secondary)">CTR Medio</div></div>';
-        html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
-        html += '<div style="font-size:24px;font-weight:700;color:var(--blue)">' + (stats.total_impressions || 0).toLocaleString() + '</div>';
+        html += '<div style="' + cardStyle + '">';
+        html += '<div style="font-size:' + (isMobile ? '20px' : '24px') + ';font-weight:700;color:var(--blue)">' + (stats.total_impressions || 0).toLocaleString() + '</div>';
         html += '<div style="font-size:11px;color:var(--text-secondary)">Total Impressoes</div></div>';
     } else {
-        html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
-        html += '<div style="font-size:24px;font-weight:700;color:#a78bfa">' + (stats.avg_retention_pct || 0).toFixed(1) + '%</div>';
+        html += '<div style="' + cardStyle + '">';
+        html += '<div style="font-size:' + (isMobile ? '20px' : '24px') + ';font-weight:700;color:#a78bfa">' + (stats.avg_retention_pct || 0).toFixed(1) + '%</div>';
         html += '<div style="font-size:11px;color:var(--text-secondary)">Retencao Media</div></div>';
-        html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
-        html += '<div style="font-size:24px;font-weight:700;color:var(--blue)">' + fmtDuration(stats.avg_view_duration_sec || 0) + '</div>';
+        html += '<div style="' + cardStyle + '">';
+        html += '<div style="font-size:' + (isMobile ? '20px' : '24px') + ';font-weight:700;color:var(--blue)">' + fmtDuration(stats.avg_view_duration_sec || 0) + '</div>';
         html += '<div style="font-size:11px;color:var(--text-secondary)">Duracao Media</div></div>';
-        html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
+        html += '<div style="' + cardStyle + '">';
         var totalWT = 0; videos.forEach(function(v) { totalWT += (v.views || 0) * (v.avg_view_duration || 0); });
-        html += '<div style="font-size:24px;font-weight:700;color:#f59e0b">' + fmtWatchTime(totalWT) + '</div>';
+        html += '<div style="font-size:' + (isMobile ? '20px' : '24px') + ';font-weight:700;color:#f59e0b">' + fmtWatchTime(totalWT) + '</div>';
         html += '<div style="font-size:11px;color:var(--text-secondary)">Watch Time Total</div></div>';
     }
-    html += '<div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:12px 20px;flex:1;min-width:120px;text-align:center">';
-    html += '<div style="font-size:24px;font-weight:700;color:var(--green)">' + videos.length + '</div>';
+    html += '<div style="' + cardStyle + '">';
+    html += '<div style="font-size:' + (isMobile ? '20px' : '24px') + ';font-weight:700;color:var(--green)">' + videos.length + '</div>';
     html += '<div style="font-size:11px;color:var(--text-secondary)">Videos</div></div>';
     html += '</div>';
 

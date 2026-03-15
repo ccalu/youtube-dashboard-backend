@@ -142,8 +142,8 @@ export function CommentsTab() {
   const { data: summary, isLoading: loadingSummary } = useQuery({
     queryKey: ['comments-summary'],
     queryFn: () => apiService.getCommentsSummary(),
-    staleTime: 1000 * 60 * 60,
-    gcTime: 1000 * 60 * 120,
+    staleTime: 1000 * 60 * 60 * 4,
+    gcTime: 1000 * 60 * 60 * 5,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
@@ -151,8 +151,8 @@ export function CommentsTab() {
   const { data: channels, isLoading: loadingChannels } = useQuery({
     queryKey: ['monetized-channels-comments'],
     queryFn: () => apiService.getMonetizedChannelsComments(),
-    staleTime: 1000 * 60 * 60,
-    gcTime: 1000 * 60 * 120,
+    staleTime: 1000 * 60 * 60 * 4,
+    gcTime: 1000 * 60 * 60 * 5,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
   });
@@ -337,7 +337,7 @@ export function CommentsTab() {
   return (
     <div className="space-y-6">
       {/* Summary Cards - skeleton while loading */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {loadingSummary ? (
           <>
             <Skeleton className="h-[88px] rounded-lg" />
@@ -416,7 +416,7 @@ export function CommentsTab() {
                   >
                     <CollapsibleTrigger asChild>
                       <div
-                        className="flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all hover:scale-[1.01]"
+                        className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg cursor-pointer transition-all hover:scale-[1.01]"
                         style={{
                           backgroundColor: cores.fundo + '40',
                           borderLeft: `4px solid ${cores.borda}`,
@@ -440,24 +440,24 @@ export function CommentsTab() {
                       </div>
                     </CollapsibleTrigger>
                     
-                    <CollapsibleContent className="mt-1 space-y-1 pl-6">
+                    <CollapsibleContent className="mt-1 space-y-1 pl-2 sm:pl-6">
                       {subChannels?.map((channel) => (
                         <div
                           key={channel.id}
-                          className="flex items-center justify-between p-3 rounded-md bg-card/30 hover:bg-card/50 transition-colors"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-md bg-card/30 hover:bg-card/50 transition-colors"
                         >
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0">
                             <p className="font-medium text-foreground flex items-center gap-1.5">
                               <span>{getLanguageFlag(channel.lingua, channel.nome_canal)}</span>
                               <span className="truncate">{channel.nome_canal}</span>
                             </p>
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground mt-1">
                               <span>{channel.total_videos} vídeos</span>
-                              <span>•</span>
+                              <span className="hidden sm:inline">•</span>
                               <span>{formatNumber(channel.total_comentarios)} comentários</span>
                               {channel.comentarios_sem_resposta > 0 && (
                                 <>
-                                  <span>•</span>
+                                  <span className="hidden sm:inline">•</span>
                                   <span className="text-yellow-400">
                                     {channel.comentarios_sem_resposta} sem resposta
                                   </span>
@@ -465,11 +465,12 @@ export function CommentsTab() {
                               )}
                             </div>
                           </div>
-                          
-                          <div className="flex items-center gap-2">
+
+                          <div className="flex items-center">
                             <Button
                               variant="outline"
                               size="sm"
+                              className="w-full sm:w-auto text-xs"
                               onMouseEnter={() => {
                                 queryClient.prefetchQuery({
                                   queryKey: ['channel-videos-comments', channel.id],
@@ -502,7 +503,7 @@ export function CommentsTab() {
 
       {/* Videos Modal */}
       <Dialog open={!!selectedChannel} onOpenChange={() => setSelectedChannel(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh]">
+        <DialogContent className="max-w-2xl max-h-[80vh] w-[95vw] sm:w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Play className="h-5 w-5 text-cyan-500" />
@@ -539,28 +540,25 @@ export function CommentsTab() {
                       <img 
                         src={video.thumbnail || `https://i.ytimg.com/vi/${video.video_id}/mqdefault.jpg`}
                         alt={video.titulo}
-                        className="w-24 h-16 object-cover rounded"
+                        className="w-16 h-10 sm:w-24 sm:h-16 object-cover rounded"
                         loading="lazy"
                       />
                     </div>
                     
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-foreground">{truncateTitle(video.titulo, 6)}</p>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                      <div className="flex flex-wrap items-center gap-x-2 sm:gap-x-3 gap-y-0.5 text-xs text-muted-foreground mt-1">
                         <span className="text-cyan-400">
                           {formatVideoDate(video.data_publicacao)}
                         </span>
-                        <span>•</span>
+                        <span className="hidden sm:inline">•</span>
                         <span>{formatNumber(video.views)} views</span>
-                        <span>•</span>
-                        <span>{video.total_comentarios} comentários</span>
+                        <span className="hidden sm:inline">•</span>
+                        <span>{video.total_comentarios} coment.</span>
                         {video.comentarios_sem_resposta > 0 && (
-                          <>
-                            <span>•</span>
-                            <Badge variant="destructive" className="text-[10px] px-1.5">
-                              {video.comentarios_sem_resposta} sem resposta
-                            </Badge>
-                          </>
+                          <Badge variant="destructive" className="text-[10px] px-1.5">
+                            {video.comentarios_sem_resposta} s/r
+                          </Badge>
                         )}
                       </div>
                     </div>
@@ -582,7 +580,7 @@ export function CommentsTab() {
 
       {/* Comments Modal */}
       <Dialog open={!!selectedVideo} onOpenChange={() => setSelectedVideo(null)}>
-        <DialogContent className="max-w-3xl max-h-[85vh]">
+        <DialogContent className="max-w-3xl max-h-[85vh] w-[95vw] sm:w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-cyan-500" />
@@ -679,8 +677,8 @@ export function CommentsTab() {
                         }`}
                       >
                         {/* Comment Header */}
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center justify-between gap-1 mb-1.5">
+                          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                             <span className="font-medium text-sm text-foreground">@{comment.author_name}</span>
                             <span className="text-[10px] text-muted-foreground">
                               {(() => {
@@ -857,9 +855,9 @@ export function CommentsTab() {
 
           {/* Pagination */}
           {commentsData?.pagination && commentsData.pagination.total_pages > 1 && (
-            <div className="flex items-center justify-between pt-4 border-t">
-              <p className="text-sm text-muted-foreground">
-                Página {currentPage} de {commentsData.pagination.total_pages} ({commentsData.pagination.total} comentários)
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-4 border-t">
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Pág. {currentPage}/{commentsData.pagination.total_pages} ({commentsData.pagination.total})
               </p>
               <div className="flex items-center gap-2">
                 <Button

@@ -6,6 +6,7 @@ import { FavoritesTable } from './FavoritesTable';
 import { NotificationsTab } from './NotificationsTab';
 import { TabelaCanais } from './TabelaCanais';
 import { MonetizationTab } from './monetization/MonetizationTab';
+import { PerfisTab } from './perfis/PerfisTab';
 
 import { CommentsTab } from './comments';
 import { KanbanTab } from './kanban';
@@ -174,6 +175,8 @@ const DashboardContent = () => {
         );
       case 'monetization':
         return <MonetizationTab />;
+      case 'perfis':
+        return <PerfisTab />;
       case 'notifications':
         return <NotificationsTab />;
 

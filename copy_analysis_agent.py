@@ -706,7 +706,7 @@ def analyze_copy_performance(
             "title": v["title"],
             "retention_pct": retention_pct,
             "watch_time_min": ret.get("watch_time_min"),
-            "views": ret.get("views") or v.get("views"),
+            "views": v.get("views") or ret.get("views"),
             "duration_sec": v.get("duration_sec"),
             "published_at": v.get("published_at")
         })

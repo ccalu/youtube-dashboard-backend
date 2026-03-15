@@ -287,8 +287,8 @@ export const CollectionHistoryModal = ({ open: externalOpen, onOpenChange }: Col
           </Button>
         </DialogTrigger>
       )}
-      <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] p-0 overflow-hidden">
-        <DialogHeader className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-border/50 pr-20 sm:pr-24">
+      <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] p-0 flex flex-col overflow-hidden">
+        <DialogHeader className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-border/50 pr-20 sm:pr-24 shrink-0">
           <div className="flex items-center justify-between gap-4">
             <DialogTitle className="text-lg sm:text-xl font-bold">Histórico de Coletas</DialogTitle>
             <Button
@@ -332,9 +332,9 @@ export const CollectionHistoryModal = ({ open: externalOpen, onOpenChange }: Col
           </div>
         </DialogHeader>
 
-        {/* BARRA DE QUOTA DIÁRIA */}
+        {/* BARRA DE QUOTA DIÁRIA — hidden on mobile */}
         {quotaInfo && (
-          <div className="px-3 sm:px-6 pb-3 sm:pb-4">
+          <div className="hidden sm:block px-3 sm:px-6 pb-3 sm:pb-4 shrink-0">
             <div className="bg-gradient-to-r from-purple-500/20 to-indigo-500/20 dark:from-purple-600/20 dark:to-indigo-600/20 border border-purple-300 dark:border-purple-700 rounded-lg p-3 sm:p-5">
               {/* Cabeçalho */}
               <div className="flex items-center justify-between mb-2 sm:mb-4">
@@ -503,7 +503,7 @@ export const CollectionHistoryModal = ({ open: externalOpen, onOpenChange }: Col
           </div>
         )}
         
-        <ScrollArea className="max-h-[45vh] px-3 sm:px-6 pb-4 sm:pb-6">
+        <ScrollArea className="flex-1 min-h-0 px-3 sm:px-6 pb-4 sm:pb-6">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-blue-500" />

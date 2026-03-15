@@ -74,6 +74,7 @@ export function AppSidebar({
     hoje: 0,
     esta_semana: 0,
   });
+  const [perfisAlertCount, setPerfisAlertCount] = useState(0);
 
   // Cache expiration at 6 AM Brasília time
   const shouldRefreshCache = useCallback(() => {
@@ -137,6 +138,22 @@ export function AppSidebar({
     }
   }, [notificationStats]);
 
+  // Perfis alerts badge polling (every 30s)
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        const res = await fetch('/api/perfis/alerts-count');
+        if (res.ok) {
+          const data = await res.json();
+          setPerfisAlertCount(data.count || 0);
+        }
+      } catch {}
+    };
+    fetchAlerts();
+    const interval = setInterval(fetchAlerts, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Helper para cor do ícone quando não ativo/hover
   const getIconColor = (itemId: string) => ({
     // NAVEGAÇÃO - Vermelhos verdadeiros
@@ -147,6 +164,7 @@ export function AppSidebar({
     // EMPRESA - Verdes
     'monetization': 'text-green-500',
     'financeiro-ext': 'text-emerald-500',
+    'perfis': 'text-teal-500',
     'upload-ext': 'text-purple-500',
     'mission-control-ext': 'text-purple-500',
     'dash-agentes-ext': 'text-purple-500',
@@ -156,8 +174,9 @@ export function AppSidebar({
 
   // Empresa nav items (new category)
   const empresaNavItems: NavigationItem[] = [
-    { id: 'monetization', title: 'Monetização', icon: DollarSign, activeColor: 'bg-green-500' },
     { id: 'financeiro-ext', title: 'Financeiro', icon: Wallet, activeColor: 'bg-emerald-500' },
+    { id: 'monetization', title: 'Monetização', icon: DollarSign, activeColor: 'bg-green-500' },
+    { id: 'perfis', title: 'Perfis', icon: Users, badge: perfisAlertCount, activeColor: 'bg-teal-500' },
   ];
 
   const mainNavItems: NavigationItem[] = [
@@ -224,6 +243,7 @@ export function AppSidebar({
   const handleNavClick = (itemId: string) => {
     const externalLinks: Record<string, string> = {
       'financeiro-ext': 'https://financeiro-dashboard-production.up.railway.app/',
+
       'upload-ext': 'https://youtube-dashboard-backend-production.up.railway.app/dash-upload',
       'mission-control-ext': 'https://youtube-dashboard-backend-production.up.railway.app/mission-control',
       'dash-agentes-ext': 'https://youtube-dashboard-backend-production.up.railway.app/dash-analise-copy',
@@ -256,6 +276,7 @@ export function AppSidebar({
     // EMPRESA - Verdes
     'monetization': { bg: '#22c55e', hover: 'rgba(34, 197, 94, 0.25)' },
     'financeiro-ext': { bg: '#10b981', hover: 'rgba(16, 185, 129, 0.25)' },
+    'perfis': { bg: '#14b8a6', hover: 'rgba(20, 184, 166, 0.25)' },
     'upload-ext': { bg: '#a855f7', hover: 'rgba(168, 85, 247, 0.25)' },
     'mission-control-ext': { bg: '#a855f7', hover: 'rgba(168, 85, 247, 0.25)' },
     'dash-agentes-ext': { bg: '#a855f7', hover: 'rgba(168, 85, 247, 0.25)' },

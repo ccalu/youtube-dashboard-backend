@@ -356,6 +356,10 @@ def get_satisfaction_data(channel_id: str, video_ids: List[str]) -> Dict[str, Di
                         comments = row.get("comentarios") or 0
                         if vid in result:
                             result[vid]["comments"] = comments
+                            # Usar views lifetime de videos_historico (mais preciso que janela 7d de yt_video_metrics)
+                            views_h = row.get("views_atuais") or 0
+                            if views_h > 0:
+                                result[vid]["views"] = views_h
                         else:
                             likes = row.get("likes") or 0
                             views_h = row.get("views_atuais") or 0
@@ -519,7 +523,7 @@ def analyze_satisfaction_performance(
         dislikes = sat.get("dislikes", 0)
         subs_gained = sat.get("subscribers_gained", 0)
         comments = sat.get("comments", 0)
-        views = sat.get("views") or v.get("views") or 0
+        views = v.get("views") or sat.get("views") or 0
 
         if likes == 0 and views == 0:
             continue
