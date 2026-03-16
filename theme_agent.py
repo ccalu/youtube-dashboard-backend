@@ -140,9 +140,6 @@ def _fetch_channel_videos(channel_id: str) -> List[Dict]:
         pub_date_str = v.get("data_publicacao", "")
         if not title or not pub_date_str:
             continue
-        # Filtro: minimo 500 views
-        if views < MIN_VIEWS:
-            continue
         try:
             if "T" in pub_date_str:
                 pub_date = datetime.fromisoformat(pub_date_str.replace("Z", "+00:00"))
@@ -153,7 +150,8 @@ def _fetch_channel_videos(channel_id: str) -> List[Dict]:
             age_days = (now - pub_date).days
         except (ValueError, TypeError):
             continue
-        if age_days < MATURITY_DAYS:
+        # Filtro: 500+ views OU 7+ dias publicado
+        if views < MIN_VIEWS and age_days < MATURITY_DAYS:
             continue
         videos.append({
             "title": title,
@@ -163,7 +161,7 @@ def _fetch_channel_videos(channel_id: str) -> List[Dict]:
             "video_id": v.get("video_id")
         })
 
-    logger.info(f"Videos encontrados: {len(all_rows)} total, {len(seen)} unicos, {len(videos)} com 7+ dias e 500+ views")
+    logger.info(f"Videos encontrados: {len(all_rows)} total, {len(seen)} unicos, {len(videos)} com 500+ views ou 7+ dias")
     return videos
 
 
