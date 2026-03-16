@@ -507,31 +507,81 @@ def save_country_metrics(channel_id, rows, date):
 
 def save_video_metrics(channel_id, rows):
     """
-    Salva métricas de analytics por vídeo no Supabase.
+    Salva metricas de analytics por video no Supabase.
+    Padrao: INSERT primeiro, PATCH on 409 (UNIQUE constraint em channel_id + video_id).
+    PATCH NAO toca impressions/ctr (pertencem ao ctr_collector).
     Formato row: [video_id, views, avgViewDuration, avgViewPercentage, cardClickRate, likes, dislikes, subscribersGained]
     """
     saved = 0
+    errors = 0
+    url = f"{SUPABASE_URL}/rest/v1/yt_video_metrics"
+
+    # Headers SEM resolution=merge-duplicates para receber 409 no conflito
+    insert_headers = {
+        "apikey": AUTH_KEY,
+        "Authorization": f"Bearer {AUTH_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
+    }
+
     for row in rows:
+        video_id = row[0]
+        views_val = int(row[1])
+        retention_val = float(row[3]) if len(row) > 3 and row[3] is not None else None
+
+        # Skip videos sem dados relevantes
+        if views_val == 0 and retention_val is None:
+            continue
+
         data = {
             "channel_id": channel_id,
-            "video_id": row[0],
-            "views": int(row[1]),
-            "avg_view_duration": float(row[2]) if len(row) > 2 else None,
-            "avg_retention_pct": float(row[3]) if len(row) > 3 else None,
-            "card_click_rate": float(row[4]) if len(row) > 4 else None,
+            "video_id": video_id,
+            "views": views_val,
+            "avg_view_duration": float(row[2]) if len(row) > 2 and row[2] is not None else None,
+            "avg_retention_pct": retention_val,
+            "card_click_rate": float(row[4]) if len(row) > 4 and row[4] is not None else None,
             "likes": int(row[5]) if len(row) > 5 and row[5] is not None else 0,
             "dislikes": int(row[6]) if len(row) > 6 and row[6] is not None else 0,
             "subscribers_gained": int(row[7]) if len(row) > 7 and row[7] is not None else 0,
             "updated_at": datetime.now().isoformat()
         }
 
-        resp = requests.post(
-            f"{SUPABASE_URL}/rest/v1/yt_video_metrics",
-            headers=SUPABASE_HEADERS,
-            json=data
-        )
+        # 1. Tentar INSERT (video novo)
+        resp = requests.post(url, headers=insert_headers, json=data)
+
         if resp.status_code in [200, 201, 204]:
             saved += 1
+        elif resp.status_code == 409:
+            # 2. Video ja existe → PATCH apenas campos de analytics (NAO toca impressions/ctr)
+            patch_data = {
+                "views": data["views"],
+                "avg_view_duration": data["avg_view_duration"],
+                "avg_retention_pct": data["avg_retention_pct"],
+                "card_click_rate": data["card_click_rate"],
+                "likes": data["likes"],
+                "dislikes": data["dislikes"],
+                "subscribers_gained": data["subscribers_gained"],
+                "updated_at": data["updated_at"]
+            }
+            patch_resp = requests.patch(
+                url,
+                params={"channel_id": f"eq.{channel_id}", "video_id": f"eq.{video_id}"},
+                headers=SUPABASE_HEADERS,
+                json=patch_data
+            )
+            if patch_resp.status_code in [200, 204]:
+                saved += 1
+            else:
+                errors += 1
+                log.error(f"[{channel_id}] PATCH falhou video {video_id}: {patch_resp.status_code} - {patch_resp.text[:200]}")
+        else:
+            errors += 1
+            log.error(f"[{channel_id}] POST falhou video {video_id}: {resp.status_code} - {resp.text[:200]}")
+
+    if errors > 0:
+        log.warning(f"[{channel_id}] save_video_metrics: {saved} salvos, {errors} erros de {len(rows)} total")
+    else:
+        log.info(f"[{channel_id}] save_video_metrics: {saved} videos atualizados com sucesso")
 
     return saved
 
@@ -768,7 +818,8 @@ async def collect_oauth_metrics():
     # Datas - Ajustado para delay do YouTube (2-3 dias)
     # YouTube tem delay de 2-3 dias, então pedimos dados até 3 dias atrás
     end_date = (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d")
-    start_date = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d")
+    start_date_daily = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d")  # Revenue/metricas diarias
+    start_date_video = "2005-02-14"  # Lifetime — pega TODOS os videos do canal
 
     # Buscar canais (todos com OAuth tokens)
     channels = get_channels()
@@ -837,7 +888,7 @@ async def collect_oauth_metrics():
             # =====================================================
             if is_monetized:
                 # Métricas diárias (revenue por dia)
-                daily_rows = collect_daily_metrics(channel_id, access_token, start_date, end_date)
+                daily_rows = collect_daily_metrics(channel_id, access_token, start_date_daily, end_date)
                 saved_daily = save_daily_metrics(channel_id, daily_rows)
                 log.info(f"[{channel_name}] Métricas diárias: {saved_daily} dias salvos")
 
@@ -849,7 +900,7 @@ async def collect_oauth_metrics():
             # =====================================================
             # TODOS: métricas por vídeo (retencao, views, etc.)
             # =====================================================
-            video_rows = collect_video_metrics(channel_id, access_token, start_date, end_date)
+            video_rows = collect_video_metrics(channel_id, access_token, start_date_video, end_date)
             saved_video = save_video_metrics(channel_id, video_rows)
             log.info(f"[{channel_name}] Métricas por vídeo: {saved_video} vídeos salvos")
 
