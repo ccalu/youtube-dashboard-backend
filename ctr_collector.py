@@ -511,13 +511,22 @@ def aggregate_weekly_data(all_rows):
 
 def save_ctr_data(channel_id, aggregated_data):
     """
-    Atualiza impressions + ctr em yt_video_metrics (APENAS PATCH, nunca INSERT).
-    So atualiza videos que JA EXISTEM na tabela (coletados pelo collector diario).
-    Videos desconhecidos sao ignorados para nao poluir a tabela.
+    Atualiza impressions + ctr em yt_video_metrics.
+    Se video ja existe → PATCH (so impressions + ctr).
+    Se video NAO existe → INSERT com impressions + ctr (garante que CTR nao e descartado).
     """
     saved = 0
-    skipped = 0
+    inserted = 0
+    errors = 0
     read_headers = {"apikey": AUTH_KEY, "Authorization": f"Bearer {AUTH_KEY}"}
+
+    # Headers SEM resolution=merge-duplicates para INSERT puro
+    insert_headers = {
+        "apikey": AUTH_KEY,
+        "Authorization": f"Bearer {AUTH_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
+    }
 
     for video_id, data in aggregated_data.items():
         # Verificar se video ja existe na tabela
@@ -548,13 +557,47 @@ def save_ctr_data(channel_id, aggregated_data):
             )
             if resp.status_code in [200, 204]:
                 saved += 1
+            else:
+                errors += 1
+                log.error(f"[{channel_id}] PATCH CTR falhou video {video_id}: {resp.status_code}")
         else:
-            skipped += 1
+            # Video NAO existe → INSERT com impressions + ctr (nao descartar CTR)
+            resp = requests.post(
+                f"{SUPABASE_URL}/rest/v1/yt_video_metrics",
+                headers=insert_headers,
+                json={
+                    "channel_id": channel_id,
+                    "video_id": video_id,
+                    "impressions": data["impressions"],
+                    "ctr": data["ctr"],
+                    "updated_at": datetime.now().isoformat()
+                }
+            )
+            if resp.status_code in [200, 201, 204]:
+                inserted += 1
+            elif resp.status_code == 409:
+                # Race condition: video foi criado entre o GET e o POST → PATCH
+                resp2 = requests.patch(
+                    f"{SUPABASE_URL}/rest/v1/yt_video_metrics",
+                    params={"channel_id": f"eq.{channel_id}", "video_id": f"eq.{video_id}"},
+                    headers=SUPABASE_HEADERS,
+                    json={"impressions": data["impressions"], "ctr": data["ctr"], "updated_at": datetime.now().isoformat()}
+                )
+                if resp2.status_code in [200, 204]:
+                    saved += 1
+                else:
+                    errors += 1
+                    log.error(f"[{channel_id}] PATCH CTR (fallback) falhou video {video_id}: {resp2.status_code}")
+            else:
+                errors += 1
+                log.error(f"[{channel_id}] INSERT CTR falhou video {video_id}: {resp.status_code}")
 
-    if skipped > 0:
-        log.info(f"  {skipped} videos do CSV ignorados (nao existem em yt_video_metrics)")
+    if inserted > 0:
+        log.info(f"  {inserted} videos novos criados em yt_video_metrics (so com CTR)")
+    if errors > 0:
+        log.warning(f"  {errors} erros ao salvar CTR")
 
-    return saved
+    return saved + inserted
 
 
 def save_channel_avg_ctr(channel_id, aggregated_data):
