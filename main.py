@@ -3413,8 +3413,10 @@ async def run_collection_job():
                 logger.info(f"[{index}/{total_canais}] 🔄 Processing: {canal['nome_canal']}")
 
                 # 🚀 OTIMIZAÇÃO: get_canal_data agora retorna (stats, videos) juntos
-                # Isso economiza ~50% da quota de API eliminando busca duplicada!
-                canal_data, videos_data = await collector.get_canal_data(canal['url_canal'], canal['nome_canal'])
+                # Canais nossos: busca TODOS os videos (periodo completo)
+                # Canais minerados: busca apenas ultimos 30 dias (economia de quota)
+                collection_days = 3650 if canal.get('tipo') == 'nosso' else 30
+                canal_data, videos_data = await collector.get_canal_data(canal['url_canal'], canal['nome_canal'], days=collection_days)
 
                 if canal_data:
                     saved = await db.save_canal_data(canal['id'], canal_data)

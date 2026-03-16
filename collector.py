@@ -768,7 +768,7 @@ class YouTubeCollector:
             'views_7d': views_7d
         }
 
-    async def get_canal_data(self, url_canal: str, canal_name: str) -> tuple[Optional[Dict[str, Any]], Optional[List[Dict[str, Any]]]]:
+    async def get_canal_data(self, url_canal: str, canal_name: str, days: int = 30) -> tuple[Optional[Dict[str, Any]], Optional[List[Dict[str, Any]]]]:
         """
         Get complete canal data AND videos in a single call.
 
@@ -808,11 +808,10 @@ class YouTubeCollector:
 
             logger.info(f"✅ {canal_name}: {channel_info['subscriber_count']:,} inscritos")
 
-            # 🆕 BUSCA APENAS 30 DIAS (em vez de 60)
-            videos = await self.get_channel_videos(channel_id, canal_name, days=30)
+            videos = await self.get_channel_videos(channel_id, canal_name, days=days)
 
             if not videos:
-                logger.warning(f"⚠️ {canal_name}: NENHUM vídeo encontrado nos últimos 30 dias!")
+                logger.warning(f"⚠️ {canal_name}: NENHUM video encontrado nos ultimos {days} dias!")
 
             current_date = datetime.now(timezone.utc)
             views_by_period = self.calculate_views_by_period(videos, current_date)
@@ -845,7 +844,7 @@ class YouTubeCollector:
             self.mark_canal_as_failed(url_canal)
             return None, None
 
-    async def get_videos_data(self, url_canal: str, canal_name: str) -> Optional[List[Dict[str, Any]]]:
+    async def get_videos_data(self, url_canal: str, canal_name: str, days: int = 30) -> Optional[List[Dict[str, Any]]]:
         """Get videos data for a canal"""
         try:
             if self.is_canal_failed(url_canal):
@@ -859,8 +858,7 @@ class YouTubeCollector:
             if not channel_id:
                 return None
 
-            # 🆕 BUSCA APENAS 30 DIAS (em vez de 60)
-            videos = await self.get_channel_videos(channel_id, canal_name, days=30)
+            videos = await self.get_channel_videos(channel_id, canal_name, days=days)
             return videos
 
         except Exception as e:
