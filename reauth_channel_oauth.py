@@ -20,7 +20,7 @@ load_dotenv()
 
 supabase = create_client(
     os.getenv("SUPABASE_URL"),
-    os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    os.getenv("SUPABASE_KEY")
 )
 
 SCOPES = [
@@ -33,10 +33,11 @@ SCOPES = [
 
 def listar_canais():
     """Lista canais disponiveis para re-auth"""
-    result = supabase.table('yt_channels').select('channel_id, channel_name, subnicho').eq('is_active', True).order('channel_name').execute()
+    result = supabase.table('yt_channels').select('channel_id, channel_name, subnicho, is_active').order('channel_name').execute()
     print("\nCanais disponiveis:\n")
     for i, c in enumerate(result.data):
-        print(f"  [{i+1:2d}] {c['channel_name']:<35} ({c.get('subnicho', '?')})")
+        status = "" if c.get('is_active') else " [INATIVO]"
+        print(f"  [{i+1:2d}] {c['channel_name']:<35} ({c.get('subnicho', '?')}){status}")
     print()
     while True:
         try:

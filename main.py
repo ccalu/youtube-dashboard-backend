@@ -8774,7 +8774,7 @@ async def dash_copy_analysis_channels():
             return {"subnichos": {}, "stats": {"total": 0, "com_relatorio": 0}}
 
         ch_resp = supabase.table("yt_channels")\
-            .select("channel_id,channel_name,subnicho,is_monetized,lingua")\
+            .select("channel_id,channel_name,subnicho,is_monetized,lingua,copy_spreadsheet_id")\
             .eq("is_active", True)\
             .in_("channel_id", oauth_ids)\
             .order("is_monetized", desc=True)\
@@ -8877,6 +8877,7 @@ async def dash_copy_analysis_channels():
                 "channel_name": ch.get("channel_name", ""),
                 "lingua": ch.get("lingua", ""),
                 "is_monetized": ch.get("is_monetized", False),
+                "copy_spreadsheet_id": ch.get("copy_spreadsheet_id", ""),
                 "last_analysis_date": last_date,
                 "avg_retention": avg_ret,
                 "auth_score": auth["auth_score"] if auth else None,
@@ -9552,6 +9553,10 @@ body {
 .btn-ctr:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-export { background: var(--bg-tertiary); color: #a78bfa; border: 1px solid rgba(167,139,250,0.3); font-size: 12px; position: relative; }
 .btn-export:hover { border-color: #a78bfa; background: rgba(167,139,250,0.1); }
+.btn-sheets { background: var(--bg-tertiary); color: #34a853; border: 1px solid rgba(52,168,83,0.3); font-size: 12px; }
+.btn-sheets:hover { border-color: #34a853; background: rgba(52,168,83,0.1); }
+.btn-youtube { background: var(--bg-tertiary); color: #ff0000; border: 1px solid rgba(255,0,0,0.3); font-size: 12px; }
+.btn-youtube:hover { border-color: #ff0000; background: rgba(255,0,0,0.1); }
 .export-menu { position: absolute; top: 100%; right: 0; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 6px 0; min-width: 220px; z-index: 50; box-shadow: 0 8px 24px rgba(0,0,0,0.4); margin-top: 4px; }
 .export-menu-item { display: block; width: 100%; padding: 8px 16px; text-align: left; background: none; border: none; color: var(--text-primary); font-size: 12px; cursor: pointer; }
 .export-menu-item:hover { background: rgba(255,255,255,0.05); }
@@ -9627,6 +9632,8 @@ body {
     .main-actions .btn.btn-accent { flex: 1 1 100%; }
     .main-actions .btn.btn-ctr,
     .main-actions .btn.btn-export,
+    .main-actions .btn.btn-sheets,
+    .main-actions .btn.btn-youtube,
     .main-actions .btn.btn-history { flex: 1; }
     #tabsArea { margin-top: 0.2rem; }
     .tabs-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; border-bottom: none; margin-bottom: 0.8rem; }
@@ -9695,6 +9702,8 @@ body {
                 <button class="btn btn-accent" onclick="runAnalysis()" id="btnRun">Gerar Relatorio</button>
                 <button class="btn btn-ctr" onclick="showChannelCTR()" id="btnChannelCTR" title="CTR e Retencao">&#128200;</button>
                 <button class="btn btn-export" onclick="showExportMenu()" id="btnExport" title="Exportar CSV">&#128190;</button>
+                <button class="btn btn-sheets" onclick="openScriptsSheet()" id="btnSheets" title="Planilha de Scripts">&#128221;</button>
+                <button class="btn btn-youtube" onclick="openYouTubeChannel()" id="btnYoutube" title="Canal no YouTube">&#9654;</button>
                 <button class="btn btn-history" onclick="showChannelHistory()" title="Historico" style="margin-left:auto">&#128203;</button>
             </div>
         </div>
@@ -9866,6 +9875,22 @@ function selectChannel(channelId) {
     }
 
     loadAllAgents(channelId);
+}
+
+function openScriptsSheet() {
+    if (!_selectedChannel) return;
+    var ch = _channelsData[_selectedChannel] || {};
+    var sheetId = ch.copy_spreadsheet_id;
+    if (sheetId) {
+        window.open('https://docs.google.com/spreadsheets/d/' + sheetId, '_blank');
+    } else {
+        alert('Planilha de scripts nao configurada para este canal.');
+    }
+}
+
+function openYouTubeChannel() {
+    if (!_selectedChannel) return;
+    window.open('https://www.youtube.com/channel/' + _selectedChannel, '_blank');
 }
 
 function switchTab(tabKey) {

@@ -146,11 +146,14 @@ def buscar_subnichos_disponiveis():
     """Retorna lista de subnichos reais do sistema"""
     subnichos = [
         'Desmonetizados',
+        'Empreendedorismo',
+        'Frentes de Guerra',
+        'Guerras e Civilizações',
         'Historias Sombrias',
-        'Relatos de Guerra',
         'Monetizados',
-        'Guerras e Civilizacoes',
-        'Terror'
+        'Psicologia & Mindset',
+        'Reis Perversos',
+        'Relatos de Guerra',
     ]
     return subnichos
 
