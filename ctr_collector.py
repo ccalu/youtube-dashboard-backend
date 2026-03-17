@@ -511,9 +511,10 @@ def aggregate_weekly_data(all_rows):
 
 def save_ctr_data(channel_id, aggregated_data):
     """
-    Atualiza impressions + ctr em yt_video_metrics.
-    Se video ja existe → PATCH (so impressions + ctr).
-    Se video NAO existe → INSERT com impressions + ctr (garante que CTR nao e descartado).
+    Salva impressions + ctr em yt_video_metrics.
+    Os dados ja vem agregados de TODOS os CSVs disponiveis (~180 dias),
+    entao o total ja e o acumulado do periodo — salva direto (sobrescreve).
+    Se video NAO existe → INSERT.
     """
     saved = 0
     inserted = 0
@@ -541,7 +542,7 @@ def save_ctr_data(channel_id, aggregated_data):
         )
 
         if check.status_code == 200 and check.json():
-            # Video existe → PATCH (so impressions + ctr, NUNCA sobrescreve outros campos)
+            # Video existe → PATCH com total acumulado dos CSVs
             resp = requests.patch(
                 f"{SUPABASE_URL}/rest/v1/yt_video_metrics",
                 params={
@@ -561,7 +562,7 @@ def save_ctr_data(channel_id, aggregated_data):
                 errors += 1
                 log.error(f"[{channel_id}] PATCH CTR falhou video {video_id}: {resp.status_code}")
         else:
-            # Video NAO existe → INSERT com impressions + ctr (nao descartar CTR)
+            # Video NAO existe → INSERT com impressions + ctr
             resp = requests.post(
                 f"{SUPABASE_URL}/rest/v1/yt_video_metrics",
                 headers=insert_headers,
@@ -576,7 +577,6 @@ def save_ctr_data(channel_id, aggregated_data):
             if resp.status_code in [200, 201, 204]:
                 inserted += 1
             elif resp.status_code == 409:
-                # Race condition: video foi criado entre o GET e o POST → PATCH
                 resp2 = requests.patch(
                     f"{SUPABASE_URL}/rest/v1/yt_video_metrics",
                     params={"channel_id": f"eq.{channel_id}", "video_id": f"eq.{video_id}"},
@@ -781,13 +781,9 @@ def _do_collect_ctr_reports_sync():
                 error_count += 1
                 continue
 
-            # Determinar desde quando buscar reports
-            db_job = get_reporting_job(channel_id)
-            if db_job and db_job.get("last_report_date"):
-                since_date = db_job["last_report_date"]
-            else:
-                # Primeira coleta: buscar ultimos 60 dias
-                since_date = (datetime.now() - timedelta(days=60)).strftime("%Y-%m-%d")
+            # Buscar TODOS os CSVs disponiveis (ate ~180 dias)
+            # Impressoes sao acumuladas no save_ctr_data, entao precisamos de todos os reports
+            since_date = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%d")
 
             # Listar CSVs disponiveis
             reports = list_available_reports(job_id, access_token, since_date)
