@@ -6351,6 +6351,8 @@ DASH_UPLOAD_HTML = '''
         /* Batch Upload */
         .btn-batch { width: 38px; height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--info-muted); color: var(--info); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: var(--radius-sm); font-size: 20px; cursor: pointer; transition: all 0.15s ease; }
         .btn-batch:hover { background: rgba(59, 130, 246, 0.25); border-color: var(--info); }
+        .btn-perfis { width: 38px; height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--success-muted); color: var(--success); border: 1px solid rgba(34, 197, 94, 0.3); border-radius: var(--radius-sm); font-size: 20px; cursor: pointer; transition: all 0.15s ease; text-decoration: none; }
+        .btn-perfis:hover { background: rgba(34, 197, 94, 0.25); border-color: var(--success); }
         .batch-loading { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 40px; color: var(--text-tertiary); }
         .batch-spinner { width: 32px; height: 32px; border: 3px solid var(--border-secondary); border-top-color: var(--info); border-radius: 50%; animation: upload-spin 0.8s linear infinite; }
         .batch-summary { padding: 12px 16px; background: var(--info-muted); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: var(--radius-sm); margin-bottom: 8px; font-size: 13px; color: var(--info); text-align: center; }
@@ -6426,6 +6428,7 @@ DASH_UPLOAD_HTML = '''
             .header-title { font-size: 16px; letter-spacing: 2px; }
             .btn-historico-mobile { width: 32px; height: 32px; font-size: 16px; }
             .btn-batch { width: 32px; height: 32px; font-size: 16px; }
+            .btn-perfis { width: 32px; height: 32px; font-size: 16px; }
             .channel-table th:nth-child(2), .channel-table td:nth-child(2) { display: none; }
             .cell-channel { flex-wrap: wrap; gap: 3px; }
             .channel-name { font-size: 11px; }
@@ -6450,6 +6453,7 @@ DASH_UPLOAD_HTML = '''
         </div>
         <div class="header-right">
             <div class="live-indicator"><span class="live-dot"></span><span>Live</span></div>
+            <a class="btn-perfis" href="https://docs.google.com/spreadsheets/d/1XL6VhOTVVMmfGNqPyJra2T8KjfFbtJ1o16OZkytvCPc/edit?gid=1449741920#gid=1449741920" target="_blank" title="Planilha Perfis">&#x1F464;</a>
             <button class="btn-historico-mobile" onclick="abrirHistoricoCompleto()" title="Historico Completo">&#x1F4DC;</button>
             <button class="btn-batch" onclick="abrirBatchUpload()" title="Upload em Lote">&#x1F4E4;</button>
         </div>
