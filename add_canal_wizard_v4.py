@@ -145,15 +145,20 @@ def buscar_linguas_disponiveis():
 def buscar_subnichos_disponiveis():
     """Retorna lista de subnichos reais do sistema"""
     subnichos = [
+        'Conspiração',
+        'Culturas Macabras',
         'Desmonetizados',
-        'Empreendedorismo',
         'Frentes de Guerra',
         'Guerras e Civilizações',
         'Historias Sombrias',
+        'Lições de Vida',
+        'Mistérios',
         'Monetizados',
-        'Psicologia & Mindset',
+        'Pessoas Desaparecidas',
+        'Registros Malditos',
         'Reis Perversos',
         'Relatos de Guerra',
+        'Terror',
     ]
     return subnichos
 
