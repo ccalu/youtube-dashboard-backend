@@ -597,11 +597,15 @@ async def get_canais(
             if cached_data is not None:
                 return cached_data
 
-            # Cache miss - buscar da MV otimizada
-            logger.info(f"📊 Buscando dados da MV para /api/canais...")
+            # Cache miss - refresh MV para garantir dados frescos
+            logger.info(f"📊 Cache miss /api/canais — refreshing MV...")
             start_time = time.time()
+            try:
+                await db.refresh_all_dashboard_mvs()
+            except Exception as mv_err:
+                logger.warning(f"⚠️ MV refresh no cache miss falhou (usando dados existentes): {mv_err}")
 
-            # Usar nova função otimizada com MV
+            # Buscar da MV otimizada
             canais = await db.get_dashboard_from_mv(
                 tipo=tipo,
                 subnicho=subnicho,
