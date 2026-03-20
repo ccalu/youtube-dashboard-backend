@@ -87,9 +87,9 @@ import hashlib
 from functools import wraps
 import json
 
-# Cache global com TTL de 6 horas
+# Cache global com TTL de 5 minutos
 dashboard_cache = {}
-CACHE_DURATION = timedelta(hours=6)  # Cache de 6 horas (atualiza 4x por dia)
+CACHE_DURATION = timedelta(minutes=5)  # Cache de 5 min — MV é rápida (~100ms)
 
 # Cache específico para comentários - 5 minutos (atualiza frequentemente)
 comments_cache = {}
@@ -126,7 +126,7 @@ def get_cached_response(cache_key: str) -> Optional[Any]:
         cached_data, cached_time = dashboard_cache[cache_key]
         now = datetime.now(timezone.utc)
 
-        # Verificar se cache ainda é válido (24h)
+        # Verificar se cache ainda é válido
         if now - cached_time < CACHE_DURATION:
             age_minutes = int((now - cached_time).total_seconds() / 60)
             logger.info(f"⚡ Cache hit! Servindo instantâneo (idade: {age_minutes} min)")
@@ -134,7 +134,7 @@ def get_cached_response(cache_key: str) -> Optional[Any]:
         else:
             # Cache expirado, remover
             del dashboard_cache[cache_key]
-            logger.info(f"⏰ Cache expirado (> 24h), buscando novo...")
+            logger.info(f"⏰ Cache expirado, buscando novo...")
 
     return None
 
@@ -147,7 +147,7 @@ def save_to_cache(cache_key: str, data: Any) -> None:
         data: Dados a serem cacheados
     """
     dashboard_cache[cache_key] = (data, datetime.now(timezone.utc))
-    logger.info(f"💾 Dados salvos no cache por 24h (key: {cache_key[:8]}...)")
+    logger.info(f"💾 Dados salvos no cache por 5min (key: {cache_key[:8]}...)")
 
 def clear_all_cache() -> dict:
     """
@@ -680,7 +680,7 @@ async def get_canais_tabela():
     Canais ordenados por desempenho (maior ganho de inscritos no topo).
     Subnichos ordenados alfabeticamente.
 
-    🚀 OTIMIZADO: Usa cache de 24h + Materialized View
+    🚀 OTIMIZADO: Usa cache de 5min + Materialized View (auto-refresh)
     """
     try:
         # Gerar chave do cache
@@ -691,9 +691,13 @@ async def get_canais_tabela():
         if cached_data is not None:
             return cached_data
 
-        # Cache miss - buscar dados
-        logger.info("📊 Buscando canais para aba Tabela...")
+        # Cache miss - refresh MV para garantir dados frescos
+        logger.info("📊 Cache miss canais-tabela — refreshing MV...")
         start_time = time.time()
+        try:
+            await db.refresh_all_dashboard_mvs()
+        except Exception as mv_err:
+            logger.warning(f"⚠️ MV refresh no cache miss falhou (usando dados existentes): {mv_err}")
 
         # Buscar todos os nossos canais usando MV otimizada
         canais = await db.get_dashboard_from_mv(
