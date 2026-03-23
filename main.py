@@ -4111,6 +4111,18 @@ async def startup_event():
     except Exception as e:
         logger.error(f"Error cleaning stuck collections: {e}")
 
+    # Refresh MVs no startup para garantir dados frescos imediatamente
+    try:
+        logger.info("🔄 Refreshing materialized views on startup...")
+        mv_results = await db.refresh_all_dashboard_mvs()
+        clear_all_cache()
+        if mv_results and 'error' not in mv_results:
+            logger.info("✅ MVs refreshed on startup — dashboard pronto com dados frescos")
+        else:
+            logger.warning("⚠️ MV refresh on startup retornou com problemas — dados podem estar desatualizados")
+    except Exception as e:
+        logger.warning(f"⚠️ MV refresh on startup falhou: {e}")
+
     # PROTEÇÃO: Só iniciar schedulers no Railway
     is_railway = os.environ.get("RAILWAY_ENVIRONMENT") is not None
 
@@ -4147,7 +4159,14 @@ async def startup_event():
         except Exception as e:
             logger.warning(f"⚠️ CTR collector scheduler disabled: {e}")
 
-        logger.info("✅ Schedulers started (Railway environment + Scanner + Upload Worker + CTR)")
+        # MV Periodic Refresh - a cada 30 min (garante dashboard sempre atualizado)
+        try:
+            asyncio.create_task(schedule_mv_periodic_refresh())
+            logger.info("✅ MV periodic refresh scheduler started (every 30 min)")
+        except Exception as e:
+            logger.warning(f"⚠️ MV periodic refresh scheduler disabled: {e}")
+
+        logger.info("✅ Schedulers started (Railway environment + Scanner + Upload Worker + CTR + MV Refresh)")
     else:
         logger.warning("⚠️ LOCAL ENVIRONMENT - Schedulers DISABLED")
         logger.warning("⚠️ Use /api/collect-data endpoint for manual collection")
@@ -4191,6 +4210,31 @@ async def schedule_daily_collection():
         except Exception as e:
             logger.error(f"❌ Scheduled collection failed: {e}")
             await asyncio.sleep(3600)
+
+
+# ========================================
+# MV PERIODIC REFRESH (a cada 30 min — garante dashboard sempre atualizado)
+# ========================================
+
+async def schedule_mv_periodic_refresh():
+    """Refresh MVs a cada 30 minutos para garantir dados frescos no dashboard."""
+    # Aguardar 10 minutos antes de iniciar (startup ja fez refresh)
+    await asyncio.sleep(600)
+    logger.info("✅ MV periodic refresh scheduler ativo (a cada 30 min)")
+
+    while True:
+        try:
+            await asyncio.sleep(1800)  # 30 minutos
+            logger.info("🔄 MV periodic refresh iniciando...")
+            mv_results = await db.refresh_all_dashboard_mvs()
+            clear_all_cache()
+            if mv_results and 'error' not in mv_results:
+                logger.info("✅ MV periodic refresh concluido — cache limpo")
+            else:
+                logger.warning("⚠️ MV periodic refresh com problemas")
+        except Exception as e:
+            logger.error(f"❌ MV periodic refresh falhou: {e}")
+            await asyncio.sleep(300)  # Retry em 5 min se falhar
 
 
 # ========================================
