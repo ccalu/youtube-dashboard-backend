@@ -67,6 +67,16 @@ app.add_middleware(
 )
 
 @app.middleware("http")
+async def no_cache_api_middleware(request: Request, call_next):
+    """Impede browser de cachear respostas da API — dados sempre frescos."""
+    response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
+@app.middleware("http")
 async def optional_auth_middleware(request: Request, call_next):
     """Soft auth: validate JWT if present, pass through if not."""
     auth_header = request.headers.get("authorization", "")
