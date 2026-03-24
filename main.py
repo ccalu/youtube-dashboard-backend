@@ -149,10 +149,10 @@ def save_to_cache(cache_key: str, data: Any) -> None:
     dashboard_cache[cache_key] = (data, datetime.now(timezone.utc))
     logger.info(f"💾 Dados salvos no cache por 5min (key: {cache_key[:8]}...)")
 
-def clear_all_cache() -> dict:
+def _clear_cache_internal() -> dict:
     """
-    Limpa todo o cache do dashboard.
-    Chamado após coleta diária às 5h.
+    Limpa todo o cache do dashboard (função interna sync).
+    Chamado após coleta diária às 5h e após MV refresh.
 
     Returns:
         Estatísticas do cache limpo
@@ -166,6 +166,10 @@ def clear_all_cache() -> dict:
         "entries_cleared": cache_count,
         "approx_size_kb": round(cache_size/1024, 1)
     }
+
+
+# Alias para compatibilidade — codigo interno usa este nome
+clear_all_cache = _clear_cache_internal
 
 def cache_endpoint(endpoint_name: str):
     """
@@ -2989,17 +2993,19 @@ async def marcar_todas_notificacoes_vistas(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/cache/clear")
-async def clear_all_cache():
+async def api_clear_cache():
     """
     Limpa todo o cache do dashboard e força atualização das Materialized Views.
     Use este endpoint após deletar canais para forçar atualização imediata.
     """
     try:
-        # Limpar cache global
-        global dashboard_cache, tabela_cache, cache_timestamp_dashboard, cache_timestamp_tabela, comments_cache
-        dashboard_cache = {}
+        # Limpar cache global via função interna
+        _clear_cache_internal()
+
+        # Limpar caches legados
+        global tabela_cache, cache_timestamp_dashboard, cache_timestamp_tabela, comments_cache
         tabela_cache = {}
-        comments_cache = {}  # Limpar cache de comentários também
+        comments_cache = {}
         cache_timestamp_dashboard = None
         cache_timestamp_tabela = None
 
