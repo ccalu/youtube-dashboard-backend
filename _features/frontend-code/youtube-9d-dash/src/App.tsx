@@ -17,9 +17,17 @@ const queryClient = new QueryClient({
       staleTime: FIVE_MINUTES, // Dados frescos por 5 min (alinhado com backend cache)
       gcTime: 10 * 60 * 1000, // Garbage collect apos 10 min sem uso
       refetchOnWindowFocus: true, // Busca dados novos ao voltar na aba
+      refetchOnReconnect: true, // Busca dados novos ao reconectar internet
       retry: 1,
     },
   },
+});
+
+// Auto-refresh quando app mobile volta do background (visibilitychange)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    queryClient.invalidateQueries();
+  }
 });
 
 const App = () => (
