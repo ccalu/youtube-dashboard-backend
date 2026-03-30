@@ -4086,7 +4086,7 @@ async def schedule_spreadsheet_scanner():
     Roda a cada X minutos (configurável via SCANNER_INTERVAL_MINUTES).
     Detecta vídeos prontos para upload e adiciona na fila automaticamente.
     """
-    from yt_uploader.spreadsheet_scanner import SpreadsheetScanner
+    from _features.yt_uploader.spreadsheet_scanner import SpreadsheetScanner
 
     # Configurações
     interval_minutes = int(os.getenv("SCANNER_INTERVAL_MINUTES", "20"))  # 20 min - suporte garantido para 70+ canais
@@ -4150,7 +4150,7 @@ async def startup_event():
 
         # Upload Queue Worker (isolado - falha não afeta main app)
         try:
-            from yt_uploader.queue_worker import start_queue_worker
+            from _features.yt_uploader.queue_worker import start_queue_worker
             asyncio.create_task(start_queue_worker())
             logger.info("✅ Upload queue worker scheduled")
         except Exception as e:
