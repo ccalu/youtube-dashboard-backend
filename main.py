@@ -6438,6 +6438,52 @@ DASH_UPLOAD_HTML = '''
         .btn-start-batch:hover { background: #16a34a; }
         .btn-start-batch:disabled { background: var(--border-secondary); color: var(--text-tertiary); cursor: not-allowed; }
 
+        /* Wizard Add Canal */
+        .btn-wizard { width: 38px; height: 38px; padding: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--pending-muted); color: var(--pending); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: var(--radius-sm); font-size: 18px; cursor: pointer; transition: all 0.15s ease; }
+        .btn-wizard:hover { background: rgba(168, 85, 247, 0.25); border-color: var(--pending); }
+        .wiz-steps { display: flex; gap: 4px; margin-bottom: 24px; }
+        .wiz-step { flex: 1; height: 4px; border-radius: 2px; background: var(--border-primary); transition: background 0.3s ease; }
+        .wiz-step.active { background: var(--pending); }
+        .wiz-step.done { background: var(--success); }
+        .wiz-content { min-height: 300px; }
+        .wiz-field { margin-bottom: 16px; }
+        .wiz-label { display: block; font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.03em; }
+        .wiz-input { width: 100%; padding: 10px 14px; background: var(--bg-tertiary); border: 1px solid var(--border-primary); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.15s ease; }
+        .wiz-input:focus { border-color: var(--pending); }
+        .wiz-input::placeholder { color: var(--text-tertiary); }
+        .wiz-select { width: 100%; padding: 10px 14px; background: var(--bg-tertiary); border: 1px solid var(--border-primary); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 14px; font-family: inherit; outline: none; appearance: none; cursor: pointer; }
+        .wiz-select:focus { border-color: var(--pending); }
+        .wiz-row { display: flex; gap: 12px; }
+        .wiz-row .wiz-field { flex: 1; }
+        .wiz-toggle { display: flex; gap: 8px; }
+        .wiz-toggle-btn { padding: 8px 20px; border-radius: var(--radius-sm); border: 1px solid var(--border-primary); background: var(--bg-tertiary); color: var(--text-secondary); font-size: 13px; cursor: pointer; transition: all 0.15s ease; }
+        .wiz-toggle-btn.selected { background: var(--pending-muted); color: var(--pending); border-color: rgba(168, 85, 247, 0.4); }
+        .wiz-msg { padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 12px; }
+        .wiz-msg--error { background: var(--error-muted); color: var(--error); border: 1px solid rgba(239, 68, 68, 0.2); }
+        .wiz-msg--success { background: var(--success-muted); color: var(--success); border: 1px solid rgba(34, 197, 94, 0.2); }
+        .wiz-msg--info { background: var(--info-muted); color: var(--info); border: 1px solid rgba(59, 130, 246, 0.2); }
+        .wiz-msg--warning { background: var(--warning-muted); color: var(--warning); border: 1px solid rgba(234, 179, 8, 0.2); }
+        .wiz-oauth-url { word-break: break-all; padding: 12px; background: var(--bg-primary); border: 1px solid var(--border-secondary); border-radius: var(--radius-sm); font-size: 12px; color: var(--text-secondary); font-family: monospace; max-height: 80px; overflow-y: auto; margin-bottom: 8px; cursor: pointer; }
+        .wiz-oauth-url:hover { border-color: var(--pending); }
+        .wiz-summary { background: var(--bg-tertiary); border: 1px solid var(--border-primary); border-radius: var(--radius-sm); padding: 16px; }
+        .wiz-summary-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--border-primary); }
+        .wiz-summary-row:last-child { border-bottom: none; }
+        .wiz-summary-label { color: var(--text-tertiary); }
+        .wiz-summary-value { color: var(--text-primary); font-weight: 500; }
+        .wiz-footer { padding: 16px 24px; border-top: 1px solid var(--border-primary); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: var(--bg-elevated); }
+        .wiz-btn { padding: 10px 24px; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
+        .wiz-btn--primary { background: var(--pending); color: #fff; }
+        .wiz-btn--primary:hover { background: #9333ea; }
+        .wiz-btn--primary:disabled { background: var(--border-secondary); color: var(--text-tertiary); cursor: not-allowed; }
+        .wiz-btn--secondary { background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border-primary); }
+        .wiz-btn--secondary:hover { background: var(--bg-elevated); color: var(--text-primary); }
+        .wiz-btn--success { background: var(--success); color: #000; }
+        .wiz-btn--success:hover { background: #16a34a; }
+        .wiz-btn--success:disabled { background: var(--border-secondary); color: var(--text-tertiary); cursor: not-allowed; }
+        .wiz-btn--outline { background: transparent; color: var(--info); border: 1px solid rgba(59, 130, 246, 0.3); }
+        .wiz-btn--outline:hover { background: var(--info-muted); }
+        .wiz-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: upload-spin 0.6s linear infinite; margin-right: 8px; vertical-align: middle; }
+
         /* ===== RESPONSIVE MOBILE ===== */
         @media (max-width: 768px) {
             body { padding-bottom: 0; }
@@ -6497,6 +6543,7 @@ DASH_UPLOAD_HTML = '''
             .btn-historico-mobile { width: 32px; height: 32px; font-size: 16px; }
             .btn-batch { width: 32px; height: 32px; font-size: 16px; }
             .btn-perfis { width: 32px; height: 32px; font-size: 16px; }
+            .btn-wizard { width: 32px; height: 32px; font-size: 14px; }
             .channel-table th:nth-child(2), .channel-table td:nth-child(2) { display: none; }
             .cell-channel { flex-wrap: wrap; gap: 3px; }
             .channel-name { font-size: 11px; }
@@ -6524,6 +6571,7 @@ DASH_UPLOAD_HTML = '''
             <a class="btn-perfis" href="https://docs.google.com/spreadsheets/d/1XL6VhOTVVMmfGNqPyJra2T8KjfFbtJ1o16OZkytvCPc/edit?gid=1449741920#gid=1449741920" target="_blank" title="Planilha Perfis">&#x1F464;</a>
             <button class="btn-historico-mobile" onclick="abrirHistoricoCompleto()" title="Historico Completo">&#x1F4DC;</button>
             <button class="btn-batch" onclick="abrirBatchUpload()" title="Upload em Lote">&#x1F4E4;</button>
+            <button class="btn-wizard" onclick="abrirWizard()" title="Adicionar Canal">&#x2795;</button>
         </div>
     </header>
     <div class="stats-grid">
@@ -6590,6 +6638,28 @@ DASH_UPLOAD_HTML = '''
                     <span class="batch-count" id="batchCount">0 selecionados</span>
                 </div>
                 <button class="btn-start-batch" id="btnStartBatch" onclick="iniciarBatchUpload()" disabled>Iniciar Uploads</button>
+            </div>
+        </div>
+    </div>
+    <div id="wizardModal" class="modal-overlay">
+        <div class="modal-panel" style="max-width:620px;">
+            <div class="modal-header">
+                <h2 class="modal-title" style="color:var(--pending);">Adicionar Canal</h2>
+                <button class="btn-close" onclick="fecharWizard()">&times;</button>
+            </div>
+            <div class="modal-body" id="wizardBody" style="padding:20px 24px;">
+                <div class="wiz-steps" id="wizSteps">
+                    <div class="wiz-step active"></div>
+                    <div class="wiz-step"></div>
+                    <div class="wiz-step"></div>
+                    <div class="wiz-step"></div>
+                </div>
+                <div class="wiz-content" id="wizContent"></div>
+            </div>
+            <div class="wiz-footer" id="wizFooter">
+                <button class="wiz-btn wiz-btn--secondary" id="wizBtnBack" onclick="wizBack()" style="display:none;">Voltar</button>
+                <div></div>
+                <button class="wiz-btn wiz-btn--primary" id="wizBtnNext" onclick="wizNext()">Proximo</button>
             </div>
         </div>
     </div>
@@ -7122,6 +7192,352 @@ DASH_UPLOAD_HTML = '''
                         console.error('[Upload] Batch poll error:', err);
                     });
             }, 5000);
+        }
+
+        /* ========== WIZARD ADD CANAL ========== */
+        var _wizStep = 0;
+        var _wizData = {};
+        var _wizTokens = null;
+
+        function abrirWizard() {
+            _wizStep = 0;
+            _wizData = {};
+            _wizTokens = null;
+            document.getElementById('wizardModal').classList.add('show');
+            wizRender();
+        }
+        function fecharWizard() {
+            document.getElementById('wizardModal').classList.remove('show');
+        }
+
+        function wizUpdateSteps() {
+            var steps = document.querySelectorAll('#wizSteps .wiz-step');
+            for (var i = 0; i < steps.length; i++) {
+                steps[i].className = 'wiz-step';
+                if (i < _wizStep) steps[i].classList.add('done');
+                else if (i === _wizStep) steps[i].classList.add('active');
+            }
+        }
+
+        function wizRender() {
+            wizUpdateSteps();
+            var content = document.getElementById('wizContent');
+            var btnBack = document.getElementById('wizBtnBack');
+            var btnNext = document.getElementById('wizBtnNext');
+
+            btnBack.style.display = _wizStep > 0 ? '' : 'none';
+
+            if (_wizStep === 0) { wizRenderStep1(content); btnNext.textContent = 'Proximo'; btnNext.className = 'wiz-btn wiz-btn--primary'; btnNext.disabled = false; }
+            else if (_wizStep === 1) { wizRenderStep2(content); btnNext.textContent = 'Proximo'; btnNext.className = 'wiz-btn wiz-btn--primary'; btnNext.disabled = false; }
+            else if (_wizStep === 2) { wizRenderStep3(content); btnNext.textContent = 'Proximo'; btnNext.className = 'wiz-btn wiz-btn--primary'; btnNext.disabled = !_wizTokens; }
+            else if (_wizStep === 3) { wizRenderStep4(content); btnNext.textContent = 'Salvar Canal'; btnNext.className = 'wiz-btn wiz-btn--success'; btnNext.disabled = false; }
+        }
+
+        function wizRenderStep1(el) {
+            var idiomas = [
+                ['de','Alemao'],['ar','Arabe'],['ko','Coreano'],['es','Espanhol'],['fr','Frances'],
+                ['hi','Hindi'],['en','Ingles'],['it','Italiano'],['ja','Japones'],['pl','Polones'],
+                ['pt','Portugues'],['ru','Russo'],['tr','Turco']
+            ];
+            var subnichos = ['Conspiracao','Culturas Macabras','Desmonetizados','Frentes de Guerra',
+                'Guerras e Civilizacoes','Historias Sombrias','Licoes de Vida','Misterios',
+                'Monetizados','Pessoas Desaparecidas','Registros Malditos','Reis Perversos',
+                'Relatos de Guerra','Terror'];
+            var h = '<div style="font-size:15px;font-weight:600;color:var(--pending);margin-bottom:16px;">1/4 - Dados do Canal</div>';
+            h += '<div class="wiz-field"><label class="wiz-label">Channel ID *</label>';
+            h += '<input class="wiz-input" id="wizChannelId" placeholder="UCxxxxxxxxxxxxxxxxxx" value="' + escapeHtml(_wizData.channel_id || '') + '"></div>';
+            h += '<div id="wizChannelIdMsg"></div>';
+            h += '<div class="wiz-field"><label class="wiz-label">Nome do Canal *</label>';
+            h += '<input class="wiz-input" id="wizChannelName" placeholder="Nome do canal" value="' + escapeHtml(_wizData.channel_name || '') + '"></div>';
+            h += '<div class="wiz-row">';
+            h += '<div class="wiz-field"><label class="wiz-label">Idioma *</label><select class="wiz-select" id="wizLingua">';
+            for (var i = 0; i < idiomas.length; i++) {
+                var sel = (_wizData.lingua === idiomas[i][0]) ? ' selected' : ((!_wizData.lingua && idiomas[i][0] === 'pt') ? ' selected' : '');
+                h += '<option value="' + idiomas[i][0] + '"' + sel + '>' + idiomas[i][1] + ' (' + idiomas[i][0] + ')</option>';
+            }
+            h += '</select></div>';
+            h += '<div class="wiz-field"><label class="wiz-label">Subnicho *</label><select class="wiz-select" id="wizSubnicho">';
+            for (var i = 0; i < subnichos.length; i++) {
+                var sel = (_wizData.subnicho === subnichos[i]) ? ' selected' : '';
+                h += '<option value="' + subnichos[i] + '"' + sel + '>' + subnichos[i] + '</option>';
+            }
+            h += '</select></div></div>';
+            h += '<div class="wiz-row">';
+            h += '<div class="wiz-field"><label class="wiz-label">Monetizado?</label><div class="wiz-toggle">';
+            h += '<button class="wiz-toggle-btn' + (_wizData.is_monetized ? ' selected' : '') + '" onclick="this.classList.add(\\\'selected\\\');this.nextElementSibling.classList.remove(\\\'selected\\\');">Sim</button>';
+            h += '<button class="wiz-toggle-btn' + (!_wizData.is_monetized ? ' selected' : '') + '" onclick="this.classList.add(\\\'selected\\\');this.previousElementSibling.classList.remove(\\\'selected\\\');">Nao</button>';
+            h += '</div></div>';
+            h += '<div class="wiz-field"><label class="wiz-label">Playlist ID (opcional)</label>';
+            h += '<input class="wiz-input" id="wizPlaylistId" placeholder="PLxxxxxxx..." value="' + escapeHtml(_wizData.playlist_id || '') + '"></div>';
+            h += '</div>';
+            h += '<div class="wiz-field"><label class="wiz-label">Spreadsheet ID ou URL *</label>';
+            h += '<input class="wiz-input" id="wizSpreadsheet" placeholder="URL ou ID da planilha de upload" value="' + escapeHtml(_wizData.spreadsheet_id || '') + '"></div>';
+            el.innerHTML = h;
+        }
+
+        function wizRenderStep2(el) {
+            var h = '<div style="font-size:15px;font-weight:600;color:var(--pending);margin-bottom:16px;">2/4 - Credenciais Google Cloud</div>';
+            h += '<div class="wiz-msg wiz-msg--warning">Cada canal deve ter seu proprio projeto Google Cloud!</div>';
+            h += '<div class="wiz-field"><label class="wiz-label">Client ID *</label>';
+            h += '<input class="wiz-input" id="wizClientId" placeholder="123456789-abc.apps.googleusercontent.com" value="' + escapeHtml(_wizData.client_id || '') + '"></div>';
+            h += '<div class="wiz-field"><label class="wiz-label">Client Secret *</label>';
+            h += '<input class="wiz-input" id="wizClientSecret" placeholder="GOCSPX-xxxxxxxxx" value="' + escapeHtml(_wizData.client_secret || '') + '"></div>';
+            el.innerHTML = h;
+        }
+
+        function wizRenderStep3(el) {
+            var h = '<div style="font-size:15px;font-weight:600;color:var(--pending);margin-bottom:16px;">3/4 - Autorizacao OAuth</div>';
+            h += '<div class="wiz-msg wiz-msg--info">1. Clique em "Gerar URL OAuth"<br>2. Abra a URL no navegador do proxy (conta Google do canal)<br>3. Autorize o acesso<br>4. Cole a URL de redirect abaixo</div>';
+
+            if (!_wizData._oauthUrl) {
+                h += '<div style="text-align:center;padding:20px;"><button class="wiz-btn wiz-btn--outline" onclick="wizGerarOAuth()">Gerar URL OAuth</button></div>';
+            } else {
+                h += '<div class="wiz-field"><label class="wiz-label">URL OAuth (clique para copiar)</label>';
+                h += '<div class="wiz-oauth-url" onclick="wizCopyOAuth()" title="Clique para copiar">' + escapeHtml(_wizData._oauthUrl) + '</div>';
+                h += '<div style="display:flex;gap:8px;margin-bottom:16px;">';
+                h += '<button class="wiz-btn wiz-btn--outline" onclick="wizCopyOAuth()" style="font-size:12px;padding:6px 14px;">Copiar URL</button>';
+                h += '<a href="' + escapeHtml(_wizData._oauthUrl) + '" target="_blank" class="wiz-btn wiz-btn--outline" style="font-size:12px;padding:6px 14px;text-decoration:none;">Abrir no Navegador</a>';
+                h += '</div>';
+                h += '<div class="wiz-field"><label class="wiz-label">URL de Redirect (cole aqui apos autorizar) *</label>';
+                h += '<input class="wiz-input" id="wizRedirectUrl" placeholder="http://localhost:8080/?code=4/xxxxx..." value="' + escapeHtml(_wizData._redirectUrl || '') + '"></div>';
+                h += '<div id="wizTokenMsg"></div>';
+                if (!_wizTokens) {
+                    h += '<div style="text-align:center;padding:8px;"><button class="wiz-btn wiz-btn--primary" onclick="wizTrocarToken()" id="wizBtnToken">Trocar Codigo por Tokens</button></div>';
+                } else {
+                    h += '<div class="wiz-msg wiz-msg--success">Tokens obtidos com sucesso!' + (_wizTokens.yt_channel_name ? ' Canal: ' + escapeHtml(_wizTokens.yt_channel_name) : '') + '</div>';
+                }
+            }
+            el.innerHTML = h;
+        }
+
+        function wizRenderStep4(el) {
+            var h = '<div style="font-size:15px;font-weight:600;color:var(--success);margin-bottom:16px;">4/4 - Confirmar e Salvar</div>';
+            h += '<div class="wiz-summary">';
+            h += '<div class="wiz-summary-row"><span class="wiz-summary-label">Canal</span><span class="wiz-summary-value">' + escapeHtml(_wizData.channel_name) + '</span></div>';
+            h += '<div class="wiz-summary-row"><span class="wiz-summary-label">Channel ID</span><span class="wiz-summary-value" style="font-size:11px;">' + escapeHtml(_wizData.channel_id) + '</span></div>';
+            h += '<div class="wiz-summary-row"><span class="wiz-summary-label">Idioma</span><span class="wiz-summary-value">' + escapeHtml(_wizData.lingua) + '</span></div>';
+            h += '<div class="wiz-summary-row"><span class="wiz-summary-label">Subnicho</span><span class="wiz-summary-value">' + escapeHtml(_wizData.subnicho) + '</span></div>';
+            h += '<div class="wiz-summary-row"><span class="wiz-summary-label">Monetizado</span><span class="wiz-summary-value">' + (_wizData.is_monetized ? 'Sim' : 'Nao') + '</span></div>';
+            h += '<div class="wiz-summary-row"><span class="wiz-summary-label">Spreadsheet</span><span class="wiz-summary-value" style="font-size:11px;">' + escapeHtml((_wizData.spreadsheet_id || '').substring(0, 20) + '...') + '</span></div>';
+            h += '<div class="wiz-summary-row"><span class="wiz-summary-label">Token OAuth</span><span class="wiz-summary-value" style="color:var(--success);">Validado</span></div>';
+            h += '<div class="wiz-summary-row"><span class="wiz-summary-label">Upload Automatico</span><span class="wiz-summary-value" style="color:var(--success);">ATIVADO</span></div>';
+            h += '</div>';
+            h += '<div id="wizSaveMsg" style="margin-top:12px;"></div>';
+            el.innerHTML = h;
+        }
+
+        function wizCollectStep1() {
+            var cid = (document.getElementById('wizChannelId') || {}).value || '';
+            var cname = (document.getElementById('wizChannelName') || {}).value || '';
+            var lingua = (document.getElementById('wizLingua') || {}).value || 'pt';
+            var subnicho = (document.getElementById('wizSubnicho') || {}).value || '';
+            var playlist = (document.getElementById('wizPlaylistId') || {}).value || '';
+            var spreadsheet = (document.getElementById('wizSpreadsheet') || {}).value || '';
+            var monetBtns = document.querySelectorAll('.wiz-toggle-btn');
+            var is_monetized = monetBtns.length > 0 && monetBtns[0].classList.contains('selected');
+
+            // Extrair spreadsheet_id de URL
+            if (spreadsheet.indexOf('http') === 0) {
+                var match = spreadsheet.match(/\\/spreadsheets\\/d\\/([a-zA-Z0-9_-]+)/);
+                if (match) spreadsheet = match[1];
+            }
+
+            _wizData.channel_id = cid.trim();
+            _wizData.channel_name = cname.trim();
+            _wizData.lingua = lingua;
+            _wizData.subnicho = subnicho;
+            _wizData.playlist_id = playlist.trim();
+            _wizData.spreadsheet_id = spreadsheet.trim();
+            _wizData.is_monetized = is_monetized;
+        }
+
+        function wizCollectStep2() {
+            _wizData.client_id = ((document.getElementById('wizClientId') || {}).value || '').trim();
+            _wizData.client_secret = ((document.getElementById('wizClientSecret') || {}).value || '').trim();
+        }
+
+        function wizCollectStep3() {
+            var rUrl = (document.getElementById('wizRedirectUrl') || {}).value || '';
+            _wizData._redirectUrl = rUrl.trim();
+        }
+
+        async function wizValidateStep1() {
+            wizCollectStep1();
+            if (!_wizData.channel_id) { wizShowMsg('wizChannelIdMsg', 'Channel ID e obrigatorio!', 'error'); return false; }
+            if (!_wizData.channel_name) { wizShowMsg('wizChannelIdMsg', 'Nome do canal e obrigatorio!', 'error'); return false; }
+            if (!_wizData.spreadsheet_id) { wizShowMsg('wizChannelIdMsg', 'Spreadsheet ID e obrigatorio!', 'error'); return false; }
+
+            // Validar channel ID no backend
+            try {
+                var resp = await fetch('/api/wizard/validate-channel', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({channel_id: _wizData.channel_id})
+                });
+                var data = await resp.json();
+                if (!data.valid) { wizShowMsg('wizChannelIdMsg', data.error, 'error'); return false; }
+            } catch (e) { wizShowMsg('wizChannelIdMsg', 'Erro de conexao: ' + e.message, 'error'); return false; }
+            return true;
+        }
+
+        function wizValidateStep2() {
+            wizCollectStep2();
+            if (!_wizData.client_id) { alert('Client ID e obrigatorio!'); return false; }
+            if (!_wizData.client_secret) { alert('Client Secret e obrigatorio!'); return false; }
+            // Validar formato
+            if (!/^\\d+-[a-zA-Z0-9]+\\.apps\\.googleusercontent\\.com$/.test(_wizData.client_id)) {
+                alert('Client ID invalido! Formato: 123456789-abc.apps.googleusercontent.com');
+                return false;
+            }
+            if (!/^GOCSPX-[a-zA-Z0-9_-]+$/.test(_wizData.client_secret)) {
+                alert('Client Secret invalido! Formato: GOCSPX-xxxxxxxxx');
+                return false;
+            }
+            return true;
+        }
+
+        function wizValidateStep3() {
+            if (!_wizTokens) { alert('Voce precisa trocar o codigo por tokens antes de continuar!'); return false; }
+            return true;
+        }
+
+        async function wizNext() {
+            var btnNext = document.getElementById('wizBtnNext');
+            if (_wizStep === 0) {
+                btnNext.disabled = true; btnNext.innerHTML = '<span class="wiz-spinner"></span>Validando...';
+                var ok = await wizValidateStep1();
+                btnNext.disabled = false; btnNext.textContent = 'Proximo';
+                if (!ok) return;
+                _wizStep = 1;
+            } else if (_wizStep === 1) {
+                if (!wizValidateStep2()) return;
+                _wizStep = 2;
+            } else if (_wizStep === 2) {
+                wizCollectStep3();
+                if (!wizValidateStep3()) return;
+                _wizStep = 3;
+            } else if (_wizStep === 3) {
+                await wizSave();
+                return;
+            }
+            wizRender();
+        }
+
+        function wizBack() {
+            if (_wizStep === 0) return;
+            if (_wizStep === 1) wizCollectStep2();
+            if (_wizStep === 2) wizCollectStep3();
+            _wizStep--;
+            wizRender();
+        }
+
+        async function wizGerarOAuth() {
+            try {
+                var resp = await fetch('/api/wizard/generate-oauth-url', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({client_id: _wizData.client_id, channel_id: _wizData.channel_id})
+                });
+                var data = await resp.json();
+                _wizData._oauthUrl = data.oauth_url;
+                wizRender();
+            } catch (e) { alert('Erro ao gerar URL: ' + e.message); }
+        }
+
+        function wizCopyOAuth() {
+            if (_wizData._oauthUrl) {
+                navigator.clipboard.writeText(_wizData._oauthUrl).then(function() {
+                    var el = document.querySelector('.wiz-oauth-url');
+                    if (el) { el.style.borderColor = 'var(--success)'; setTimeout(function() { el.style.borderColor = ''; }, 1500); }
+                });
+            }
+        }
+
+        async function wizTrocarToken() {
+            var redirectUrl = ((document.getElementById('wizRedirectUrl') || {}).value || '').trim();
+            if (!redirectUrl) { wizShowMsg('wizTokenMsg', 'Cole a URL de redirect!', 'error'); return; }
+            _wizData._redirectUrl = redirectUrl;
+
+            var btn = document.getElementById('wizBtnToken');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<span class="wiz-spinner"></span>Trocando...'; }
+
+            try {
+                var resp = await fetch('/api/wizard/exchange-token', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        redirect_url: redirectUrl,
+                        client_id: _wizData.client_id,
+                        client_secret: _wizData.client_secret
+                    })
+                });
+                var data = await resp.json();
+                if (data.success) {
+                    _wizTokens = data;
+                    document.getElementById('wizBtnNext').disabled = false;
+                    wizRender();
+                } else {
+                    wizShowMsg('wizTokenMsg', data.error || 'Erro ao trocar tokens', 'error');
+                    if (btn) { btn.disabled = false; btn.textContent = 'Trocar Codigo por Tokens'; }
+                }
+            } catch (e) {
+                wizShowMsg('wizTokenMsg', 'Erro de conexao: ' + e.message, 'error');
+                if (btn) { btn.disabled = false; btn.textContent = 'Trocar Codigo por Tokens'; }
+            }
+        }
+
+        async function wizSave() {
+            var btnNext = document.getElementById('wizBtnNext');
+            btnNext.disabled = true;
+            btnNext.innerHTML = '<span class="wiz-spinner"></span>Salvando...';
+
+            try {
+                var resp = await fetch('/api/wizard/save-channel', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        channel_id: _wizData.channel_id,
+                        channel_name: _wizData.channel_name,
+                        lingua: _wizData.lingua,
+                        subnicho: _wizData.subnicho,
+                        spreadsheet_id: _wizData.spreadsheet_id,
+                        is_monetized: _wizData.is_monetized,
+                        playlist_id: _wizData.playlist_id || null,
+                        client_id: _wizData.client_id,
+                        client_secret: _wizData.client_secret,
+                        access_token: _wizTokens.access_token,
+                        refresh_token: _wizTokens.refresh_token,
+                        expires_in: _wizTokens.expires_in
+                    })
+                });
+                var data = await resp.json();
+                if (data.success) {
+                    var msgEl = document.getElementById('wizSaveMsg');
+                    if (msgEl) msgEl.innerHTML = '<div class="wiz-msg wiz-msg--success" style="font-size:15px;text-align:center;padding:16px;">Canal ' + escapeHtml(_wizData.channel_name) + ' configurado com sucesso!</div>';
+                    btnNext.textContent = 'Fechar';
+                    btnNext.className = 'wiz-btn wiz-btn--primary';
+                    btnNext.disabled = false;
+                    btnNext.onclick = function() { fecharWizard(); atualizar(); };
+                    document.getElementById('wizBtnBack').style.display = 'none';
+                } else {
+                    var msgEl = document.getElementById('wizSaveMsg');
+                    if (msgEl) msgEl.innerHTML = '<div class="wiz-msg wiz-msg--error">' + escapeHtml(data.detail || data.message || 'Erro ao salvar') + '</div>';
+                    btnNext.disabled = false;
+                    btnNext.textContent = 'Tentar Novamente';
+                    btnNext.className = 'wiz-btn wiz-btn--success';
+                }
+            } catch (e) {
+                var msgEl = document.getElementById('wizSaveMsg');
+                if (msgEl) msgEl.innerHTML = '<div class="wiz-msg wiz-msg--error">Erro: ' + escapeHtml(e.message) + '</div>';
+                btnNext.disabled = false;
+                btnNext.textContent = 'Tentar Novamente';
+                btnNext.className = 'wiz-btn wiz-btn--success';
+            }
+        }
+
+        function wizShowMsg(elId, msg, type) {
+            var el = document.getElementById(elId);
+            if (el) el.innerHTML = '<div class="wiz-msg wiz-msg--' + type + '">' + escapeHtml(msg) + '</div>';
         }
     </script>
 </body>
@@ -7689,6 +8105,267 @@ async def batch_upload(request: Request, background_tasks: BackgroundTasks):
         raise
     except Exception as e:
         logger.error(f"[BATCH-UPLOAD] Erro: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================================================
+# WIZARD V4 - ADICIONAR CANAL (HTML VERSION)
+# ============================================================================
+
+_WIZARD_IDIOMAS = {
+    'Alemao': 'de', 'Arabe': 'ar', 'Coreano': 'ko', 'Espanhol': 'es',
+    'Frances': 'fr', 'Hindi': 'hi', 'Ingles': 'en', 'Italiano': 'it',
+    'Japones': 'ja', 'Polones': 'pl', 'Portugues': 'pt', 'Russo': 'ru', 'Turco': 'tr'
+}
+
+_WIZARD_SUBNICHOS = [
+    'Conspiracao', 'Culturas Macabras', 'Desmonetizados', 'Frentes de Guerra',
+    'Guerras e Civilizacoes', 'Historias Sombrias', 'Licoes de Vida', 'Misterios',
+    'Monetizados', 'Pessoas Desaparecidas', 'Registros Malditos', 'Reis Perversos',
+    'Relatos de Guerra', 'Terror'
+]
+
+@app.post("/api/wizard/validate-channel")
+async def wizard_validate_channel(request: Request):
+    """Wizard Step 1: Valida channel ID e verifica duplicatas"""
+    try:
+        body = await request.json()
+        channel_id = (body.get('channel_id') or '').strip()
+
+        if not channel_id:
+            return {'valid': False, 'error': 'Channel ID e obrigatorio'}
+
+        # Validar formato
+        import re
+        if not re.match(r'^UC[a-zA-Z0-9_-]{22}$', channel_id):
+            return {'valid': False, 'error': 'Channel ID invalido! Formato: UCxxxxxxxxxxxxxxxxxx (24 caracteres)'}
+
+        # Checar duplicata
+        result = supabase.table('yt_channels').select('channel_id').eq('channel_id', channel_id).execute()
+        if result.data and len(result.data) > 0:
+            return {'valid': False, 'error': f'Canal {channel_id} ja existe no banco!'}
+
+        return {'valid': True, 'channel_id': channel_id}
+    except Exception as e:
+        logger.error(f"[WIZARD] Erro validate-channel: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/wizard/options")
+async def wizard_options():
+    """Retorna idiomas e subnichos disponiveis para o wizard"""
+    return {
+        'idiomas': _WIZARD_IDIOMAS,
+        'subnichos': _WIZARD_SUBNICHOS
+    }
+
+@app.post("/api/wizard/generate-oauth-url")
+async def wizard_generate_oauth_url(request: Request):
+    """Wizard Step 3: Gera URL OAuth (sempre Brand Account, sem login_hint)"""
+    try:
+        body = await request.json()
+        client_id = (body.get('client_id') or '').strip()
+        channel_id = (body.get('channel_id') or '').strip()
+
+        if not client_id or not channel_id:
+            raise HTTPException(status_code=400, detail="client_id e channel_id sao obrigatorios")
+
+        scopes = [
+            'https://www.googleapis.com/auth/youtube.upload',
+            'https://www.googleapis.com/auth/youtube',
+            'https://www.googleapis.com/auth/youtube.force-ssl',
+            'https://www.googleapis.com/auth/yt-analytics.readonly'
+        ]
+
+        params = {
+            'client_id': client_id,
+            'redirect_uri': 'http://localhost:8080',
+            'scope': ' '.join(scopes),
+            'response_type': 'code',
+            'access_type': 'offline',
+            'prompt': 'select_account consent',
+            'include_granted_scopes': 'true'
+        }
+
+        import requests as req_lib
+        query_string = '&'.join([f"{k}={req_lib.utils.quote(str(v))}" for k, v in params.items()])
+        oauth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{query_string}"
+
+        return {'oauth_url': oauth_url}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[WIZARD] Erro generate-oauth-url: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/wizard/exchange-token")
+async def wizard_exchange_token(request: Request):
+    """Wizard Step 3: Troca codigo OAuth por tokens e valida"""
+    try:
+        body = await request.json()
+        redirect_url = (body.get('redirect_url') or '').strip()
+        client_id = (body.get('client_id') or '').strip()
+        client_secret = (body.get('client_secret') or '').strip()
+
+        if not redirect_url or not client_id or not client_secret:
+            raise HTTPException(status_code=400, detail="redirect_url, client_id e client_secret sao obrigatorios")
+
+        # Extrair codigo da URL de redirect
+        from urllib.parse import urlparse, parse_qs
+        try:
+            parsed = urlparse(redirect_url)
+            params = parse_qs(parsed.query)
+            code = params.get('code', [None])[0]
+        except Exception:
+            code = None
+
+        if not code:
+            return {'success': False, 'error': 'Codigo OAuth nao encontrado na URL! A URL deve conter ?code=4/xxxxx'}
+
+        # Trocar codigo por tokens
+        import requests as req_lib
+        token_url = "https://oauth2.googleapis.com/token"
+        token_data = {
+            'code': code,
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'redirect_uri': 'http://localhost:8080',
+            'grant_type': 'authorization_code'
+        }
+
+        response = req_lib.post(token_url, data=token_data, timeout=30)
+        if response.status_code != 200:
+            error_detail = response.json().get('error_description', response.text)
+            return {'success': False, 'error': f'Erro ao trocar codigo por tokens: {error_detail}'}
+
+        tokens = response.json()
+        access_token = tokens.get('access_token')
+        refresh_token = tokens.get('refresh_token')
+        expires_in = tokens.get('expires_in', 3600)
+
+        if not access_token or not refresh_token:
+            return {'success': False, 'error': 'Tokens incompletos recebidos do Google'}
+
+        # Validar token com YouTube API
+        yt_url = "https://www.googleapis.com/youtube/v3/channels"
+        yt_headers = {'Authorization': f'Bearer {access_token}'}
+        yt_params = {'part': 'snippet', 'mine': 'true'}
+
+        yt_response = req_lib.get(yt_url, headers=yt_headers, params=yt_params, timeout=30)
+        yt_valid = False
+        yt_channel_name = None
+
+        if yt_response.status_code == 200:
+            yt_data = yt_response.json()
+            if 'items' in yt_data and len(yt_data['items']) > 0:
+                yt_valid = True
+                yt_channel_name = yt_data['items'][0]['snippet']['title']
+
+        return {
+            'success': True,
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+            'expires_in': expires_in,
+            'token_valid': yt_valid,
+            'yt_channel_name': yt_channel_name
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[WIZARD] Erro exchange-token: {e}")
+        return {'success': False, 'error': str(e)}
+
+@app.post("/api/wizard/save-channel")
+async def wizard_save_channel(request: Request):
+    """Wizard Step 4: Salva canal + credenciais + tokens atomicamente"""
+    try:
+        body = await request.json()
+
+        channel_id = body.get('channel_id')
+        channel_name = body.get('channel_name')
+        lingua = body.get('lingua')
+        subnicho = body.get('subnicho')
+        spreadsheet_id = body.get('spreadsheet_id')
+        is_monetized = body.get('is_monetized', False)
+        playlist_id = body.get('playlist_id')
+        client_id = body.get('client_id')
+        client_secret = body.get('client_secret')
+        access_token = body.get('access_token')
+        refresh_token = body.get('refresh_token')
+        expires_in = body.get('expires_in', 3600)
+
+        if not all([channel_id, channel_name, lingua, subnicho, spreadsheet_id, client_id, client_secret, access_token, refresh_token]):
+            raise HTTPException(status_code=400, detail="Campos obrigatorios faltando")
+
+        # Usar service role key para bypass RLS
+        from supabase import create_client as _create_client
+        supa_srv = _create_client(
+            os.getenv("SUPABASE_URL"),
+            os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+        )
+
+        results = {'canal': False, 'credenciais': False, 'tokens': False}
+
+        # 1. Inserir canal
+        canal_data = {
+            'channel_id': channel_id,
+            'channel_name': channel_name,
+            'proxy_name': None,
+            'lingua': lingua,
+            'subnicho': subnicho,
+            'spreadsheet_id': spreadsheet_id,
+            'is_active': True,
+            'is_monetized': is_monetized,
+            'upload_automatico': True
+        }
+        if playlist_id:
+            canal_data['default_playlist_id'] = playlist_id
+
+        supa_srv.table('yt_channels').insert(canal_data).execute()
+        results['canal'] = True
+        logger.info(f"[WIZARD] Canal salvo: {channel_name} ({channel_id})")
+
+        # 2. Salvar credenciais OAuth
+        cred_check = supa_srv.table('yt_channel_credentials').select('id').eq('channel_id', channel_id).execute()
+        if cred_check.data:
+            supa_srv.table('yt_channel_credentials').update({
+                'client_id': client_id,
+                'client_secret': client_secret,
+                'updated_at': datetime.now(timezone.utc).isoformat()
+            }).eq('channel_id', channel_id).execute()
+        else:
+            supa_srv.table('yt_channel_credentials').insert({
+                'channel_id': channel_id,
+                'client_id': client_id,
+                'client_secret': client_secret,
+                'created_at': datetime.now(timezone.utc).isoformat()
+            }).execute()
+        results['credenciais'] = True
+        logger.info(f"[WIZARD] Credenciais salvas: {channel_id}")
+
+        # 3. Salvar tokens OAuth
+        token_expiry = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+        supa_srv.table('yt_oauth_tokens').insert({
+            'channel_id': channel_id,
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+            'token_expiry': token_expiry.isoformat()
+        }).execute()
+        results['tokens'] = True
+        logger.info(f"[WIZARD] Tokens salvos: {channel_id}")
+
+        # Invalidar cache do dashboard
+        _dash_cache['data'] = None
+        _dash_cache['timestamp'] = 0
+
+        return {
+            'success': True,
+            'message': f'Canal {channel_name} configurado com sucesso!',
+            'results': results
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[WIZARD] Erro save-channel: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # ============================================================================
