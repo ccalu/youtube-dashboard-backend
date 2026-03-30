@@ -140,7 +140,7 @@ export function AppSidebar({
     'channels': 'text-red-700',
     'notifications': 'text-red-500',
     // EMPRESA - Verdes
-    'monetization': 'text-green-500',
+    'monetization-ext': 'text-green-500',
     'financeiro-ext': 'text-emerald-500',
     'upload-ext': 'text-purple-500',
     'mission-control-ext': 'text-purple-500',
@@ -149,7 +149,7 @@ export function AppSidebar({
 
   // Empresa nav items (new category)
   const empresaNavItems: NavigationItem[] = [
-    { id: 'monetization', title: 'Monetização', icon: DollarSign, activeColor: 'bg-green-500' },
+    { id: 'monetization-ext', title: 'Monetização', icon: DollarSign, activeColor: 'bg-green-500' },
     { id: 'financeiro-ext', title: 'Financeiro', icon: Wallet, activeColor: 'bg-emerald-500' },
   ];
 
@@ -215,6 +215,7 @@ export function AppSidebar({
   const handleNavClick = (itemId: string) => {
     const externalLinks: Record<string, string> = {
       'financeiro-ext': 'https://financeiro-dashboard-production.up.railway.app/',
+      'monetization-ext': 'https://revenue-dashboard-production.up.railway.app/',
       'upload-ext': 'https://youtube-dashboard-backend-production.up.railway.app/dash-upload',
       'mission-control-ext': 'https://youtube-dashboard-backend-production.up.railway.app/mission-control',
       'dash-agentes-ext': 'https://youtube-dashboard-backend-production.up.railway.app/dash-analise-copy',
@@ -243,7 +244,7 @@ export function AppSidebar({
     'channels': { bg: '#b91c1c', hover: 'rgba(185, 28, 28, 0.25)' },
     'notifications': { bg: '#ef4444', hover: 'rgba(239, 68, 68, 0.25)' },
     // EMPRESA - Verdes
-    'monetization': { bg: '#22c55e', hover: 'rgba(34, 197, 94, 0.25)' },
+    'monetization-ext': { bg: '#22c55e', hover: 'rgba(34, 197, 94, 0.25)' },
     'financeiro-ext': { bg: '#10b981', hover: 'rgba(16, 185, 129, 0.25)' },
     'upload-ext': { bg: '#a855f7', hover: 'rgba(168, 85, 247, 0.25)' },
     'mission-control-ext': { bg: '#a855f7', hover: 'rgba(168, 85, 247, 0.25)' },
