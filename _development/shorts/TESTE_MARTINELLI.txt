@@ -1,0 +1,107 @@
+======================================================================
+TESTE DE PRODUÇÃO — Edifício Martinelli
+Canal: Grandes Mansões | Estrutura: E12 (De Nada a Tudo)
+Estilo: Fotografia documental, era 1900-1940
+157 palavras | ~68s narração | 12 cenas x 6s = 72s vídeo
+======================================================================
+
+TÍTULO:
+O Imigrante Sem Dinheiro Que Construiu o Primeiro Arranha-Céu do Brasil
+
+DESCRIÇÃO:
+Chegou sem um centavo. Ergueu o prédio mais alto da América Latina.
+
+#HistóriaDoBrasil #Mansões #HistóriaDeSãoPaulo #HistóriaOculta #ArquiteturaBrasileira #PatrimônioHistórico #FamíliasBrasileiras
+
+SCRIPT:
+Giuseppe Martinelli chegou ao Brasil sem um centavo.
+
+Não falava português, não conhecia ninguém, e dormia em um porão no Brás — o bairro onde os imigrantes italianos iam parar quando não tinham mais nada.
+
+Mas foi ele quem ergueu o primeiro arranha-céu da América Latina.
+
+O Martinelli tinha o primeiro elevador automático do Brasil, um salão de festas no último andar com vista para toda São Paulo, e um cinema privado para os moradores — tudo isso em 1929, quando a cidade ainda engatinhava.
+
+E o homem que veio da Itália sem saber para onde ia acabou definindo para sempre o skyline de uma das maiores cidades do mundo — a história completa de como ele fez isso está no vídeo aqui embaixo.
+
+
+======================================================================
+PROMPTS DE IMAGEM (Z-image | 9:16 | 768x1344)
+======================================================================
+
+CENA 1:
+Cinematic photorealistic close-up of a pair of worn leather boots stepping off a wooden gangplank onto the wet stone dock of Santos port in 1890s Brazil, the boots cracked and dusty from a long Atlantic crossing, a battered leather suitcase held by a rough calloused hand visible at the edge of the frame, other immigrant feet and fabric skirts crowding the gangplank behind, the port bustling with cargo crates and dock workers in the background, early morning fog rolling off the water, shot on Leica M11 with 50mm f/1.4 lens, warm sepia tones faded vintage photograph quality, soft vignette, natural harbor light filtering through mist, vertical 9:16 composition focused tight on the boots and dock surface, period film stock grain, no text, no watermark.
+
+CENA 2:
+Cinematic photorealistic interior shot of a cramped dark basement room in Brás neighborhood São Paulo 1890s, a young Italian immigrant man lying on a thin straw mattress on a dirt floor, dim light from a single small window near the ceiling casting a harsh rectangle of light across his face, brick walls damp with moisture, a few personal belongings in a cloth bundle beside him, other mattresses crammed together with sleeping figures barely visible in the shadows, laundry lines strung across the low ceiling, shot on Canon R5 with 35mm f/1.4 lens, early 20th century large-format photography aesthetic, warm sepia tones with cold blue shadows in the dark corners, vertical 9:16 composition using the ceiling window light as the focal point illuminating the man below, heavy grain, no text, no watermark.
+
+CENA 3:
+Cinematic photorealistic wide street-level shot of 1890s Brás neighborhood in São Paulo, a narrow cobblestone street packed with Italian immigrant families, women carrying baskets on their heads, men pushing wooden carts loaded with produce, children running barefoot, laundry hanging between the buildings across the street, modest two-story colonial buildings with peeling plaster walls and wooden shutters, a hand-painted sign reading a shop name in Italian visible on one facade, warm afternoon light filtering through the laundry creating dappled shadows on the cobblestones, shot on Sony A7III with 28mm f/1.4 lens, silver gelatin photographic print aesthetic with warm sepia tones and period studio lighting, vertical 9:16 composition capturing the full height of the buildings and the narrow busy street below, subtle grain, no text, no watermark.
+
+CENA 4:
+Cinematic photorealistic dramatic shot of hands unrolling a large architectural blueprint on a rough wooden work table, the blueprint showing the floor plan and elevation of a tall art deco building, a kerosene lamp illuminating the paper from one side casting warm amber light across the detailed ink drawings, a compass and ruler placed on the blueprint, sawdust on the table edge suggesting a construction site office, the hands are weathered working hands with ink stains on the fingers, shot on Canon R5 with 85mm f/1.4 lens, extreme shallow depth of field with the blueprint details razor sharp and the background dissolving, warm amber lamplight against dark background, early 20th century photography tones, vertical 9:16 composition centered on the blueprint with the hands framing it, no text, no watermark.
+
+CENA 5:
+Cinematic photorealistic dramatic low-angle shot looking straight up at the Martinelli building under construction in late 1920s São Paulo, steel scaffolding and wooden platforms covering the art deco facade as it rises floor by floor, construction workers as tiny silhouettes on the upper levels against a bright sky, a construction crane at the top swinging a steel beam, the surrounding low-rise colonial cityscape of São Paulo visible in the periphery emphasizing how dramatically this tower dwarfs everything around it, shot on Sony A7III with 16mm f/2.8 wide-angle lens, early 20th century large-format photography aesthetic with warm tones and controlled natural light, vertical 9:16 composition perfectly suited to the tower's vertical rise, the building stretching from bottom to top of the frame, period grain, no text, no watermark.
+
+CENA 6:
+Cinematic photorealistic interior shot of the first automatic elevator in Brazil inside the Martinelli building 1929, polished brass doors open revealing an ornate art deco elevator cabin with mirrored walls, geometric brass railings, and a marble floor, a uniformed elevator operator in white gloves standing at attention inside, a well-dressed couple in 1920s attire about to step in with expressions of wonder, warm electric chandelier light reflecting in the brass and mirrors creating infinite golden reflections, shot on Leica M11 with 35mm f/1.4 lens, warm golden tones with rich brass reflections, early 20th century photography aesthetic with controlled light and architectural precision, vertical 9:16 composition using the elevator doorframe as a natural frame, the depth of the mirrored reflections creating visual depth, no text, no watermark.
+
+CENA 7:
+Cinematic photorealistic wide interior shot of the rooftop ballroom of the Martinelli building in 1929, a grand art deco hall with geometric chandeliers, polished dark wood dance floor, floor-to-ceiling arched windows revealing a nighttime panoramic view of 1920s São Paulo with scattered electric lights below, elegantly dressed guests in tuxedos and flapper dresses dancing and mingling, a live jazz band visible on a raised stage in the corner, champagne glasses catching the chandelier light, shot on Sony A7III with 24mm f/1.4 lens, warm golden interior glow contrasting with the deep blue night city visible through the windows, rich warm color grade with golden amber tones, vertical 9:16 composition capturing the chandelier above and dancers below with the city panorama through the windows, period film aesthetic, no text, no watermark.
+
+CENA 8:
+Cinematic photorealistic intimate shot of a private cinema screening room inside the Martinelli building 1929, rows of plush red velvet seats facing a glowing white projection screen, a beam of light from the projector cutting through cigarette smoke in the dark room, silhouettes of residents seated watching the screen with their faces faintly illuminated by the projected light, art deco wall sconces dimmed low on geometric patterned walls, shot on Canon R5 with 50mm f/1.4 lens, dramatic chiaroscuro lighting with the projector beam as the dominant light source, warm amber projector glow against deep shadow, vertical 9:16 composition with the projector beam creating a diagonal line of light through the smoky darkness, intimate and exclusive atmosphere, no text, no watermark.
+
+CENA 9:
+Cinematic photorealistic extreme wide aerial shot of 1929 São Paulo skyline at golden hour, the completed Martinelli building standing dramatically taller than every other structure in the city, the surrounding cityscape of low colonial and neoclassical buildings spreading out in every direction, church towers and plazas visible below, the Martinelli's art deco facade catching the warm sunset light while the rest of the city falls into shadow, a sense of one building defining the entire horizon, shot on Sony A7III with 35mm f/1.4 lens, warm golden hour light with long shadows, hand-colorized archival photograph aesthetic with washed-out colors and low saturation, vertical 9:16 composition with the Martinelli tower centered and the city radiating outward below, the building as an exclamation point on the skyline, no text, no watermark.
+
+CENA 10:
+Cinematic photorealistic medium portrait-style shot of an older Italian man in a well-tailored 1930s three-piece suit standing on the rooftop terrace of the Martinelli building, leaning on the stone railing with one hand, looking out over the city of São Paulo spread below him with a quiet expression of disbelief and pride, wind slightly moving his grey hair, the city stretching to the horizon behind him, his weathered hands contrasting with the expensive fabric of his suit telling the story of where he came from, warm golden light from the setting sun illuminating his face from the side, shot on Leica M11 with 85mm f/1.4 lens, shallow depth of field with his face sharp and the city a warm blurred panorama, early 20th century portrait photography warmth, vertical 9:16 composition with the man at 60% height and the city below, no text, no watermark.
+
+CENA 11:
+Cinematic photorealistic wide shot of the Martinelli building as it stands today in modern São Paulo, the restored art deco facade now surrounded by glass skyscrapers and modern towers that dwarf it, but the building maintaining its dignity and architectural beauty among the giants, busy Avenida São João below with modern traffic and pedestrians, the contrast between 1929 craftsmanship and 2020s glass and steel, afternoon light creating interesting shadow patterns between the old and new buildings, shot on Sony A7III with 24mm f/1.4 lens, cinematic hyperrealistic documentary photography with natural light and high dynamic range, crisp modern color grade with warm tones on the Martinelli stone and cool blues on the glass towers, vertical 9:16 composition showing the full building with modern São Paulo towering around it, no text, no watermark.
+
+CENA 12:
+Cinematic photorealistic dramatic upward-angle shot of the Martinelli building rooftop at twilight, the restored art deco ornamental crown of the building glowing warm against a deep purple and orange sunset sky, the geometric details of the architecture sharp and precise, a few lit windows on the top floors creating warm amber rectangles against the darkening facade, the sky transitioning from deep blue above to burning orange at the horizon behind the building, the building appearing to reach into the sky as a permanent monument, shot on Sony A7III with 35mm f/1.4 lens, rich warm sunset color grade with deep purples and burning oranges, vertical 9:16 composition looking up at the crown of the building against the infinite sky, the man who came with nothing built something that outlasted everything, clean minimal grain, no text, no watermark.
+
+
+======================================================================
+PROMPTS DE ANIMAÇÃO (MiniMax Hailuo 2.3 Fast | 6s | 768p | 9:16)
+======================================================================
+
+CENA 1:
+Camera slowly tilting down from the foggy harbor sky to reveal the worn boots stepping onto the dock, other immigrants shuffling past in the periphery, morning fog swirling around the feet, the suitcase swinging slightly with each step forward. Uncertain first steps into an unknown world.
+
+CENA 2:
+The rectangle of window light slowly shifting across the man's face as clouds pass outside, his chest rising and falling with a deep breath, dust particles floating in the light beam, a distant sound of street vendors implied by subtle shadow movement through the window. Stillness of someone with nothing but time.
+
+CENA 3:
+Bustling street activity with people walking in multiple directions, a cart being pushed through the crowd, laundry swaying gently in a breeze overhead, children darting between adults, dappled shadows moving on the cobblestones as a cloud passes over the sun. Life happening at full speed around poverty.
+
+CENA 4:
+The hands smoothing the blueprint flat with a confident press, the kerosene lamp flame flickering and casting dancing shadows across the technical drawings, one finger tracing the outline of the tower from base to top, sawdust drifting off the table edge from the movement. A dream being committed to paper.
+
+CENA 5:
+Camera slowly craning upward along the building under construction, each floor passing by with workers hammering and welding in motion, sparks flying from a steel joint, the crane at the top swinging its beam in a slow arc against moving clouds. Rising floor by floor, the ambition made physical.
+
+CENA 6:
+The elevator doors slowly sliding open with a mechanical brass movement, the mirrors inside catching light and creating cascading reflections, the operator extending his gloved hand in a welcoming gesture, the couple stepping forward with the woman's pearls catching the chandelier light. The future arriving with polished brass doors.
+
+CENA 7:
+Couples slowly spinning on the dance floor, chandelier crystals swaying and throwing moving light patterns across the walls, the city lights twinkling through the windows in the background, a waiter moving between tables with a champagne tray, the jazz band's instruments catching light as musicians move. An entire world celebrating on top of the sky.
+
+CENA 8:
+The projector beam flickering with the moving film frames, cigarette smoke curling and twisting through the light beam in slow spiraling patterns, the faint glow on the audience faces shifting with the projected images, one person leaning forward in their seat absorbed. Cinema magic in a private palace above the city.
+
+CENA 9:
+Slow aerial camera drifting toward the Martinelli tower from a distance, the golden sunset light gradually intensifying on the facade, long shadows crawling across the smaller buildings below as the sun drops, birds circling near the top of the tower. One building standing alone above an entire city.
+
+CENA 10:
+Wind gently moving the man's grey hair and suit jacket as he gazes out, his hand slowly tightening on the stone railing, the city lights beginning to flicker on one by one in the darkening panorama below, the sunset light warming his face as it descends. A man looking at what his empty hands built.
+
+CENA 11:
+Modern traffic flowing below the Martinelli, pedestrians walking, reflections of glass towers moving across the restored art deco facade, a pigeon landing on one of the ornamental ledges, afternoon shadows slowly shifting as clouds move overhead. A century has passed but the building still stands.
+
+CENA 12:
+Slow upward camera movement from the lit windows rising toward the ornamental crown of the building, the sunset sky deepening from orange to purple behind it, the last rays of sunlight catching the art deco details making them glow gold, stars beginning to appear in the darkening sky above. From nothing to the skyline — forever.
