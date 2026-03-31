@@ -1,0 +1,244 @@
+================================================================================
+     PLANO DE PRODUCAO DE SHORTS COM IA — RUNPOD + LTX 2.3
+================================================================================
+
+Documento para alinhamento entre socios
+Data: 23/03/2026
+
+================================================================================
+ O QUE ESTAMOS FAZENDO
+================================================================================
+
+Produzir Shorts (~1 min) para os canais do YouTube usando inteligencia
+artificial para transformar imagens estaticas em video animado (Image-to-Video).
+
+Exemplo pratico:
+  Uma imagem de um samurai em campo de batalha
+  → A IA gera um video dele lutando, capa balancando, poeira subindo
+  → Nao e efeito de camera — e animacao REAL gerada por IA
+
+================================================================================
+ FERRAMENTAS USADAS
+================================================================================
+
+LTX 2.3       → Modelo de IA que transforma imagem em video (gratis, open-source)
+ComfyUI        → Interface para rodar o modelo com workflows visuais (gratis)
+RunPod         → Aluguel de GPU na nuvem para processar ($0.39/hr na RTX 4090)
+FFmpeg         → Montagem final dos clips no PC local (gratis)
+Claude Code    → Orquestra tudo: liga GPU, gera clips, monta video, desliga GPU
+
+================================================================================
+ COMO FUNCIONA — PASSO A PASSO
+================================================================================
+
+FASE CRIATIVA (Marcelo + Lucca):
+
+  1. Lucca gera imagens verticais a partir dos videos longos do YouTube
+  2. Marcelo organiza as imagens em pastas (1 pasta = 1 Short, 12 imagens cada)
+  3. Marcelo + Claude definem os prompts de animacao para cada imagem
+     Exemplo: "samurai swings katana fiercely, dust rises, cape flowing"
+
+FASE DE EXECUCAO (Claude Code faz tudo sozinho):
+
+  1. Liga a GPU (pod RTX 4090) no RunPod
+  2. Envia as imagens para a GPU
+  3. Roda o modelo gerando cada clip de video
+  4. Baixa todos os clips prontos para o PC do Marcelo
+  5. >>> DESLIGA A GPU <<< (fim do custo RunPod)
+  6. Monta o Short final no PC local (custo zero):
+     - Junta os 12 clips na sequencia correta
+     - Adiciona narracao/audio
+     - Adiciona musica de fundo
+     - Adiciona legendas
+  7. Entrega o Short pronto para upload
+
+FLUXO RESUMIDO:
+
+  Lucca gera      Marcelo + Claude     Claude executa      Claude monta
+  12 imagens  →   definem prompts  →   no RunPod       →   no PC local
+  (gratis)        (gratis)             (~R$0.87)           (gratis)
+                                                            ↓
+                                                      SHORT PRONTO
+
+================================================================================
+ ESTRUTURA DE PASTAS
+================================================================================
+
+  shorts_production/
+  │
+  ├── canal_samurai_history/
+  │   ├── video_01/
+  │   │   ├── 01.png  →  "warrior charges forward, sword raised"
+  │   │   ├── 02.png  →  "aerial view of battlefield, armies clashing"
+  │   │   ├── 03.png  →  "close-up face, eyes fierce, sweat dripping"
+  │   │   ├── ...
+  │   │   └── 12.png  →  "sunset over battlefield, flags waving"
+  │   ├── video_02/
+  │   │   └── ...
+  │   └── video_30/
+  │       └── ...
+  │
+  ├── canal_mythology/
+  │   ├── video_01/
+  │   │   └── ...
+  │   └── video_15/
+  │       └── ...
+  │
+  └── canal_xyz/
+      └── ...
+
+================================================================================
+ CUSTOS
+================================================================================
+
+POR SHORT (12 clips):
+  Geracao dos clips    = 12 clips x ~2 min = 24 min de GPU = ~R$0.87
+  Montagem (FFmpeg)    = local, gratis
+  TOTAL POR SHORT      = ~R$0.87
+
+PRODUCAO DIARIA (30 shorts = 360 clips):
+  Tempo de GPU         = 360 clips x 2 min = 12 horas
+  Custo RunPod         = 12h x $0.39/hr = $4.68
+  TOTAL POR DIA        = ~R$26
+
+PRODUCAO MENSAL:
+  15 shorts/dia        = ~R$390/mes
+  30 shorts/dia        = ~R$780/mes
+  50 shorts/dia        = ~R$1.300/mes
+
+CUSTO FIXO:
+  Storage dos modelos  = ~R$50-80/mes (Network Volume no RunPod)
+
+NOTA: Os custos acima sao estimativas. Os valores reais serao medidos
+na fase de testes (custo do teste: ~$5 / ~R$28).
+
+================================================================================
+ QUALIDADE
+================================================================================
+
+  Resolucao minima     = 720x1280 (HD vertical)
+  Testar tambem        = 1080x1920 (Full HD vertical)
+  Duracao por clip     = ~5 segundos
+  Duracao Short final  = ~1 minuto (12 clips juntos)
+  Formato              = 9:16 vertical (padrao Shorts/Reels/TikTok)
+
+  IMPORTANTE: A qualidade do video e IDENTICA independente da GPU usada.
+  GPU mais cara = mais rapido, mas o resultado final e o mesmo.
+
+================================================================================
+ POR QUE RTX 4090 E NAO H200?
+================================================================================
+
+                        RTX 4090            H200
+  Custo por hora        $0.39               $3.59
+  Tempo por clip        ~2 min              ~37s
+  Custo por clip        R$0.07              R$0.12
+  360 clips (tempo)     12 horas            ~3.7 horas
+  360 clips (custo)     R$26                R$73
+  Qualidade             IDENTICA            IDENTICA
+
+  A 4090 custa ~3x menos por clip (R$0.07 vs R$0.12).
+  A H200 e ~3x mais rapida, mas custa ~3x mais por hora.
+  No final de 360 clips: 4090 economiza R$47 (~65% mais barato).
+
+  Se precisar de mais velocidade: roda multiplos pods 4090 em paralelo.
+  O custo total e o mesmo porque o trabalho total nao muda — so divide
+  entre mais maquinas. Exemplo com 360 clips:
+
+    1x 4090 = 12 horas rodando, 1 maquina   → 12h x $0.39 = $4.68 (R$26)
+    2x 4090 =  6 horas rodando, 2 maquinas  →  6h x $0.78 = $4.68 (R$26)
+    3x 4090 =  4 horas rodando, 3 maquinas  →  4h x $1.17 = $4.68 (R$26)
+
+  Ou seja: paga o mesmo, mas termina mais rapido.
+
+================================================================================
+ SEGURANCA E ECONOMIA
+================================================================================
+
+  1. GPU so liga quando tem fila de trabalho pronta
+  2. GPU desliga IMEDIATAMENTE apos a ultima geracao terminar
+     (a montagem do video roda no PC local, nao precisa da GPU)
+  3. Se a GPU estiver parada sem produzir = desliga
+  4. Toda sessao termina com confirmacao: "GPU desligada? SIM"
+  5. Script automatico de seguranca que alerta se GPU ficar ociosa
+
+================================================================================
+ FASES DE IMPLEMENTACAO
+================================================================================
+
+FASE 1 — SETUP (~5 minutos)
+  [ ] Configurar API Key do RunPod
+  [ ] Instalar ferramentas de controle (CLI + MCP Server)
+  [ ] Configurar acesso SSH aos pods
+  [ ] Criar scripts de seguranca (auto-desligar)
+
+FASE 2 — TESTES DE QUALIDADE E VELOCIDADE (~$5 / ~R$28)
+  [ ] Subir pod RTX 4090 com ComfyUI
+  [ ] Instalar modelo LTX 2.3
+  [ ] Testar 1 imagem em 720p — medir tempo real
+  [ ] Testar 1 imagem em 1080p — medir tempo real
+  [ ] Comparar qualidade 720p vs 1080p
+  [ ] Testar diferentes configs de qualidade (8, 14, 20 steps)
+  [ ] Definir config ideal (qualidade x velocidade x custo)
+  [ ] Desligar pod
+
+FASE 3 — VALIDACAO DO PIPELINE (~$5 / ~R$28)
+  [ ] Enviar pasta com 12 imagens de teste
+  [ ] Gerar os 12 clips com prompts definidos
+  [ ] Validar qualidade de todos os clips
+  [ ] Confirmar que tudo salvou corretamente
+  [ ] Medir tempo total do pipeline completo
+  [ ] Desligar pod
+
+FASE 4 — MONTAGEM DO SHORT
+  [ ] Juntar 12 clips em sequencia (FFmpeg)
+  [ ] Adicionar audio/narracao
+  [ ] Adicionar legendas
+  [ ] Exportar Short final
+  [ ] Validar qualidade do resultado
+
+FASE 5 — PRODUCAO
+  [ ] Primeiro lote real (5-10 shorts)
+  [ ] Ajustes finos baseado nos resultados
+  [ ] Escalar para volume desejado
+
+================================================================================
+ DIVISAO DE RESPONSABILIDADES
+================================================================================
+
+  O QUE O CLAUDE FAZ SOZINHO:        O QUE PRECISA DO MARCELO:
+  ─────────────────────────────       ─────────────────────────────
+  Liga/desliga GPU                    Aprovar "roda" antes de comecar
+  Instala modelos e dependencias      Fornecer imagens nas pastas
+  Envia imagens para a GPU            Definir prompts (junto c/ Claude)
+  Gera todos os clips                 Avaliar qualidade dos resultados
+  Baixa clips pro PC                  Decisoes criativas
+  Monta Short no FFmpeg
+  Monitora GPU e progresso
+  Desliga GPU apos conclusao
+
+================================================================================
+ RISCOS E COMO EVITAMOS
+================================================================================
+
+  RISCO                          COMO EVITAMOS
+  ─────────────────────────      ──────────────────────────────────
+  GPU esquecida ligada           Script auto-desligar + checklist
+  Qualidade ruim dos clips       Fase de testes antes de escalar
+  Modelo nao atende              Wan 2.2 como backup (mais lento, boa qualidade)
+  RunPod fora do ar              Trocar de regiao/provedor
+  Custo acima do esperado        Monitoramento por sessao
+
+================================================================================
+ RESUMO EXECUTIVO
+================================================================================
+
+  Investimento inicial:    ~$10 / ~R$55 (fases de teste 2 e 3)
+  Custo por Short:         ~R$0.87
+  Producao:                ~30 clips/hora (RTX 4090)
+  30 shorts/dia:           ~R$26/dia (~R$780/mes)
+  Autonomia:               Claude Code executa 100% do processo tecnico
+  Qualidade:               HD/Full HD vertical, animacao real por IA
+  Stack:                   100% open-source (exceto aluguel de GPU)
+
+================================================================================
