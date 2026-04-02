@@ -45,18 +45,18 @@ function DashboardParticles() {
       size: Math.random() * 5 + 3,
       duration: Math.random() * 12 + 8,
       delay: Math.random() * -14,
-      opacity: Math.random() * 0.10 + 0.05,
+      opacity: Math.random() * 0.18 + 0.08,
     })), [count]);
 
   const getColor = (id: number) =>
-    id % 3 === 0 ? 'rgba(239, 68, 68, 0.25)'
-    : id % 3 === 1 ? 'rgba(249, 115, 22, 0.2)'
-    : 'rgba(255, 255, 255, 0.15)';
+    id % 3 === 0 ? 'rgba(239, 68, 68, 0.4)'
+    : id % 3 === 1 ? 'rgba(249, 115, 22, 0.35)'
+    : 'rgba(255, 255, 255, 0.25)';
 
   const getGlow = (id: number) =>
-    id % 3 === 0 ? 'drop-shadow(0 0 2px rgba(239, 68, 68, 0.15))'
-    : id % 3 === 1 ? 'drop-shadow(0 0 2px rgba(249, 115, 22, 0.12))'
-    : 'drop-shadow(0 0 1px rgba(255, 255, 255, 0.10))';
+    id % 3 === 0 ? 'drop-shadow(0 0 3px rgba(239, 68, 68, 0.25))'
+    : id % 3 === 1 ? 'drop-shadow(0 0 3px rgba(249, 115, 22, 0.2))'
+    : 'drop-shadow(0 0 2px rgba(255, 255, 255, 0.15))';
 
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
