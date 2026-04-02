@@ -165,11 +165,11 @@ export function AppSidebar({
     'monetization-ext': 'text-green-500',
     'financeiro-ext': 'text-emerald-500',
     'perfis': 'text-teal-500',
-    'upload-ext': 'text-purple-500',
-    'mission-control-ext': 'text-purple-500',
-    'dash-agentes-ext': 'text-purple-500',
-    'thumb-ext': 'text-purple-500',
-    'chaves-api-ext': 'text-purple-500',
+    'upload-ext': 'text-orange-500',
+    'mission-control-ext': 'text-orange-500',
+    'dash-agentes-ext': 'text-orange-500',
+    'thumb-ext': 'text-orange-500',
+    'chaves-api-ext': 'text-orange-500',
   }[itemId] || 'text-muted-foreground');
 
   // Empresa nav items (new category)
@@ -225,11 +225,11 @@ export function AppSidebar({
 
   // Automações nav items (external links)
   const automacoesNavItems: NavigationItem[] = [
-    { id: 'upload-ext', title: 'Upload', icon: Rocket, activeColor: 'bg-purple-500' },
-    { id: 'mission-control-ext', title: 'Mission Control', icon: Monitor, activeColor: 'bg-purple-500' },
-    { id: 'dash-agentes-ext', title: 'Dash Agentes', icon: Bot, activeColor: 'bg-purple-500' },
-    { id: 'thumb-ext', title: 'Thumb', icon: Image, activeColor: 'bg-purple-500' },
-    { id: 'chaves-api-ext', title: 'Chaves API', icon: Key, activeColor: 'bg-purple-500' },
+    { id: 'upload-ext', title: 'Upload', icon: Rocket, activeColor: 'bg-orange-500' },
+    { id: 'mission-control-ext', title: 'Mission Control', icon: Monitor, activeColor: 'bg-orange-500' },
+    { id: 'dash-agentes-ext', title: 'Dash Agentes', icon: Bot, activeColor: 'bg-orange-500' },
+    { id: 'thumb-ext', title: 'Thumb', icon: Image, activeColor: 'bg-orange-500' },
+    { id: 'chaves-api-ext', title: 'Chaves API', icon: Key, activeColor: 'bg-orange-500' },
   ];
 
   const toolsItems = [
@@ -349,9 +349,9 @@ export function AppSidebar({
         {/* Navegação Principal */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70 px-2 mb-1.5 flex items-center gap-2">
-            <span className="h-px flex-1 bg-gradient-to-r from-violet-500/40 to-transparent" />
-            <span className="text-violet-400/80">Navegação</span>
-            <span className="h-px flex-1 bg-gradient-to-l from-violet-500/40 to-transparent" />
+            <span className="h-px flex-1 bg-gradient-to-r from-red-500/40 to-transparent" />
+            <span className="text-red-400/80">Navegação</span>
+            <span className="h-px flex-1 bg-gradient-to-l from-red-500/40 to-transparent" />
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-0.5">
@@ -381,9 +381,9 @@ export function AppSidebar({
         {/* Automações */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70 px-2 mb-1.5 flex items-center gap-2">
-            <span className="h-px flex-1 bg-gradient-to-r from-purple-500/40 to-transparent" />
-            <span className="text-purple-400/80">Automações</span>
-            <span className="h-px flex-1 bg-gradient-to-l from-purple-500/40 to-transparent" />
+            <span className="h-px flex-1 bg-gradient-to-r from-orange-500/40 to-transparent" />
+            <span className="text-orange-400/80">Automações</span>
+            <span className="h-px flex-1 bg-gradient-to-l from-orange-500/40 to-transparent" />
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-0.5">

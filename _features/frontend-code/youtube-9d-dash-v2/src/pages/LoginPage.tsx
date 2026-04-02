@@ -130,8 +130,8 @@ export default function LoginPage() {
           100% { transform: translateX(100%); }
         }
         @keyframes login-logo-pulse {
-          0%, 100% { box-shadow: 0 10px 15px -3px rgba(239,68,68,0.2); }
-          50% { box-shadow: 0 10px 25px -3px rgba(239,68,68,0.4); }
+          0%, 100% { box-shadow: 0 8px 12px -3px rgba(239,68,68,0.1); }
+          50% { box-shadow: 0 8px 18px -3px rgba(239,68,68,0.2); }
         }
       `}</style>
 
@@ -142,7 +142,7 @@ export default function LoginPage() {
       >
         {/* Glass card with glow pulse */}
         <div
-          className="rounded-xl border border-white/[0.1] bg-white/[0.04] backdrop-blur-xl p-8 relative overflow-hidden"
+          className="rounded-xl border border-white/[0.08] bg-[hsl(0,0%,7%)] p-8 relative overflow-hidden"
           style={{ animation: 'login-glow 4s ease-in-out infinite' }}
         >
           {/* Logo + Title */}
@@ -191,7 +191,7 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Digite aqui..."
-                className="w-full h-10 px-3 rounded-lg border border-white/[0.1] bg-white/[0.04] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50 transition-all"
+                className="w-full h-10 px-3 rounded-lg border border-white/[0.08] bg-white/[0.03] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50 transition-all"
                 disabled={submitting}
               />
             </div>
@@ -212,7 +212,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••"
-                className="w-full h-10 px-3 rounded-lg border border-white/[0.1] bg-white/[0.04] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50 transition-all"
+                className="w-full h-10 px-3 rounded-lg border border-white/[0.08] bg-white/[0.03] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500/50 transition-all"
                 disabled={submitting}
               />
             </div>

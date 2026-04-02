@@ -9,58 +9,58 @@
 
 @layer base {
   :root {
-    /* Deep dark background with subtle blue undertone */
-    --background: 230 25% 5%;
-    --foreground: 220 20% 95%;
+    /* Pure dark background — no blue tint */
+    --background: 0 0% 4%;
+    --foreground: 0 0% 95%;
 
-    /* Glass cards — semi-transparent with blur */
-    --card: 220 20% 12%;
-    --card-foreground: 220 20% 95%;
+    /* Glass cards — near-invisible, dark glass */
+    --card: 0 0% 9%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 225 20% 10%;
-    --popover-foreground: 220 20% 95%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 95%;
 
-    /* Purple accent — primary action color */
-    --primary: 263 70% 58%;
+    /* Red/orange accent — primary action color */
+    --primary: 15 90% 55%;
     --primary-foreground: 0 0% 100%;
 
-    /* Subtle secondary */
-    --secondary: 225 15% 18%;
-    --secondary-foreground: 220 20% 90%;
+    /* Subtle neutral secondary */
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 0 0% 90%;
 
-    --muted: 225 15% 18%;
-    --muted-foreground: 225 10% 50%;
-    --notification-detail-foreground: 220 12% 68%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 45%;
+    --notification-detail-foreground: 0 0% 60%;
 
-    --accent: 225 15% 20%;
-    --accent-foreground: 220 20% 95%;
+    --accent: 0 0% 16%;
+    --accent-foreground: 0 0% 95%;
 
     /* Destructive — soft red */
     --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Glass borders */
-    --border: 225 15% 16%;
-    --input: 225 15% 16%;
-    --ring: 263 70% 58%;
+    /* Glass borders — subtle white edges */
+    --border: 0 0% 12%;
+    --input: 0 0% 12%;
+    --ring: 15 90% 55%;
 
     --radius: 0.875rem;
 
     /* === GLASSMORPHISM SYSTEM === */
 
-    /* Glass layers — increasing opacity for depth */
-    --glass-bg: rgba(255, 255, 255, 0.04);
-    --glass-bg-hover: rgba(255, 255, 255, 0.07);
-    --glass-bg-active: rgba(255, 255, 255, 0.10);
+    /* Glass layers — frosted glass on black */
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-bg-hover: rgba(255, 255, 255, 0.06);
+    --glass-bg-active: rgba(255, 255, 255, 0.09);
     --glass-border: rgba(255, 255, 255, 0.08);
     --glass-border-hover: rgba(255, 255, 255, 0.14);
-    --glass-blur: 16px;
-    --glass-blur-heavy: 24px;
+    --glass-blur: 24px;
+    --glass-blur-heavy: 36px;
 
     /* Dashboard semantic colors */
-    --dashboard-bg: 230 25% 5%;
-    --dashboard-card: 220 20% 12%;
-    --dashboard-border: 225 15% 16%;
+    --dashboard-bg: 0 0% 4%;
+    --dashboard-card: 0 0% 9%;
+    --dashboard-border: 0 0% 12%;
 
     /* Growth indicators */
     --growth-positive: 152 69% 45%;
@@ -68,35 +68,35 @@
     --score-gold: 45 93% 58%;
 
     /* Table — glass styled */
-    --table-header: 225 15% 14%;
-    --table-row-hover: 225 15% 16%;
-    --table-border: 225 12% 14%;
+    --table-header: 0 0% 10%;
+    --table-row-hover: 0 0% 13%;
+    --table-border: 0 0% 10%;
 
-    /* Gradients */
-    --gradient-dashboard: linear-gradient(145deg, hsl(230 25% 5%), hsl(250 20% 8%), hsl(230 25% 5%));
+    /* Gradients — pure black */
+    --gradient-dashboard: linear-gradient(145deg, hsl(0 0% 4%), hsl(0 0% 6%), hsl(0 0% 4%));
     --gradient-card: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
 
-    /* Glow shadows */
-    --shadow-card: 0 4px 24px -4px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
-    --shadow-hover: 0 8px 32px -4px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
-    --shadow-glow-purple: 0 0 20px -4px rgba(139, 92, 246, 0.25);
-    --shadow-glow-cyan: 0 0 20px -4px rgba(6, 182, 212, 0.25);
-    --shadow-glow-green: 0 0 20px -4px rgba(34, 197, 94, 0.2);
-    --shadow-glow-red: 0 0 20px -4px rgba(239, 68, 68, 0.2);
+    /* Glow shadows — stronger */
+    --shadow-card: 0 4px 30px -4px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
+    --shadow-hover: 0 8px 40px -4px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.14);
+    --shadow-glow-purple: 0 0 30px -4px rgba(239, 100, 40, 0.35);
+    --shadow-glow-cyan: 0 0 30px -4px rgba(6, 182, 212, 0.35);
+    --shadow-glow-green: 0 0 25px -4px rgba(34, 197, 94, 0.3);
+    --shadow-glow-red: 0 0 25px -4px rgba(239, 68, 68, 0.3);
 
     /* Animation */
     --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-glass: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 
-    /* Sidebar — heavier glass */
-    --sidebar-background: 225 20% 8%;
-    --sidebar-foreground: 220 20% 92%;
-    --sidebar-primary: 263 70% 58%;
+    /* Sidebar — transparent glass */
+    --sidebar-background: 0 0% 4%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: 15 90% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 225 15% 18%;
-    --sidebar-accent-foreground: 220 20% 92%;
-    --sidebar-border: 225 15% 14%;
-    --sidebar-ring: 263 70% 58%;
+    --sidebar-accent: 0 0% 14%;
+    --sidebar-accent-foreground: 0 0% 92%;
+    --sidebar-border: 0 0% 10%;
+    --sidebar-ring: 15 90% 55%;
 
     /* Badge colors */
     --badge-english: 217 91% 60%;
@@ -108,7 +108,7 @@
     --badge-turkish: 0 72% 55%;
     --badge-polish: 330 81% 60%;
     --badge-dutch: 25 95% 53%;
-    --badge-default: 225 15% 18%;
+    --badge-default: 0 0% 18%;
   }
 }
 
@@ -132,21 +132,21 @@
 
   /* Heavier glass (sidebar, modals) */
   .glass-heavy {
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(var(--glass-blur-heavy));
     -webkit-backdrop-filter: blur(var(--glass-blur-heavy));
-    border: 1px solid rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   /* Glass with glow on hover */
   .glass-glow:hover {
-    box-shadow: var(--shadow-hover), var(--shadow-glow-purple);
+    box-shadow: var(--shadow-hover), 0 0 30px -4px rgba(239, 100, 40, 0.25);
   }
 
   /* Gradient line decorators */
   .gradient-line-h {
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.5), rgba(6, 182, 212, 0.5), transparent);
+    background: linear-gradient(90deg, transparent, rgba(239, 100, 40, 0.5), rgba(220, 50, 30, 0.5), transparent);
   }
 
   .gradient-line-bottom {
@@ -160,7 +160,7 @@
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.4), rgba(6, 182, 212, 0.4), transparent);
+    background: linear-gradient(90deg, transparent, rgba(239, 100, 40, 0.4), rgba(220, 50, 30, 0.4), transparent);
   }
 }
 
@@ -337,7 +337,7 @@
     .glass-heavy {
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
-      background: hsl(220 20% 12% / 0.95) !important;
+      background: hsl(0 0% 7% / 0.95) !important;
     }
 
     /* Simplify card transitions on mobile */
