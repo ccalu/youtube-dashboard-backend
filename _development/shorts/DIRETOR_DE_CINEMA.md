@@ -18,7 +18,7 @@ Recebe o script completo do Roteirista e transforma em imagens e movimento.
 ## O Que Entrega
 
 Para cada cena:
-- **Prompt de imagem** — otimizado para Z-image, 9:16 vertical
+- **Prompt de imagem** — otimizado para NanoBanana 2, 9:16 vertical
 - **Prompt de animação** — otimizado para MiniMax Hailuo 2.3 Fast, só movimento
 
 Mais validação de:
@@ -40,7 +40,7 @@ Mais validação de:
   "cenas": [
     {
       "cena": 1,
-      "prompt_imagem": "prompt completo para Z-image...",
+      "prompt_imagem": "prompt completo para NanoBanana 2...",
       "prompt_animacao": "prompt completo para MiniMax..."
     }
   ]
@@ -118,9 +118,9 @@ As cenas devem fazer sentido em SEQUÊNCIA — tanto com a cena anterior quanto 
 
 ---
 
-## Prompts de Imagem (Z-image)
+## Prompts de Imagem (NanoBanana 2)
 
-### Modelo: Z-image (Alibaba Tongyi, 6B params)
+### Modelo: NanoBanana 2 (Alibaba Tongyi, 6B params)
 - Disponível no Freepik Spaces (gratuito)
 - Formato: **9:16 vertical (768x1344)**
 - Linguagem natural funciona bem
@@ -164,7 +164,7 @@ As cenas devem fazer sentido em SEQUÊNCIA — tanto com a cena anterior quanto 
 ```
 
 ### Tamanho Ideal do Prompt
-- **80-150 palavras** (sweet spot para Z-image)
+- **80-150 palavras** (sweet spot para NanoBanana 2)
 - Menos que 80: falta detalhe, resultado genérico
 - Mais que 150: modelo ignora partes, resultado inconsistente
 
@@ -184,7 +184,7 @@ As cenas devem fazer sentido em SEQUÊNCIA — tanto com a cena anterior quanto 
 - Misturar estilos ("watercolor + cyberpunk + realistic")
 - Pedir texto na imagem
 
-### Exemplo de Prompt Perfeito (Z-image)
+### Exemplo de Prompt Perfeito (NanoBanana 2)
 
 ```
 Cinematic photorealistic dramatic low-angle night shot of three Soviet
@@ -289,9 +289,9 @@ Extremely slow and tense movement.
 
 ## Estilos Visuais por Subnicho
 
-### Referência: Sistema Lucca (adaptado para 9:16 vertical e Z-image)
+### Referência: Sistema Lucca (adaptado para 9:16 vertical e NanoBanana 2)
 
-A essência visual de cada canal é mantida, adaptada do formato 16:9 horizontal para 9:16 vertical e do Google Imagen para Z-image.
+A essência visual de cada canal é mantida, adaptada do formato 16:9 horizontal para 9:16 vertical e do Google Imagen para NanoBanana 2.
 
 ---
 

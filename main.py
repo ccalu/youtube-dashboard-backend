@@ -233,6 +233,12 @@ app.include_router(monetization_router)
 app.include_router(perfis_router)
 
 # ========================================
+# SHORTS PRODUCTION ROUTER
+# ========================================
+from shorts_endpoints import router as shorts_router
+app.include_router(shorts_router)
+
+# ========================================
 # 🆕 MODELOS PYDANTIC
 # ========================================
 

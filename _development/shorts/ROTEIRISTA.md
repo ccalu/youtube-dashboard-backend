@@ -368,7 +368,7 @@ Foco: tirania, cortes reais, inquisição, conspirações, venenos, dinastias, p
 ## Regras de Duração
 
 ### Regra Fixa: 12 Cenas, Sempre
-- O Roteirista SEMPRE gera scripts para **12 cenas de 6 segundos** (72s de vídeo)
+- O Roteirista SEMPRE gera scripts para **14 cenas de 6 segundos** (72s de vídeo)
 - O script deve ter no **máximo ~800 caracteres / ~80 segundos** de narração
 - O Claude Code (Remotion) ajusta a velocidade dos clips depois para encaixar no tempo real do áudio
 - Não é necessário estimar duração — o TTS é imprevisível, o ajuste é feito na pós-produção
@@ -376,7 +376,7 @@ Foco: tirania, cortes reais, inquisição, conspirações, venenos, dinastias, p
 ### Calibragem do Script
 - Se o script ficar longo demais: cortar
 - Se ficar curto demais: desenvolver mais
-- O Roteirista escreve pensando em 12 momentos visuais distintos (cada parágrafo = 1 cena)
+- O Roteirista escreve pensando em 14 momentos visuais distintos (cada parágrafo = 1 cena)
 
 ---
 
