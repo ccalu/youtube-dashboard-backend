@@ -76,7 +76,7 @@ O workflow já existe e é SEMPRE o mesmo. Nunca criar um novo.
 4. Se não fizer isso, pode gerar o DOBRO das imagens
 
 Configuração correta:
-- Modelo: **Z-Image**
+- Modelo: **NanoBanana 2**
 - Resolução: **768 x 1344**
 - Aspecto: **9:16**
 - Quantidade: **1**
