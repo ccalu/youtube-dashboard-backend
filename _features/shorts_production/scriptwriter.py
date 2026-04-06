@@ -127,7 +127,7 @@ FORMATO:
 - OBRIGATORIO: entre 800 e 900 caracteres no campo "script"
 - OBRIGATORIO: 14 paragrafos separados por \\n\\n (cada paragrafo = 1 cena visual de ~5s)
 - Titulo: max 60 caracteres, curiosidade extrema
-- Descricao: 1-2 frases + 5 hashtags relevantes
+- Descricao: 1-2 frases + 5 hashtags estrategicas (3 em ingles + 2 no idioma do canal). Hashtags devem ter ALCANCE AMPLO mas relevantes ao tema — nao nichadas demais (ex: #mummification e muito especifico, #history e melhor). Mix ideal: hashtags que milhoes de pessoas buscam MAS que se conectam com o conteudo. NUNCA usar #viral #fyp #trending.
 - O video final tera ~60 segundos — cada palavra conta
 
 Aplique toda sua filosofia de roteiro: gancho que abre loop, cada frase empurra a narrativa, tensao escalando, climax como MOMENTO especifico, fechamento que completa o ciclo. Crie algo que o viewer NAO CONSEGUE parar de assistir.

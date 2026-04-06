@@ -71,7 +71,8 @@ class YouTubeUploader:
         return file_path
 
     def upload_to_youtube(self, channel_id: str, video_path: str,
-                          metadata: Dict) -> Dict:
+                          metadata: Dict, skip_playlist: bool = False,
+                          privacy_status: str = "private") -> Dict:
         """
         Faz upload de vídeo para YouTube em modo RASCUNHO.
 
@@ -139,7 +140,7 @@ class YouTubeUploader:
                 'defaultAudioLanguage': channel.get('lingua', 'en')  # Idioma do áudio
             },
             'status': {
-                'privacyStatus': 'private',  # ← RASCUNHO!!!
+                'privacyStatus': privacy_status,  # padrao "private", shorts passam "public"
                 'selfDeclaredMadeForKids': False,
                 'containsSyntheticMedia': True  # ← MARCA COMO CONTEÚDO ALTERADO/IA
             }
@@ -172,8 +173,8 @@ class YouTubeUploader:
 
             logger.info(f"[{channel_id}] ✅ Vídeo enviado com sucesso (ID: {video_id})")
 
-            # 8. Adiciona a playlist (se configurado)
-            if channel.get('default_playlist_id'):
+            # 8. Adiciona a playlist (se configurado e nao for skip)
+            if channel.get('default_playlist_id') and not skip_playlist:
                 playlist_id = channel['default_playlist_id']
                 logger.info(f"[{channel_id}] 📋 Adicionando à playlist {playlist_id}")
                 try:

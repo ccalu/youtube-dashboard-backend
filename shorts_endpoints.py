@@ -327,7 +327,7 @@ async def listar_producoes(status: Optional[str] = None):
 @router.patch("/producoes/{producao_id}/status")
 async def atualizar_status(producao_id: int, status: str):
     """Atualiza status de uma produção."""
-    if status not in ("producao", "edicao", "pronto"):
+    if status not in ("producao", "edicao", "pronto", "publicado"):
         raise HTTPException(400, "Status inválido. Use: producao, edicao, pronto")
 
     db.supabase.table("shorts_production").update({
@@ -400,16 +400,157 @@ async def browser_status():
         return {"connected": False}
 
 
+@router.post("/upload-youtube/{producao_id}")
+async def upload_youtube(producao_id: int, background_tasks: BackgroundTasks):
+    """Faz upload do short pro YouTube como privado."""
+    result = db.supabase.table("shorts_production").select("*").eq("id", producao_id).single().execute()
+    if not result.data:
+        raise HTTPException(404, "Producao nao encontrada")
+
+    if result.data["status"] != "pronto":
+        raise HTTPException(400, "Producao nao esta pronta pra upload")
+
+    if result.data.get("youtube_video_id"):
+        raise HTTPException(400, "Ja foi enviado pro YouTube")
+
+    drive_link = result.data.get("drive_link", "")
+    video_path = os.path.join(drive_link, "video_final.mp4") if drive_link else ""
+    if not video_path or not os.path.exists(video_path):
+        raise HTTPException(400, f"video_final.mp4 nao encontrado em {drive_link}")
+
+    background_tasks.add_task(_run_youtube_upload_bg, producao_id, result.data, video_path)
+    return {"status": "uploading", "message": f"Upload iniciado para '{result.data['titulo']}'"}
+
+
+def _run_youtube_upload_bg(producao_id: int, production_data: dict, video_path: str):
+    """Faz upload do short pro YouTube em background."""
+    _production_status[producao_id] = "running"
+    _production_logs[producao_id] = []
+    log = _log_callback(producao_id)
+
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+
+        canal = production_data.get("canal", "")
+        titulo = production_data.get("titulo", "")
+        log(f"Upload YouTube: {titulo}")
+
+        # Buscar channel_id do YouTube pelo nome do canal (yt_channels)
+        canal_result = db.supabase.table("yt_channels").select(
+            "channel_id"
+        ).eq("channel_name", canal).eq("is_active", True).limit(1).execute()
+
+        if not canal_result.data:
+            log(f"ERRO: Canal '{canal}' nao encontrado em canais_monitorados")
+            _production_status[producao_id] = "error"
+            return
+
+        youtube_channel_id = canal_result.data[0]["channel_id"]
+        log(f"Canal YouTube: {youtube_channel_id}")
+
+        # Buscar metadata do producao_json
+        prod_json = production_data.get("producao_json", {})
+        descricao = prod_json.get("descricao", "")
+
+        # Upload via YouTubeUploader existente
+        from _features.yt_uploader.uploader import YouTubeUploader
+        uploader = YouTubeUploader()
+
+        result = uploader.upload_to_youtube(
+            channel_id=youtube_channel_id,
+            video_path=video_path,
+            metadata={
+                "titulo": titulo,
+                "descricao": descricao,
+            },
+            skip_playlist=True,
+            privacy_status="public",
+        )
+        log(f"Upload configurado: publico, sem playlist")
+
+        if result.get("success"):
+            video_id = result["video_id"]
+            db.supabase.table("shorts_production").update({
+                "youtube_video_id": video_id,
+                "status": "publicado",
+                "updated_at": datetime.utcnow().isoformat(),
+            }).eq("id", producao_id).execute()
+            log(f"https://youtube.com/shorts/{video_id}")
+            _production_status[producao_id] = "done"
+        else:
+            log(f"ERRO: Upload falhou - {result}")
+            _production_status[producao_id] = "error"
+
+    except Exception as e:
+        log(f"ERRO: {str(e)[:300]}")
+        _production_status[producao_id] = "error"
+
+
+@router.get("/canais-com-oauth")
+async def canais_com_oauth():
+    """Lista canais nossos que tem OAuth configurado."""
+    # Canais com OAuth (yt_channels tem channel_name, channel_id, subnicho, lingua)
+    oauth = db.supabase.table("yt_oauth_tokens").select("channel_id").execute()
+    oauth_ids = {r["channel_id"] for r in oauth.data}
+
+    # Canais nossos ativos (de yt_channels)
+    canais = db.supabase.table("yt_channels").select(
+        "channel_id, channel_name, subnicho, lingua"
+    ).eq("is_active", True).execute()
+
+    com_oauth = []
+    sem_oauth = []
+    for c in canais.data:
+        item = {
+            "channel_id": c["channel_id"],
+            "nome_canal": c["channel_name"],
+            "subnicho": c.get("subnicho", ""),
+            "lingua": c.get("lingua", ""),
+        }
+        if c["channel_id"] in oauth_ids:
+            com_oauth.append(item)
+        else:
+            sem_oauth.append(item)
+
+    return {"com_oauth": com_oauth, "sem_oauth": sem_oauth}
+
+
 @router.get("/subnichos")
 async def listar_subnichos():
     """Lista subnichos dos nossos canais."""
     result = db.supabase.table("canais_monitorados").select("subnicho").eq("tipo", "nosso").eq("status", "ativo").execute()
-    subnichos = sorted(set(item["subnicho"] for item in result.data if item.get("subnicho")))
-    return {"subnichos": subnichos}
+    EXCLUDED_SUBNICHOS = {"Lições de Vida", "Licoes de Vida", "Registros Malditos"}
+    SUBNICHO_ORDER = [
+        "Monetizados", "Reis Perversos", "Historias Sombrias", "Culturas Macabras",
+        "Relatos de Guerra", "Frentes de Guerra", "Guerras e Civilizações",
+        "Guerras e Civilizacoes", "Desmonetizados",
+    ]
+    all_subnichos = set(
+        item["subnicho"] for item in result.data
+        if item.get("subnicho") and item["subnicho"] not in EXCLUDED_SUBNICHOS
+    )
+    # Ordenar pela ordem do dashboard principal
+    ordered = [s for s in SUBNICHO_ORDER if s in all_subnichos]
+    remaining = sorted(all_subnichos - set(ordered))
+    return {"subnichos": ordered + remaining}
 
 
 @router.get("/canais")
 async def listar_canais(subnicho: str):
-    """Lista canais de um subnicho."""
+    """Lista canais de um subnicho, marcando quem tem OAuth."""
     result = db.supabase.table("canais_monitorados").select("id,nome_canal,subnicho,lingua").eq("tipo", "nosso").eq("status", "ativo").eq("subnicho", subnicho).execute()
-    return {"canais": result.data}
+
+    # Checar quais tem OAuth (comparar com yt_channels)
+    yt = db.supabase.table("yt_channels").select("channel_name").eq("is_active", True).execute()
+    yt_nomes = {c["channel_name"] for c in yt.data}
+
+    canais = []
+    for c in result.data:
+        c["has_oauth"] = c["nome_canal"] in yt_nomes
+        canais.append(c)
+
+    # OAuth primeiro, sem OAuth por ultimo
+    canais.sort(key=lambda c: (0 if c["has_oauth"] else 1, c["nome_canal"]))
+
+    return {"canais": canais}
