@@ -4152,7 +4152,7 @@ async def startup_event():
         logger.info("📅 Scheduling daily collection (NO startup collection)")
         asyncio.create_task(schedule_daily_collection())
         # asyncio.create_task(weekly_report_scheduler())  # DESATIVADO - Sistema de análise removido
-        asyncio.create_task(schedule_spreadsheet_scanner())
+        # asyncio.create_task(schedule_spreadsheet_scanner())  # DESATIVADO - Upload agora é via queue worker + webhook
 
         # Upload Queue Worker (isolado - falha não afeta main app)
         try:
