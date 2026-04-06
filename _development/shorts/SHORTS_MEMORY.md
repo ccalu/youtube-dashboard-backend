@@ -135,7 +135,63 @@
 
 ---
 
-## 6. Musica de Fundo
+## 6. Endpoints (shorts_endpoints.py)
+
+| Endpoint | O que faz |
+|----------|-----------|
+| `POST /gerar` | Gera script + prompts (background) |
+| `POST /produzir/{id}` | Pipeline completo: Freepik >> Remotion >> Drive (via fila) |
+| `POST /executar-freepik/{id}` | So Freepik (fallback) |
+| `POST /editar/{id}` | So Remotion + Drive (fallback) |
+| `POST /sugerir-temas` | GPT-4 Mini sugere 5 temas |
+| `GET /logs/{id}?after=N` | Logs em tempo real |
+| `POST /pausar/{id}` | Pausa producao |
+| `PATCH /producoes/{id}/status` | Muda status manual |
+| `DELETE /producoes/{id}` | Exclui do Supabase |
+| `GET /producoes` | Lista (filtro por status) |
+| `GET /browser-status` | Chrome conectado? |
+| `POST /inicializar-browser` | Abre Chrome + Freepik |
+| `GET /fila-producao` | Estado da fila (current + queue) |
+| `DELETE /fila-producao/{id}` | Remove da fila |
+
+Todos prefixados com `/api/shorts/`
+
+---
+
+## 7. Fila de Producao (production_queue.py)
+
+- **In-memory queue** + worker thread unico (1 por vez no Freepik)
+- Clicar "Produzir Tudo" em multiplos cards: primeiro executa, resto mostra "Na fila (X)"
+- Quando um termina, proximo comeca automaticamente
+- **Cancelar**: remove da fila se ainda nao comecou
+- **Endpoints**: `GET /fila-producao`, `DELETE /fila-producao/{id}`
+- **Frontend**: polling 5s atualiza posicao, transicao automatica queued >> running
+- **Servidor reinicia = fila zera** (aceitavel pra uso local)
+
+---
+
+## 8. Drive Upload
+
+- **Service Account**: `n8n-imagen-service@gen-lang-client-0170628359.iam.gserviceaccount.com`
+- **Pasta raiz**: `1_TiJ5NO_I-8E2_ocEiwWiJTXkl8NPWyb`
+- **Estrutura**: SHORTS/{subnicho}/{canal}/{titulo}/
+- **Arquivos**: video_final.mp4, producao.json, copy.txt, narracao.mp3
+- **Substitui** ao re-renderizar (nao duplica)
+- **Credenciais**: no .env (GOOGLE_SERVICE_ACCOUNT_JSON)
+
+---
+
+## 9. Ordenacao de Clips
+
+- Clips ordenados por **ID numerico do Freepik** no filename (ex: `_65802.mp4`)
+- IDs sao sequenciais pq colamos prompts na ordem 1-16
+- Menor ID = cena 1, maior ID = cena 16
+- Imagens sao backup, ordem nao importa
+- Implementado em `organizar_downloads()` no `freepik_automation.py`
+
+---
+
+## 10. Musica de Fundo
 
 | Pasta | Subnichos |
 |-------|-----------|
@@ -152,7 +208,7 @@
 
 ---
 
-## 7. Supabase — shorts_production
+## 11. Supabase — shorts_production
 
 | Campo | Tipo |
 |-------|------|
@@ -169,7 +225,7 @@
 
 ---
 
-## 8. Erros Que Podem Voltar
+## 12. Erros Que Podem Voltar
 
 | Erro | Causa | Solucao |
 |------|-------|---------|
@@ -180,7 +236,7 @@
 
 ---
 
-## 9. Proximos Passos
+## 13. Proximos Passos
 
 ### Pendente
 - [ ] Refinar qualidade do script/copywriting
