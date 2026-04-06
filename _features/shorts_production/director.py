@@ -1,10 +1,10 @@
 """
 Diretor de Cinema — gera prompts de imagem e animacao para cada cena.
 
-Recebe o script do Roteirista e gera 16 cenas com prompt de imagem
+Recebe o script do Roteirista e gera 14 cenas com prompt de imagem
 e prompt de animacao (Kling 2.5) pensados JUNTOS como storyboard.
 
-Output: Lista de 16 cenas com prompt_imagem + prompt_animacao.
+Output: Lista de 14 cenas com prompt_imagem + prompt_animacao.
 """
 
 import json
@@ -27,7 +27,7 @@ def generate_scenes(script: str, canal: str, subnicho: str, lingua: str, estilo_
         subnicho: Nome do subnicho
         lingua: Lingua do canal
         estilo_visual: Estilo visual do canal (do DIRETOR_DE_CINEMA.md)
-        total_cenas: Numero de cenas (default 16)
+        total_cenas: Numero de cenas (default 14)
 
     Returns:
         Lista de dicts com cena, prompt_imagem, prompt_animacao
@@ -73,7 +73,7 @@ Exemplo de raciocinio ERRADO:
 
 === COERENCIA VISUAL TOTAL ===
 
-TODAS as 16 cenas DEVEM pertencer ao MESMO universo visual:
+TODAS as cenas DEVEM pertencer ao MESMO universo visual:
 - Mesmo periodo historico (se e Viking, TUDO e Viking — roupas, armas, cenarios, materiais)
 - Mesmo estilo artistico (se comecou realista, TUDO realista. Se comecou pintura a oleo, TUDO pintura a oleo)
 - Mesma paleta de cor geral (pode variar iluminacao mas a identidade visual e UMA SO)
