@@ -1,10 +1,10 @@
 """
-Diretor de Cinema — gera prompts de imagem e animação para cada cena.
+Diretor de Cinema — gera prompts de imagem e animacao para cada cena.
 
-Recebe o script do Roteirista e gera 12 cenas com prompt de imagem (NanoBanana 2)
-e prompt de animação (MiniMax Hailuo 2.3 Fast) pensados JUNTOS.
+Recebe o script do Roteirista e gera 16 cenas com prompt de imagem
+e prompt de animacao (Kling 2.5) pensados JUNTOS como storyboard.
 
-Output: Lista de 12 cenas com prompt_imagem + prompt_animacao.
+Output: Lista de 16 cenas com prompt_imagem + prompt_animacao.
 """
 
 import json
@@ -14,20 +14,20 @@ from claude_llm_client import call_claude_cli
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """Você é um diretor de cinema para YouTube Shorts. Responda SOMENTE com JSON entre [JSON_START] e [JSON_END]. Sem markdown, sem explicação."""
+SYSTEM_PROMPT = """Voce e um diretor de cinema profissional criando storyboards para YouTube Shorts. Voce pensa IMAGEM e ANIMACAO juntos desde o inicio — cada cena e planejada como um take cinematografico completo. Responda SOMENTE com JSON entre [JSON_START] e [JSON_END]. Sem markdown, sem explicacao."""
 
 
-def generate_scenes(script: str, canal: str, subnicho: str, lingua: str, estilo_visual: str = "", total_cenas: int = 14) -> list:
+def generate_scenes(script: str, canal: str, subnicho: str, lingua: str, estilo_visual: str = "", total_cenas: int = 16) -> list:
     """
-    Gera prompts de imagem e animação para cada cena.
+    Gera prompts de imagem e animacao para cada cena.
 
     Args:
         script: Script narrado completo
         canal: Nome do canal
         subnicho: Nome do subnicho
-        lingua: Língua do canal
+        lingua: Lingua do canal
         estilo_visual: Estilo visual do canal (do DIRETOR_DE_CINEMA.md)
-        total_cenas: Número de cenas (default 12)
+        total_cenas: Numero de cenas (default 16)
 
     Returns:
         Lista de dicts com cena, prompt_imagem, prompt_animacao
@@ -39,29 +39,65 @@ Canal: {canal} | Estilo: {estilo_visual}
 Script:
 {script}
 
-REGRAS IMAGEM (NanoBanana 2, formato 9:16 vertical, 768x1344):
-- Prompts em INGLÊS, 80-150 palavras
-- OBRIGATÓRIO incluir "9:16 vertical format" ou "vertical portrait format 9:16" no prompt
-- Estrutura: estilo+plano, sujeito detalhado, ambiente, iluminação, color grade, "9:16 vertical portrait composition, no text, no watermark"
-- VARIAR ângulo/plano/iluminação entre cenas (nunca repetir consecutivo)
-- Cada imagem interessante SOZINHA
-- COMPLIANCE: sem violência gráfica explícita, sem nudez, sem gore. Usar eufemismos e atmosfera em vez de violência direta
+=== COMO PENSAR CADA CENA ===
 
-REGRAS ANIMAÇÃO (MiniMax Hailuo 2.3, 6s):
-- Prompts em INGLÊS, 30-60 palavras
-- NUNCA descrever a imagem, SÓ movimento
-- Estrutura: câmera movement → subject movement → atmospheric → mood
-- PROIBIDO: "8K", "masterpiece", quality boosters
-- Frases narrativas fluidas, verbos presente contínuo
+Voce e um diretor montando um STORYBOARD. Para cada cena, pense PRIMEIRO na acao/movimento que quer mostrar, DEPOIS construa a imagem que melhor serve como frame inicial dessa acao.
 
-Cena 1 = HOOK VISUAL (mais impactante). Pensar imagem+animação JUNTOS.
+Exemplo de raciocinio correto:
+- "Essa cena precisa mostrar o rei se levantando do trono com furia"
+- Entao a IMAGEM mostra o rei sentado, mao no apoio, corpo inclinando pra frente
+- E a ANIMACAO mostra ele se levantando, robes se movendo, mao batendo no apoio
+
+Exemplo de raciocinio ERRADO:
+- Gerar uma imagem bonita e depois inventar uma animacao qualquer pra ela
+- Isso gera desconexao entre imagem e movimento
+
+=== REGRAS IMAGEM (formato 9:16 vertical, 768x1344) ===
+- Prompts em INGLES, 80-150 palavras
+- OBRIGATORIO incluir "vertical 9:16 composition, no text, no watermark" no final
+- Estrutura: estilo+plano, sujeito detalhado, ambiente, iluminacao, color grade
+- VARIAR enquadramento/angulo/iluminacao entre TODAS as cenas — NUNCA repetir consecutivo
+- Cada imagem deve ser interessante SOZINHA (se pausar o video, a imagem prende atencao)
+- Variar TIPOS de cena: close-up, wide shot, detalhe de objeto, acao, ambiente, POV, grupo
+- COMPLIANCE: sem violencia grafica explicita, sem nudez, sem gore
+
+=== REGRAS ANIMACAO (Kling 2.5, clips de 5 segundos) ===
+- Prompts em INGLES, 30-40 palavras
+- NUNCA descrever o que ja esta na imagem — descrever APENAS o que MUDA e se MOVE
+- Movimentos de CORPO e ACAO reais: andar, virar, pegar, soltar, levantar, empurrar, olhar
+- Se a cena tem objeto/ambiente sem humano: animar O ELEMENTO PRINCIPAL (fogo, agua, objeto caindo, porta abrindo)
+- Cada uma das {total_cenas} animacoes DEVE ser UNICA — nunca repetir o mesmo tipo de movimento/acao entre cenas
+- Coerente com a imagem: so descrever movimentos que fazem sentido fisicamente com o que esta na imagem
+- PROIBIDO: inventar elementos que nao estao na imagem, efeitos fake (fumaca do nada, explosoes aleatorias), quality boosters ("8K", "masterpiece")
+- Dinamico e interessante, mas NAO exagerado ou irreal
+
+=== COERENCIA VISUAL TOTAL ===
+
+TODAS as 16 cenas DEVEM pertencer ao MESMO universo visual:
+- Mesmo periodo historico (se e Viking, TUDO e Viking — roupas, armas, cenarios, materiais)
+- Mesmo estilo artistico (se comecou realista, TUDO realista. Se comecou pintura a oleo, TUDO pintura a oleo)
+- Mesma paleta de cor geral (pode variar iluminacao mas a identidade visual e UMA SO)
+- NUNCA misturar elementos de epocas diferentes (nada moderno em cena historica)
+- NUNCA inserir objetos, roupas ou cenarios que nao existiriam naquele contexto
+- Cada cena deve parecer que faz parte do MESMO filme/documentario
+- Se o script fala de um povo/cultura especifica, TODOS os detalhes visuais devem ser fieis a essa cultura
+
+=== VARIEDADE OBRIGATORIA ===
+
+As {total_cenas} cenas DEVEM ter variedade em:
+1. Enquadramento: misturar extreme close-up, close-up, medium shot, wide shot, POV, overhead
+2. Tipo de cena: retrato, acao, objeto/detalhe, ambiente, grupo, simbolico
+3. Animacao: cada cena com tipo DIFERENTE de movimento (nao fazer 3 cenas seguidas de "pessoa virando a cabeca")
+4. Iluminacao: variar entre cenas (luz dramatica, natural, fogo, lua, amanhecer)
+
+Cena 1 = HOOK VISUAL (a mais impactante, faz o viewer parar de scrollar).
 
 Retorne SOMENTE:
 
 [JSON_START]
 {{
   "cenas": [
-    {{"cena": 1, "prompt_imagem": "Cinematic...", "prompt_animacao": "Slow..."}},
+    {{"cena": 1, "prompt_imagem": "...", "prompt_animacao": "..."}},
     ...exatamente {total_cenas} cenas
   ]
 }}

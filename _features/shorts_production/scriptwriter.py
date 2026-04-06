@@ -56,9 +56,9 @@ D) LISTICLE COM ESCALADA (2-3 itens)
 ## ESTRUTURA OBRIGATÓRIA DE 4 ATOS (todo script DEVE seguir)
 
 1. HOOK (parágrafos 1-2): Abre uma PERGUNTA implícita ou cena impossível. NUNCA entrega o que aconteceu — cria curiosidade pura.
-2. BUILD (parágrafos 3-9): Tensão CRESCENTE. Cada parágrafo aproxima da resposta sem entregar. O viewer sente que está chegando perto mas não sabe do quê.
-3. CLIMAX (parágrafos 10-12): O momento "holy shit". A cena mais forte, mais chocante, mais absurda do vídeo inteiro. Tudo converge aqui.
-4. PAYOFF (parágrafos 13-14): Fecha o LOOP com o hook. Reconecta com o início de forma INESPERADA. O viewer pensa "agora tudo faz sentido" ou "não acredito que acabou assim".
+2. BUILD (parágrafos 3-10): Tensão CRESCENTE. Cada parágrafo aproxima da resposta sem entregar. O viewer sente que está chegando perto mas não sabe do quê.
+3. CLIMAX (parágrafos 11-14): O momento "holy shit". A cena mais forte, mais chocante, mais absurda do vídeo inteiro. Tudo converge aqui.
+4. PAYOFF (parágrafos 15-16): Fecha o LOOP com o hook. Reconecta com o início de forma INESPERADA. O viewer pensa "agora tudo faz sentido" ou "não acredito que acabou assim".
 
 REGRA DE OURO: O PAYOFF deve reconectar com o HOOK. Se o hook abre uma pergunta, o payoff responde de forma surpreendente. Se o hook mostra uma cena, o payoff revela o que aconteceu depois de um jeito que ninguém esperava.
 
@@ -88,7 +88,8 @@ Use uma dessas duas formas:
 O script será narrado por Text-to-Speech. Portanto:
 - TODOS os números escritos POR EXTENSO: "dois" NÃO "2", "mil quinhentos" NÃO "1500"
 - Algarismos romanos SEMPRE por extenso: "Henrique oitavo" NÃO "Henrique VIII", "Luís décimo quarto" NÃO "Luís XIV"
-- Esta regra é APENAS para o campo "script". No TÍTULO e DESCRIÇÃO pode usar números e romanos normalmente.
+- Abreviacoes por extenso: "antes de Cristo" NÃO "a.C.", "depois de Cristo" NÃO "d.C."
+- Esta regra é APENAS para o campo "script". No TÍTULO e DESCRIÇÃO pode usar números, romanos e abreviações normalmente.
 """
 
 
@@ -185,7 +186,7 @@ Contexto do subnicho: {subnicho_desc}
 REGRAS DE FORMATO:
 - Script na língua "{lingua}". Título e descrição também em "{lingua}".
 - OBRIGATORIO: entre 850 e 1100 caracteres no campo "script" (menos que 850 fica curto demais, mais que 1100 fica longo demais)
-- OBRIGATÓRIO: 14 parágrafos = 14 cenas visuais (separe por \\n\\n)
+- OBRIGATÓRIO: 16 parágrafos = 16 cenas visuais (separe por \\n\\n)
 - Título: max 60 caracteres, curiosidade extrema
 - Descrição: 1-2 frases + 5 hashtags relevantes
 - NUNCA editorialize, só mostre fatos
@@ -203,10 +204,10 @@ Retorne SOMENTE:
 {{
   "titulo": "título max 60 chars",
   "descricao": "descrição com #hashtags",
-  "script": "texto narrado com 14 paragrafos separados por \\n\\n",
+  "script": "texto narrado com 16 paragrafos separados por \\n\\n",
   "estrutura": "tipo_escolhido",
   "music_category": "categoria_escolhida",
-  "total_cenas": 14
+  "total_cenas": 16
 }}
 [JSON_END]
 """

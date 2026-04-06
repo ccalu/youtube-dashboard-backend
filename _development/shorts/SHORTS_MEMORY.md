@@ -1,16 +1,19 @@
 # Shorts Factory — Memoria Completa
 
-> Ultima atualizacao: 2026-04-02
+> Ultima atualizacao: 2026-04-06
 
 ---
 
 ## Status Atual
 
-- **Pipeline E2E funcionando via Dashboard** (~13 min do zero ao video no Drive)
+- **Pipeline E2E funcionando via Dashboard** (~19 min do zero ao video no Drive)
+- **16 cenas × 5s** (Kling 2.5) — atualizado de 14×6s (MiniMax Hailuo)
 - **Playwright** (zero coordenadas, imune a zoom/scroll)
 - **Narracao 1.1x** como padrao
+- **Musica de fundo** com selecao por categoria, fade in 1s / fade out 2s
+- **Crossfade 0.5s** entre clips
 - **Drive upload automatico** (substitui se re-renderizar)
-- **Scriptwriter otimizado** (Joao + estrutura 4 atos)
+- **Diretor otimizado**: storyboard thinking, coerencia visual total, animacoes unicas por cena
 
 ---
 
@@ -19,30 +22,32 @@
 ```
 [Criacao] Seleciona subnicho >> canal >> tema >> "Gerar Producao"
     |
-    | Claude Opus (script 14 paragrafos) + Claude Sonnet (14 prompts img + 14 anim)
+    | Claude Opus (script 16 paragrafos, 850-1100 chars, music_category)
+    | Claude Sonnet (16 prompts img + 16 anim, storyboard thinking)
     | Salva producao.json + INSERT Supabase (status: producao)
     |
 [Producao] "Produzir Tudo" (1 clique = Freepik + Remotion + Drive)
     |
-    | Playwright: limpa >> cola 14+14+narracao >> voz >> "Iniciar a partir daqui"
-    | Espera ~9 min + 90s >> baixa ZIPs >> organiza (reverse, dedup, rename)
+    | Playwright: limpa >> cola 16+16+narracao >> voz >> "Iniciar a partir daqui"
+    | Espera ~12 min + 4 min seguranca >> baixa ZIPs >> organiza (ID numerico)
     | UPDATE status = "edicao"
     |
 [Edicao] Card migra automaticamente, detecta Remotion rodando
     |
-    | ffmpeg 1.1x >> Whisper >> Remotion render >> Drive upload
-    | UPDATE status = "pronto" + drive_url
+    | ffmpeg 1.1x >> Musica (categoria + canal) >> Whisper >> Remotion render
+    | Crossfade 0.5s entre clips + musica fade in 1s / out 2s
+    | Drive upload >> UPDATE status = "pronto" + drive_url
     |
 [Prontos] Botao "Drive" abre pasta no Google Drive
 ```
 
-### Tempos
+### Tempos (16 cenas, Kling 2.5)
 | Passo | Tempo |
 |-------|-------|
-| Script + Prompts | ~97s |
-| Freepik | ~9 min |
-| Remotion + Drive | ~2 min |
-| **TOTAL** | **~13 min** |
+| Script + Prompts | ~94s |
+| Freepik (16 imgs + 16 vids + nar) | ~15 min |
+| Remotion + Drive | ~2.5 min |
+| **TOTAL** | **~19 min** |
 
 ---
 
@@ -62,12 +67,12 @@
 1. **ZERO coordenadas** — tudo via data-id + dispatchEvent + element.click() + focus()
 2. **Limpar lista**: right-click via dispatchEvent no ID INTERNO (nao wrapper)
 3. **Colar prompts**: dispatchEvent "Adicionar texto" >> focus tiptap >> insert_text + Enter
-4. **Verificacao**: checa count apos colar, re-tenta com wait 600ms se < 14
+4. **Verificacao**: checa count apos colar, re-tenta com wait 600ms se < 16
 5. **Executar**: SEMPRE "Iniciar a partir daqui" (NUNCA "Todo o fluxo")
-6. **Download**: `page.expect_download()` + `download.save_as()` (CDP nao salva em artifacts)
-7. **Ordem reversa**: sorted(reverse=True) + nomes tmp_XX (evita conflito Windows)
-8. **Esperar 90s** apos 14 videos antes de baixar
-9. **Tolerancia**: aceita 13+ imagens/clips
+6. **Download**: `page.expect_download()` + `download.save_as()`
+7. **Ordenacao clips**: por ID numerico do Freepik (sequencial)
+8. **Esperar 4 min** apos 16 videos antes de baixar (Kling 2.5 demora mais)
+9. **Tolerancia**: aceita 15+ imagens/clips
 
 ### Vozes por Lingua
 | Lingua | Voz |
@@ -89,12 +94,13 @@
 ## 3. Remotion Editor
 
 1. **ffmpeg atempo=1.1** >> narracao_fast.mp3
-2. **Musica de fundo** >> selecionada por categoria (music_selector.py), volume 0.6
+2. **Musica de fundo** >> selecionada por categoria, volume 0.5, fade in 1s / out 2s
 3. **Whisper medium** >> captions.json (word timestamps)
-4. **Clip timings** >> duracao de cada clip baseada nos paragrafos do script (busca ultima palavra de cada paragrafo no Whisper, corta no meio da pausa)
-5. **Remotion render** >> video_final.mp4 (1080x1920, 30fps, calculateMetadata)
-6. **Drive upload** >> Service Account, substitui se ja existe
-7. Retorna `{video_path, drive_url}` >> backend salva no Supabase
+4. **Clip timings** >> duracao baseada nos paragrafos (busca ultima palavra no Whisper)
+5. **Crossfade 0.5s** entre clips (fade in opacity)
+6. **Remotion render** >> video_final.mp4 (1080x1920, 30fps, calculateMetadata)
+7. **playbackRate**: 5/clipDuration (clips de 5s do Kling 2.5)
+8. **Drive upload** >> Service Account, substitui se ja existe
 
 ### Cores de Highlight
 | Subnicho | Hex |
@@ -106,104 +112,31 @@
 
 ---
 
-## 4. Endpoints (shorts_endpoints.py)
+## 4. Director (director.py) — Regras Chave
 
-| Endpoint | O que faz |
-|----------|-----------|
-| `POST /gerar` | Gera script + prompts (background) |
-| `POST /produzir/{id}` | Pipeline completo: Freepik >> Remotion >> Drive |
-| `POST /executar-freepik/{id}` | So Freepik (fallback) |
-| `POST /editar/{id}` | So Remotion + Drive (fallback) |
-| `POST /sugerir-temas` | GPT-4 Mini sugere 5 temas |
-| `GET /logs/{id}?after=N` | Logs em tempo real |
-| `POST /pausar/{id}` | Pausa producao |
-| `PATCH /producoes/{id}/status` | Muda status manual |
-| `DELETE /producoes/{id}` | Exclui do Supabase |
-| `GET /producoes` | Lista (filtro por status) |
-| `GET /browser-status` | Chrome conectado? |
-| `POST /inicializar-browser` | Abre Chrome + Freepik |
-| `GET /fila-producao` | Estado da fila (current + queue) |
-| `DELETE /fila-producao/{id}` | Remove da fila |
-
-Todos prefixados com `/api/shorts/`
+- **Storyboard thinking**: pensa ACAO primeiro, depois constroi imagem como frame inicial
+- **Coerencia visual total**: mesmo periodo, mesmo estilo, mesma paleta, nada fora do contexto
+- **16 animacoes UNICAS**: nunca repetir tipo de movimento entre cenas
+- **Animacao pro Kling 2.5**: 30-40 palavras, so movimento, nunca descrever a imagem
+- **Anima qualquer elemento**: pessoa, objeto, ambiente — o que fizer sentido
+- **Dinamico mas real**: sem efeitos fake, sem alucinacoes, sem exageros
+- **Variedade**: enquadramento, tipo de cena, iluminacao, tudo diferente entre as 16
 
 ---
 
-## 5. Supabase — shorts_production
+## 5. Scriptwriter (scriptwriter.py)
 
-| Campo | Tipo |
-|-------|------|
-| id | serial |
-| canal, canal_id | text, int |
-| subnicho, lingua | text |
-| titulo, estrutura | text |
-| producao_json | jsonb (script + 14 cenas) |
-| drive_link | text (caminho local) |
-| drive_url | text (URL Google Drive) |
-| status | text (producao / edicao / pronto) |
-| created_at, updated_at | timestamptz |
+- **16 paragrafos**, 850-1100 chars
+- **4 atos**: HOOK (1-2) >> BUILD (3-10) >> CLIMAX (11-14) >> PAYOFF (15-16)
+- **music_category**: escolhe categoria de musica baseado no tom
+- **TTS**: numeros por extenso, "antes de Cristo" nao "a.C."
+- **Retencao natural**: sem frases template
+- **Finalizacao**: Open Loop ou Twist Final (sem CTA)
 
 ---
 
-## 6. Scriptwriter — Estrutura do Prompt
+## 6. Musica de Fundo
 
-- **6 tipos de hook**: Dilema, Claim Chocante, Superlativo, Did You Know, Pergunta, Listicle
-- **4 atos obrigatorios**: HOOK (1-2) >> BUILD (3-9) >> CLIMAX (10-12) >> PAYOFF (13-14)
-- **Regra de ouro**: Payoff reconecta com o Hook (loop fechado)
-- **Retencao natural**: sem frases template, tensao vem do storytelling
-- **Finalizacao**: Open Loop ou Twist Final (NUNCA CTA explicito)
-- **TTS**: numeros por extenso no script, normais no titulo/descricao
-- **Max**: 800 chars, 14 paragrafos
-
----
-
-## 7. Drive Upload
-
-- **Service Account**: `n8n-imagen-service@gen-lang-client-0170628359.iam.gserviceaccount.com`
-- **Pasta raiz**: `1_TiJ5NO_I-8E2_ocEiwWiJTXkl8NPWyb`
-- **Estrutura**: SHORTS/{subnicho}/{canal}/{titulo}/
-- **Arquivos**: video_final.mp4, producao.json, copy.txt, narracao.mp3
-- **Substitui** ao re-renderizar (nao duplica)
-
----
-
-## 8. Erros Que Podem Voltar
-
-| Erro | Causa | Solucao |
-|------|-------|---------|
-| Prompts incompletos (< 14) | Freepik perde foco | Retry automatico com wait 600ms |
-| "Execution context destroyed" | Pagina recarregou | Retry 3x + wait_for_selector |
-| Videos incompletos ao baixar | Baixou cedo demais | Esperar 90s extra |
-| Imagens duplicadas | "Todo o fluxo" em vez de "Iniciar a partir daqui" | NUNCA usar "Todo o fluxo" |
-| CDP nao salva downloads | Playwright via CDP | Usar expect_download + save_as |
-
----
-
-## 9. Fila de Producao (production_queue.py)
-
-- **In-memory queue** + worker thread unico (1 por vez no Freepik)
-- Clicar "Produzir Tudo" em multiplos cards: primeiro executa, resto mostra "Na fila (X)"
-- Quando um termina, proximo comeca automaticamente
-- **Cancelar**: remove da fila se ainda nao comecou
-- **Endpoints**: `GET /fila-producao`, `DELETE /fila-producao/{id}`
-- **Frontend**: polling 5s atualiza posicao, transicao automatica queued >> running
-- **Servidor reinicia = fila zera** (aceitavel pra uso local)
-
----
-
-## 10. Ordenacao de Clips
-
-- Clips ordenados por **ID numerico do Freepik** no filename (ex: `_65802.mp4`)
-- IDs sao sequenciais pq colamos prompts na ordem 1-14
-- Menor ID = cena 1, maior ID = cena 14
-- Imagens sao backup, ordem nao importa
-- Implementado em `organizar_downloads()` no `freepik_automation.py`
-
----
-
-## 11. Musica de Fundo
-
-### Pastas
 | Pasta | Subnichos |
 |-------|-----------|
 | Musicas 02 | Guerras e Civilizacoes |
@@ -211,38 +144,49 @@ Todos prefixados com `/api/shorts/`
 | Musicas 05 | Reis Perversos, Historias Sombrias, Culturas Macabras |
 | Musicas 06 | Monetizados (Mansoes) |
 
-### Categorias (variam por subnicho)
-battle, cinematic, documentary, emotional, military, suspense, tension, court, dramatic, ecclesiastical, horror, decay, grandeur
-
-### Como funciona
-- **Scriptwriter** escolhe `music_category` baseado no tom do script
-- **music_selector.py** pega track aleatoria dessa categoria
-- **Controle de repeticao por canal** via Supabase (campo `music_track`)
-- Quando esgota todas do canal, reinicia ciclo
-- Delete do Supabase libera a track
-- **Volume**: 0.5 (testado no celular e fone)
-- Musica no Remotion: `<Audio src={musicPath} volume={0.5} />`
-
-### Base: `C:\Users\PC\Downloads\SHORTS\MUSICAS-SHORTS`
+- Scriptwriter escolhe `music_category` baseado no tom do script
+- Categorias com descricoes (nao engessadas, sao referencia)
+- Controle de repeticao por canal via Supabase (`music_track`)
+- Volume: 0.5 | Fade in: 1s | Fade out: 2s
+- Base: `C:\Users\PC\Downloads\SHORTS\MUSICAS-SHORTS`
 
 ---
 
-## 12. Script (scriptwriter.py)
+## 7. Supabase — shorts_production
 
-- **Chars**: 850-1100 (obrigatorio)
-- **music_category**: scriptwriter escolhe com base no tom do script
-- Categorias com descricoes pra orientar (nao engessadas)
+| Campo | Tipo |
+|-------|------|
+| id | serial |
+| canal, canal_id | text, int |
+| subnicho, lingua | text |
+| titulo, estrutura | text |
+| producao_json | jsonb (script + 16 cenas) |
+| drive_link | text (caminho local) |
+| drive_url | text (URL Google Drive) |
+| music_track | text (nome do arquivo mp3) |
+| status | text (producao / edicao / pronto) |
+| created_at, updated_at | timestamptz |
 
 ---
 
-## 13. Proximos Passos
+## 8. Erros Que Podem Voltar
 
-### Aguardando Joao
-- [ ] Prompts visuais otimizados (director.py) — pacote enviado: PACOTE_DIRETOR_COMPLETO.md
-- [ ] Possivel troca de modelo de video no Freepik
+| Erro | Causa | Solucao |
+|------|-------|---------|
+| Prompts incompletos | Freepik perde foco | Retry com wait 600ms |
+| Videos incompletos | Baixou cedo (Kling demora mais) | Esperar 4 min |
+| Musica nao selecionada | dotenv nao carregado | load_dotenv() antes do SupabaseClient |
+| Cenas fora do contexto | Diretor misturou estilos | Regra coerencia visual total |
+
+---
+
+## 9. Proximos Passos
+
+### Pendente
+- [ ] Refinar qualidade do script/copywriting
+- [ ] Testar com mais subnichos e linguas
 
 ### Futuro
 - [ ] Upload pro YouTube via API
-- [ ] Tunnel/Deploy (quando precisar acesso externo)
+- [ ] Tunnel/Deploy (acesso externo)
 - [ ] Script de setup pra outros PCs
-- [ ] Legendas com numeros formatados

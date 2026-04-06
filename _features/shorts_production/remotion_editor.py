@@ -105,6 +105,8 @@ def edit_short(production_path: str, subnicho: str = "", log_callback=None) -> s
         canal = _prod.get("canal", "")
 
         try:
+            from dotenv import load_dotenv
+            load_dotenv()
             from _features.shorts_production.music_selector import select_music
             from database import SupabaseClient
             _db = SupabaseClient()
