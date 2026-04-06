@@ -240,13 +240,22 @@ Todos prefixados com `/api/shorts/`
 
 ---
 
-## 13. Proximos Passos
+## 13. YouTube Upload
 
-### Pendente
-- [ ] Refinar qualidade do script/copywriting
-- [ ] Testar com mais subnichos e linguas
+- Upload via `YouTubeUploader.upload_to_youtube()` existente
+- **Shorts**: `skip_playlist=True, privacy_status="public"` (publico, sem playlist)
+- **Videos longos**: parametros padrao `skip_playlist=False, privacy_status="private"` (inalterado)
+- Busca `channel_id` em `yt_channels` pelo `channel_name`
+- Marca como `containsSyntheticMedia: True` (IA)
+- Apos upload: salva `youtube_video_id` + status "publicado" no Supabase
+- **Endpoint**: `POST /api/shorts/upload-youtube/{id}`
+- **Dashboard**: aba Upload com cards por canal, historico, canais sem OAuth
+
+---
+
+## 14. Proximos Passos
 
 ### Futuro
-- [ ] Upload pro YouTube via API
 - [ ] Tunnel/Deploy (acesso externo)
 - [ ] Script de setup pra outros PCs
+- [ ] Feedback loop de performance (analytics >> melhorar scripts)
