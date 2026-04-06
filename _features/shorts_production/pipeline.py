@@ -82,12 +82,12 @@ def run_production(topic: str, canal: str, canal_id: int, subnicho: str, lingua:
         subnicho=subnicho,
         lingua=lingua,
         estilo_visual=estilo_visual,
-        total_cenas=script_data.get("total_cenas", 16),
+        total_cenas=script_data.get("total_cenas", 14),
     )
 
     # Validar output do diretor
-    if len(cenas) != 16:
-        raise RuntimeError(f"Diretor gerou {len(cenas)} cenas (devem ser exatamente 16)")
+    if len(cenas) != 14:
+        raise RuntimeError(f"Diretor gerou {len(cenas)} cenas (devem ser exatamente 14)")
     for i, cena in enumerate(cenas):
         if not cena.get("prompt_imagem") or not cena.get("prompt_animacao"):
             raise RuntimeError(f"Cena {i+1} sem prompt de imagem ou animação")

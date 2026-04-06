@@ -538,7 +538,7 @@ def organizar_downloads(dest_path: str):
     n_clips = len(glob.glob(os.path.join(dest_path, "clips", "cena_*.mp4")))
     logger.info(f"Organizado: {n_imgs} imagens, {n_clips} clips")
 
-    if n_imgs < 16 or n_clips < 16:
+    if n_imgs < 14 or n_clips < 14:
         logger.warning(f"ATENÇÃO: faltam assets! ({n_imgs} imgs, {n_clips} clips)")
 
 
@@ -611,7 +611,7 @@ def run_freepik_production(producao_json_path: str, log_callback: Optional[Calla
         }}""")
         log(f"Verificação: {img_count} prompts img, {anim_count} prompts anim")
 
-        if img_count < 16 or anim_count < 16:
+        if img_count < 14 or anim_count < 14:
             log(f"ERRO: prompts incompletos ({img_count} img, {anim_count} anim). Abortando.")
             browser.close()
             return False
@@ -644,11 +644,11 @@ def run_freepik_production(producao_json_path: str, log_callback: Optional[Calla
             status = verificar_status(page)
             log(f"Status: {status['imagens']} imgs, {status['videos']} vids, nar={status['narracao']}")
 
-            if status["imagens"] >= 16 and status["videos"] >= 16 and status["narracao"]:
+            if status["imagens"] >= 14 and status["videos"] >= 14 and status["narracao"]:
                 log("16+16+nar OK. Esperando 4 min pra confirmar renderizacao...")
                 time.sleep(240)
                 status2 = verificar_status(page)
-                if status2["imagens"] >= 16 and status2["videos"] >= 16 and status2["narracao"]:
+                if status2["imagens"] >= 14 and status2["videos"] >= 14 and status2["narracao"]:
                     log("TUDO PRONTO!")
                     break
                 log("Ainda processando...")
@@ -685,7 +685,7 @@ def run_freepik_production(producao_json_path: str, log_callback: Optional[Calla
     log(f"Resultado: {n_imgs} imgs, {n_clips} clips, audio={'OK' if has_audio else 'FALTANDO'}")
     log(f"=== PRODUÇÃO COMPLETA: {data['titulo']} ===")
 
-    return n_imgs >= 15 and n_clips >= 15 and has_audio
+    return n_imgs >= 13 and n_clips >= 13 and has_audio
 
 
 if __name__ == "__main__":

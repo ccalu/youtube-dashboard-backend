@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 SYSTEM_PROMPT = """Voce e um diretor de cinema profissional criando storyboards para YouTube Shorts. Voce pensa IMAGEM e ANIMACAO juntos desde o inicio — cada cena e planejada como um take cinematografico completo. Responda SOMENTE com JSON entre [JSON_START] e [JSON_END]. Sem markdown, sem explicacao."""
 
 
-def generate_scenes(script: str, canal: str, subnicho: str, lingua: str, estilo_visual: str = "", total_cenas: int = 16) -> list:
+def generate_scenes(script: str, canal: str, subnicho: str, lingua: str, estilo_visual: str = "", total_cenas: int = 14) -> list:
     """
     Gera prompts de imagem e animacao para cada cena.
 

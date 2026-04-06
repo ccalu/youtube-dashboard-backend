@@ -1,8 +1,8 @@
 """
-Roteirista de Shorts — gera título, descrição, script e estimativa de cenas.
+Roteirista de Shorts — gera titulo, descricao, script e estimativa de cenas.
 
 Usa Claude CLI (plano Max) para gerar o script completo.
-Output: JSON com titulo, descricao, script, estrutura, total_cenas.
+Output: JSON com titulo, descricao, script, estrutura, total_cenas, music_category.
 """
 
 import json
@@ -12,85 +12,7 @@ from claude_llm_client import call_claude_cli
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """Você é um roteirista especialista em YouTube Shorts virais. Você estudou centenas de shorts com milhões de views e domina os padrões que prendem a atenção do espectador do primeiro ao último segundo. Responda SOMENTE com JSON entre [JSON_START] e [JSON_END]. Sem markdown, sem explicação.
-
-=== SEU CÉREBRO DE ROTEIRISTA ===
-
-## TIPOS DE HOOK (primeira frase do script)
-O hook NUNCA resume o vídeo. Ele abre um LOOP DE CURIOSIDADE que só se resolve no final.
-
-1. DILEMA IMPOSSÍVEL — Apresenta duas opções extremas e pergunta ao viewer.
-   Ex: "Um avô chinês recebeu duas opções: trair as próprias netas ou pular pra morte num rio. O que você acha que ele fez?"
-
-2. CLAIM CHOCANTE — Afirmação absurda que parece mentira.
-   Ex: "Essa rainha obrigava homens a duelar até a morte antes de dormir com o vencedor."
-
-3. SUPERLATIVO ÚNICO — Algo que foi o único/primeiro/último a acontecer.
-   Ex: "Essa mulher foi a única freira a ter a cabeça espetada numa lança na Ponte de Londres."
-
-4. DID YOU KNOW — Fato bizarro que ninguém conhece.
-   Ex: "Você sabia que pessoas baixas não podiam ser presas na China antiga?"
-
-5. PERGUNTA INTERATIVA — Envolve o viewer numa escolha.
-   Ex: "Qual dessas mulheres você levaria pra um encontro?"
-
-6. LISTICLE DIRETO — Apresenta o tema como lista com promessa de absurdo.
-   Ex: "Três crianças que receberam poder demais cedo demais."
-
-Escolha o tipo de hook que MELHOR se encaixa no tema. Varie entre os tipos.
-
-## ESTRUTURAS NARRATIVAS (escolha UMA por script)
-
-A) DILEMA → CONTEXTO → RETORNO
-   Abre com escolha impossível. Explica como chegaram lá. Volta ao dilema sem resolver 100%.
-
-B) ESCALADA DE CHOQUE
-   Cada parágrafo é mais absurdo que o anterior. O viewer pensa "não tem como piorar" — e piora.
-
-C) ASCENSÃO E QUEDA
-   Pessoa comum ganha fama ou poder. Conflito com alguém maior. Destruição.
-
-D) LISTICLE COM ESCALADA (2-3 itens)
-   Cada item mais bizarro que o anterior. Cada item é uma mini-história com punchline própria.
-
-## ESTRUTURA OBRIGATÓRIA DE 4 ATOS (todo script DEVE seguir)
-
-1. HOOK (parágrafos 1-2): Abre uma PERGUNTA implícita ou cena impossível. NUNCA entrega o que aconteceu — cria curiosidade pura.
-2. BUILD (parágrafos 3-10): Tensão CRESCENTE. Cada parágrafo aproxima da resposta sem entregar. O viewer sente que está chegando perto mas não sabe do quê.
-3. CLIMAX (parágrafos 11-14): O momento "holy shit". A cena mais forte, mais chocante, mais absurda do vídeo inteiro. Tudo converge aqui.
-4. PAYOFF (parágrafos 15-16): Fecha o LOOP com o hook. Reconecta com o início de forma INESPERADA. O viewer pensa "agora tudo faz sentido" ou "não acredito que acabou assim".
-
-REGRA DE OURO: O PAYOFF deve reconectar com o HOOK. Se o hook abre uma pergunta, o payoff responde de forma surpreendente. Se o hook mostra uma cena, o payoff revela o que aconteceu depois de um jeito que ninguém esperava.
-
-## RETENÇÃO E COPY
-- O engajamento vem da HISTÓRIA, não de fórmulas. NUNCA use frases de transição genéricas ou templates prontos.
-- A tensão deve vir NATURALMENTE do storytelling — cada frase existe porque a anterior criou necessidade dela.
-- Se precisar de uma frase tipo "mas fica pior" pra manter atenção, o script está fraco. Reescreva.
-- Tom conversacional e direto. Presente narrativo ("ele morre", não "ele morreu").
-- Traduzir números em algo tangível ("o que um artesão ganhava em dez anos").
-- Humor negro sutil — descrever horror de forma understated.
-- Contraste dramático — justapor normalidade com absurdo.
-- MENOS TEXTO, MAIS IMPACTO. Zero floreio. Cada palavra merece estar ali.
-
-## FINALIZAÇÃO (últimas 1-2 frases)
-NUNCA use CTA explícito ("se inscreva", "curta", "comenta"). O engajamento vem do conteúdo.
-Use uma dessas duas formas:
-
-1. OPEN LOOP — Não resolve completamente. Viewer comenta.
-   Ex: "Eu te deixo adivinhar o que aconteceu depois."
-   Ex: "Agora imagina o que fizeram com ele na manhã seguinte."
-
-2. TWIST FINAL — Último fato é o mais absurdo do vídeo inteiro.
-   Ex: "Ela só desfez o harém aos setenta e cinco anos. E casou com o membro mais jovem."
-   Ex: "Ele fez um tribunal militar formal pro rato. E condenou o rato à morte."
-
-## REGRA CRÍTICA DE NARRAÇÃO (TTS)
-O script será narrado por Text-to-Speech. Portanto:
-- TODOS os números escritos POR EXTENSO: "dois" NÃO "2", "mil quinhentos" NÃO "1500"
-- Algarismos romanos SEMPRE por extenso: "Henrique oitavo" NÃO "Henrique VIII", "Luís décimo quarto" NÃO "Luís XIV"
-- Abreviacoes por extenso: "antes de Cristo" NÃO "a.C.", "depois de Cristo" NÃO "d.C."
-- Esta regra é APENAS para o campo "script". No TÍTULO e DESCRIÇÃO pode usar números, romanos e abreviações normalmente.
-"""
+SYSTEM_PROMPT = """Voce e um roteirista profissional de YouTube Shorts virais de historia. Voce entende POR QUE as coisas funcionam e aplica de forma criativa. Responda SOMENTE com JSON entre [JSON_START] e [JSON_END]. Sem markdown, sem explicacao."""
 
 
 MUSIC_CATEGORIES = {
@@ -147,7 +69,7 @@ CATEGORY_DESCRIPTIONS = {
 
 
 def _get_music_categories(subnicho: str) -> str:
-    """Retorna categorias de música com descrições pro subnicho."""
+    """Retorna categorias de musica com descricoes pro subnicho."""
     info = MUSIC_CATEGORIES.get(subnicho)
     if not info:
         return "Categorias: tension, emotional, dramatic, suspense"
@@ -166,48 +88,63 @@ def write_script(topic: str, canal: str, subnicho: str, lingua: str, subnicho_de
         topic: Tema do Short
         canal: Nome do canal
         subnicho: Nome do subnicho
-        lingua: Língua do canal (ex: "Português", "Inglês")
-        subnicho_desc: Descrição do subnicho (do SUBNICHOS.md)
-        titulos_ref: Títulos de referência do canal
+        lingua: Lingua do canal (ex: "Portugues", "Ingles")
+        subnicho_desc: Descricao do subnicho (do SUBNICHOS.md)
+        titulos_ref: Titulos de referencia do canal
 
     Returns:
-        Dict com titulo, descricao, script, estrutura, total_cenas
+        Dict com titulo, descricao, script, estrutura, total_cenas, music_category
     """
     ref_block = ""
     if titulos_ref:
-        ref_block = f"\nTítulos de referência do canal (use como inspiração de tom e estilo):\n{titulos_ref}\n"
+        ref_block = f"\nTitulos de referencia do canal (use como inspiracao de tom e estilo):\n{titulos_ref}\n"
 
     user_prompt = f"""Crie um script de YouTube Short completo.
 
-Canal: {canal} | Subnicho: {subnicho} | Língua: {lingua} | Tema: {topic}
+Canal: {canal} | Subnicho: {subnicho} | Lingua: {lingua} | Tema: {topic}
 
 Contexto do subnicho: {subnicho_desc}
 {ref_block}
-REGRAS DE FORMATO:
-- Script na língua "{lingua}". Título e descrição também em "{lingua}".
-- OBRIGATORIO: entre 850 e 1100 caracteres no campo "script" (menos que 850 fica curto demais, mais que 1100 fica longo demais)
-- OBRIGATÓRIO: 16 parágrafos = 16 cenas visuais (separe por \\n\\n)
-- Título: max 60 caracteres, curiosidade extrema
-- Descrição: 1-2 frases + 5 hashtags relevantes
-- NUNCA editorialize, só mostre fatos
 
-Aplique TUDO que você sabe sobre hooks, estrutura narrativa, técnicas de retenção, copy e finalização. Escolha o tipo de hook e a estrutura narrativa que melhor se encaixam no tema.
+=== FILOSOFIA ===
 
-No campo "estrutura", indique qual você usou: "dilema", "escalada", "ascensao_queda" ou "listicle".
+Um short viral e uma EXPERIENCIA de 60 segundos. Cada frase cria uma IMAGEM na cabeca do viewer.
+"Ele era poderoso" = nada. "Ele decidia quem vivia e quem morria antes do cafe da manha" = cena.
+Tom: conversacional e direto, como se estivesse contando a historia pra um amigo. NAO e texto academico nem formal demais — e narrado, falado, humano. Use linguagem do dia a dia sem ser vulgar.
 
-MÚSICA DE FUNDO: escolha a categoria que melhor combina com o tom do script.
+GANCHO (frases 1-2): abre LOOP que so fecha no final. Escolha o tipo que MELHOR serve o angulo do tema (cena impossivel, promessa de choque, pergunta com gap, segredo revelado, contraste extremo). O gancho DEVE ser congruente com a energia do tema — se e brutalidade, promete algo perturbador, nao uma curiosidade famosa.
+
+CORPO: cada frase EMPURRA a narrativa. Se tirar e nada muda, deletar. Contexto carrega tensao junto ("Subiu ao trono com dezessete anos. Ninguem imaginava que em tres anos Roma estaria em chamas."). Ritmo variado: curta (impacto), longa (construcao), curta (virada). Tensao ESCALA.
+
+CLIMAX: UM MOMENTO especifico, nao resumo. Mostre a cena.
+
+FECHAMENTO: fecha o loop do gancho. Variar: loop fechado, twist, reflexao, ou CTA natural (as vezes).
+
+TTS: numeros por extenso no script. Anos COMPLETOS ("mil novecentos e quarenta e dois" NAO "quarenta e dois"). Titulo e descricao podem usar numeros normais.
+
+FORMATO:
+- Script na lingua "{lingua}". Titulo e descricao tambem em "{lingua}".
+- OBRIGATORIO: entre 800 e 900 caracteres no campo "script"
+- OBRIGATORIO: 14 paragrafos separados por \\n\\n (cada paragrafo = 1 cena visual de ~5s)
+- Titulo: max 60 caracteres, curiosidade extrema
+- Descricao: 1-2 frases + 5 hashtags relevantes
+- O video final tera ~60 segundos — cada palavra conta
+
+Aplique toda sua filosofia de roteiro: gancho que abre loop, cada frase empurra a narrativa, tensao escalando, climax como MOMENTO especifico, fechamento que completa o ciclo. Crie algo que o viewer NAO CONSEGUE parar de assistir.
+
+MUSICA DE FUNDO: escolha a categoria que melhor combina com o tom do script.
 {_get_music_categories(subnicho)}
 
 Retorne SOMENTE:
 
 [JSON_START]
 {{
-  "titulo": "título max 60 chars",
-  "descricao": "descrição com #hashtags",
-  "script": "texto narrado com 16 paragrafos separados por \\n\\n",
-  "estrutura": "tipo_escolhido",
+  "titulo": "titulo max 60 chars",
+  "descricao": "descricao com #hashtags",
+  "script": "texto narrado com 14 paragrafos separados por \\n\\n",
+  "estrutura": "tipo_de_gancho_usado",
   "music_category": "categoria_escolhida",
-  "total_cenas": 16
+  "total_cenas": 14
 }}
 [JSON_END]
 """

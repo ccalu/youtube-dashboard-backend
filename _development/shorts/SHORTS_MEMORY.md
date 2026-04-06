@@ -7,7 +7,7 @@
 ## Status Atual
 
 - **Pipeline E2E funcionando via Dashboard** (~19 min do zero ao video no Drive)
-- **16 cenas × 5s** (Kling 2.5) — atualizado de 14×6s (MiniMax Hailuo)
+- **14 cenas × 5s** (Kling 2.5) — ~60s de video
 - **Playwright** (zero coordenadas, imune a zoom/scroll)
 - **Narracao 1.1x** como padrao
 - **Musica de fundo** com selecao por categoria, fade in 1s / fade out 2s
@@ -22,14 +22,14 @@
 ```
 [Criacao] Seleciona subnicho >> canal >> tema >> "Gerar Producao"
     |
-    | Claude Opus (script 16 paragrafos, 850-1100 chars, music_category)
-    | Claude Sonnet (16 prompts img + 16 anim, storyboard thinking)
+    | Claude Opus (script 14 paragrafos, 800-900 chars, music_category)
+    | Claude Sonnet (14 prompts img + 14 anim, storyboard thinking)
     | Salva producao.json + INSERT Supabase (status: producao)
     |
 [Producao] "Produzir Tudo" (1 clique = Freepik + Remotion + Drive)
     |
-    | Playwright: limpa >> cola 16+16+narracao >> voz >> "Iniciar a partir daqui"
-    | Espera ~12 min + 4 min seguranca >> baixa ZIPs >> organiza (ID numerico)
+    | Playwright: limpa >> cola 14+14+narracao >> voz >> "Iniciar a partir daqui"
+    | Espera ~10 min + 4 min seguranca >> baixa ZIPs >> organiza (ID numerico)
     | UPDATE status = "edicao"
     |
 [Edicao] Card migra automaticamente, detecta Remotion rodando
@@ -67,12 +67,12 @@
 1. **ZERO coordenadas** — tudo via data-id + dispatchEvent + element.click() + focus()
 2. **Limpar lista**: right-click via dispatchEvent no ID INTERNO (nao wrapper)
 3. **Colar prompts**: dispatchEvent "Adicionar texto" >> focus tiptap >> insert_text + Enter
-4. **Verificacao**: checa count apos colar, re-tenta com wait 600ms se < 16
+4. **Verificacao**: checa count apos colar, re-tenta com wait 600ms se < 14
 5. **Executar**: SEMPRE "Iniciar a partir daqui" (NUNCA "Todo o fluxo")
 6. **Download**: `page.expect_download()` + `download.save_as()`
 7. **Ordenacao clips**: por ID numerico do Freepik (sequencial)
-8. **Esperar 4 min** apos 16 videos antes de baixar (Kling 2.5 demora mais)
-9. **Tolerancia**: aceita 15+ imagens/clips
+8. **Esperar 4 min** apos 14 videos antes de baixar (Kling 2.5 demora mais)
+9. **Tolerancia**: aceita 13+ imagens/clips
 
 ### Vozes por Lingua
 | Lingua | Voz |
@@ -116,7 +116,7 @@
 
 - **Storyboard thinking**: pensa ACAO primeiro, depois constroi imagem como frame inicial
 - **Coerencia visual total**: mesmo periodo, mesmo estilo, mesma paleta, nada fora do contexto
-- **16 animacoes UNICAS**: nunca repetir tipo de movimento entre cenas
+- **14 animacoes UNICAS**: nunca repetir tipo de movimento entre cenas
 - **Animacao pro Kling 2.5**: 30-40 palavras, so movimento, nunca descrever a imagem
 - **Anima qualquer elemento**: pessoa, objeto, ambiente — o que fizer sentido
 - **Dinamico mas real**: sem efeitos fake, sem alucinacoes, sem exageros
@@ -126,12 +126,16 @@
 
 ## 5. Scriptwriter (scriptwriter.py)
 
-- **16 paragrafos**, 850-1100 chars
-- **4 atos**: HOOK (1-2) >> BUILD (3-10) >> CLIMAX (11-14) >> PAYOFF (15-16)
+- **14 paragrafos**, 800-900 chars, ~60s de video
+- **Filosofia**: cada frase cria imagem mental, empurra narrativa, carrega tensao
+- **Gancho**: abre loop que fecha no final. Congruente com energia do tema (brutalidade = gancho perturbador, nao curiosidade famosa)
+- **Tipos de gancho**: cena impossivel, promessa de choque, pergunta com gap, segredo revelado, contraste extremo
+- **Corpo**: tensao escala, ritmo variado (curta/longa/curta), contexto sempre com tensao
+- **Climax**: UM MOMENTO especifico (cena, nao resumo)
+- **Fechamento**: loop fechado, twist, reflexao, ou CTA natural (as vezes)
+- **Tom**: conversacional, como contar pra um amigo. Nao formal nem academico
+- **TTS**: numeros por extenso, anos completos ("mil novecentos e quarenta e dois"), "antes de Cristo" nao "a.C."
 - **music_category**: escolhe categoria de musica baseado no tom
-- **TTS**: numeros por extenso, "antes de Cristo" nao "a.C."
-- **Retencao natural**: sem frases template
-- **Finalizacao**: Open Loop ou Twist Final (sem CTA)
 
 ---
 
@@ -184,8 +188,8 @@ Todos prefixados com `/api/shorts/`
 ## 9. Ordenacao de Clips
 
 - Clips ordenados por **ID numerico do Freepik** no filename (ex: `_65802.mp4`)
-- IDs sao sequenciais pq colamos prompts na ordem 1-16
-- Menor ID = cena 1, maior ID = cena 16
+- IDs sao sequenciais pq colamos prompts na ordem 1-14
+- Menor ID = cena 1, maior ID = cena 14
 - Imagens sao backup, ordem nao importa
 - Implementado em `organizar_downloads()` no `freepik_automation.py`
 
@@ -216,7 +220,7 @@ Todos prefixados com `/api/shorts/`
 | canal, canal_id | text, int |
 | subnicho, lingua | text |
 | titulo, estrutura | text |
-| producao_json | jsonb (script + 16 cenas) |
+| producao_json | jsonb (script + 14 cenas) |
 | drive_link | text (caminho local) |
 | drive_url | text (URL Google Drive) |
 | music_track | text (nome do arquivo mp3) |
