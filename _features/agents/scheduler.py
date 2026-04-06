@@ -19,7 +19,7 @@ try:
 except ImportError:
     APSCHEDULER_AVAILABLE = False
     logger = logging.getLogger(__name__)
-    logger.warning("APScheduler nao instalado. Scheduler nao disponivel.")
+    logger.debug("APScheduler nao instalado. Scheduler nao disponivel.")
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ class AgentScheduler:
             self.scheduler = AsyncIOScheduler(timezone="UTC")
             logger.info("AgentScheduler initialized")
         else:
-            logger.warning("APScheduler nao disponivel - scheduler desabilitado")
+            logger.debug("APScheduler nao disponivel - scheduler desabilitado")
 
     def start(self):
         """Inicia o scheduler com jobs padrao"""

@@ -4,6 +4,8 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning, module="google")
 import uvicorn
 import os
 from datetime import datetime, timedelta, timezone
@@ -54,6 +56,12 @@ from auth import (
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Silenciar logs barulhentos que poluem o output
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("hpack").setLevel(logging.WARNING)
+logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
 app = FastAPI(title="YouTube Dashboard API", version="1.0.0")
 
