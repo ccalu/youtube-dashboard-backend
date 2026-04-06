@@ -222,25 +222,24 @@ class SpreadsheetScanner:
         logger.info(f"     Planilha: {spreadsheet_id}")
 
         try:
-            # Timeout de N segundos por planilha
-            async with asyncio.timeout(self.timeout_per_sheet):
-                result = await self._scan_spreadsheet(channel)
+            # Timeout de N segundos por planilha (wait_for compatível com Python 3.10)
+            result = await asyncio.wait_for(self._scan_spreadsheet(channel), timeout=self.timeout_per_sheet)
 
-                # Mostra linhas lidas vs processadas (otimização de últimas 15)
-                if result['rows_read'] > result.get('rows_processed', 0):
-                    logger.info(f"     ✅ Linhas lidas: {result['rows_read']} (processadas: {result.get('rows_processed', 0)})")
-                else:
-                    logger.info(f"     ✅ Linhas lidas: {result['rows_read']}")
+            # Mostra linhas lidas vs processadas (otimização de últimas 15)
+            if result['rows_read'] > result.get('rows_processed', 0):
+                logger.info(f"     ✅ Linhas lidas: {result['rows_read']} (processadas: {result.get('rows_processed', 0)})")
+            else:
+                logger.info(f"     ✅ Linhas lidas: {result['rows_read']}")
 
-                logger.info(f"     📹 Vídeos encontrados: {result['found']}")
+            logger.info(f"     📹 Vídeos encontrados: {result['found']}")
 
-                if result['added'] > 0:
-                    logger.info(f"     ✅ Vídeos adicionados: {result['added']}")
+            if result['added'] > 0:
+                logger.info(f"     ✅ Vídeos adicionados: {result['added']}")
 
-                if result['skipped'] > 0:
-                    logger.info(f"     ⏭️  Vídeos skipados: {result['skipped']}")
+            if result['skipped'] > 0:
+                logger.info(f"     ⏭️  Vídeos skipados: {result['skipped']}")
 
-                return result
+            return result
 
         except asyncio.TimeoutError:
             logger.warning(f"     ⏰ Timeout ({self.timeout_per_sheet}s) - skipando")
