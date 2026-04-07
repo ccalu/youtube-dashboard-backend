@@ -7720,16 +7720,15 @@ async def dash_upload_status():
                 'uploads_hoje': uploads_count_map.get(canal['channel_id'], {'sucesso': 0, 'erro': 0, 'sem_video': 0})
             })
 
-        status_order = {'sucesso': 0, 'pendente': 1, 'erro': 2, 'sem_video': 3}
+        # Ordenar canais: com videos disponiveis no topo, resto alfabetico (mesma ordem da aba Tabela)
         for sub in subnichos_dict:
-            subnichos_dict[sub].sort(key=lambda x: (status_order.get(x['status'], 4), x['channel_name']))
+            subnichos_dict[sub].sort(key=lambda x: (
+                0 if (x.get('videos_disponiveis') or 0) > 0 else 1,
+                x['channel_name']
+            ))
 
-        # Ordenar subnichos: mais sucessos primeiro
-        subnichos_ordenados = dict(sorted(
-            subnichos_dict.items(),
-            key=lambda item: sum(1 for c in item[1] if c['status'] == 'sucesso'),
-            reverse=True
-        ))
+        # Ordenar subnichos alfabeticamente (mesma ordem da aba Tabela)
+        subnichos_ordenados = dict(sorted(subnichos_dict.items()))
 
         result = {'stats': stats, 'subnichos': subnichos_ordenados}
         _dash_cache['data'] = result
