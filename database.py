@@ -129,30 +129,55 @@ class SupabaseClient:
     async def save_canal_data(self, canal_id: int, data: Dict[str, Any]):
         try:
             data_coleta = datetime.now(timezone.utc).date().isoformat()
+            hoje = datetime.now(timezone.utc).date()
 
-            # 🔧 CORREÇÃO: Voltei a checar views_60d (não gasta API, é só validação!)
-            views_60d = data.get("views_60d", 0)
+            view_count_atual = data.get("view_count")
+
+            # Fallback: valores do collector (soma de views de vídeos publicados no período)
             views_30d = data.get("views_30d", 0)
             views_15d = data.get("views_15d", 0)
             views_7d = data.get("views_7d", 0)
 
-            # Check if at least one view metric is > 0
-            if views_60d == 0 and views_30d == 0 and views_15d == 0 and views_7d == 0:
-                logger.warning(f"Skipping save for canal_id {canal_id} - all views zero")
+            # Skip se não tem dados nenhum (nem view_count nem views por período)
+            if view_count_atual in (None, 0) and views_30d == 0 and views_15d == 0 and views_7d == 0:
+                logger.warning(f"Skipping save for canal_id {canal_id} - no view data")
                 return None
 
-            # 🆕 CALCULAR INSCRITOS_DIFF NO MOMENTO DA COLETA
-            # Buscar inscritos de ontem para calcular diferença
+            # 🆕 CALCULAR VIEWS_7D/15D/30D COMO DELTAS DO VIEW_COUNT TOTAL
+            # views_Nd = view_count_hoje - view_count_N_dias_atras
+            if view_count_atual is not None:
+                for days_ago, field_name in [(7, "views_7d"), (15, "views_15d"), (30, "views_30d")]:
+                    target_date = (hoje - timedelta(days=days_ago)).isoformat()
+
+                    hist_result = self.supabase.table("dados_canais_historico")\
+                        .select("view_count, data_coleta")\
+                        .eq("canal_id", canal_id)\
+                        .lte("data_coleta", target_date)\
+                        .order("data_coleta", desc=True)\
+                        .limit(1)\
+                        .execute()
+
+                    if hist_result.data and hist_result.data[0].get("view_count") is not None:
+                        old_view_count = hist_result.data[0]["view_count"]
+                        delta = view_count_atual - old_view_count
+                        if delta >= 0:
+                            if field_name == "views_7d":
+                                views_7d = delta
+                            elif field_name == "views_15d":
+                                views_15d = delta
+                            elif field_name == "views_30d":
+                                views_30d = delta
+                            logger.debug(f"📊 Canal {canal_id}: {field_name} = {delta} (delta from {hist_result.data[0]['data_coleta']})")
+
+            # CALCULAR INSCRITOS_DIFF NO MOMENTO DA COLETA
             inscritos_diff = None
             inscritos_atual = data.get("inscritos")
 
             if inscritos_atual is not None:
-                # Verificar se o canal é tipo="nosso" para calcular inscritos_diff
                 canal_info = self.supabase.table("canais_monitorados").select("tipo").eq("id", canal_id).execute()
 
                 if canal_info.data and canal_info.data[0].get("tipo") == "nosso":
-                    # Buscar dados de ontem
-                    data_ontem = (datetime.now(timezone.utc).date() - timedelta(days=1)).isoformat()
+                    data_ontem = (hoje - timedelta(days=1)).isoformat()
                     ontem_result = self.supabase.table("dados_canais_historico").select("inscritos").eq("canal_id", canal_id).eq("data_coleta", data_ontem).execute()
 
                     if ontem_result.data and ontem_result.data[0].get("inscritos") is not None:
@@ -160,7 +185,6 @@ class SupabaseClient:
                         inscritos_diff = inscritos_atual - inscritos_ontem
                         logger.info(f"📊 Canal {canal_id}: inscritos_diff = {inscritos_diff} (hoje: {inscritos_atual}, ontem: {inscritos_ontem})")
                     else:
-                        # Primeira coleta ou sem dados de ontem - assume 0
                         inscritos_diff = 0
                         logger.info(f"📊 Canal {canal_id}: inscritos_diff = 0 (sem dados de ontem)")
 
@@ -169,13 +193,14 @@ class SupabaseClient:
             canal_data = {
                 "canal_id": canal_id,
                 "data_coleta": data_coleta,
-                "views_30d": data.get("views_30d"),
-                "views_15d": data.get("views_15d"),
-                "views_7d": data.get("views_7d"),
+                "view_count": view_count_atual,
+                "views_30d": views_30d,
+                "views_15d": views_15d,
+                "views_7d": views_7d,
                 "inscritos": data.get("inscritos"),
                 "videos_publicados_7d": data.get("videos_publicados_7d", 0),
                 "engagement_rate": data.get("engagement_rate", 0.0),
-                "inscritos_diff": inscritos_diff  # 🆕 SALVAR DIFERENÇA CALCULADA
+                "inscritos_diff": inscritos_diff
             }
 
             if existing.data:
