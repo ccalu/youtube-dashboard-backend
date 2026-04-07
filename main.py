@@ -7734,7 +7734,7 @@ async def dash_upload_status():
             'guerras e civilizacoes', 'licoes de vida', 'registros malditos',
         ]
         _last = ['desmonetizado', 'desmonetizados']
-        _excluded = ['historias aleatorias', 'contos familiares']
+        _excluded = []
         import unicodedata
         def _norm(s): return unicodedata.normalize('NFD', s.lower()).encode('ascii', 'ignore').decode()
 
