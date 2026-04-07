@@ -1,0 +1,333 @@
+================================================================================
+CTR (CLICK-THROUGH RATE) — GUIA COMPLETO DE COLETA
+================================================================================
+Para: Micha
+Sistema: youtube-dashboard-backend
+Arquivo principal: ctr_collector.py
+================================================================================
+
+
+================================================================================
+1. O QUE É CTR E POR QUE PRECISA DE UMA API DIFERENTE
+================================================================================
+
+CTR = Click-Through Rate = taxa de clique na thumbnail do vídeo.
+É a métrica que responde: "de todas as vezes que a thumbnail apareceu
+para alguém, quantas % clicaram?"
+
+Essa métrica NÃO está disponível na YouTube Data API v3 (a API pública).
+Ela só está disponível via duas APIs privadas que requerem OAuth do dono
+do canal:
+
+- YouTube Analytics API → retorna CTR em tempo real mas com limitações
+- YouTube Reporting API → gera CSVs automáticos com dados completos ← USAMOS ESTA
+
+Escolhemos a Reporting API porque:
+- Gera dados retroativos (até ~180 dias pra trás)
+- Dados mais completos e confiáveis
+- Não tem limite de quota tão restritivo
+- Gera 1 CSV por dia automaticamente após o setup
+
+
+================================================================================
+2. PRÉ-REQUISITOS
+================================================================================
+
+Para coletar CTR de um canal, precisa de:
+
+1. OAuth do canal conectado (access_token + refresh_token salvos em
+   yt_oauth_tokens no Supabase)
+
+2. YouTube Reporting API ativada no Google Cloud Console do projeto OAuth
+
+3. Scope: yt-analytics.readonly (já incluído no fluxo de OAuth dos canais)
+
+Sem OAuth do canal = sem CTR. É dado privado do dono do canal.
+
+
+================================================================================
+3. COMO FUNCIONA — VISÃO GERAL
+================================================================================
+
+O sistema tem 2 etapas separadas:
+
+ETAPA 1 — SETUP (única vez por canal):
+  Cria um "reporting job" no YouTube.
+  É como dizer pro YouTube: "a partir de agora, gera um CSV todo dia
+  com os dados de impressões e CTR desse canal".
+  → Endpoint: POST /api/ctr/setup-jobs
+
+ETAPA 2 — COLETA (semanal, domingo ~6h AM):
+  Baixa todos os CSVs que o YouTube gerou desde a última coleta,
+  parseia, agrega e salva no Supabase.
+  → Endpoint: POST /api/ctr/collect
+  → Automático via cron do Railway
+
+
+================================================================================
+4. ETAPA 1 — SETUP DOS JOBS (detalhado)
+================================================================================
+
+Quando o setup roda (setup_all_jobs), para CADA canal com OAuth:
+
+1. Busca tokens OAuth do canal no Supabase (yt_oauth_tokens)
+   → Usa SUPABASE_SERVICE_ROLE_KEY (RLS protege essa tabela)
+
+2. Renova o access_token usando o refresh_token
+   → POST https://oauth2.googleapis.com/token
+   → O access_token expira a cada ~1 hora
+   → O refresh_token é permanente (não expira)
+
+3. Verifica se já existe um job:
+   a. Primeiro olha no banco (yt_reporting_jobs)
+   b. Se não tem, olha na API do Google (pode ter sido criado antes)
+   c. Se não existe em nenhum lugar, cria um novo
+
+4. Criar job na API do Google:
+   → POST https://youtubereporting.googleapis.com/v1/jobs
+   → Body: { "reportTypeId": "channel_reach_basic_a1", "name": "CTR Collector" }
+   → Retorna um job_id (UUID)
+
+5. Salva o job no Supabase (yt_reporting_jobs):
+   channel_id, job_id, report_type, status="active"
+
+O que é "channel_reach_basic_a1"?
+  É o tipo de relatório do YouTube que contém dados de alcance:
+  impressões de thumbnail e taxa de clique. Existem outros tipos
+  (channel_basic_a2, etc) mas esse é o que tem CTR.
+
+Após criar o job:
+  - O YouTube começa a gerar CSVs A PARTIR DO DIA SEGUINTE
+  - Os primeiros CSVs ficam disponíveis em ~48 horas
+  - O YouTube também gera retroativo de até ~60 dias
+  - Depois, gera 1 CSV novo por dia automaticamente
+
+
+================================================================================
+5. ETAPA 2 — COLETA SEMANAL (detalhado)
+================================================================================
+
+Quando a coleta roda (collect_ctr_reports), para CADA canal com OAuth:
+
+PASSO 1 — Autenticação:
+  - Busca refresh_token do canal
+  - Busca client_id/client_secret (credenciais OAuth do projeto Google)
+  - Renova access_token
+  - Salva novo access_token no Supabase
+
+PASSO 2 — Garantir que tem job:
+  - Auto-provisioning: se o canal não tem job, cria automaticamente
+  - Isso garante que canais novos (recém-conectados com OAuth) entram
+    automaticamente na coleta
+
+PASSO 3 — Listar CSVs disponíveis:
+  → GET https://youtubereporting.googleapis.com/v1/jobs/{jobId}/reports
+  → Filtro: createdAfter = 180 dias atrás
+  → Retorna lista de reports, cada um com:
+    - id: identificador do report
+    - downloadUrl: URL para baixar o CSV (hospedado no Google Cloud Storage)
+    - startTime/endTime: período que o CSV cobre (geralmente 1 dia)
+    - createTime: quando foi gerado
+
+PASSO 4 — Baixar e parsear cada CSV:
+  → GET {downloadUrl} com Authorization: Bearer {access_token}
+  → O arquivo pode vir comprimido em gzip (descomprime automaticamente)
+  → Decodifica em UTF-8 (fallback Latin-1)
+  → Parseia como CSV com headers
+
+  CONTEÚDO DO CSV (colunas relevantes):
+  ┌─────────────────────────────────────────────────────────────┐
+  │ video_id                      │ ID do vídeo no YouTube      │
+  │ video_thumbnail_impressions   │ Quantas vezes a thumbnail   │
+  │                               │ apareceu para alguém        │
+  │ video_thumbnail_impressions_ctr│ Taxa de clique (0.0 a 1.0) │
+  │                               │ Ex: 0.05 = 5% de CTR       │
+  └─────────────────────────────────────────────────────────────┘
+
+  Cada CSV = dados de 1 dia. Então se tem 30 CSVs, tem 30 dias de dados.
+  Cada linha do CSV = 1 vídeo com suas impressões e CTR daquele dia.
+
+  Exemplo de linha parseada:
+  { "video_id": "dQw4w9WgXcQ", "impressions": 15000, "ctr": 0.048 }
+
+PASSO 5 — Agregar dados de todos os CSVs:
+  Como baixamos ~180 dias de CSVs, precisamos agregar por vídeo.
+
+  Para cada vídeo, o sistema:
+  1. Soma todas as impressões de todos os dias
+  2. Calcula os cliques: cliques_dia = impressões_dia × CTR_dia
+  3. Soma todos os cliques
+  4. CTR final = total_cliques / total_impressões
+
+  ISSO É CTR PONDERADO (não média simples).
+  Por quê? Porque um dia com 50.000 impressões deve pesar mais
+  que um dia com 500 impressões.
+
+  Exemplo:
+    Dia 1: 10.000 impressões, CTR 5% → 500 cliques
+    Dia 2: 1.000 impressões, CTR 10% → 100 cliques
+    Média simples: (5% + 10%) / 2 = 7.5% ← ERRADO
+    CTR ponderado: 600 / 11.000 = 5.45% ← CORRETO
+
+PASSO 6 — Salvar no Supabase:
+  Para cada vídeo agregado:
+
+  A) Se o vídeo JÁ EXISTE em yt_video_metrics (tem dados de retenção
+     do monetization_oauth_collector):
+     → PATCH: atualiza só as colunas impressions e ctr
+     → NÃO sobrescreve retenção/duração/views que vieram do outro coletor
+
+  B) Se o vídeo NÃO EXISTE em yt_video_metrics:
+     → INSERT: cria registro novo com só impressions e ctr
+     → Outros campos ficam NULL até o coletor de analytics preencher
+
+  Padrão de escrita: POST primeiro, se 409 (conflito) faz PATCH
+
+PASSO 7 — Salvar CTR médio do canal:
+  Após processar todos os vídeos, calcula o CTR médio do canal:
+  - CTR canal = total_cliques_todos_videos / total_impressões_todos_videos
+  - Salva em yt_channels (colunas avg_ctr e total_impressions)
+
+PASSO 8 — Atualizar controle do job:
+  Atualiza yt_reporting_jobs com:
+  - last_report_date: data do último CSV processado
+  - last_report_id: ID do último report
+  - updated_at: timestamp
+
+
+================================================================================
+6. ONDE OS DADOS SÃO SALVOS
+================================================================================
+
+Tabela: yt_video_metrics (por vídeo)
+─────────────────────────────────────────────────────────────
+│ Coluna       │ Tipo   │ Quem preenche                    │
+─────────────────────────────────────────────────────────────
+│ channel_id   │ string │ Ambos coletores                  │
+│ video_id     │ string │ Ambos coletores                  │
+│ impressions  │ int    │ CTR collector (este)             │
+│ ctr          │ float  │ CTR collector (este)             │
+│ views        │ int    │ Analytics collector (outro)      │
+│ avg_retention│ float  │ Analytics collector (outro)      │
+│ avg_duration │ float  │ Analytics collector (outro)      │
+│ card_click   │ float  │ Analytics collector (outro)      │
+│ updated_at   │ datetime│ Ambos (último que escreveu)     │
+─────────────────────────────────────────────────────────────
+IMPORTANTE: Esta tabela é COMPARTILHADA entre o ctr_collector e o
+monetization_oauth_collector. Cada um atualiza suas colunas sem
+sobrescrever as do outro.
+
+Tabela: yt_channels (por canal — médias agregadas)
+─────────────────────────────────────────────────────────────
+│ avg_ctr          │ float │ CTR médio ponderado do canal   │
+│ total_impressions│ int   │ Total de impressões acumuladas  │
+─────────────────────────────────────────────────────────────
+
+Tabela: yt_reporting_jobs (controle dos jobs)
+─────────────────────────────────────────────────────────────
+│ channel_id      │ string   │ Canal                         │
+│ job_id          │ string   │ UUID do job no Google          │
+│ report_type     │ string   │ "channel_reach_basic_a1"       │
+│ status          │ string   │ "active" ou "error"            │
+│ last_report_date│ date     │ Data do último CSV processado  │
+│ last_report_id  │ string   │ ID do último report            │
+│ error_message   │ string   │ Mensagem de erro (se houver)   │
+│ created_at      │ datetime │ Quando o job foi criado         │
+│ updated_at      │ datetime │ Última atualização              │
+─────────────────────────────────────────────────────────────
+
+
+================================================================================
+7. FREQUÊNCIA E TIMING
+================================================================================
+
+- SETUP: Única vez por canal (automático na primeira coleta)
+- COLETA: Semanal, domingo ~6h AM horário de São Paulo
+- CSVs DO YOUTUBE: Gerados diariamente pelo Google, com delay de 2-3 dias
+  (o CSV de segunda-feira fica disponível por volta de quarta-feira)
+- RETROATIVO: Quando um job é criado, o YouTube gera CSVs retroativos
+  de até ~60 dias
+- JANELA DE DADOS: Cada coleta baixa CSVs dos últimos 180 dias e reagrega
+  tudo (não é incremental, é recálculo completo)
+
+Por que semanal e não diário?
+  - Os dados de CTR não mudam com frequência suficiente para justificar
+    coleta diária
+  - Baixar ~180 dias de CSVs de 37 canais consome tempo e recursos
+  - Semanal é suficiente para análise de tendências
+
+
+================================================================================
+8. FLUXO COMPLETO VISUAL
+================================================================================
+
+                    SETUP (única vez)
+                    ─────────────────
+    Canal com OAuth ──→ Renova token
+                        ──→ POST googleapis.com/.../jobs
+                            (reportTypeId: channel_reach_basic_a1)
+                        ──→ Salva job_id em yt_reporting_jobs
+                        ──→ YouTube começa a gerar CSVs automáticos
+
+
+                    COLETA (todo domingo)
+                    ─────────────────────
+    Para cada canal:
+    ┌──────────────────────────────────────────────────────┐
+    │ 1. Renova access_token (refresh_token → novo token)  │
+    │ 2. GET .../jobs/{jobId}/reports (lista CSVs)         │
+    │ 3. Para cada CSV:                                    │
+    │    └─ GET {downloadUrl} → baixa CSV (pode ser gzip)  │
+    │       └─ Parseia: video_id, impressions, ctr         │
+    │ 4. Agrega: soma impressões, CTR ponderado por vídeo  │
+    │ 5. Salva em yt_video_metrics (PATCH ou INSERT)       │
+    │ 6. Calcula CTR médio do canal → salva em yt_channels │
+    │ 7. Atualiza yt_reporting_jobs (last_report_date)     │
+    └──────────────────────────────────────────────────────┘
+
+
+================================================================================
+9. ENDPOINTS DISPONÍVEIS
+================================================================================
+
+POST /api/ctr/setup-jobs
+  → Cria jobs para todos os canais com OAuth (rodar 1x na vida)
+
+POST /api/ctr/collect
+  → Dispara coleta manual (mesmo que a automática de domingo)
+
+GET /api/ctr/status
+  → Status da coleta atual (running, started_at, finished_at, result)
+
+GET /api/ctr/jobs
+  → Lista todos os jobs e seus status (active/error, last_report_date)
+
+GET /api/ctr/{channel_id}/latest
+  → Dados de CTR dos vídeos de um canal específico
+
+
+================================================================================
+10. POSSÍVEIS PROBLEMAS E COMO DIAGNOSTICAR
+================================================================================
+
+"Canal tem job mas last_report_date é null":
+  → Job foi criado recentemente. YouTube precisa de 48h para gerar
+    o primeiro CSV. Normal na primeira semana.
+
+"Canal tem job mas last_report_date está atrasado":
+  → Canal pode estar sem atividade (sem impressões = sem CSV gerado)
+  → Ou token OAuth pode ter sido revogado pelo usuário no Google
+
+"Erro ao criar job":
+  → YouTube Reporting API não está ativada no Google Cloud Console
+  → Verificar no console.cloud.google.com → APIs & Services
+
+"Token refresh falhou":
+  → refresh_token pode ter sido invalidado (usuário removeu acesso)
+  → Precisa reconectar OAuth do canal
+
+O refresh_token NÃO expira em condições normais. Só é invalidado se:
+  - O usuário revoga o acesso em myaccount.google.com
+  - O projeto Google Cloud é deletado
+  - As credenciais OAuth (client_id/secret) são regeneradas
+  - A conta Google é desativada

@@ -1,0 +1,303 @@
+================================================================================
+GUIA COMPLETO: COLETA E ARMAZENAMENTO DE MÉTRICAS
+================================================================================
+Sistema: youtube-dashboard-backend (Python/FastAPI)
+Banco: Supabase (PostgreSQL)
+Deploy: Railway
+================================================================================
+
+
+================================================================================
+VISÃO GERAL
+================================================================================
+
+O sistema coleta métricas de canais do YouTube automaticamente e armazena tudo
+no Supabase (PostgreSQL hospedado). Existem 3 coletores independentes, cada um
+com sua frequência e API diferente:
+
+1. COLETA PÚBLICA (diária) - YouTube Data API v3
+2. COLETA DE ANALYTICS/MONETIZAÇÃO (diária) - YouTube Analytics API (OAuth)
+3. COLETA DE CTR/IMPRESSÕES (semanal) - YouTube Reporting API (OAuth)
+
+Os dados são salvos em tabelas separadas por tipo de métrica no Supabase.
+Cada coleta gera registros históricos (1 por dia por canal/vídeo), nunca
+sobrescreve dados anteriores — isso permite análise temporal.
+
+
+================================================================================
+COLETOR 1: COLETA PÚBLICA DIÁRIA
+================================================================================
+Arquivo: collector.py (coleta) + database.py (salva) + main.py (orquestra)
+Frequência: DIÁRIA (~4h da manhã, automático via Railway cron)
+API: YouTube Data API v3 (chave pública, sem OAuth)
+
+COMO FUNCIONA:
+1. main.py dispara a coleta para todos os canais da tabela "canais_monitorados"
+2. collector.py faz as chamadas à API do YouTube para cada canal
+3. database.py salva os resultados no Supabase
+
+CHAMADAS DE API FEITAS (por canal):
+─────────────────────────────────────────────────────────────────────────────
+| Endpoint YouTube              | O que busca                               |
+─────────────────────────────────────────────────────────────────────────────
+| channels.list                 | inscritos, views totais, info do canal    |
+|   part=statistics,snippet     | (nome, país, handle)                      |
+─────────────────────────────────────────────────────────────────────────────
+| playlistItems.list            | lista de vídeos do canal (título, data    |
+|   part=snippet,contentDetails | publicação, videoId) — últimos 30 dias    |
+─────────────────────────────────────────────────────────────────────────────
+| videos.list                   | detalhes de cada vídeo: viewCount,        |
+|   part=statistics,            | likeCount, commentCount, duration         |
+|        contentDetails         | (max 50 vídeos por batch)                 |
+─────────────────────────────────────────────────────────────────────────────
+
+MÉTRICAS CALCULADAS APÓS COLETA (no código, não na API):
+- views_7d: soma de views dos vídeos publicados nos últimos 7 dias
+- views_15d: soma de views dos vídeos publicados nos últimos 15 dias
+- views_30d: soma de views dos vídeos publicados nos últimos 30 dias
+- videos_publicados_7d: quantidade de vídeos publicados nos últimos 7 dias
+- engagement_rate: (likes + comentários) / views * 100
+- inscritos_diff: inscritos_hoje - inscritos_ontem
+
+ONDE SALVA NO SUPABASE:
+
+Tabela: dados_canais_historico (1 registro por canal por dia)
+─────────────────────────────────────────────────────────────
+| Coluna              | Tipo     | Descrição                 |
+─────────────────────────────────────────────────────────────
+| canal_id            | int      | FK → canais_monitorados   |
+| data_coleta         | date     | Data da coleta (YYYY-MM-DD)|
+| views_7d            | int      | Views de vídeos últimos 7d |
+| views_15d           | int      | Views de vídeos últimos 15d|
+| views_30d           | int      | Views de vídeos últimos 30d|
+| inscritos           | int      | Total de inscritos do canal|
+| inscritos_diff      | int      | Diferença vs dia anterior  |
+| videos_publicados_7d| int      | Qtd vídeos publicados em 7d|
+| engagement_rate     | float    | Taxa de engajamento (%)    |
+─────────────────────────────────────────────────────────────
+Chave única: (canal_id + data_coleta) — 1 registro por canal por dia
+Se já existe registro do dia, faz UPDATE. Se não, INSERT.
+
+Tabela: videos_historico (1 registro por vídeo por dia)
+─────────────────────────────────────────────────────────────
+| Coluna              | Tipo     | Descrição                 |
+─────────────────────────────────────────────────────────────
+| canal_id            | int      | FK → canais_monitorados   |
+| video_id            | string   | ID do vídeo no YouTube    |
+| titulo              | string   | Título do vídeo           |
+| url_video           | string   | URL completa do vídeo     |
+| data_publicacao     | datetime | Quando foi publicado      |
+| data_coleta         | date     | Data desta coleta         |
+| views_atuais        | int      | Views no momento da coleta|
+| likes               | int      | Likes no momento da coleta|
+| comentarios         | int      | Comentários (contagem)    |
+| duracao             | int      | Duração em segundos       |
+─────────────────────────────────────────────────────────────
+Chave única: (video_id + data_coleta) — 1 registro por vídeo por dia
+Permite acompanhar evolução de views/likes de cada vídeo ao longo do tempo.
+
+Este coletor usa API KEY pública, não precisa de OAuth. Acessa dados públicos:
+views, likes, comentários, inscritos, duração.
+Retenção, CTR, impressões e receita vêm dos coletores 2 e 3 (OAuth).
+
+
+================================================================================
+COLETOR 2: ANALYTICS/MONETIZAÇÃO (OAuth)
+================================================================================
+Arquivo: monetization_oauth_collector.py
+Frequência: DIÁRIA (~5h da manhã, após coleta pública)
+API: YouTube Analytics API (requer OAuth do dono do canal)
+Escopo OAuth: yt-analytics.readonly
+
+Requer OAuth do canal conectado.
+
+COMO FUNCIONA:
+1. Busca canais com OAuth token no Supabase
+2. Para cada canal, faz 2 chamadas à YouTube Analytics API
+3. Salva resultados em yt_daily_metrics e yt_video_metrics
+
+CHAMADAS DE API FEITAS (por canal):
+
+Chamada 1 — Métricas diárias do canal (por dia):
+  Endpoint: youtubeAnalytics.reports.query
+  Parâmetros:
+    ids: channel==CHANNEL_ID
+    metrics: estimatedRevenue, views, likes, comments, shares,
+             subscribersGained, subscribersLost,
+             estimatedMinutesWatched, averageViewDuration,
+             averageViewPercentage
+    dimensions: day
+    startDate/endDate: últimos 30-90 dias
+
+Chamada 2 — Métricas por vídeo:
+  Endpoint: youtubeAnalytics.reports.query
+  Parâmetros:
+    ids: channel==CHANNEL_ID
+    metrics: views, averageViewDuration, averageViewPercentage,
+             cardClickRate, likes, dislikes, subscribersGained
+    dimensions: video
+    sort: -views
+
+MÉTRICAS EXTRAÍDAS:
+- estimatedRevenue: receita estimada em USD
+- views: views do dia
+- averageViewDuration: duração média de visualização (segundos)
+- averageViewPercentage: % média de retenção (0-100)
+- cardClickRate: taxa de clique em cards
+- estimatedMinutesWatched: minutos assistidos
+- subscribersGained/Lost: inscritos ganhos/perdidos
+- likes, dislikes, comments, shares
+
+CÁLCULOS NO CÓDIGO:
+- RPM = (receita_total / views_totais) * 1000 (últimos 30 dias reais)
+- views_24h = total_views_hoje - total_views_ontem
+- receita_estimada = RPM * (views_24h / 1000) (para dias sem dado real)
+
+ONDE SALVA NO SUPABASE:
+
+Tabela: yt_daily_metrics (1 registro por canal por dia)
+─────────────────────────────────────────────────────────────
+| Coluna                | Tipo     | Descrição               |
+─────────────────────────────────────────────────────────────
+| channel_id            | string   | YouTube channel ID      |
+| date                  | date     | Data                    |
+| revenue               | float    | Receita USD do dia      |
+| views                 | int      | Views do dia            |
+| rpm                   | float    | Revenue per mille       |
+| watch_time_minutes    | int      | Minutos assistidos      |
+| avg_view_duration_sec | float    | Duração média (seg)     |
+| avg_retention_pct     | float    | Retenção média (%)      |
+| is_estimate           | boolean  | true=estimado, false=real|
+─────────────────────────────────────────────────────────────
+Dados reais (is_estimate=false) vêm da YouTube Analytics API.
+Dados estimados (is_estimate=true) são calculados via RPM quando
+o YouTube ainda não liberou o dado real (delay de 2-3 dias).
+
+Tabela: yt_video_metrics (1 registro por vídeo, atualizado)
+─────────────────────────────────────────────────────────────
+| Coluna                | Tipo     | Descrição               |
+─────────────────────────────────────────────────────────────
+| channel_id            | string   | YouTube channel ID      |
+| video_id              | string   | YouTube video ID        |
+| views                 | int      | Views totais do vídeo   |
+| avg_view_duration     | float    | Duração média (seg)     |
+| avg_retention_pct     | float    | Retenção média (%)      |
+| card_click_rate       | float    | Taxa de clique em cards |
+| likes                 | int      | Likes                   |
+| dislikes              | int      | Dislikes                |
+| impressions           | int      | Impressões (vem do CTR) |
+| ctr                   | float    | Click-through rate (CTR)|
+| updated_at            | datetime | Última atualização      |
+─────────────────────────────────────────────────────────────
+Esta tabela é compartilhada entre o coletor de analytics (retenção,
+duração, card_click_rate) e o coletor de CTR (impressions, ctr).
+Cada coletor atualiza suas colunas sem sobrescrever as do outro.
+
+Tabela: yt_channels (1 registro por canal, atualizado)
+─────────────────────────────────────────────────────────────
+| Coluna                | Tipo     | Descrição               |
+─────────────────────────────────────────────────────────────
+| channel_id            | string   | YouTube channel ID      |
+| channel_name          | string   | Nome do canal           |
+| is_monetized          | boolean  | Se é monetizado         |
+| avg_ctr               | float    | CTR médio do canal      |
+| total_impressions     | int      | Impressões totais       |
+| avg_retention_pct     | float    | Retenção média do canal |
+| avg_view_duration_sec | float    | Duração média do canal  |
+─────────────────────────────────────────────────────────────
+Os valores avg_retention e avg_ctr são calculados como média
+dos vídeos do canal na tabela yt_video_metrics.
+
+
+================================================================================
+COLETOR 3: CTR E IMPRESSÕES (YouTube Reporting API)
+================================================================================
+Arquivo: ctr_collector.py
+Frequência: SEMANAL (Domingo ~6h da manhã)
+API: YouTube Reporting API (diferente da Data API e Analytics API)
+Tipo de report: channel_reach_basic_a1
+
+Requer OAuth do canal conectado.
+
+COMO FUNCIONA:
+1. SETUP (único por canal): cria um "reporting job" no YouTube
+   - O YouTube passa a gerar CSVs automaticamente com dados de impressões
+   - Job tipo: channel_reach_basic_a1
+
+2. COLETA SEMANAL: todo domingo, o sistema:
+   a. Lista os reports disponíveis para cada job
+   b. Baixa os CSVs (podem ser comprimidos em gzip)
+   c. Parseia cada linha do CSV extraindo:
+      - video_id
+      - video_thumbnail_impressions (quantas vezes a thumbnail apareceu)
+      - video_thumbnail_impressions_ctr (taxa de clique na thumbnail)
+   d. Agrega os dados de múltiplos CSVs diários:
+      - Soma total de impressões por vídeo
+      - Calcula CTR ponderado: total_cliques / total_impressões
+   e. Salva em yt_video_metrics (mesma tabela do coletor 2)
+
+CÁLCULO DO CTR PONDERADO:
+- Para cada vídeo, recebe N dias de dados (impressões + CTR do dia)
+- Calcula cliques = impressões * CTR para cada dia
+- CTR final = soma_cliques / soma_impressões (não é média simples!)
+- Isso é mais preciso porque um dia com 10.000 impressões pesa mais
+  que um dia com 100 impressões
+
+ONDE SALVA NO SUPABASE:
+
+Tabela: yt_video_metrics (atualiza colunas impressions e ctr)
+- Mesma tabela do coletor 2
+- Se o vídeo já existe (tem retenção do coletor 2): PATCH nas colunas
+- Se o vídeo NÃO existe: INSERT com só impressions e ctr
+
+Tabela: yt_channels (atualiza avg_ctr e total_impressions do canal)
+- Após salvar por vídeo, calcula média do canal
+- avg_ctr = média ponderada de todos os vídeos do canal
+- avg_retention_pct = média de avg_retention_pct dos vídeos (lido de yt_video_metrics)
+
+
+================================================================================
+RESUMO: MAPA DE TABELAS POR COLETOR
+================================================================================
+
+collector.py (DIÁRIO, API pública):
+  └─→ dados_canais_historico (canal/dia: views_7d/15d/30d, inscritos, engagement)
+  └─→ videos_historico (vídeo/dia: views, likes, comentários, duração)
+
+monetization_oauth_collector.py (DIÁRIO, OAuth):
+  └─→ yt_daily_metrics (canal/dia: receita, views, retenção, watch time, RPM)
+  └─→ yt_video_metrics (por vídeo: retenção, duração média, card_click_rate)
+  └─→ yt_channels (canal: médias agregadas)
+
+ctr_collector.py (SEMANAL domingo, OAuth):
+  └─→ yt_video_metrics (por vídeo: impressions, ctr)
+  └─→ yt_channels (canal: avg_ctr, total_impressions)
+
+
+================================================================================
+PADRÃO DE ESCRITA NO SUPABASE
+================================================================================
+
+Todas as escritas seguem o padrão POST + PATCH on 409:
+1. Tenta INSERT (POST)
+2. Se já existe (conflito 409), faz UPDATE (PATCH)
+
+
+================================================================================
+APIs EXTERNAS UTILIZADAS
+================================================================================
+
+1. YouTube Data API v3 (googleapis.com/youtube/v3/)
+   - Autenticação: API Key (pública)
+   - Endpoints: channels, playlistItems, videos
+
+2. YouTube Analytics API (youtubeanalytics.googleapis.com/v2/)
+   - Autenticação: OAuth 2.0 (token do dono do canal)
+   - Endpoint: reports.query
+   - Métricas: revenue, views, retention, watch time, subscribers
+
+3. YouTube Reporting API (youtubereporting.googleapis.com/v1/)
+   - Autenticação: OAuth 2.0 (token do dono do canal)
+   - Endpoints: jobs (criar), jobs/{id}/reports (listar CSVs)
+   - Report type: channel_reach_basic_a1 (impressões + CTR)
+   - Formato: CSV comprimido (gzip)
