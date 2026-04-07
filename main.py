@@ -7720,15 +7720,41 @@ async def dash_upload_status():
                 'uploads_hoje': uploads_count_map.get(canal['channel_id'], {'sucesso': 0, 'erro': 0, 'sem_video': 0})
             })
 
-        # Ordenar canais: com videos disponiveis no topo, resto alfabetico (mesma ordem da aba Tabela)
+        # Ordenar canais: com videos disponiveis no topo, resto por nome
         for sub in subnichos_dict:
             subnichos_dict[sub].sort(key=lambda x: (
                 0 if (x.get('videos_disponiveis') or 0) > 0 else 1,
                 x['channel_name']
             ))
 
-        # Ordenar subnichos alfabeticamente (mesma ordem da aba Tabela)
-        subnichos_ordenados = dict(sorted(subnichos_dict.items()))
+        # Ordenar subnichos na mesma ordem da aba Tabela (hardcoded priority)
+        _sub_order = [
+            'monetizados', 'reis perversos', 'historias sombrias',
+            'culturas macabras', 'relatos de guerra', 'frentes de guerra',
+            'guerras e civilizacoes', 'licoes de vida', 'registros malditos',
+        ]
+        _last = ['desmonetizado', 'desmonetizados']
+        _excluded = ['historias aleatorias', 'contos familiares']
+        import unicodedata
+        def _norm(s): return unicodedata.normalize('NFD', s.lower()).encode('ascii', 'ignore').decode()
+
+        # Subnichos com algum video disponivel vao pro topo
+        def _sub_sort_key(item):
+            name, canais_list = item
+            n = _norm(name)
+            if n in _excluded:
+                return (4, 0, name)
+            has_video = any((c.get('videos_disponiveis') or 0) > 0 for c in canais_list)
+            if has_video:
+                return (0, 0, name)
+            if n in _last:
+                return (3, 0, name)
+            if n in _sub_order:
+                return (1, _sub_order.index(n), name)
+            return (2, 0, name)
+
+        filtered = {k: v for k, v in subnichos_dict.items() if _norm(k) not in _excluded}
+        subnichos_ordenados = dict(sorted(filtered.items(), key=_sub_sort_key))
 
         result = {'stats': stats, 'subnichos': subnichos_ordenados}
         _dash_cache['data'] = result
