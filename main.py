@@ -7586,6 +7586,22 @@ async def dash_upload_status():
             .order('subnicho, channel_name')\
             .execute()
 
+        # Sync subnicho e is_monetized from canais_monitorados (source of truth edited in Tabela tab)
+        nomes = [c['channel_name'] for c in (canais.data or []) if c.get('channel_name')]
+        if nomes:
+            monitorados = supabase.table('canais_monitorados')\
+                .select('nome_canal, subnicho, is_monetized')\
+                .eq('tipo', 'nosso')\
+                .in_('nome_canal', nomes)\
+                .execute()
+            mono_map = {m['nome_canal']: m for m in (monitorados.data or [])}
+            for canal in (canais.data or []):
+                mono = mono_map.get(canal.get('channel_name'))
+                if mono:
+                    canal['subnicho'] = mono.get('subnicho') or canal.get('subnicho')
+                    if mono.get('is_monetized') is not None:
+                        canal['is_monetized'] = mono['is_monetized']
+
         # Contar videos disponiveis por canal (cache ou fetch real)
         uploader = DailyUploader()
         videos_disp_map = {}
@@ -7703,12 +7719,6 @@ async def dash_upload_status():
                 'videos_disponiveis': videos_disp_map.get(canal['channel_id']),
                 'uploads_hoje': uploads_count_map.get(canal['channel_id'], {'sucesso': 0, 'erro': 0, 'sem_video': 0})
             })
-
-        monetizados_forcados = ['UCzfZRuRHSp6erCwzuhjywFw', 'UCWYzVowgJ6LlxCcYlMGcLtA']
-        for sub in subnichos_dict:
-            for canal in subnichos_dict[sub]:
-                if canal['channel_id'] in monetizados_forcados:
-                    canal['is_monetized'] = True
 
         novo_dict = defaultdict(list)
         for sub, canais_list in subnichos_dict.items():
