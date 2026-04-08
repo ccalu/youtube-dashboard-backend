@@ -151,23 +151,61 @@ Retorne SOMENTE:
 
     logger.info(f"[scriptwriter] Gerando script: {topic} | {canal} | {lingua}")
 
-    raw = call_claude_cli(
-        system_prompt=SYSTEM_PROMPT,
-        user_prompt=user_prompt,
-        model="claude-opus-4-6",
-        timeout=300,
-    )
+    # Retry ate 3x se nao retornar JSON valido
+    for attempt in range(3):
+        try:
+            raw = call_claude_cli(
+                system_prompt=SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                model="claude-opus-4-6",
+                timeout=360,
+            )
+        except Exception as e:
+            if attempt < 2:
+                logger.warning(f"[scriptwriter] Tentativa {attempt+1} falhou: {str(e)[:100]}. Retentando...")
+                continue
+            raise
 
-    # Extract JSON
-    match = re.search(r'\[JSON_START\](.*?)\[JSON_END\]', raw, re.DOTALL)
-    if match:
-        result = json.loads(match.group(1).strip())
-        logger.info(f"[scriptwriter] OK: {result.get('titulo', '?')}")
-        return result
+        # Extract JSON entre markers
+        match = re.search(r'\[JSON_START\](.*?)\[JSON_END\]', raw, re.DOTALL)
+        if match:
+            try:
+                result = json.loads(match.group(1).strip())
+                try:
+                    logger.info(f"[scriptwriter] OK: {result.get('titulo', '?')}")
+                except UnicodeEncodeError:
+                    logger.info(f"[scriptwriter] OK: {result.get('titulo', '?').encode('ascii','replace').decode()}")
+                return result
+            except json.JSONDecodeError:
+                pass
 
-    # Fallback: try parsing the whole response as JSON
-    try:
-        return json.loads(raw.strip())
-    except json.JSONDecodeError:
-        logger.error(f"[scriptwriter] Failed to parse response: {raw[:200]}")
-        raise RuntimeError("Scriptwriter: could not parse JSON from response")
+        # Fallback: tentar extrair JSON com { } do raw
+        json_match = re.search(r'\{[^{}]*"titulo"[^{}]*"script"[^{}]*\}', raw, re.DOTALL)
+        if not json_match:
+            json_match = re.search(r'\{.*"titulo".*"script".*\}', raw, re.DOTALL)
+        if json_match:
+            try:
+                result = json.loads(json_match.group(0))
+                try:
+                    logger.info(f"[scriptwriter] OK (fallback): {result.get('titulo', '?')}")
+                except UnicodeEncodeError:
+                    logger.info(f"[scriptwriter] OK (fallback)")
+                return result
+            except json.JSONDecodeError:
+                pass
+
+        # Fallback: parse raw inteiro
+        try:
+            result = json.loads(raw.strip())
+            return result
+        except json.JSONDecodeError:
+            pass
+
+        if attempt < 2:
+            logger.warning(f"[scriptwriter] Tentativa {attempt+1}: JSON nao encontrado. Retentando...")
+        else:
+            try:
+                logger.error(f"[scriptwriter] Falhou 3x. Resposta: {raw[:200]}")
+            except UnicodeEncodeError:
+                logger.error(f"[scriptwriter] Falhou 3x.")
+            raise RuntimeError("Scriptwriter: nao conseguiu gerar JSON valido apos 3 tentativas")

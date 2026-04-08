@@ -197,9 +197,9 @@ def colar_prompts(page: Page, block_id: str, prompts: list, nome: str):
     # Colar cada prompt + Enter (incluindo após o último)
     for i, prompt in enumerate(prompts):
         page.keyboard.insert_text(prompt)
-        page.wait_for_timeout(400)
+        page.wait_for_timeout(600)
         page.keyboard.press("Enter")
-        page.wait_for_timeout(400)
+        page.wait_for_timeout(600)
 
     # Verificar se colou todos
     count = page.evaluate(f"""() => {{

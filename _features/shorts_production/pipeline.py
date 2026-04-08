@@ -43,7 +43,10 @@ def run_production(topic: str, canal: str, canal_id: int, subnicho: str, lingua:
     Returns:
         Dict pronto pro Supabase com titulo, descricao, script, cenas, etc.
     """
-    logger.info(f"[pipeline] Iniciando: {topic} | {canal} | {subnicho} | {lingua}")
+    try:
+        logger.info(f"[pipeline] Iniciando: {topic} | {canal} | {subnicho} | {lingua}")
+    except UnicodeEncodeError:
+        logger.info(f"[pipeline] Iniciando: {topic.encode('ascii','replace').decode()} | {canal.encode('ascii','replace').decode()}")
 
     # 1. Pegar contexto do subnicho
     subnicho_desc = SUBNICHO_DESCS.get(subnicho, "")
@@ -120,7 +123,10 @@ def run_production(topic: str, canal: str, canal_id: int, subnicho: str, lingua:
         f.write(f"DESCRIÇÃO:\n{producao_json['descricao']}\n\n")
         f.write(f"SCRIPT:\n{producao_json['script']}\n")
 
-    logger.info(f"[pipeline] Produção salva em: {pasta_base}")
+    try:
+        logger.info(f"[pipeline] Producao salva em: {pasta_base}")
+    except UnicodeEncodeError:
+        logger.info(f"[pipeline] Producao salva em: {pasta_base.encode('ascii','replace').decode()}")
 
     return {
         "canal_id": canal_id,

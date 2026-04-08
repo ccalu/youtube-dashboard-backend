@@ -143,7 +143,7 @@ Sugira 5 variações desse tema pensando no MÁXIMO potencial de viralização.
 Pense em ângulos que geram choque, curiosidade extrema, debate, compartilhamento.
 Títulos que fazem a pessoa PRECISAR assistir e COMPARTILHAR com alguém.
 Títulos na língua "{lingua}" — extremamente chamativos, CTR máximo.
-Se a língua não for Português, inclua tradução PT entre parênteses."""
+OBRIGATORIO: Se a lingua NAO for Portugues, SEMPRE inclua traducao em portugues entre parenteses. Ex: '제목 한국어 (Titulo em portugues)'. Sem excecao."""
     else:
         ctx = SUBNICHO_CONTEXT.get(subnicho, SUBNICHO_CONTEXT.get("Monetizados", {}))
         titulos = "\n".join("- " + t for t in ctx.get("titulos_ref", []))
@@ -167,7 +167,7 @@ Estruturas disponíveis: {ctx.get('estruturas', '')}
 {tema_instrucao}
 Títulos na língua "{lingua}" — chamativos, CTR alto, fazem a pessoa clicar.
 O título deve funcionar culturalmente para o público "{lingua}".
-Se a língua não for Português, inclua tradução PT entre parênteses."""
+OBRIGATORIO: Se a lingua NAO for Portugues, SEMPRE inclua traducao em portugues entre parenteses. Ex: '제목 한국어 (Titulo em portugues)'. Sem excecao."""
 
     logger.info(f"[theme_suggester] GPT-4 Mini: {canal or tema_livre} ({lingua})")
 

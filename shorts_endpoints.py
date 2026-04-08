@@ -37,7 +37,10 @@ def _add_log(producao_id: int, msg: str):
     """Adiciona log pra uma produção."""
     entry = {"time": datetime.now().strftime("%H:%M:%S"), "msg": msg}
     _production_logs[producao_id].append(entry)
-    logger.info(f"[shorts][{producao_id}] {msg}")
+    try:
+        logger.info(f"[shorts][{producao_id}] {msg}")
+    except UnicodeEncodeError:
+        logger.info(f"[shorts][{producao_id}] {msg.encode('ascii', 'replace').decode()}")
 
 
 def _log_callback(producao_id: int):
@@ -68,7 +71,9 @@ class SugerirTemasRequest(BaseModel):
 def _run_production_bg(topic: str, canal: str, canal_id: int | None, subnicho: str, lingua: str):
     """Roda o pipeline de geração em background."""
     try:
-        logger.info(f"[shorts] BG: Iniciando produção '{topic}' para {canal}")
+        topic_safe = topic.encode('ascii', 'replace').decode()
+        canal_safe = canal.encode('ascii', 'replace').decode()
+        logger.info(f"[shorts] BG: Iniciando producao '{topic_safe}' para {canal_safe}")
 
         from _features.shorts_production.pipeline import run_production
         result = run_production(topic, canal, canal_id or 0, subnicho, lingua)
@@ -87,10 +92,11 @@ def _run_production_bg(topic: str, canal: str, canal_id: int | None, subnicho: s
             insert_data["canal_id"] = canal_id
         db.supabase.table("shorts_production").insert(insert_data).execute()
 
-        logger.info(f"[shorts] BG: Produção salva: {result['titulo']}")
+        titulo_safe = result['titulo'].encode('ascii', 'replace').decode()
+        logger.info(f"[shorts] BG: Producao salva: {titulo_safe}")
     except Exception as e:
         import traceback
-        logger.error(f"[shorts] BG ERRO: {e}")
+        logger.error(f"[shorts] BG ERRO: {str(e).encode('ascii', 'replace').decode()}")
         logger.error(traceback.format_exc())
 
 

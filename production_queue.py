@@ -127,6 +127,9 @@ def _worker_loop():
                 _current["subnicho"],
             )
         except Exception as e:
-            logger.error(f"[queue] Erro: {producao_id} — {e}")
+            try:
+                logger.error(f"[queue] Erro: {producao_id} -- {str(e).encode('ascii','replace').decode()}")
+            except Exception:
+                logger.error(f"[queue] Erro: {producao_id}")
             from shorts_endpoints import _production_status
             _production_status[producao_id] = "error"
