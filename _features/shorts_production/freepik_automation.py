@@ -36,16 +36,22 @@ IDS = {
 
 VOZES = {
     "Português": "Lucas Moreira",
+    "Portugues": "Lucas Moreira",
     "Inglês": "Caleb Morgan",
+    "Ingles": "Caleb Morgan",
     "Espanhol": "Diego Marín",
     "Francês": "Diego Marín",
+    "Frances": "Diego Marín",
     "Italiano": "Giulio Ferrante",
-    "Russo": "Léo Gamier",
+    "Russo": "Léo Garnier",
     "Japonês": "Giulio Ferrante",
+    "Japones": "Giulio Ferrante",
     "Coreano": "Ji-Hoon",
     "Turco": "Can Özkan",
     "Polonês": "Diego Marín",
+    "Polones": "Diego Marín",
     "Alemão": "Lukas Schneider",
+    "Alemao": "Lukas Schneider",
 }
 
 
@@ -147,91 +153,128 @@ def limpar_narracao(page: Page):
 # === PASSO 2-3: COLAR PROMPTS ===
 
 def _click_adicionar_texto(page: Page, block_id: str) -> bool:
-    """Clica em 'Adicionar texto' e foca no tiptap. Usa dispatchEvent (imune a zoom)."""
-    result = page.evaluate(f"""() => {{
-        const bloco = document.querySelector('[data-id="{block_id}"]');
-        if (!bloco) return 'no_block';
-        const buttons = bloco.querySelectorAll('button');
-        let btn = null;
-        for (const b of buttons) {{
-            if (b.textContent.trim().includes('Adicionar texto')) {{ btn = b; break; }}
-        }}
-        if (!btn) return 'no_button';
-        // Click via dispatchEvent (imune a zoom/scroll)
-        const rect = btn.getBoundingClientRect();
-        btn.dispatchEvent(new MouseEvent('click', {{
-            bubbles: true, clientX: rect.x + rect.width/2, clientY: rect.y + rect.height/2
-        }}));
-        return 'ok';
-    }}""")
-
-    if result != 'ok':
-        logger.error(f"Adicionar texto: {result}")
+    """Clica em 'Adicionar texto' e foca no tiptap. Espera ate o botao aparecer."""
+    # Esperar ate o botao "Adicionar texto" existir (max 10s)
+    for wait in range(10):
+        result = page.evaluate(f"""() => {{
+            const bloco = document.querySelector('[data-id="{block_id}"]');
+            if (!bloco) return 'no_block';
+            const buttons = bloco.querySelectorAll('button');
+            for (const b of buttons) {{
+                if (b.textContent.trim().includes('Adicionar texto')) return 'found';
+            }}
+            return 'no_button';
+        }}""")
+        if result == 'found':
+            break
+        if result == 'no_block':
+            logger.error(f"Adicionar texto: bloco nao encontrado")
+            return False
+        page.wait_for_timeout(1000)
+    else:
+        logger.error(f"Adicionar texto: botao nao apareceu em 10s")
         return False
 
+    # Clicar no botao
+    page.evaluate(f"""() => {{
+        const bloco = document.querySelector('[data-id="{block_id}"]');
+        const buttons = bloco.querySelectorAll('button');
+        for (const b of buttons) {{
+            if (b.textContent.trim().includes('Adicionar texto')) {{
+                const rect = b.getBoundingClientRect();
+                b.dispatchEvent(new MouseEvent('click', {{
+                    bubbles: true, clientX: rect.x + rect.width/2, clientY: rect.y + rect.height/2
+                }}));
+                return;
+            }}
+        }}
+    }}""")
     page.wait_for_timeout(2000)
 
-    # Focar no tiptap via focus() (sem coordenadas)
-    found = page.evaluate(f"""() => {{
-        const bloco = document.querySelector('[data-id="{block_id}"]');
-        if (!bloco) return false;
-        const tiptap = bloco.querySelector('.tiptap, .ProseMirror, [contenteditable="true"]');
-        if (!tiptap) return false;
-        tiptap.focus();
-        return true;
-    }}""")
-    if not found:
-        logger.error("Tiptap nao encontrado")
-        return False
+    # Esperar tiptap aparecer (max 5s)
+    for wait in range(5):
+        found = page.evaluate(f"""() => {{
+            const bloco = document.querySelector('[data-id="{block_id}"]');
+            if (!bloco) return false;
+            const tiptap = bloco.querySelector('.tiptap, .ProseMirror, [contenteditable="true"]');
+            if (!tiptap) return false;
+            tiptap.focus();
+            return true;
+        }}""")
+        if found:
+            page.wait_for_timeout(300)
+            return True
+        page.wait_for_timeout(1000)
 
-    page.wait_for_timeout(300)
-    return True
+    logger.error("Tiptap nao apareceu em 5s")
+    return False
 
 
-def colar_prompts(page: Page, block_id: str, prompts: list, nome: str):
-    """Cola prompts num bloco. Usa mouse.click pra 'Adicionar texto' (mais confiável)."""
-    if not _click_adicionar_texto(page, block_id):
-        logger.error(f"{nome}: botao 'Adicionar texto' ou tiptap nao encontrado")
-        return
-
-    # Colar cada prompt + Enter (incluindo após o último)
-    for i, prompt in enumerate(prompts):
-        page.keyboard.insert_text(prompt)
-        page.wait_for_timeout(600)
-        page.keyboard.press("Enter")
-        page.wait_for_timeout(600)
-
-    # Verificar se colou todos
-    count = page.evaluate(f"""() => {{
+def _get_prompt_count(page: Page, block_id: str) -> int:
+    """Retorna quantos prompts estao colados no bloco."""
+    return page.evaluate(f"""() => {{
         const el = document.querySelector('[data-id="{block_id}"]');
         const m = el ? el.textContent.match(/(\\d+)\\s*textos?/) : null;
         return m ? parseInt(m[1]) : 0;
     }}""")
 
-    if count < len(prompts):
-        logger.warning(f"{nome}: colou {count}/{len(prompts)}, re-tentando...")
-        # Limpar e recolar tudo
-        limpar_bloco(page, block_id, f"{nome} (retry)")
-        page.wait_for_timeout(1000)
 
-        if not _click_adicionar_texto(page, block_id):
-            logger.error(f"{nome}: retry falhou - botao/tiptap nao encontrado")
+def _colar_todos(page: Page, block_id: str, prompts: list, wait_ms: int = 800):
+    """Cola todos os prompts com insert_text + Enter. Re-foca tiptap antes de cada prompt."""
+    if not _click_adicionar_texto(page, block_id):
+        return False
+
+    for i, prompt in enumerate(prompts):
+        # Re-focar tiptap ANTES DE CADA prompt (Freepik tira o foco aleatoriamente)
+        page.evaluate(f"""() => {{
+            const bloco = document.querySelector('[data-id="{block_id}"]');
+            if (bloco) {{
+                const tiptap = bloco.querySelector('.tiptap, .ProseMirror, [contenteditable="true"]');
+                if (tiptap) tiptap.focus();
+            }}
+        }}""")
+        page.wait_for_timeout(200)
+
+        page.keyboard.insert_text(prompt)
+        page.wait_for_timeout(wait_ms)
+        page.keyboard.press("Enter")
+        page.wait_for_timeout(wait_ms)
+
+    return True
+
+
+def colar_prompts(page: Page, block_id: str, prompts: list, nome: str):
+    """Cola prompts com retry 3x. Verifica count apos cada tentativa."""
+    max_retries = 3
+
+    for attempt in range(1, max_retries + 1):
+        # Limpar se nao for a primeira tentativa
+        if attempt > 1:
+            logger.warning(f"{nome}: tentativa {attempt}/{max_retries}...")
+            limpar_bloco(page, block_id, f"{nome} (retry {attempt})")
+            page.wait_for_timeout(3000)  # Esperar mais pro botao "Adicionar texto" reaparecer
+
+        # Colar
+        success = _colar_todos(page, block_id, prompts, wait_ms=800 if attempt == 1 else 1000)
+        if not success:
+            logger.error(f"{nome}: tentativa {attempt} - botao/tiptap nao encontrado")
+            page.wait_for_timeout(2000)
+            continue
+
+        # Verificar count
+        page.wait_for_timeout(1000)
+        count = _get_prompt_count(page, block_id)
+
+        if count >= len(prompts):
+            logger.info(f"{nome}: {count}/{len(prompts)} prompts colados (tentativa {attempt})")
             return
 
-        # Re-colar todos com wait maior
-        for prompt in prompts:
-            page.keyboard.insert_text(prompt)
-            page.wait_for_timeout(600)
-            page.keyboard.press("Enter")
-            page.wait_for_timeout(600)
+        logger.warning(f"{nome}: tentativa {attempt} colou {count}/{len(prompts)}")
+        page.wait_for_timeout(2000)
 
-        count = page.evaluate(f"""() => {{
-            const el = document.querySelector('[data-id="{block_id}"]');
-            const m = el ? el.textContent.match(/(\\d+)\\s*textos?/) : null;
-            return m ? parseInt(m[1]) : 0;
-        }}""")
-
-    logger.info(f"{nome}: {count}/{len(prompts)} prompts colados")
+    # Todas tentativas falharam
+    final_count = _get_prompt_count(page, block_id)
+    logger.error(f"{nome}: FALHOU apos {max_retries} tentativas ({final_count}/{len(prompts)})")
 
 
 # === PASSO 4: NARRAÇÃO ===
@@ -255,23 +298,49 @@ def colar_narracao(page: Page, script_text: str):
         logger.error("NARRACAO: campo tiptap não encontrado")
 
 
+LINGUA_FILTRO = {
+    "Português": "Português", "Portugues": "Português",
+    "Inglês": "Inglês", "Ingles": "Inglês",
+    "Espanhol": "Espanhol", "Francês": "Francês", "Frances": "Francês",
+    "Italiano": "Italiano", "Russo": "Russo",
+    "Japonês": "Japonês", "Japones": "Japonês",
+    "Coreano": "Coreano", "Turco": "Turco",
+    "Polonês": "Polonês", "Polones": "Polonês",
+    "Alemão": "Alemão", "Alemao": "Alemão",
+}
+
+
 def selecionar_voz(page: Page, lingua: str):
-    """Seleciona voz correta para a língua."""
+    """Seleciona voz correta: troca filtro de lingua + seleciona voz."""
     voz_alvo = VOZES.get(lingua, "Lucas Moreira")
+    filtro_lingua = LINGUA_FILTRO.get(lingua, "Português")
 
     # Selecionar bloco da narração pra ativar toolbar
     _select_bloco(page, IDS["NARRACAO_TEXTO"])
     page.wait_for_timeout(1000)
 
-    # Encontrar botão com nome de pessoa (voz atual)
+    # Encontrar botão com nome de voz (perto de ElevenLabs na toolbar)
     voice_btn = page.evaluate("""() => {
         const btns = document.querySelectorAll('button');
+        // Primeiro achar ElevenLabs pra saber a posicao da toolbar
+        let elevenY = 0;
         for (const b of btns) {
-            const text = b.textContent.trim();
-            if (b.offsetParent !== null && /^[A-Z][a-záéíóú]+ [A-Z]/.test(text) && text.length < 30) {
-                if (!text.includes('ElevenLabs') && !text.includes('Adicionar') && !text.includes('Manter')) {
-                    const rect = b.getBoundingClientRect();
-                    return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2, text };
+            if (b.textContent.trim().includes('ElevenLabs') && b.offsetParent !== null) {
+                elevenY = b.getBoundingClientRect().y;
+                break;
+            }
+        }
+        if (!elevenY) return null;
+        // Botao de voz: proximo de ElevenLabs (dentro de 20px), sem keywords de sistema
+        const skip = ['ElevenLabs', 'Adicionar', 'Manter', 'textos', 'elementos', 'Alpha'];
+        for (const b of btns) {
+            if (b.offsetParent !== null) {
+                const text = b.textContent.trim();
+                const rect = b.getBoundingClientRect();
+                if (Math.abs(rect.y - elevenY) < 20 && text.length > 2 && text.length < 30 && rect.width > 20) {
+                    if (!skip.some(s => text.includes(s)) && !/^\\d/.test(text)) {
+                        return text;
+                    }
                 }
             }
         }
@@ -279,37 +348,97 @@ def selecionar_voz(page: Page, lingua: str):
     }""")
 
     if not voice_btn:
-        logger.warning("VOZ: botão de voz não encontrado")
+        logger.warning("VOZ: botao de voz nao encontrado")
         return
 
-    logger.info(f"VOZ atual: {voice_btn['text']}")
-    if voice_btn["text"] == voz_alvo:
-        logger.info(f"VOZ: já é {voz_alvo}, pulando")
+    logger.info(f"VOZ atual: {voice_btn}")
+    if voice_btn == voz_alvo:
+        logger.info(f"VOZ: ja e {voz_alvo}, pulando")
         return
 
-    # Abrir seletor de vozes via dispatchEvent (imune a zoom)
-    page.evaluate(f"""() => {{
+    # Abrir seletor de vozes (clicar no botao com nome da voz, perto de ElevenLabs)
+    page.evaluate("""() => {
         const btns = document.querySelectorAll('button');
-        for (const b of btns) {{
-            const text = b.textContent.trim();
-            if (b.offsetParent !== null && /^[A-Z][a-záéíóú]+ [A-Z]/.test(text) && text.length < 30) {{
-                if (!text.includes('ElevenLabs') && !text.includes('Adicionar') && !text.includes('Manter')) {{
-                    b.click();
-                    return;
-                }}
-            }}
-        }}
-    }}""")
+        let elevenY = 0;
+        for (const b of btns) {
+            if (b.textContent.trim().includes('ElevenLabs') && b.offsetParent !== null) {
+                elevenY = b.getBoundingClientRect().y;
+                break;
+            }
+        }
+        if (!elevenY) return;
+        const skip = ['ElevenLabs', 'Adicionar', 'Manter', 'textos', 'elementos', 'Alpha'];
+        for (const b of btns) {
+            if (b.offsetParent !== null) {
+                const text = b.textContent.trim();
+                const rect = b.getBoundingClientRect();
+                if (Math.abs(rect.y - elevenY) < 20 && text.length > 2 && text.length < 30 && rect.width > 20) {
+                    if (!skip.some(s => text.includes(s)) && !/^\\d/.test(text)) {
+                        b.click();
+                        return;
+                    }
+                }
+            }
+        }
+    }""")
     page.wait_for_timeout(3000)
 
-    # Clicar na voz alvo
+    # 1. Trocar filtro de lingua (botao com bandeira+nome no popup de vozes, y~44)
+    logger.info(f"VOZ: trocando filtro pra {filtro_lingua}...")
+    # O botao de filtro tem formato "🇧🇷 Português" (emoji bandeira + nome)
+    # E o PRIMEIRO botao na linha y~44 com largura entre 80-200
+    lang_clicked = page.evaluate("""() => {
+        const btns = document.querySelectorAll('button');
+        for (const b of btns) {
+            if (b.offsetParent !== null) {
+                const rect = b.getBoundingClientRect();
+                if (rect.y > 35 && rect.y < 75 && rect.width > 80 && rect.width < 220) {
+                    const text = b.textContent.trim();
+                    if (!text.includes('gêneros') && !text.includes('generos') && !text.includes('sotaques') && !text.includes('recentemente')) {
+                        b.click();
+                        return text;
+                    }
+                }
+            }
+        }
+        return null;
+    }""")
+
+    if lang_clicked:
+        page.wait_for_timeout(1500)
+        # Selecionar a lingua alvo no dropdown
+        selected = page.evaluate(f"""() => {{
+            const els = document.querySelectorAll('*');
+            for (const el of els) {{
+                if (el.offsetParent !== null) {{
+                    const text = el.textContent.trim();
+                    if (text.includes('{filtro_lingua}')) {{
+                        const rect = el.getBoundingClientRect();
+                        if (rect.height > 15 && rect.height < 45 && rect.width > 40 && rect.width < 300) {{
+                            el.click();
+                            return text;
+                        }}
+                    }}
+                }}
+            }}
+            return null;
+        }}""")
+        if selected:
+            page.wait_for_timeout(2000)
+            logger.info(f"VOZ: filtro trocado pra {filtro_lingua}")
+        else:
+            logger.warning(f"VOZ: opcao {filtro_lingua} nao encontrada no dropdown")
+    else:
+        logger.warning("VOZ: botao de filtro de lingua nao encontrado")
+
+    # 2. Selecionar a voz alvo
     target = page.locator(f"text={voz_alvo}")
     if target.count() > 0:
-        target.first.click()
+        target.first.click(force=True)
         page.wait_for_timeout(2000)
         logger.info(f"VOZ: selecionada {voz_alvo}")
     else:
-        logger.warning(f"VOZ: {voz_alvo} não encontrada na lista")
+        logger.warning(f"VOZ: {voz_alvo} nao encontrada na lista")
 
     page.keyboard.press("Escape")
     page.wait_for_timeout(500)

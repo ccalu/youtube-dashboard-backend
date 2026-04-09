@@ -443,9 +443,22 @@ def _run_youtube_upload_bg(producao_id: int, production_data: dict, video_path: 
         log(f"Upload YouTube: {titulo}")
 
         # Buscar channel_id do YouTube pelo nome do canal (yt_channels)
+        # Match exato primeiro, depois normalizado (sem acentos)
         canal_result = db.supabase.table("yt_channels").select(
             "channel_id"
         ).eq("channel_name", canal).eq("is_active", True).limit(1).execute()
+
+        if not canal_result.data:
+            # Match normalizado (sem acentos)
+            import unicodedata
+            canal_norm = unicodedata.normalize("NFD", canal).encode("ascii", "ignore").decode().lower()
+            all_channels = db.supabase.table("yt_channels").select("channel_id, channel_name").eq("is_active", True).execute()
+            for ch in all_channels.data:
+                ch_norm = unicodedata.normalize("NFD", ch["channel_name"]).encode("ascii", "ignore").decode().lower()
+                if ch_norm == canal_norm:
+                    canal_result.data = [{"channel_id": ch["channel_id"]}]
+                    log(f"Match normalizado: {ch['channel_name']}")
+                    break
 
         if not canal_result.data:
             log(f"ERRO: Canal '{canal}' nao encontrado em canais_monitorados")

@@ -82,12 +82,19 @@
 | Espanhol | Diego Marin |
 | Frances | Diego Marin |
 | Italiano | Giulio Ferrante |
-| Russo | Leo Gamier |
+| Russo | Leo Garnier |
 | Japones | Giulio Ferrante |
 | Coreano | Ji-Hoon |
 | Turco | Can Ozkan |
 | Polones | Diego Marin |
 | Alemao | Lukas Schneider |
+
+### Selecao de Voz (Playwright)
+- Encontra botao de voz pela proximidade com "ElevenLabs" na toolbar
+- Abre seletor >> troca filtro de lingua (dropdown mostra linguas em PORTUGUES, nao no idioma nativo)
+- Seleciona voz alvo na lista filtrada
+- LINGUA_FILTRO usa nomes em portugues (Alemao, Espanhol, Frances, etc.)
+- Testado e validado com TODAS as 11 linguas
 
 ---
 

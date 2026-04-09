@@ -120,11 +120,17 @@ CLIMAX: UM MOMENTO especifico, nao resumo. Mostre a cena.
 
 FECHAMENTO: fecha o loop do gancho. Variar: loop fechado, twist, reflexao, ou CTA natural (as vezes).
 
+COMPLIANCE YOUTUBE (obrigatorio):
+- NUNCA descrever violencia grafica contra criancas ou menores
+- NUNCA conteudo sexual ou nudez explicita
+- NUNCA discurso de odio, racismo ou discriminacao
+- Usar eufemismos e atmosfera em vez de descricoes graficas explicitas
+
 TTS: numeros por extenso no script. Anos COMPLETOS ("mil novecentos e quarenta e dois" NAO "quarenta e dois"). Titulo e descricao podem usar numeros normais.
 
 FORMATO:
 - Script na lingua "{lingua}". Titulo e descricao tambem em "{lingua}".
-- OBRIGATORIO: entre 800 e 900 caracteres no campo "script"
+- OBRIGATORIO: entre 800 e 900 caracteres no campo "script" (para Coreano e Japones: entre 300 e 400 caracteres — essas linguas sao mais densas e geram narracao mais longa)
 - OBRIGATORIO: 14 paragrafos separados por \\n\\n (cada paragrafo = 1 cena visual de ~5s)
 - Titulo: max 60 caracteres, curiosidade extrema
 - Descricao: 1-2 frases + 5 hashtags estrategicas (3 em ingles + 2 no idioma do canal). Hashtags devem ter ALCANCE AMPLO mas relevantes ao tema — nao nichadas demais (ex: #mummification e muito especifico, #history e melhor). Mix ideal: hashtags que milhoes de pessoas buscam MAS que se conectam com o conteudo. NUNCA usar #viral #fyp #trending.
