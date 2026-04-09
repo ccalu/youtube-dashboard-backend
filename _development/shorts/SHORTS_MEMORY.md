@@ -260,9 +260,22 @@ Todos prefixados com `/api/shorts/`
 
 ---
 
-## 14. Proximos Passos
+## 14. Analytics
+
+- **Aba Analytics** no dashboard: subnichos accordion (mesmo estilo Tabela), canais, shorts
+- **Metricas por short**: views, likes, comments (do videos_historico), subs_gained (do shorts_subs)
+- **Coleta de subs**: YouTube Analytics API (`channel==MINE`), tabela `shorts_subs` (video_id, date, subs_gained, subs_lost)
+- **Endpoint coleta**: `POST /api/shorts/collect-subs` (background task)
+- **Endpoint dados**: `GET /api/shorts/analytics` (batch query, rapido)
+- views/likes/comments: coleta diaria existente (videos_historico) — nao mexer
+- subs_gained: coleta separada via Analytics API
+- API so retorna videos com 1+ inscrito atribuido
+
+---
+
+## 15. Proximos Passos
 
 ### Futuro
 - [ ] Tunnel/Deploy (acesso externo)
 - [ ] Script de setup pra outros PCs
-- [ ] Feedback loop de performance (analytics >> melhorar scripts)
+- [ ] Integrar coleta de subs na rotina diaria
