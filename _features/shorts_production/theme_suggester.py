@@ -145,7 +145,13 @@ Títulos que fazem a pessoa PRECISAR assistir e COMPARTILHAR com alguém.
 Títulos na língua "{lingua}" — extremamente chamativos, CTR máximo.
 OBRIGATORIO: Se a lingua NAO for Portugues, SEMPRE inclua traducao em portugues entre parenteses. Ex: '제목 한국어 (Titulo em portugues)'. Sem excecao."""
     else:
-        ctx = SUBNICHO_CONTEXT.get(subnicho, SUBNICHO_CONTEXT.get("Monetizados", {}))
+        # Para Monetizados, usar contexto real do canal (não genérico mansões)
+        if subnicho == "Monetizados":
+            from _features.shorts_production.pipeline import get_monetizado_subnicho_real
+            subnicho_real = get_monetizado_subnicho_real(canal)
+            ctx = SUBNICHO_CONTEXT.get(subnicho_real, SUBNICHO_CONTEXT.get("Monetizados", {}))
+        else:
+            ctx = SUBNICHO_CONTEXT.get(subnicho, SUBNICHO_CONTEXT.get("Monetizados", {}))
         titulos = "\n".join("- " + t for t in ctx.get("titulos_ref", []))
 
         if tema_livre:

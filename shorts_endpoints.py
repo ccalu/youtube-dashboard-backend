@@ -508,31 +508,247 @@ def _run_youtube_upload_bg(producao_id: int, production_data: dict, video_path: 
 
 @router.get("/canais-com-oauth")
 async def canais_com_oauth():
-    """Lista canais nossos que tem OAuth configurado."""
-    # Canais com OAuth (yt_channels tem channel_name, channel_id, subnicho, lingua)
+    """Lista canais nossos que tem OAuth — cruzando canais_monitorados com yt_channels."""
+    # Canais nossos ativos (shorts factory)
+    nossos = db.supabase.table("canais_monitorados").select(
+        "id, nome_canal, subnicho, lingua"
+    ).eq("tipo", "nosso").eq("status", "ativo").execute()
+
+    # Canais no yt_channels (upload system)
+    yt = db.supabase.table("yt_channels").select(
+        "channel_id, channel_name"
+    ).eq("is_active", True).execute()
+    yt_nomes = {c["channel_name"] for c in yt.data}
+
+    # OAuth tokens
     oauth = db.supabase.table("yt_oauth_tokens").select("channel_id").execute()
     oauth_ids = {r["channel_id"] for r in oauth.data}
 
-    # Canais nossos ativos (de yt_channels)
-    canais = db.supabase.table("yt_channels").select(
-        "channel_id, channel_name, subnicho, lingua"
-    ).eq("is_active", True).execute()
+    # Canal com OAuth = existe no yt_channels E tem token
+    yt_name_to_id = {c["channel_name"]: c["channel_id"] for c in yt.data}
 
     com_oauth = []
     sem_oauth = []
-    for c in canais.data:
+    for c in nossos.data:
+        nome = c["nome_canal"]
         item = {
-            "channel_id": c["channel_id"],
-            "nome_canal": c["channel_name"],
+            "nome_canal": nome,
             "subnicho": c.get("subnicho", ""),
             "lingua": c.get("lingua", ""),
         }
-        if c["channel_id"] in oauth_ids:
+        ch_id = yt_name_to_id.get(nome)
+        if ch_id and ch_id in oauth_ids:
+            item["channel_id"] = ch_id
             com_oauth.append(item)
         else:
             sem_oauth.append(item)
 
     return {"com_oauth": com_oauth, "sem_oauth": sem_oauth}
+
+
+@router.post("/collect-subs")
+async def collect_shorts_subs(background_tasks: BackgroundTasks):
+    """Coleta subscribers gained/lost dos shorts publicados via YouTube Analytics API."""
+    background_tasks.add_task(_run_subs_collection_bg)
+    return {"status": "collecting", "message": "Coleta de subscribers iniciada"}
+
+
+def _run_subs_collection_bg():
+    """Coleta subscribers gained por short via YouTube Analytics API."""
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+        from _features.yt_uploader.oauth_manager import OAuthManager
+        from googleapiclient.discovery import build
+        from datetime import date
+
+        # Buscar todos shorts publicados com youtube_video_id
+        shorts = db.supabase.table("shorts_production").select(
+            "youtube_video_id, canal"
+        ).neq("youtube_video_id", "null").execute()
+
+        if not shorts.data:
+            logger.info("[subs] Nenhum short publicado pra coletar")
+            return
+
+        # Agrupar video_ids por canal
+        canais = {}
+        for s in shorts.data:
+            vid = s.get("youtube_video_id")
+            canal = s.get("canal")
+            if vid and canal:
+                if canal not in canais:
+                    canais[canal] = []
+                canais[canal].append(vid)
+
+        # Buscar channel_id pra cada canal
+        yt_channels = db.supabase.table("yt_channels").select(
+            "channel_id, channel_name"
+        ).eq("is_active", True).execute()
+
+        # Match por nome (com fallback normalizado)
+        import unicodedata
+        name_to_id = {}
+        for ch in yt_channels.data:
+            name_to_id[ch["channel_name"]] = ch["channel_id"]
+            norm = unicodedata.normalize("NFD", ch["channel_name"]).encode("ascii", "ignore").decode().lower()
+            name_to_id[norm] = ch["channel_id"]
+
+        today = date.today().isoformat()
+        total_collected = 0
+
+        for canal, video_ids in canais.items():
+            # Encontrar channel_id
+            channel_id = name_to_id.get(canal)
+            if not channel_id:
+                canal_norm = unicodedata.normalize("NFD", canal).encode("ascii", "ignore").decode().lower()
+                channel_id = name_to_id.get(canal_norm)
+            if not channel_id:
+                logger.warning(f"[subs] Canal '{canal}' sem channel_id, pulando")
+                continue
+
+            try:
+                creds = OAuthManager.get_valid_credentials(channel_id)
+                yt_analytics = build("youtubeAnalytics", "v2", credentials=creds)
+
+                result = yt_analytics.reports().query(
+                    ids="channel==MINE",
+                    startDate="2026-01-01",
+                    endDate=today,
+                    metrics="subscribersGained,subscribersLost",
+                    dimensions="video",
+                    sort="-subscribersGained",
+                    maxResults=200,
+                ).execute()
+
+                video_ids_set = set(video_ids)
+                for row in result.get("rows", []):
+                    vid = row[0]
+                    if vid in video_ids_set:
+                        subs_gained = row[1]
+                        subs_lost = row[2]
+
+                        # Upsert: INSERT, se conflito PATCH
+                        try:
+                            db.supabase.table("shorts_subs").insert({
+                                "video_id": vid,
+                                "channel_id": channel_id,
+                                "date": today,
+                                "subs_gained": subs_gained,
+                                "subs_lost": subs_lost,
+                            }).execute()
+                        except Exception:
+                            db.supabase.table("shorts_subs").update({
+                                "subs_gained": subs_gained,
+                                "subs_lost": subs_lost,
+                            }).eq("video_id", vid).eq("date", today).execute()
+
+                        total_collected += 1
+
+            except Exception as e:
+                logger.warning(f"[subs] Erro no canal {canal}: {e}")
+                continue
+
+        logger.info(f"[subs] Coleta concluida: {total_collected} shorts atualizados")
+
+    except Exception as e:
+        logger.error(f"[subs] Erro geral: {e}")
+
+
+@router.get("/analytics")
+async def shorts_analytics():
+    """Retorna analytics de todos os shorts publicados (batch query, rapido)."""
+    # 1. Buscar todos shorts publicados
+    shorts = db.supabase.table("shorts_production").select(
+        "id, canal, subnicho, lingua, titulo, youtube_video_id, status, created_at"
+    ).neq("youtube_video_id", "null").order("created_at", desc=True).execute()
+
+    if not shorts.data:
+        return {"totals": {}, "by_subnicho": {}, "shorts": []}
+
+    video_ids = [s["youtube_video_id"] for s in shorts.data if s.get("youtube_video_id")]
+
+    # 2. Batch: buscar TODAS metricas de uma vez
+    metrics = {}
+    if video_ids:
+        all_hist = db.supabase.table("videos_historico").select(
+            "video_id, views_atuais, likes, comentarios, data_coleta"
+        ).in_("video_id", video_ids).order("data_coleta", desc=True).execute()
+        # Pegar ultima coleta por video
+        for h in all_hist.data:
+            vid = h["video_id"]
+            if vid not in metrics:
+                metrics[vid] = h
+
+    # 3. Batch: buscar TODOS subs de uma vez
+    subs = {}
+    if video_ids:
+        all_subs = db.supabase.table("shorts_subs").select(
+            "video_id, subs_gained, subs_lost"
+        ).in_("video_id", video_ids).execute()
+        for r in all_subs.data:
+            vid = r["video_id"]
+            if vid not in subs:
+                subs[vid] = {"gained": 0, "lost": 0}
+            subs[vid]["gained"] += r["subs_gained"]
+            subs[vid]["lost"] += r["subs_lost"]
+
+    # 4. Montar resposta agrupada por subnicho > canal > shorts
+    shorts_list = []
+    by_subnicho = {}
+    totals = {"total_shorts": 0, "total_views": 0, "total_likes": 0, "total_comments": 0, "total_subs_gained": 0}
+
+    for s in shorts.data:
+        vid = s.get("youtube_video_id")
+        m = metrics.get(vid, {})
+        sub = subs.get(vid, {})
+
+        views = m.get("views_atuais", 0) or 0
+        likes = m.get("likes", 0) or 0
+        comments = m.get("comentarios", 0) or 0
+        subs_gained = sub.get("gained", 0)
+
+        short_data = {
+            "id": s["id"],
+            "titulo": s["titulo"],
+            "canal": s["canal"],
+            "subnicho": s["subnicho"],
+            "lingua": s["lingua"],
+            "youtube_video_id": vid,
+            "views": views,
+            "likes": likes,
+            "comments": comments,
+            "subs_gained": subs_gained,
+            "created_at": s["created_at"],
+        }
+        shorts_list.append(short_data)
+
+        totals["total_shorts"] += 1
+        totals["total_views"] += views
+        totals["total_likes"] += likes
+        totals["total_comments"] += comments
+        totals["total_subs_gained"] += subs_gained
+
+        # Agrupar por subnicho > canal
+        subnicho = s["subnicho"]
+        canal = s["canal"]
+        if subnicho not in by_subnicho:
+            by_subnicho[subnicho] = {}
+        if canal not in by_subnicho[subnicho]:
+            by_subnicho[subnicho][canal] = {"canal": canal, "subnicho": subnicho, "lingua": s["lingua"], "shorts_count": 0, "views": 0, "likes": 0, "comments": 0, "subs_gained": 0, "shorts": []}
+        ch = by_subnicho[subnicho][canal]
+        ch["shorts_count"] += 1
+        ch["views"] += views
+        ch["likes"] += likes
+        ch["comments"] += comments
+        ch["subs_gained"] += subs_gained
+        ch["shorts"].append(short_data)
+
+    return {
+        "totals": totals,
+        "by_subnicho": {k: list(v.values()) for k, v in by_subnicho.items()},
+        "shorts": shorts_list,
+    }
 
 
 @router.get("/subnichos")

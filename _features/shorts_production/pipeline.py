@@ -21,8 +21,51 @@ ESTILOS_VISUAIS = {
     "Reis Perversos": "Renaissance oil painting with dramatic Baroque lighting. Inspired by Caravaggio, Rembrandt. Candlelight, chiaroscuro, rich textures. Vertical 9:16.",
     "Historias Sombrias": "Renaissance oil painting with dramatic Baroque lighting. Dark revelations, disturbing historical truths. Tenebrism, sfumato. Vertical 9:16.",
     "Culturas Macabras": "Renaissance oil painting with dramatic Baroque lighting. Ancient rituals, macabre customs. Candlelight, deep shadows. Vertical 9:16.",
-    "Monetizados": "",  # Usar estilo do canal específico
+    "Monetizados": "",  # Resolvido por get_monetizado_context()
 }
+
+# Mapeamento de canais Monetizados -> contexto real do canal
+# Canais monetizados mantêm o conteúdo do subnicho original, não "mansões" genérico
+MONETIZADOS_CONTEXT_MAP = {
+    # canal_name_fragment: subnicho_contexto_real
+    "Mansões": "Mansoes",
+    "Mansoes": "Mansoes",
+    "WWII": "Relatos de Guerra",
+    "Erzähl": "Relatos de Guerra",
+    "戦争の記録庫": "Relatos de Guerra",
+    "王座の秘密": "Reis Perversos",
+    "Королей": "Reis Perversos",
+    "Шёпот": "Reis Perversos",
+}
+
+# Descrição e estilo específico pra Mansões (único caso que não herda de outro subnicho)
+_MANSOES_DESC = "Mansões, casas, palácios e propriedades históricas com foco no lado sombrio. Tragédias, abandonos, quedas de dinastias, contraste luxo/ruína."
+_MANSOES_ESTILO = "Cinematic hyperrealistic documentary photography. Era-adaptive: daguerreotype, silver gelatin, early 20th century, modern. Vertical 9:16."
+
+
+def get_monetizado_context(canal: str) -> tuple[str, str]:
+    """Retorna (subnicho_desc, estilo_visual) real pra canais Monetizados.
+
+    Canais monetizados herdam contexto do subnicho original do canal,
+    não o genérico de 'mansões'.
+    """
+    for fragment, contexto in MONETIZADOS_CONTEXT_MAP.items():
+        if fragment in canal:
+            if contexto == "Mansoes":
+                return _MANSOES_DESC, _MANSOES_ESTILO
+            return SUBNICHO_DESCS.get(contexto, ""), ESTILOS_VISUAIS.get(contexto, "")
+    # Fallback: mansões
+    return _MANSOES_DESC, _MANSOES_ESTILO
+
+
+def get_monetizado_subnicho_real(canal: str) -> str:
+    """Retorna o subnicho real de um canal Monetizado (pra theme_suggester usar)."""
+    for fragment, contexto in MONETIZADOS_CONTEXT_MAP.items():
+        if fragment in canal:
+            if contexto == "Mansoes":
+                return "Monetizados"
+            return contexto
+    return "Monetizados"
 
 # Descrições dos subnichos (do SUBNICHOS.md)
 SUBNICHO_DESCS = {
@@ -52,17 +95,9 @@ def run_production(topic: str, canal: str, canal_id: int, subnicho: str, lingua:
     subnicho_desc = SUBNICHO_DESCS.get(subnicho, "")
     estilo_visual = ESTILOS_VISUAIS.get(subnicho, "")
 
-    # Para Monetizados, usar contexto específico do canal
+    # Para Monetizados, usar contexto específico do canal (não genérico mansões)
     if subnicho == "Monetizados":
-        if "Mansões" in canal or "Mansoes" in canal:
-            subnicho_desc = "Mansões, casas, palácios e propriedades históricas com foco no lado sombrio. Tragédias, abandonos, quedas de dinastias, contraste luxo/ruína."
-            estilo_visual = "Cinematic hyperrealistic documentary photography. Era-adaptive: daguerreotype, silver gelatin, early 20th century, modern. Vertical 9:16."
-        elif "WWII" in canal or "Guerre" in canal or "Erzähl" in canal:
-            subnicho_desc = SUBNICHO_DESCS.get("Relatos de Guerra", "")
-            estilo_visual = ESTILOS_VISUAIS.get("Relatos de Guerra", "")
-        elif "Королей" in canal or "Шёпот" in canal:
-            subnicho_desc = SUBNICHO_DESCS.get("Reis Perversos", "")
-            estilo_visual = ESTILOS_VISUAIS.get("Reis Perversos", "")
+        subnicho_desc, estilo_visual = get_monetizado_context(canal)
 
     # 2. Roteirista gera script (com validação)
     script_data = write_script(
