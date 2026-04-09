@@ -960,6 +960,15 @@ async def collect_oauth_metrics():
     log.info(f"  Monetizados: {monetized_count} | Analytics-only: {analytics_count}")
     log.info("=" * 60)
 
+    # Coleta de subscribers gained dos Shorts (separada, nao afeta coleta principal)
+    try:
+        from shorts_endpoints import _run_subs_collection_bg
+        log.info("[shorts-subs] Iniciando coleta de subscribers dos shorts...")
+        _run_subs_collection_bg()
+        log.info("[shorts-subs] Coleta de subscribers concluida")
+    except Exception as e:
+        log.warning(f"[shorts-subs] Erro na coleta de subscribers (nao afeta coleta principal): {e}")
+
     return {"success": success_count, "errors": error_count}
 
 # =============================================================================
