@@ -396,6 +396,40 @@ async def produzir_completo(producao_id: int):
     }
 
 
+@router.post("/batch-editar")
+async def batch_editar(background_tasks: BackgroundTasks):
+    """Aciona Remotion + Drive pra todos os shorts em status=edicao."""
+    edicoes = db.supabase.table("shorts_production").select(
+        "id, canal, titulo, drive_link, subnicho"
+    ).eq("status", "edicao").order("created_at").execute()
+
+    if not edicoes.data:
+        return {"status": "nenhum", "message": "Nenhum short em edicao"}
+
+    resultados = []
+    for p in edicoes.data:
+        drive_link = p.get("drive_link", "")
+        if not drive_link or not os.path.exists(drive_link):
+            resultados.append({"id": p["id"], "canal": p["canal"], "status": "erro", "message": "pasta nao encontrada"})
+            continue
+
+        background_tasks.add_task(_run_editing_bg, p["id"], drive_link, p.get("subnicho", ""))
+        resultados.append({
+            "id": p["id"],
+            "canal": p["canal"],
+            "titulo": p["titulo"],
+            "status": "editando",
+        })
+
+    editando = sum(1 for r in resultados if r["status"] == "editando")
+    return {
+        "status": "ok",
+        "total": len(edicoes.data),
+        "editando": editando,
+        "resultados": resultados,
+    }
+
+
 @router.post("/batch-produzir")
 async def batch_produzir():
     """Enfileira todos os shorts em status=producao pra produção (Freepik + Remotion + Drive)."""
