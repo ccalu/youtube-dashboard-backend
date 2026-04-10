@@ -37,21 +37,32 @@ IDS = {
 VOZES = {
     "Português": "Lucas Moreira",
     "Portugues": "Lucas Moreira",
+    "pt": "Lucas Moreira",
     "Inglês": "Caleb Morgan",
     "Ingles": "Caleb Morgan",
+    "en": "Caleb Morgan",
     "Espanhol": "Diego Marín",
+    "es": "Diego Marín",
     "Francês": "Diego Marín",
     "Frances": "Diego Marín",
+    "fr": "Diego Marín",
     "Italiano": "Giulio Ferrante",
+    "it": "Giulio Ferrante",
     "Russo": "Léo Garnier",
+    "ru": "Léo Garnier",
     "Japonês": "Giulio Ferrante",
     "Japones": "Giulio Ferrante",
+    "ja": "Giulio Ferrante",
     "Coreano": "Ji-Hoon",
+    "ko": "Ji-Hoon",
     "Turco": "Can Özkan",
+    "tr": "Can Özkan",
     "Polonês": "Diego Marín",
     "Polones": "Diego Marín",
+    "pl": "Diego Marín",
     "Alemão": "Lukas Schneider",
     "Alemao": "Lukas Schneider",
+    "de": "Lukas Schneider",
 }
 
 
@@ -299,14 +310,17 @@ def colar_narracao(page: Page, script_text: str):
 
 
 LINGUA_FILTRO = {
-    "Português": "Português", "Portugues": "Português",
-    "Inglês": "Inglês", "Ingles": "Inglês",
-    "Espanhol": "Espanhol", "Francês": "Francês", "Frances": "Francês",
-    "Italiano": "Italiano", "Russo": "Russo",
-    "Japonês": "Japonês", "Japones": "Japonês",
-    "Coreano": "Coreano", "Turco": "Turco",
-    "Polonês": "Polonês", "Polones": "Polonês",
-    "Alemão": "Alemão", "Alemao": "Alemão",
+    "Português": "Português", "Portugues": "Português", "pt": "Português",
+    "Inglês": "Inglês", "Ingles": "Inglês", "en": "Inglês",
+    "Espanhol": "Espanhol", "es": "Espanhol",
+    "Francês": "Francês", "Frances": "Francês", "fr": "Francês",
+    "Italiano": "Italiano", "it": "Italiano",
+    "Russo": "Russo", "ru": "Russo",
+    "Japonês": "Japonês", "Japones": "Japonês", "ja": "Japonês",
+    "Coreano": "Coreano", "ko": "Coreano",
+    "Turco": "Turco", "tr": "Turco",
+    "Polonês": "Polonês", "Polones": "Polonês", "pl": "Polonês",
+    "Alemão": "Alemão", "Alemao": "Alemão", "de": "Alemão",
 }
 
 
@@ -509,20 +523,33 @@ def verificar_status(page: Page) -> dict:
 
 # === PASSO 9: BAIXAR ===
 
-def baixar_bloco(page: Page, data_id: str, nome: str, dest_dir: str):
+def baixar_bloco(page: Page, data_id: str, nome: str, dest_dir: str, log_callback=None):
     """Baixa assets via right-click → 'Baixar'. Salva ZIP na pasta destino."""
+    def log(msg):
+        logger.info(msg)
+        if log_callback:
+            log_callback(msg)
+
     _right_click_bloco(page, data_id)
+    page.wait_for_timeout(1500)
 
     baixar = page.locator("text=Baixar")
     if baixar.count() > 0:
-        with page.expect_download(timeout=30000) as download_info:
-            baixar.first.click(force=True)
-        download = download_info.value
-        save_path = os.path.join(dest_dir, f"{nome.lower()}.zip")
-        download.save_as(save_path)
-        logger.info(f"{nome}: DOWNLOAD OK → {save_path}")
+        log(f"{nome}: Iniciando download...")
+        try:
+            with page.expect_download(timeout=90000) as download_info:
+                baixar.last.click(force=True)
+            download = download_info.value
+            save_path = os.path.join(dest_dir, f"{nome.lower()}.zip")
+            download.save_as(save_path)
+            size = os.path.getsize(save_path)
+            log(f"{nome}: DOWNLOAD OK → {size} bytes")
+            if size == 0:
+                log(f"{nome}: AVISO - arquivo vazio, download pode ter falhado")
+        except Exception as e:
+            log(f"{nome}: ERRO no download - {str(e)[:100]}")
     else:
-        logger.warning(f"{nome}: 'Baixar' não encontrado no menu")
+        log(f"{nome}: 'Baixar' nao encontrado no menu")
 
 
 # === PASSO 10: ORGANIZAR DOWNLOADS ===
@@ -635,7 +662,7 @@ def organizar_downloads(dest_path: str):
     n_clips = len(glob.glob(os.path.join(dest_path, "clips", "cena_*.mp4")))
     logger.info(f"Organizado: {n_imgs} imagens, {n_clips} clips")
 
-    if n_imgs < 14 or n_clips < 14:
+    if n_imgs < 12 or n_clips < 12:
         logger.warning(f"ATENÇÃO: faltam assets! ({n_imgs} imgs, {n_clips} clips)")
 
 
@@ -741,11 +768,11 @@ def run_freepik_production(producao_json_path: str, log_callback: Optional[Calla
             status = verificar_status(page)
             log(f"Status: {status['imagens']} imgs, {status['videos']} vids, nar={status['narracao']}")
 
-            if status["imagens"] >= 14 and status["videos"] >= 14 and status["narracao"]:
-                log("16+16+nar OK. Esperando 4 min pra confirmar renderizacao...")
+            if status["imagens"] >= 12 and status["videos"] >= 12 and status["narracao"]:
+                log(f"{status['imagens']}+{status['videos']}+nar OK. Esperando 4 min pra confirmar renderizacao...")
                 time.sleep(240)
                 status2 = verificar_status(page)
-                if status2["imagens"] >= 14 and status2["videos"] >= 14 and status2["narracao"]:
+                if status2["imagens"] >= 12 and status2["videos"] >= 12 and status2["narracao"]:
                     log("TUDO PRONTO!")
                     break
                 log("Ainda processando...")

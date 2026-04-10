@@ -447,7 +447,7 @@ async def batch_editar(background_tasks: BackgroundTasks):
 
 
 @router.post("/batch-produzir")
-async def batch_produzir():
+async def batch_produzir(background_tasks: BackgroundTasks):
     """Enfileira todos os shorts em status=producao pra produção (Freepik + Remotion + Drive)."""
     producoes = db.supabase.table("shorts_production").select(
         "id, canal, titulo, drive_link, subnicho"
@@ -456,33 +456,38 @@ async def batch_produzir():
     if not producoes.data:
         return {"status": "nenhum", "message": "Nenhum short em producao pra enfileirar"}
 
-    from production_queue import enqueue
-    resultados = []
+    # Filtrar só os que tem producao.json no disco
+    validos = []
+    erros = []
     for p in producoes.data:
         drive_link = p.get("drive_link", "")
         json_path = os.path.join(drive_link, "producao.json") if drive_link else ""
+        if json_path and os.path.exists(json_path):
+            validos.append({**p, "json_path": json_path})
+        else:
+            erros.append({"id": p["id"], "canal": p["canal"], "status": "erro", "message": "producao.json nao encontrado"})
 
-        if not json_path or not os.path.exists(json_path):
-            resultados.append({"id": p["id"], "canal": p["canal"], "status": "erro", "message": "producao.json nao encontrado"})
-            continue
+    # Enfileirar em background pra não travar o servidor
+    background_tasks.add_task(_enqueue_batch_produzir, validos)
 
-        queue_result = enqueue(p["id"], json_path, drive_link, p.get("subnicho", ""))
-        resultados.append({
-            "id": p["id"],
-            "canal": p["canal"],
-            "titulo": p["titulo"],
-            "status": "na_fila",
-            "posicao": queue_result["posicao"],
-            "duplicado": queue_result.get("duplicado", False),
-        })
-
-    enfileirados = sum(1 for r in resultados if r["status"] == "na_fila")
     return {
         "status": "ok",
         "total": len(producoes.data),
-        "enfileirados": enfileirados,
-        "resultados": resultados,
+        "enfileirados": len(validos),
+        "erros": len(erros),
+        "message": f"{len(validos)} shorts sendo enfileirados, {len(erros)} sem arquivo",
     }
+
+
+def _enqueue_batch_produzir(validos: list[dict]):
+    """Enfileira shorts na fila de produção em background."""
+    from production_queue import enqueue
+    for p in validos:
+        try:
+            enqueue(p["id"], p["json_path"], p.get("drive_link", ""), p.get("subnicho", ""))
+            logger.info(f"[batch-produzir] Enfileirado: {p['id']} ({p['canal']})")
+        except Exception as e:
+            logger.error(f"[batch-produzir] Erro ao enfileirar {p['id']}: {str(e)[:100]}")
 
 
 @router.get("/logs/{producao_id}")
@@ -718,6 +723,13 @@ def _run_youtube_upload_bg(producao_id: int, production_data: dict, video_path: 
 LEVA_1_SUBNICHOS = ["Reis Perversos", "Guerras e Civilizações", "Frentes de Guerra"]
 LEVA_2_SUBNICHOS = ["Relatos de Guerra", "Monetizados", "Culturas Macabras", "Historias Sombrias"]
 
+# Mapeamento abreviação -> nome completo da lingua
+LINGUA_MAP = {
+    "pt": "Português", "en": "Inglês", "es": "Espanhol", "fr": "Francês",
+    "de": "Alemão", "it": "Italiano", "ja": "Japonês", "ko": "Coreano",
+    "ru": "Russo", "tr": "Turco", "pl": "Polonês", "ar": "Árabe",
+}
+
 _batch_gerar_status: dict = {}  # batch_id -> {status, total, completed, current, results, errors}
 
 
@@ -740,10 +752,12 @@ def _get_oauth_channels_by_subnichos(subnichos: list[str]) -> list[dict]:
     for ch in (yt.data or []):
         if (ch["channel_id"] in oauth_ids
             and ch.get("subnicho") in subnichos):
+            lingua_raw = ch.get("lingua", "")
+            lingua_full = LINGUA_MAP.get(lingua_raw, lingua_raw)  # pt -> Português
             canais.append({
                 "channel_name": ch["channel_name"],
                 "subnicho": ch["subnicho"],
-                "lingua": ch.get("lingua", ""),
+                "lingua": lingua_full,
             })
 
     return sorted(canais, key=lambda c: (c["subnicho"], c["lingua"]))
@@ -932,17 +946,23 @@ _batch_upload_status: dict = {}  # batch_id -> {status, total, completed, curren
 
 
 class BatchUploadRequest(BaseModel):
-    delay_minutes: int = 5
-    batch_size: int = 4
+    delay_seconds: int = 25
+    production_ids: Optional[list[int]] = None  # Se None, pega todos prontos com OAuth
 
 
 @router.post("/batch-upload")
 async def batch_upload(req: BatchUploadRequest, background_tasks: BackgroundTasks):
-    """Upload em batch: 4 por vez, 5 min delay entre blocos."""
-    # Buscar todos prontos sem youtube_video_id
-    prontos = db.supabase.table("shorts_production").select(
-        "id, canal, titulo, drive_link"
-    ).eq("status", "pronto").is_("youtube_video_id", "null").execute()
+    """Upload em fila: 1 por 1 com delay entre cada."""
+    if req.production_ids:
+        # IDs específicos passados pelo frontend
+        prontos = db.supabase.table("shorts_production").select(
+            "id, canal, titulo, drive_link"
+        ).in_("id", req.production_ids).eq("status", "pronto").is_("youtube_video_id", "null").execute()
+    else:
+        # Fallback: todos prontos sem upload
+        prontos = db.supabase.table("shorts_production").select(
+            "id, canal, titulo, drive_link"
+        ).eq("status", "pronto").is_("youtube_video_id", "null").execute()
 
     if not prontos.data:
         return {"status": "nenhum", "message": "Nenhum short pronto pra upload"}
@@ -960,15 +980,14 @@ async def batch_upload(req: BatchUploadRequest, background_tasks: BackgroundTask
     }
 
     background_tasks.add_task(
-        _run_batch_upload_bg, batch_id, ids, req.delay_minutes, req.batch_size
+        _run_batch_upload_bg, batch_id, ids, req.delay_seconds
     )
 
     return {
         "batch_id": batch_id,
         "status": "running",
         "total": len(ids),
-        "delay_minutes": req.delay_minutes,
-        "batch_size": req.batch_size,
+        "delay_seconds": req.delay_seconds,
         "shorts": [{"id": p["id"], "canal": p["canal"], "titulo": p["titulo"]} for p in prontos.data],
     }
 
@@ -982,55 +1001,48 @@ async def batch_upload_status(batch_id: str):
     return status
 
 
-def _run_batch_upload_bg(batch_id: str, production_ids: list[int], delay_minutes: int, batch_size: int):
-    """Upload em blocos com delay entre eles."""
+def _run_batch_upload_bg(batch_id: str, production_ids: list[int], delay_seconds: int):
+    """Upload 1 por 1 com delay entre cada."""
     import time
 
     status = _batch_upload_status[batch_id]
     total = len(production_ids)
 
-    for i in range(0, total, batch_size):
-        bloco = production_ids[i:i + batch_size]
-        bloco_num = (i // batch_size) + 1
-        total_blocos = (total + batch_size - 1) // batch_size
+    for i, prod_id in enumerate(production_ids):
+        try:
+            result = db.supabase.table("shorts_production").select("*").eq("id", prod_id).single().execute()
+            if not result.data:
+                status["errors"].append({"id": prod_id, "error": "nao encontrado"})
+                continue
 
-        logger.info(f"[batch-upload] Bloco {bloco_num}/{total_blocos}: {len(bloco)} uploads")
-
-        for prod_id in bloco:
-            try:
-                # Buscar dados da producao
-                result = db.supabase.table("shorts_production").select("*").eq("id", prod_id).single().execute()
-                if not result.data:
-                    status["errors"].append({"id": prod_id, "error": "nao encontrado"})
-                    continue
-
-                if result.data.get("youtube_video_id"):
-                    status["completed"] += 1
-                    continue  # Ja foi uploaded
-
-                drive_link = result.data.get("drive_link", "")
-                video_path = os.path.join(drive_link, "video_final.mp4") if drive_link else ""
-                if not video_path or not os.path.exists(video_path):
-                    status["errors"].append({"id": prod_id, "error": f"video nao encontrado: {drive_link}"})
-                    continue
-
-                status["current"] = {
-                    "id": prod_id,
-                    "canal": result.data.get("canal", ""),
-                    "titulo": result.data.get("titulo", ""),
-                }
-
-                # Upload (sincrono, reutiliza a mesma logica)
-                _run_youtube_upload_bg(prod_id, result.data, video_path)
+            if result.data.get("youtube_video_id"):
                 status["completed"] += 1
+                continue
 
-            except Exception as e:
-                status["errors"].append({"id": prod_id, "error": str(e)[:100]})
+            drive_link = result.data.get("drive_link", "")
+            video_path = os.path.join(drive_link, "video_final.mp4") if drive_link else ""
+            if not video_path or not os.path.exists(video_path):
+                status["errors"].append({"id": prod_id, "error": f"video nao encontrado: {drive_link}"})
+                continue
 
-        # Delay entre blocos (exceto no ultimo)
-        if i + batch_size < total:
-            logger.info(f"[batch-upload] Aguardando {delay_minutes} min antes do proximo bloco...")
-            time.sleep(delay_minutes * 60)
+            status["current"] = {
+                "id": prod_id,
+                "canal": result.data.get("canal", ""),
+                "titulo": result.data.get("titulo", ""),
+                "index": i + 1,
+            }
+
+            logger.info(f"[batch-upload] {i+1}/{total}: {result.data.get('canal')} - uploading...")
+            _run_youtube_upload_bg(prod_id, result.data, video_path)
+            status["completed"] += 1
+
+            # Delay entre uploads (exceto no ultimo)
+            if i < total - 1:
+                logger.info(f"[batch-upload] Aguardando {delay_seconds}s...")
+                time.sleep(delay_seconds)
+
+        except Exception as e:
+            status["errors"].append({"id": prod_id, "error": str(e)[:100]})
 
     status["status"] = "done"
     status["current"] = None
