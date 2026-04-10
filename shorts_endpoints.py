@@ -57,6 +57,10 @@ class GerarRequest(BaseModel):
     subnicho: str
     lingua: str
     avulso: bool = False
+    tom: Optional[str] = None
+    formato: Optional[str] = None
+    video_ref: Optional[str] = None
+    video_ref_titulo: Optional[str] = None
 
 
 class SugerirTemasRequest(BaseModel):
@@ -276,14 +280,26 @@ def _run_full_production_bg(producao_id: int, json_path: str, production_path: s
 
 @router.post("/gerar")
 async def gerar_producao(req: GerarRequest, background_tasks: BackgroundTasks):
-    """Gera script + prompts em background. Analista roda automaticamente."""
-    # Rodar analista pra determinar tom, formato, bloqueios
-    analysis = {}
-    if not req.avulso:
+    """Gera script + prompts em background.
+
+    Tom/formato podem vir do request (se sugerir-temas já rodou o analista)
+    ou roda o analista aqui se não vieram.
+    """
+    tom = req.tom or ""
+    formato = req.formato or "livre"
+    video_ref = req.video_ref or ""
+    video_ref_titulo = req.video_ref_titulo or ""
+
+    # Só roda analista se tom não veio no request (fallback)
+    if not tom and not req.avulso:
         try:
             from _features.shorts_production.analyst import analyze_channel
             analysis = analyze_channel(req.canal, req.subnicho)
-            logger.info(f"[shorts] Analista: tom={analysis.get('tom')}, formato={analysis.get('formato')}")
+            tom = analysis.get("tom", "")
+            formato = analysis.get("formato", "livre")
+            video_ref = analysis.get("video_ref", "")
+            video_ref_titulo = analysis.get("video_ref_titulo", "")
+            logger.info(f"[shorts] Analista (fallback): tom={tom}, formato={formato}")
         except Exception as e:
             logger.warning(f"[shorts] Analista falhou, usando defaults: {str(e)[:100]}")
 
@@ -294,16 +310,16 @@ async def gerar_producao(req: GerarRequest, background_tasks: BackgroundTasks):
         canal_id=req.canal_id,
         subnicho=req.subnicho,
         lingua=req.lingua,
-        tom=analysis.get("tom", ""),
-        formato=analysis.get("formato", "livre"),
-        video_ref=analysis.get("video_ref", ""),
-        video_ref_titulo=analysis.get("video_ref_titulo", ""),
+        tom=tom,
+        formato=formato,
+        video_ref=video_ref,
+        video_ref_titulo=video_ref_titulo,
     )
     return {
         "status": "gerando",
         "message": f"Produção de '{req.topic}' iniciada em background",
-        "tom": analysis.get("tom", ""),
-        "formato": analysis.get("formato", "livre"),
+        "tom": tom,
+        "formato": formato,
     }
 
 

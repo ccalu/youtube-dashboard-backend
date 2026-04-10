@@ -310,135 +310,103 @@ LINGUA_FILTRO = {
 }
 
 
-def selecionar_voz(page: Page, lingua: str):
-    """Seleciona voz correta: troca filtro de lingua + seleciona voz."""
+def selecionar_voz(page: Page, lingua: str, log_callback=None):
+    """Seleciona voz correta: clica narracao -> clica voz -> filtro lingua -> seleciona voz."""
     voz_alvo = VOZES.get(lingua, "Lucas Moreira")
     filtro_lingua = LINGUA_FILTRO.get(lingua, "Português")
 
-    # Selecionar bloco da narração pra ativar toolbar
+    def log(msg):
+        logger.info(msg)
+        if log_callback:
+            log_callback(msg)
+
+    # 1. Clicar no bloco de narracao pra ativar toolbar
     _select_bloco(page, IDS["NARRACAO_TEXTO"])
     page.wait_for_timeout(1000)
 
-    # Encontrar botão com nome de voz (perto de ElevenLabs na toolbar)
-    voice_btn = page.evaluate("""() => {
-        const btns = document.querySelectorAll('button');
-        // Primeiro achar ElevenLabs pra saber a posicao da toolbar
-        let elevenY = 0;
-        for (const b of btns) {
-            if (b.textContent.trim().includes('ElevenLabs') && b.offsetParent !== null) {
-                elevenY = b.getBoundingClientRect().y;
-                break;
-            }
-        }
-        if (!elevenY) return null;
-        // Botao de voz: proximo de ElevenLabs (dentro de 20px), sem keywords de sistema
-        const skip = ['ElevenLabs', 'Adicionar', 'Manter', 'textos', 'elementos', 'Alpha'];
-        for (const b of btns) {
-            if (b.offsetParent !== null) {
-                const text = b.textContent.trim();
-                const rect = b.getBoundingClientRect();
-                if (Math.abs(rect.y - elevenY) < 20 && text.length > 2 && text.length < 30 && rect.width > 20) {
-                    if (!skip.some(s => text.includes(s)) && !/^\\d/.test(text)) {
-                        return text;
-                    }
-                }
-            }
-        }
+    # 2. Verificar voz atual (botao dentro do bloco narracao, sem ElevenLabs/numeros)
+    voz_atual = page.evaluate(f"""() => {{
+        const narracao = document.querySelector('[data-id="{IDS["NARRACAO_TEXTO"]}"]');
+        if (!narracao) return null;
+        const btns = narracao.querySelectorAll('button');
+        for (const b of btns) {{
+            const text = b.textContent.trim();
+            if (b.offsetParent !== null && text.length > 3 && !text.includes('ElevenLabs') && !/^[\\d:x]/.test(text)) {{
+                return text;
+            }}
+        }}
         return null;
-    }""")
+    }}""")
 
-    if not voice_btn:
-        logger.warning("VOZ: botao de voz nao encontrado")
+    log(f"VOZ atual: {voz_atual}")
+    if voz_atual == voz_alvo:
+        log(f"VOZ: ja e {voz_alvo}, pulando")
         return
 
-    logger.info(f"VOZ atual: {voice_btn}")
-    if voice_btn == voz_alvo:
-        logger.info(f"VOZ: ja e {voz_alvo}, pulando")
-        return
+    # 3. Clicar no botao da voz atual pra abrir seletor de vozes
+    page.evaluate(f"""() => {{
+        const narracao = document.querySelector('[data-id="{IDS["NARRACAO_TEXTO"]}"]');
+        if (!narracao) return;
+        const btns = narracao.querySelectorAll('button');
+        for (const b of btns) {{
+            const text = b.textContent.trim();
+            if (b.offsetParent !== null && text.length > 3 && !text.includes('ElevenLabs') && !/^[\\d:x]/.test(text)) {{
+                b.dispatchEvent(new MouseEvent('click', {{bubbles: true}}));
+                return;
+            }}
+        }}
+    }}""")
+    page.wait_for_timeout(2000)
 
-    # Abrir seletor de vozes (clicar no botao com nome da voz, perto de ElevenLabs)
-    page.evaluate("""() => {
+    # 4. Clicar no filtro de lingua (botao com bandeira, texto curto, no topo do popup)
+    langs_list = ['Português', 'Inglês', 'Espanhol', 'Francês', 'Italiano', 'Alemão', 'Russo', 'Japonês', 'Coreano', 'Turco', 'Polonês']
+    page.evaluate(f"""() => {{
+        const langs = {langs_list};
         const btns = document.querySelectorAll('button');
-        let elevenY = 0;
-        for (const b of btns) {
-            if (b.textContent.trim().includes('ElevenLabs') && b.offsetParent !== null) {
-                elevenY = b.getBoundingClientRect().y;
-                break;
-            }
-        }
-        if (!elevenY) return;
-        const skip = ['ElevenLabs', 'Adicionar', 'Manter', 'textos', 'elementos', 'Alpha'];
-        for (const b of btns) {
-            if (b.offsetParent !== null) {
-                const text = b.textContent.trim();
-                const rect = b.getBoundingClientRect();
-                if (Math.abs(rect.y - elevenY) < 20 && text.length > 2 && text.length < 30 && rect.width > 20) {
-                    if (!skip.some(s => text.includes(s)) && !/^\\d/.test(text)) {
-                        b.click();
+        for (const b of btns) {{
+            const text = b.textContent.trim();
+            if (b.offsetParent !== null && text.length < 20 && langs.some(l => text.includes(l))) {{
+                b.dispatchEvent(new MouseEvent('click', {{bubbles: true}}));
+                return;
+            }}
+        }}
+    }}""")
+    page.wait_for_timeout(1500)
+
+    # 5. Selecionar a lingua alvo no dropdown (texto exato ou com bandeira)
+    page.evaluate(f"""() => {{
+        const all = document.querySelectorAll('*');
+        for (const el of all) {{
+            if (el.offsetParent !== null) {{
+                const text = el.textContent.trim();
+                if ((text === '{filtro_lingua}' || text.endsWith('{filtro_lingua}')) && text.length < 25) {{
+                    const rect = el.getBoundingClientRect();
+                    if (rect.height > 15 && rect.height < 50) {{
+                        el.click();
                         return;
-                    }
-                }
-            }
-        }
-    }""")
-    page.wait_for_timeout(3000)
-
-    # 1. Trocar filtro de lingua (botao com bandeira+nome no popup de vozes, y~44)
-    logger.info(f"VOZ: trocando filtro pra {filtro_lingua}...")
-    # O botao de filtro tem formato "🇧🇷 Português" (emoji bandeira + nome)
-    # E o PRIMEIRO botao na linha y~44 com largura entre 80-200
-    lang_clicked = page.evaluate("""() => {
-        const btns = document.querySelectorAll('button');
-        for (const b of btns) {
-            if (b.offsetParent !== null) {
-                const rect = b.getBoundingClientRect();
-                if (rect.y > 35 && rect.y < 75 && rect.width > 80 && rect.width < 220) {
-                    const text = b.textContent.trim();
-                    if (!text.includes('gêneros') && !text.includes('generos') && !text.includes('sotaques') && !text.includes('recentemente')) {
-                        b.click();
-                        return text;
-                    }
-                }
-            }
-        }
-        return null;
-    }""")
-
-    if lang_clicked:
-        page.wait_for_timeout(1500)
-        # Selecionar a lingua alvo no dropdown
-        selected = page.evaluate(f"""() => {{
-            const els = document.querySelectorAll('*');
-            for (const el of els) {{
-                if (el.offsetParent !== null) {{
-                    const text = el.textContent.trim();
-                    if (text.includes('{filtro_lingua}')) {{
-                        const rect = el.getBoundingClientRect();
-                        if (rect.height > 15 && rect.height < 45 && rect.width > 40 && rect.width < 300) {{
-                            el.click();
-                            return text;
-                        }}
                     }}
                 }}
             }}
-            return null;
-        }}""")
-        if selected:
-            page.wait_for_timeout(2000)
-            logger.info(f"VOZ: filtro trocado pra {filtro_lingua}")
-        else:
-            logger.warning(f"VOZ: opcao {filtro_lingua} nao encontrada no dropdown")
-    else:
-        logger.warning("VOZ: botao de filtro de lingua nao encontrado")
+        }}
+    }}""")
+    page.wait_for_timeout(2000)
+    log(f"VOZ: filtro trocado pra {filtro_lingua}")
 
-    # 2. Selecionar a voz alvo
-    target = page.locator(f"text={voz_alvo}")
-    if target.count() > 0:
-        target.first.click(force=True)
-        page.wait_for_timeout(2000)
-        logger.info(f"VOZ: selecionada {voz_alvo}")
+    # 6. Selecionar a voz alvo (texto exato via h2 ou locator)
+    loc = page.locator(f'h2:has-text("{voz_alvo}")')
+    if loc.count() > 0:
+        loc.first.click()
+        page.wait_for_timeout(1500)
+        log(f"VOZ: selecionada {voz_alvo}")
     else:
-        logger.warning(f"VOZ: {voz_alvo} nao encontrada na lista")
+        # Fallback: locator texto exato
+        loc2 = page.locator(f'text="{voz_alvo}"')
+        if loc2.count() > 0:
+            loc2.first.click()
+            page.wait_for_timeout(1500)
+            log(f"VOZ: selecionada {voz_alvo} (fallback)")
+        else:
+            log(f"VOZ: ERRO - {voz_alvo} nao encontrada na lista")
 
     page.keyboard.press("Escape")
     page.wait_for_timeout(500)
@@ -725,7 +693,7 @@ def run_freepik_production(producao_json_path: str, log_callback: Optional[Calla
         colar_narracao(page, script_text)
 
         log("PASSO 4b: Selecionando voz...")
-        selecionar_voz(page, lingua)
+        selecionar_voz(page, lingua, log_callback=log)
 
         # 5. Verificar se prompts foram colados corretamente
         img_count = page.evaluate(f"""() => {{
