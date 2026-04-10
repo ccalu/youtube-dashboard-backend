@@ -36,7 +36,6 @@ SUBNICHO_CONTEXT = {
             "How 700 Knights Held Off 40,000 Ottomans for 4 Months",
             "How Slave Soldiers CRUSHED the Mongol Horde",
         ],
-        "estruturas": "E5, E6, E7, E8, E9, E11, E12, E18, E20, E22",
     },
     "Frentes de Guerra": {
         "desc": "Momentos épicos e batalhas decisivas da WWII. Momentos de virada, inovações, reações de oficiais, impacto humano.",
@@ -46,7 +45,6 @@ SUBNICHO_CONTEXT = {
             "Female German POWs Couldn't Believe the Aroma of Bacon",
             "Why 900 Luftwaffe Fighters Disappeared in 180 Minutes",
         ],
-        "estruturas": "E4, E5, E6, E11, E16, E17, E21, E22, E27",
     },
     "Relatos de Guerra": {
         "desc": "Histórias individuais, equipamentos, táticas e momentos decisivos da WWII. Soldados, armas, operações secretas.",
@@ -55,7 +53,6 @@ SUBNICHO_CONTEXT = {
             "Comandante de U-Boat Avisou Que Comboio Estava Desprotegido — Até 7 Contratorpedeiros Aparecerem",
             "US Troops Ignored Australian SAS Warning — Until 12 Marines Died",
         ],
-        "estruturas": "E4, E5, E6, E11, E16, E17, E21, E22, E27",
     },
     "Reis Perversos": {
         "desc": "Histórias chocantes de reis, tiranos. Crueldade, perversão, rituais, torturas, traições. Fatos históricos reais.",
@@ -65,7 +62,6 @@ SUBNICHO_CONTEXT = {
             "Caligula's Darkest Night: The Ceremony That Made Senators Look Away",
             "Die Schrecklichsten Dinge, die Tiberius Jungen-Sklaven auf Capri Antat",
         ],
-        "estruturas": "E4, E5, E15, E20, E21, E23, E24, E25",
     },
     "Historias Sombrias": {
         "desc": "O lado oculto de figuras históricas famosas. O que a história oficial omitiu, práticas bizarras de outras épocas.",
@@ -74,7 +70,6 @@ SUBNICHO_CONTEXT = {
             "Ce Qu'ils Ont Fait à Marie-Antoinette Avant la Guillotine",
             "Die Königin, Die Lebend Verfaulte",
         ],
-        "estruturas": "E4, E5, E15, E20, E21, E23, E24, E25",
     },
     "Culturas Macabras": {
         "desc": "Práticas e rituais macabros de civilizações antigas e medievais. Tom antropológico-chocante.",
@@ -83,7 +78,6 @@ SUBNICHO_CONTEXT = {
             "Ce Que les Vikings Faisaient aux Épouses des Ennemis Vaincus",
             "몽골군이 바그다드 황실에 한 짓은 죽음보다 끔찍했다",
         ],
-        "estruturas": "E4, E5, E15, E20, E21, E23, E24, E25",
     },
     "Monetizados": {
         "desc": "Canais monetizados com temas variados. Mansões, palácios, propriedades históricas com foco sombrio.",
@@ -91,7 +85,6 @@ SUBNICHO_CONTEXT = {
             "A História TRÁGICA da MAIOR Propriedade Cafeeira do Brasil",
             "Por Que Eike Batista Deixou Sua Mansão de 100 Milhões Apodrecer",
         ],
-        "estruturas": "E4, E11, E12, E15, E16, E20, E23, E25",
     },
 }
 
@@ -109,15 +102,16 @@ Regras dos títulos:
 
 Retorne SOMENTE um JSON array válido, sem markdown, sem explicação:
 [
-  {"titulo": "Título 1", "estrutura": "E20"},
-  {"titulo": "Título 2", "estrutura": "E11"},
-  {"titulo": "Título 3", "estrutura": "E6"},
-  {"titulo": "Título 4", "estrutura": "E23"},
-  {"titulo": "Título 5", "estrutura": "E12"}
+  {"titulo": "Título 1"},
+  {"titulo": "Título 2"},
+  {"titulo": "Título 3"},
+  {"titulo": "Título 4"},
+  {"titulo": "Título 5"}
 ]"""
 
 
-def suggest_themes(canal: str, subnicho: str, lingua: str, tema_livre: str = "") -> list:
+def suggest_themes(canal: str, subnicho: str, lingua: str, tema_livre: str = "",
+                    temas_bloqueados: str = "", video_ref_titulo: str = "") -> list:
     """
     Sugere 5 temas para YouTube Shorts via GPT-4 Mini.
 
@@ -126,9 +120,11 @@ def suggest_themes(canal: str, subnicho: str, lingua: str, tema_livre: str = "")
         subnicho: Nome do subnicho (vazio se avulso)
         lingua: Língua do canal
         tema_livre: Tema livre pra sugestões avulsas
+        temas_bloqueados: Keywords de temas já cobertos (ex: "Esparta, Nero, Vikings")
+        video_ref_titulo: Se modelado, título do vídeo longo pra inspirar
 
     Returns:
-        Lista de dicts com titulo e estrutura.
+        Lista de dicts com titulo.
     """
     if not canal or canal == "Avulso":
         # Modo avulso — precisa de tema base, foco TOTAL em viralização
@@ -154,10 +150,26 @@ OBRIGATORIO: Se a lingua NAO for Portugues, SEMPRE inclua traducao em portugues 
             ctx = SUBNICHO_CONTEXT.get(subnicho, SUBNICHO_CONTEXT.get("Monetizados", {}))
         titulos = "\n".join("- " + t for t in ctx.get("titulos_ref", []))
 
-        if tema_livre:
+        if video_ref_titulo:
+            # MODELADO: tema inspirado num vídeo longo que performou bem
+            tema_instrucao = f"""Este short é MODELADO num vídeo longo do canal que performou muito bem:
+"{video_ref_titulo}"
+
+Crie 5 variações de títulos INSPIRADOS nesse tema, mas com ângulos e abordagens COMPLETAMENTE diferentes.
+NÃO copie o título original. Cada sugestão deve ter um recorte único do mesmo assunto.
+O short será um RESUMO atrativo que faz o viewer querer assistir o vídeo completo."""
+        elif tema_livre:
             tema_instrucao = f'O produtor quer sugestões sobre o tema "{tema_livre}". Use como norte pra gerar variações dentro do subnicho.'
         else:
             tema_instrucao = "Sugira 5 temas variados dentro do subnicho."
+
+        # Temas bloqueados (já cobertos recentemente neste canal)
+        bloqueio_instrucao = ""
+        if temas_bloqueados:
+            bloqueio_instrucao = f"""
+TEMAS JÁ COBERTOS NESTE CANAL (NÃO repita estes assuntos, figuras ou ângulos):
+{temas_bloqueados}
+Sugira tópicos e abordagens COMPLETAMENTE diferentes dos listados acima."""
 
         user_prompt = f"""Subnicho: {subnicho}
 Canal: {canal}
@@ -168,9 +180,8 @@ Descrição: {ctx.get('desc', '')}
 Títulos de referência (tom e estilo):
 {titulos}
 
-Estruturas disponíveis: {ctx.get('estruturas', '')}
-
 {tema_instrucao}
+{bloqueio_instrucao}
 Títulos na língua "{lingua}" — chamativos, CTR alto, fazem a pessoa clicar.
 O título deve funcionar culturalmente para o público "{lingua}".
 OBRIGATORIO: Se a lingua NAO for Portugues, SEMPRE inclua traducao em portugues entre parenteses. Ex: '제목 한국어 (Titulo em portugues)'. Sem excecao."""

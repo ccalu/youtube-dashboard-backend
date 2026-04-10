@@ -79,7 +79,9 @@ SUBNICHO_DESCS = {
 }
 
 
-def run_production(topic: str, canal: str, canal_id: int, subnicho: str, lingua: str) -> dict:
+def run_production(topic: str, canal: str, canal_id: int, subnicho: str, lingua: str,
+                    tom: str = "", formato: str = "livre", video_ref: str = "",
+                    video_ref_titulo: str = "") -> dict:
     """
     Executa o pipeline completo de produção.
 
@@ -106,6 +108,9 @@ def run_production(topic: str, canal: str, canal_id: int, subnicho: str, lingua:
         subnicho=subnicho,
         lingua=lingua,
         subnicho_desc=subnicho_desc,
+        tom=tom,
+        formato=formato,
+        video_ref_titulo=video_ref_titulo,
     )
 
     # Validar output do roteirista
@@ -169,7 +174,9 @@ def run_production(topic: str, canal: str, canal_id: int, subnicho: str, lingua:
         "subnicho": subnicho,
         "lingua": lingua,
         "titulo": producao_json["titulo"],
-        "estrutura": script_data.get("estrutura", ""),
+        "tom": tom,
+        "formato": formato,
+        "video_ref": video_ref,
         "producao_json": producao_json,
         "drive_link": pasta_base,
     }

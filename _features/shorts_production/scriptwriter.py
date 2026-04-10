@@ -68,6 +68,18 @@ CATEGORY_DESCRIPTIONS = {
 }
 
 
+# Tons de abordagem — rotacionam por canal pra variar estilo e evitar padrão repetitivo
+TONS = {
+    "narrativo": "ABORDAGEM: Conte como se estivesse revelando essa historia pra um amigo proximo. Fluxo natural, como quem lembra dos detalhes enquanto fala. Foque na JORNADA — o caminho importa tanto quanto o destino.",
+    "provocativo": "ABORDAGEM: Desafie o que o viewer acha que sabe. Abra com algo que contradiz o senso comum. Questione, confronte, force o viewer a repensar. Tom de quem descobriu que todo mundo esta errado sobre algo.",
+    "educativo": "ABORDAGEM: Revele o COMO e o POR QUE por tras dos fatos. Tom de quem descobriu algo fascinante e PRECISA compartilhar. Conecte causa e efeito de forma surpreendente. O viewer sai sentindo que aprendeu algo que ninguem sabe.",
+    "suspense": "ABORDAGEM: Construa como um thriller. Cada frase aumenta a duvida sobre o que vai acontecer. Plante pistas, crie tensao crescente. So revele o desfecho nos ultimos segundos. O viewer TEM que ficar ate o final.",
+    "epico": "ABORDAGEM: Escala MONUMENTAL. Tom grandioso de narrador de documentario cinematografico. Cada frase carrega peso historico. Numeros grandes, consequencias enormes, momentos que mudaram o curso da humanidade.",
+}
+
+TONS_ORDER = ["narrativo", "provocativo", "educativo", "suspense", "epico"]
+
+
 def _get_music_categories(subnicho: str) -> str:
     """Retorna categorias de musica com descricoes pro subnicho."""
     info = MUSIC_CATEGORIES.get(subnicho)
@@ -80,7 +92,9 @@ def _get_music_categories(subnicho: str) -> str:
     return "Categorias de musica de fundo (exemplos de uso, nao se limite a eles — escolha pelo TOM GERAL do script):\n" + "\n".join(lines)
 
 
-def write_script(topic: str, canal: str, subnicho: str, lingua: str, subnicho_desc: str = "", titulos_ref: str = "") -> dict:
+def write_script(topic: str, canal: str, subnicho: str, lingua: str, subnicho_desc: str = "",
+                  titulos_ref: str = "", tom: str = "", formato: str = "livre",
+                  video_ref_titulo: str = "") -> dict:
     """
     Gera script completo para um YouTube Short.
 
@@ -91,13 +105,34 @@ def write_script(topic: str, canal: str, subnicho: str, lingua: str, subnicho_de
         lingua: Lingua do canal (ex: "Portugues", "Ingles")
         subnicho_desc: Descricao do subnicho (do SUBNICHOS.md)
         titulos_ref: Titulos de referencia do canal
+        tom: Tom de abordagem (narrativo, provocativo, educativo, suspense, epico)
+        formato: "livre" ou "modelado"
+        video_ref_titulo: Se modelado, titulo do video longo original (pra CTA)
 
     Returns:
-        Dict com titulo, descricao, script, estrutura, total_cenas, music_category
+        Dict com titulo, descricao, script, total_cenas, music_category
     """
     ref_block = ""
     if titulos_ref:
         ref_block = f"\nTitulos de referencia do canal (use como inspiracao de tom e estilo):\n{titulos_ref}\n"
+
+    tom_instrucao = ""
+    if tom and tom in TONS:
+        tom_instrucao = f"\n=== TOM DE ABORDAGEM: {tom.upper()} ===\n{TONS[tom]}\nIMPORTANTE: O tom influencia o ANGULO e a PERSPECTIVA, mas NAO substitui as regras de copy abaixo. O script deve seguir todas as regras E ter essa abordagem.\n"
+
+    modelado_instrucao = ""
+    if formato == "modelado" and video_ref_titulo:
+        modelado_instrucao = f"""
+=== FORMATO MODELADO ===
+Este short e inspirado num video longo do canal que performou muito bem: "{video_ref_titulo}"
+O script deve ser um RESUMO atrativo desse tema, com angulo proprio e titulo diferente do original.
+O CTA final (ultima frase do script) deve convidar o viewer a assistir o video completo no canal.
+O CTA deve ser NATURAL, CRIATIVO e CONTEXTUAL ao tema — nunca generico. Cada short modelado deve ter um CTA unico.
+Exemplos de CTAs naturais (NAO copie, crie o seu):
+- "A historia completa dessa queda... ta no canal."
+- "Se voce quer saber o que aconteceu depois, o video completo ta aqui."
+- "Isso foi so o comeco. A versao completa vai te chocar."
+"""
 
     user_prompt = f"""Crie um script de YouTube Short completo.
 
@@ -105,7 +140,8 @@ Canal: {canal} | Subnicho: {subnicho} | Lingua: {lingua} | Tema: {topic}
 
 Contexto do subnicho: {subnicho_desc}
 {ref_block}
-
+{tom_instrucao}
+{modelado_instrucao}
 === FILOSOFIA ===
 
 Um short viral e uma EXPERIENCIA de 60 segundos. Cada frase cria uma IMAGEM na cabeca do viewer.
@@ -148,7 +184,6 @@ Retorne SOMENTE:
   "titulo": "titulo max 60 chars",
   "descricao": "descricao com #hashtags",
   "script": "texto narrado com 14 paragrafos separados por \\n\\n",
-  "estrutura": "tipo_de_gancho_usado",
   "music_category": "categoria_escolhida",
   "total_cenas": 14
 }}

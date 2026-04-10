@@ -68,22 +68,54 @@ class SugerirTemasRequest(BaseModel):
 
 # === Background tasks ===
 
-def _run_production_bg(topic: str, canal: str, canal_id: int | None, subnicho: str, lingua: str):
-    """Roda o pipeline de geração em background."""
+def _run_production_bg(topic: str, canal: str, canal_id: int | None, subnicho: str, lingua: str,
+                       tom: str = "", formato: str = "livre", video_ref: str = "",
+                       video_ref_titulo: str = ""):
+    """Roda o pipeline de geração em background com analista + planilha."""
     try:
         topic_safe = topic.encode('ascii', 'replace').decode()
         canal_safe = canal.encode('ascii', 'replace').decode()
-        logger.info(f"[shorts] BG: Iniciando producao '{topic_safe}' para {canal_safe}")
+        logger.info(f"[shorts] BG: Iniciando producao '{topic_safe}' para {canal_safe} (tom={tom}, formato={formato})")
 
         from _features.shorts_production.pipeline import run_production
-        result = run_production(topic, canal, canal_id or 0, subnicho, lingua)
+        result = run_production(
+            topic, canal, canal_id or 0, subnicho, lingua,
+            tom=tom, formato=formato, video_ref=video_ref, video_ref_titulo=video_ref_titulo,
+        )
+
+        # Escrever na planilha de shorts
+        sheets_row_num = None
+        try:
+            from _features.shorts_production.sheets_writer import write_production_to_sheet
+            pj = result.get("producao_json", {})
+            cenas = pj.get("cenas", [])
+            prompts_img = "\n".join(c.get("prompt_imagem", "") for c in cenas)
+            prompts_anim = "\n".join(c.get("prompt_animacao", "") for c in cenas)
+
+            sheets_row_num = write_production_to_sheet(canal, subnicho, {
+                "data": datetime.utcnow().strftime("%Y-%m-%d"),
+                "tom": tom or "-",
+                "titulo": result.get("titulo", ""),
+                "descricao": pj.get("descricao", ""),
+                "script": pj.get("script", ""),
+                "prompts_imagem": prompts_img,
+                "prompts_animacao": prompts_anim,
+                "formato": formato,
+                "video_ref": video_ref or "",
+            })
+            logger.info(f"[shorts] BG: Planilha atualizada, linha {sheets_row_num}")
+        except Exception as sheet_err:
+            logger.warning(f"[shorts] BG: Erro ao escrever planilha: {str(sheet_err)[:100]}")
 
         insert_data = {
             "canal": result["canal"],
             "subnicho": result["subnicho"],
             "lingua": result["lingua"],
             "titulo": result["titulo"],
-            "estrutura": result["estrutura"],
+            "tom": tom,
+            "formato": formato,
+            "video_ref": video_ref,
+            "sheets_row_num": sheets_row_num,
             "producao_json": result["producao_json"],
             "drive_link": result["drive_link"],
             "status": "producao",
@@ -125,6 +157,39 @@ def _run_freepik_bg(producao_id: int, json_path: str):
         _production_status[producao_id] = "error"
 
 
+def _update_sheet_drive_link(producao_id: int, drive_url: str):
+    """Atualiza Link Drive na planilha de shorts (se tiver row_num salvo)."""
+    try:
+        prod = db.supabase.table("shorts_production").select(
+            "canal, subnicho, sheets_row_num"
+        ).eq("id", producao_id).single().execute()
+        if prod.data and prod.data.get("sheets_row_num"):
+            from _features.shorts_production.sheets_writer import update_drive_link
+            update_drive_link(
+                prod.data["canal"], prod.data["subnicho"], prod.data["sheets_row_num"], drive_url
+            )
+            logger.info(f"[shorts] Planilha: Drive link atualizado pra producao {producao_id}")
+    except Exception as e:
+        logger.warning(f"[shorts] Planilha: Erro ao atualizar Drive link: {str(e)[:100]}")
+
+
+def _update_sheet_upload_status(producao_id: int, youtube_video_id: str):
+    """Atualiza Upload status na planilha de shorts (se tiver row_num salvo)."""
+    try:
+        prod = db.supabase.table("shorts_production").select(
+            "canal, subnicho, sheets_row_num"
+        ).eq("id", producao_id).single().execute()
+        if prod.data and prod.data.get("sheets_row_num"):
+            from _features.shorts_production.sheets_writer import update_upload_status
+            update_upload_status(
+                prod.data["canal"], prod.data["subnicho"], prod.data["sheets_row_num"],
+                f"publicado ({youtube_video_id})"
+            )
+            logger.info(f"[shorts] Planilha: Upload status atualizado pra producao {producao_id}")
+    except Exception as e:
+        logger.warning(f"[shorts] Planilha: Erro ao atualizar Upload: {str(e)[:100]}")
+
+
 def _run_editing_bg(producao_id: int, production_path: str, subnicho: str):
     """Roda Remotion + Drive em background com logs."""
     _production_status[producao_id] = "running"
@@ -139,9 +204,16 @@ def _run_editing_bg(producao_id: int, production_path: str, subnicho: str):
             "status": "pronto",
             "updated_at": datetime.utcnow().isoformat(),
         }
+        drive_url = ""
         if isinstance(result, dict) and result.get("drive_url"):
             update_data["drive_url"] = result["drive_url"]
+            drive_url = result["drive_url"]
         db.supabase.table("shorts_production").update(update_data).eq("id", producao_id).execute()
+
+        # Atualizar planilha com Drive link
+        if drive_url:
+            _update_sheet_drive_link(producao_id, drive_url)
+
         _add_log(producao_id, f"Video pronto!")
         _production_status[producao_id] = "done"
     except Exception as e:
@@ -181,9 +253,16 @@ def _run_full_production_bg(producao_id: int, json_path: str, production_path: s
             "status": "pronto",
             "updated_at": datetime.utcnow().isoformat(),
         }
+        drive_url = ""
         if isinstance(result, dict) and result.get("drive_url"):
             update_data["drive_url"] = result["drive_url"]
+            drive_url = result["drive_url"]
         db.supabase.table("shorts_production").update(update_data).eq("id", producao_id).execute()
+
+        # Atualizar planilha com Drive link
+        if drive_url:
+            _update_sheet_drive_link(producao_id, drive_url)
+
         log(f"Video pronto! Status >> pronto")
         log("=== PRODUCAO COMPLETA ===")
         _production_status[producao_id] = "done"
@@ -197,7 +276,17 @@ def _run_full_production_bg(producao_id: int, json_path: str, production_path: s
 
 @router.post("/gerar")
 async def gerar_producao(req: GerarRequest, background_tasks: BackgroundTasks):
-    """Gera script + prompts em background."""
+    """Gera script + prompts em background. Analista roda automaticamente."""
+    # Rodar analista pra determinar tom, formato, bloqueios
+    analysis = {}
+    if not req.avulso:
+        try:
+            from _features.shorts_production.analyst import analyze_channel
+            analysis = analyze_channel(req.canal, req.subnicho)
+            logger.info(f"[shorts] Analista: tom={analysis.get('tom')}, formato={analysis.get('formato')}")
+        except Exception as e:
+            logger.warning(f"[shorts] Analista falhou, usando defaults: {str(e)[:100]}")
+
     background_tasks.add_task(
         _run_production_bg,
         topic=req.topic,
@@ -205,22 +294,47 @@ async def gerar_producao(req: GerarRequest, background_tasks: BackgroundTasks):
         canal_id=req.canal_id,
         subnicho=req.subnicho,
         lingua=req.lingua,
+        tom=analysis.get("tom", ""),
+        formato=analysis.get("formato", "livre"),
+        video_ref=analysis.get("video_ref", ""),
+        video_ref_titulo=analysis.get("video_ref_titulo", ""),
     )
-    return {"status": "gerando", "message": f"Produção de '{req.topic}' iniciada em background"}
+    return {
+        "status": "gerando",
+        "message": f"Produção de '{req.topic}' iniciada em background",
+        "tom": analysis.get("tom", ""),
+        "formato": analysis.get("formato", "livre"),
+    }
 
 
 @router.post("/sugerir-temas")
 async def sugerir_temas(req: SugerirTemasRequest):
-    """Sugere 5 temas via GPT-4 Mini."""
+    """Sugere 5 temas via GPT-4 Mini. Analista filtra temas repetidos."""
     try:
+        # Rodar analista pra pegar bloqueios e formato
+        analysis = {}
+        if req.canal and req.canal != "Avulso" and req.subnicho:
+            try:
+                from _features.shorts_production.analyst import analyze_channel
+                analysis = analyze_channel(req.canal, req.subnicho)
+            except Exception as e:
+                logger.warning(f"[shorts] Analista falhou no sugerir-temas: {str(e)[:100]}")
+
         from _features.shorts_production.theme_suggester import suggest_themes
         temas = suggest_themes(
             canal=req.canal,
             subnicho=req.subnicho,
             lingua=req.lingua,
             tema_livre=req.tema_livre,
+            temas_bloqueados=analysis.get("temas_bloqueados", ""),
+            video_ref_titulo=analysis.get("video_ref_titulo", ""),
         )
-        return {"temas": temas}
+        return {
+            "temas": temas,
+            "tom": analysis.get("tom", ""),
+            "formato": analysis.get("formato", "livre"),
+            "temas_bloqueados": analysis.get("temas_bloqueados", ""),
+        }
     except Exception as e:
         logger.error(f"[shorts] Erro ao sugerir temas: {e}")
         raise HTTPException(500, str(e))
@@ -495,6 +609,10 @@ def _run_youtube_upload_bg(producao_id: int, production_data: dict, video_path: 
                 "status": "publicado",
                 "updated_at": datetime.utcnow().isoformat(),
             }).eq("id", producao_id).execute()
+
+            # Atualizar planilha com status de upload
+            _update_sheet_upload_status(producao_id, video_id)
+
             log(f"https://youtube.com/shorts/{video_id}")
             _production_status[producao_id] = "done"
         else:
@@ -504,6 +622,330 @@ def _run_youtube_upload_bg(producao_id: int, production_data: dict, video_path: 
     except Exception as e:
         log(f"ERRO: {str(e)[:300]}")
         _production_status[producao_id] = "error"
+
+
+# === Batch Gerar ===
+
+LEVA_1_SUBNICHOS = ["Reis Perversos", "Guerras e Civilizações", "Frentes de Guerra"]
+LEVA_2_SUBNICHOS = ["Relatos de Guerra", "Monetizados", "Culturas Macabras", "Historias Sombrias"]
+
+_batch_gerar_status: dict = {}  # batch_id -> {status, total, completed, current, results, errors}
+
+
+class BatchGerarRequest(BaseModel):
+    mode: str  # "subnicho", "leva", "todos"
+    subnicho: Optional[str] = None  # Se mode=subnicho
+    leva: Optional[int] = None  # Se mode=leva (1 ou 2)
+
+
+def _get_oauth_channels_by_subnichos(subnichos: list[str]) -> list[dict]:
+    """Retorna canais com OAuth agrupados pelos subnichos especificados."""
+    oauth = db.supabase.table("yt_oauth_tokens").select("channel_id").execute()
+    oauth_ids = {r["channel_id"] for r in (oauth.data or [])}
+
+    yt = db.supabase.table("yt_channels").select(
+        "channel_id, channel_name, subnicho, lingua"
+    ).eq("is_active", True).execute()
+
+    canais = []
+    for ch in (yt.data or []):
+        if (ch["channel_id"] in oauth_ids
+            and ch.get("subnicho") in subnichos):
+            canais.append({
+                "channel_name": ch["channel_name"],
+                "subnicho": ch["subnicho"],
+                "lingua": ch.get("lingua", ""),
+            })
+
+    return sorted(canais, key=lambda c: (c["subnicho"], c["lingua"]))
+
+
+@router.post("/batch-gerar")
+async def batch_gerar(req: BatchGerarRequest, background_tasks: BackgroundTasks):
+    """Gera scripts em batch: por subnicho, por leva, ou todos."""
+    # Determinar subnichos
+    if req.mode == "subnicho":
+        if not req.subnicho:
+            raise HTTPException(400, "subnicho obrigatorio quando mode=subnicho")
+        subnichos = [req.subnicho]
+    elif req.mode == "leva":
+        if req.leva == 1:
+            subnichos = LEVA_1_SUBNICHOS
+        elif req.leva == 2:
+            subnichos = LEVA_2_SUBNICHOS
+        else:
+            raise HTTPException(400, "leva deve ser 1 ou 2")
+    elif req.mode == "todos":
+        subnichos = LEVA_1_SUBNICHOS + LEVA_2_SUBNICHOS
+    else:
+        raise HTTPException(400, "mode deve ser 'subnicho', 'leva' ou 'todos'")
+
+    # Buscar canais OAuth dos subnichos
+    canais = _get_oauth_channels_by_subnichos(subnichos)
+    if not canais:
+        return {"status": "nenhum", "message": "Nenhum canal com OAuth nos subnichos selecionados"}
+
+    import uuid
+    batch_id = str(uuid.uuid4())[:8]
+
+    _batch_gerar_status[batch_id] = {
+        "status": "running",
+        "total": len(canais),
+        "completed": 0,
+        "current": None,
+        "results": [],
+        "errors": [],
+    }
+
+    background_tasks.add_task(_run_batch_gerar_bg, batch_id, canais)
+
+    return {
+        "batch_id": batch_id,
+        "status": "running",
+        "total": len(canais),
+        "mode": req.mode,
+        "subnichos": subnichos,
+        "canais": [{"canal": c["channel_name"], "subnicho": c["subnicho"], "lingua": c["lingua"]} for c in canais],
+    }
+
+
+@router.get("/batch-gerar-status/{batch_id}")
+async def batch_gerar_status(batch_id: str):
+    """Status do batch de geração."""
+    status = _batch_gerar_status.get(batch_id)
+    if not status:
+        raise HTTPException(404, "Batch nao encontrado")
+    return status
+
+
+def _run_batch_gerar_bg(batch_id: str, canais: list[dict]):
+    """Gera scripts pra todos os canais em sequência."""
+    status = _batch_gerar_status[batch_id]
+
+    for i, canal_info in enumerate(canais):
+        channel_name = canal_info["channel_name"]
+        subnicho = canal_info["subnicho"]
+        lingua = canal_info["lingua"]
+
+        status["current"] = {
+            "index": i + 1,
+            "canal": channel_name,
+            "subnicho": subnicho,
+            "lingua": lingua,
+            "step": "analisando",
+        }
+
+        try:
+            # 1. Analista
+            status["current"]["step"] = "analisando"
+            from _features.shorts_production.analyst import analyze_channel
+            analysis = analyze_channel(channel_name, subnicho)
+
+            # 2. Sugerir tema
+            status["current"]["step"] = "sugerindo tema"
+            from _features.shorts_production.theme_suggester import suggest_themes
+            temas = suggest_themes(
+                canal=channel_name,
+                subnicho=subnicho,
+                lingua=lingua,
+                temas_bloqueados=analysis.get("temas_bloqueados", ""),
+                video_ref_titulo=analysis.get("video_ref_titulo", ""),
+            )
+
+            if not temas:
+                status["errors"].append({"canal": channel_name, "error": "sem temas sugeridos"})
+                continue
+
+            # Auto-selecionar 1o tema
+            tema = temas[0]
+            topic = tema.get("titulo", tema) if isinstance(tema, dict) else tema
+
+            # 3. Pipeline (scriptwriter + diretor)
+            status["current"]["step"] = "gerando script"
+            from _features.shorts_production.pipeline import run_production
+            result = run_production(
+                topic=topic,
+                canal=channel_name,
+                canal_id=0,
+                subnicho=subnicho,
+                lingua=lingua,
+                tom=analysis.get("tom", ""),
+                formato=analysis.get("formato", "livre"),
+                video_ref=analysis.get("video_ref", ""),
+                video_ref_titulo=analysis.get("video_ref_titulo", ""),
+            )
+
+            # 4. Escrever na planilha
+            status["current"]["step"] = "salvando"
+            sheets_row_num = None
+            try:
+                from _features.shorts_production.sheets_writer import write_production_to_sheet
+                pj = result.get("producao_json", {})
+                cenas = pj.get("cenas", [])
+                prompts_img = "\n".join(c.get("prompt_imagem", "") for c in cenas)
+                prompts_anim = "\n".join(c.get("prompt_animacao", "") for c in cenas)
+
+                sheets_row_num = write_production_to_sheet(channel_name, subnicho, {
+                    "data": datetime.utcnow().strftime("%Y-%m-%d"),
+                    "tom": analysis.get("tom", ""),
+                    "titulo": result.get("titulo", ""),
+                    "descricao": pj.get("descricao", ""),
+                    "script": pj.get("script", ""),
+                    "prompts_imagem": prompts_img,
+                    "prompts_animacao": prompts_anim,
+                    "formato": analysis.get("formato", "livre"),
+                    "video_ref": analysis.get("video_ref", ""),
+                })
+            except Exception as sheet_err:
+                logger.warning(f"[batch-gerar] Planilha erro: {str(sheet_err)[:100]}")
+
+            # 5. Salvar no Supabase
+            insert_data = {
+                "canal": result["canal"],
+                "subnicho": result["subnicho"],
+                "lingua": lingua,
+                "titulo": result["titulo"],
+                "tom": analysis.get("tom", ""),
+                "formato": analysis.get("formato", "livre"),
+                "video_ref": analysis.get("video_ref", ""),
+                "sheets_row_num": sheets_row_num,
+                "producao_json": result["producao_json"],
+                "drive_link": result["drive_link"],
+                "status": "producao",
+            }
+            db.supabase.table("shorts_production").insert(insert_data).execute()
+
+            status["completed"] += 1
+            status["results"].append({
+                "canal": channel_name,
+                "titulo": result["titulo"],
+                "tom": analysis.get("tom", ""),
+                "formato": analysis.get("formato", "livre"),
+            })
+
+            try:
+                logger.info(f"[batch-gerar] {i+1}/{len(canais)}: {channel_name} -> {result['titulo']}")
+            except UnicodeEncodeError:
+                logger.info(f"[batch-gerar] {i+1}/{len(canais)}: done")
+
+        except Exception as e:
+            status["errors"].append({"canal": channel_name, "error": str(e)[:200]})
+            logger.error(f"[batch-gerar] ERRO {channel_name}: {str(e)[:200]}")
+
+    status["status"] = "done"
+    status["current"] = None
+    logger.info(f"[batch-gerar] Concluido: {status['completed']}/{len(canais)}, {len(status['errors'])} erros")
+
+
+# === Batch Upload ===
+
+_batch_upload_status: dict = {}  # batch_id -> {status, total, completed, current, errors}
+
+
+class BatchUploadRequest(BaseModel):
+    delay_minutes: int = 5
+    batch_size: int = 4
+
+
+@router.post("/batch-upload")
+async def batch_upload(req: BatchUploadRequest, background_tasks: BackgroundTasks):
+    """Upload em batch: 4 por vez, 5 min delay entre blocos."""
+    # Buscar todos prontos sem youtube_video_id
+    prontos = db.supabase.table("shorts_production").select(
+        "id, canal, titulo, drive_link"
+    ).eq("status", "pronto").is_("youtube_video_id", "null").execute()
+
+    if not prontos.data:
+        return {"status": "nenhum", "message": "Nenhum short pronto pra upload"}
+
+    import uuid
+    batch_id = str(uuid.uuid4())[:8]
+    ids = [p["id"] for p in prontos.data]
+
+    _batch_upload_status[batch_id] = {
+        "status": "running",
+        "total": len(ids),
+        "completed": 0,
+        "current": None,
+        "errors": [],
+    }
+
+    background_tasks.add_task(
+        _run_batch_upload_bg, batch_id, ids, req.delay_minutes, req.batch_size
+    )
+
+    return {
+        "batch_id": batch_id,
+        "status": "running",
+        "total": len(ids),
+        "delay_minutes": req.delay_minutes,
+        "batch_size": req.batch_size,
+        "shorts": [{"id": p["id"], "canal": p["canal"], "titulo": p["titulo"]} for p in prontos.data],
+    }
+
+
+@router.get("/batch-upload-status/{batch_id}")
+async def batch_upload_status(batch_id: str):
+    """Status do batch upload."""
+    status = _batch_upload_status.get(batch_id)
+    if not status:
+        raise HTTPException(404, "Batch nao encontrado")
+    return status
+
+
+def _run_batch_upload_bg(batch_id: str, production_ids: list[int], delay_minutes: int, batch_size: int):
+    """Upload em blocos com delay entre eles."""
+    import time
+
+    status = _batch_upload_status[batch_id]
+    total = len(production_ids)
+
+    for i in range(0, total, batch_size):
+        bloco = production_ids[i:i + batch_size]
+        bloco_num = (i // batch_size) + 1
+        total_blocos = (total + batch_size - 1) // batch_size
+
+        logger.info(f"[batch-upload] Bloco {bloco_num}/{total_blocos}: {len(bloco)} uploads")
+
+        for prod_id in bloco:
+            try:
+                # Buscar dados da producao
+                result = db.supabase.table("shorts_production").select("*").eq("id", prod_id).single().execute()
+                if not result.data:
+                    status["errors"].append({"id": prod_id, "error": "nao encontrado"})
+                    continue
+
+                if result.data.get("youtube_video_id"):
+                    status["completed"] += 1
+                    continue  # Ja foi uploaded
+
+                drive_link = result.data.get("drive_link", "")
+                video_path = os.path.join(drive_link, "video_final.mp4") if drive_link else ""
+                if not video_path or not os.path.exists(video_path):
+                    status["errors"].append({"id": prod_id, "error": f"video nao encontrado: {drive_link}"})
+                    continue
+
+                status["current"] = {
+                    "id": prod_id,
+                    "canal": result.data.get("canal", ""),
+                    "titulo": result.data.get("titulo", ""),
+                }
+
+                # Upload (sincrono, reutiliza a mesma logica)
+                _run_youtube_upload_bg(prod_id, result.data, video_path)
+                status["completed"] += 1
+
+            except Exception as e:
+                status["errors"].append({"id": prod_id, "error": str(e)[:100]})
+
+        # Delay entre blocos (exceto no ultimo)
+        if i + batch_size < total:
+            logger.info(f"[batch-upload] Aguardando {delay_minutes} min antes do proximo bloco...")
+            time.sleep(delay_minutes * 60)
+
+    status["status"] = "done"
+    status["current"] = None
+    logger.info(f"[batch-upload] Concluido: {status['completed']}/{total} uploads, {len(status['errors'])} erros")
 
 
 @router.get("/canais-com-oauth")
