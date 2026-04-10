@@ -396,6 +396,45 @@ async def produzir_completo(producao_id: int):
     }
 
 
+@router.post("/batch-produzir")
+async def batch_produzir():
+    """Enfileira todos os shorts em status=producao pra produção (Freepik + Remotion + Drive)."""
+    producoes = db.supabase.table("shorts_production").select(
+        "id, canal, titulo, drive_link, subnicho"
+    ).eq("status", "producao").order("created_at").execute()
+
+    if not producoes.data:
+        return {"status": "nenhum", "message": "Nenhum short em producao pra enfileirar"}
+
+    from production_queue import enqueue
+    resultados = []
+    for p in producoes.data:
+        drive_link = p.get("drive_link", "")
+        json_path = os.path.join(drive_link, "producao.json") if drive_link else ""
+
+        if not json_path or not os.path.exists(json_path):
+            resultados.append({"id": p["id"], "canal": p["canal"], "status": "erro", "message": "producao.json nao encontrado"})
+            continue
+
+        queue_result = enqueue(p["id"], json_path, drive_link, p.get("subnicho", ""))
+        resultados.append({
+            "id": p["id"],
+            "canal": p["canal"],
+            "titulo": p["titulo"],
+            "status": "na_fila",
+            "posicao": queue_result["posicao"],
+            "duplicado": queue_result.get("duplicado", False),
+        })
+
+    enfileirados = sum(1 for r in resultados if r["status"] == "na_fila")
+    return {
+        "status": "ok",
+        "total": len(producoes.data),
+        "enfileirados": enfileirados,
+        "resultados": resultados,
+    }
+
+
 @router.get("/logs/{producao_id}")
 async def get_logs(producao_id: int, after: int = 0):
     """Retorna logs de uma produção (polling). after = index pra pegar só novos."""
