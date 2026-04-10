@@ -93,7 +93,7 @@ def _run_production_bg(topic: str, canal: str, canal_id: int | None, subnicho: s
             prompts_anim = "\n".join(c.get("prompt_animacao", "") for c in cenas)
 
             sheets_row_num = write_production_to_sheet(canal, subnicho, {
-                "data": datetime.utcnow().strftime("%Y-%m-%d"),
+                "data": datetime.utcnow().strftime("%d/%m/%Y"),
                 "tom": tom or "-",
                 "titulo": result.get("titulo", ""),
                 "descricao": pj.get("descricao", ""),
@@ -183,7 +183,7 @@ def _update_sheet_upload_status(producao_id: int, youtube_video_id: str):
             from _features.shorts_production.sheets_writer import update_upload_status
             update_upload_status(
                 prod.data["canal"], prod.data["subnicho"], prod.data["sheets_row_num"],
-                f"publicado ({youtube_video_id})"
+                "\u2705"
             )
             logger.info(f"[shorts] Planilha: Upload status atualizado pra producao {producao_id}")
     except Exception as e:
@@ -859,7 +859,7 @@ def _run_batch_gerar_bg(batch_id: str, canais: list[dict]):
                 prompts_anim = "\n".join(c.get("prompt_animacao", "") for c in cenas)
 
                 sheets_row_num = write_production_to_sheet(channel_name, subnicho, {
-                    "data": datetime.utcnow().strftime("%Y-%m-%d"),
+                    "data": datetime.utcnow().strftime("%d/%m/%Y"),
                     "tom": analysis.get("tom", ""),
                     "titulo": result.get("titulo", ""),
                     "descricao": pj.get("descricao", ""),
