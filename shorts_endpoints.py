@@ -446,12 +446,27 @@ async def batch_editar(background_tasks: BackgroundTasks):
     }
 
 
+class BatchProduzirRequest(BaseModel):
+    mode: str = "todos"  # "subnicho", "leva", "todos"
+    subnicho: Optional[str] = None
+    leva: Optional[int] = None
+
+
 @router.post("/batch-produzir")
-async def batch_produzir(background_tasks: BackgroundTasks):
-    """Enfileira todos os shorts em status=producao pra produção (Freepik + Remotion + Drive)."""
-    producoes = db.supabase.table("shorts_production").select(
+async def batch_produzir(req: BatchProduzirRequest, background_tasks: BackgroundTasks):
+    """Enfileira shorts em status=producao pra produção. Filtra por subnicho/leva."""
+    query = db.supabase.table("shorts_production").select(
         "id, canal, titulo, drive_link, subnicho"
-    ).eq("status", "producao").order("created_at").execute()
+    ).eq("status", "producao").order("created_at")
+
+    # Filtrar por subnicho/leva
+    if req.mode == "subnicho" and req.subnicho:
+        query = query.eq("subnicho", req.subnicho)
+    elif req.mode == "leva":
+        subs = LEVA_1_SUBNICHOS if req.leva == 1 else LEVA_2_SUBNICHOS
+        query = query.in_("subnicho", subs)
+
+    producoes = query.execute()
 
     if not producoes.data:
         return {"status": "nenhum", "message": "Nenhum short em producao pra enfileirar"}
@@ -1205,18 +1220,28 @@ def _run_subs_collection_bg():
 
             try:
                 creds = OAuthManager.get_valid_credentials(channel_id)
-                yt_analytics = build("youtubeAnalytics", "v2", credentials=creds)
+                import requests as req
 
-                result = yt_analytics.reports().query(
-                    ids="channel==MINE",
-                    startDate="2026-01-01",
-                    endDate=today,
-                    metrics="subscribersGained,subscribersLost",
-                    dimensions="video",
-                    sort="-subscribersGained",
-                    maxResults=200,
-                ).execute()
+                resp = req.get(
+                    "https://youtubeanalytics.googleapis.com/v2/reports",
+                    params={
+                        "ids": "channel==MINE",
+                        "startDate": "2026-01-01",
+                        "endDate": today,
+                        "metrics": "subscribersGained,subscribersLost",
+                        "dimensions": "video",
+                        "sort": "-subscribersGained",
+                        "maxResults": "200",
+                    },
+                    headers={"Authorization": f"Bearer {creds.token}"},
+                    timeout=30,
+                )
 
+                if resp.status_code != 200:
+                    logger.warning(f"[subs] Analytics API erro {resp.status_code} pra {canal}: {resp.text[:100]}")
+                    continue
+
+                result = resp.json()
                 video_ids_set = set(video_ids)
                 for row in result.get("rows", []):
                     vid = row[0]
@@ -1224,17 +1249,15 @@ def _run_subs_collection_bg():
                         subs_gained = row[1]
                         subs_lost = row[2]
 
-                        # Upsert: INSERT, se conflito PATCH
                         try:
-                            db.supabase.table("shorts_subs").insert({
+                            db.supabase_service.table("shorts_subs").insert({
                                 "video_id": vid,
-                                "channel_id": channel_id,
                                 "date": today,
                                 "subs_gained": subs_gained,
                                 "subs_lost": subs_lost,
                             }).execute()
                         except Exception:
-                            db.supabase.table("shorts_subs").update({
+                            db.supabase_service.table("shorts_subs").update({
                                 "subs_gained": subs_gained,
                                 "subs_lost": subs_lost,
                             }).eq("video_id", vid).eq("date", today).execute()

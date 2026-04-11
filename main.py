@@ -4234,6 +4234,14 @@ async def schedule_daily_collection():
             if can_collect:
                 logger.info("🚀 Starting scheduled collection...")
                 await run_collection_job()
+                # Coletar subs dos shorts apos coleta diaria
+                try:
+                    from shorts_endpoints import _run_subs_collection_bg
+                    import threading
+                    threading.Thread(target=_run_subs_collection_bg, daemon=True).start()
+                    logger.info("📊 Shorts subs collection triggered after daily collection")
+                except Exception as subs_err:
+                    logger.warning(f"⚠️ Shorts subs collection failed: {subs_err}")
             else:
                 logger.warning(f"⚠️ Scheduled collection blocked: {message}")
             
