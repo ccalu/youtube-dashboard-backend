@@ -932,8 +932,61 @@ def _run_batch_gerar_bg(batch_id: str, canais: list[dict]):
                 logger.info(f"[batch-gerar] {i+1}/{len(canais)}: done")
 
         except Exception as e:
-            status["errors"].append({"canal": channel_name, "error": str(e)[:200]})
-            logger.error(f"[batch-gerar] ERRO {channel_name}: {str(e)[:200]}")
+            # Retry 1x antes de desistir
+            logger.warning(f"[batch-gerar] ERRO {channel_name} (tentativa 1): {str(e)[:150]}. Retentando...")
+            import time as _time
+            _time.sleep(5)
+            try:
+                status["current"]["step"] = "retry"
+                from _features.shorts_production.analyst import analyze_channel as _ac
+                analysis2 = _ac(channel_name, subnicho)
+                from _features.shorts_production.theme_suggester import suggest_themes as _st
+                temas2 = _st(canal=channel_name, subnicho=subnicho, lingua=lingua,
+                             temas_bloqueados=analysis2.get("temas_bloqueados", ""),
+                             video_ref_titulo=analysis2.get("video_ref_titulo", ""))
+                if temas2:
+                    tema2 = temas2[0]
+                    topic2 = tema2.get("titulo", tema2) if isinstance(tema2, dict) else tema2
+                    from _features.shorts_production.pipeline import run_production as _rp
+                    result2 = _rp(topic=topic2, canal=channel_name, canal_id=0, subnicho=subnicho,
+                                  lingua=lingua, tom=analysis2.get("tom", ""),
+                                  formato=analysis2.get("formato", "livre"),
+                                  video_ref=analysis2.get("video_ref", ""),
+                                  video_ref_titulo=analysis2.get("video_ref_titulo", ""))
+                    # Salvar
+                    sheets_row_num2 = None
+                    try:
+                        from _features.shorts_production.sheets_writer import write_production_to_sheet as _ws
+                        pj2 = result2.get("producao_json", {})
+                        cenas2 = pj2.get("cenas", [])
+                        sheets_row_num2 = _ws(channel_name, subnicho, {
+                            "data": datetime.utcnow().strftime("%d/%m/%Y"),
+                            "tom": analysis2.get("tom", ""), "titulo": result2.get("titulo", ""),
+                            "descricao": pj2.get("descricao", ""), "script": pj2.get("script", ""),
+                            "prompts_imagem": "\n".join(c.get("prompt_imagem", "") for c in cenas2),
+                            "prompts_animacao": "\n".join(c.get("prompt_animacao", "") for c in cenas2),
+                            "formato": analysis2.get("formato", "livre"),
+                            "video_ref": analysis2.get("video_ref", ""),
+                        })
+                    except Exception:
+                        pass
+                    db.supabase.table("shorts_production").insert({
+                        "canal": result2["canal"], "subnicho": result2["subnicho"], "lingua": lingua,
+                        "titulo": result2["titulo"], "tom": analysis2.get("tom", ""),
+                        "formato": analysis2.get("formato", "livre"),
+                        "video_ref": analysis2.get("video_ref", ""), "sheets_row_num": sheets_row_num2,
+                        "producao_json": result2["producao_json"], "drive_link": result2["drive_link"],
+                        "status": "producao",
+                    }).execute()
+                    status["completed"] += 1
+                    status["results"].append({"canal": channel_name, "titulo": result2["titulo"],
+                                              "tom": analysis2.get("tom", ""), "formato": analysis2.get("formato", "livre")})
+                    logger.info(f"[batch-gerar] {channel_name}: RETRY OK -> {result2['titulo']}")
+                else:
+                    status["errors"].append({"canal": channel_name, "error": f"retry falhou: sem temas"})
+            except Exception as e2:
+                status["errors"].append({"canal": channel_name, "error": f"retry falhou: {str(e2)[:150]}"})
+                logger.error(f"[batch-gerar] ERRO {channel_name} (retry): {str(e2)[:150]}")
 
     status["status"] = "done"
     status["current"] = None
