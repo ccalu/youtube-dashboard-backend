@@ -768,11 +768,11 @@ def run_freepik_production(producao_json_path: str, log_callback: Optional[Calla
             status = verificar_status(page)
             log(f"Status: {status['imagens']} imgs, {status['videos']} vids, nar={status['narracao']}")
 
-            if status["imagens"] >= 12 and status["videos"] >= 12 and status["narracao"]:
+            if status["imagens"] >= 14 and status["videos"] >= 14 and status["narracao"]:
                 log(f"{status['imagens']}+{status['videos']}+nar OK. Esperando 4 min pra confirmar renderizacao...")
                 time.sleep(240)
                 status2 = verificar_status(page)
-                if status2["imagens"] >= 12 and status2["videos"] >= 12 and status2["narracao"]:
+                if status2["imagens"] >= 14 and status2["videos"] >= 14 and status2["narracao"]:
                     log("TUDO PRONTO!")
                     break
                 log("Ainda processando...")

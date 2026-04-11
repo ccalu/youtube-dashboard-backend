@@ -1,19 +1,20 @@
-# Setup Completo — Shorts Factory
+# Setup Completo — Shorts Factory (Atualizado 2026-04-11)
 
 > Guia para configurar o sistema completo de producao de YouTube Shorts em um novo PC.
-> Enviar este documento + `setup_shorts.py` para o Claude Code no novo PC.
+> Enviar esta pasta (`setup/`) com `setup_shorts.py` para o novo PC.
+> O script faz quase tudo automaticamente.
 
 ---
 
-## Pre-requisitos (instalar manualmente se nao tiver)
+## Pre-requisitos (instalar manualmente)
 
 ### 1. Python 3.10+
 - Download: https://www.python.org/downloads/
-- Marcar "Add Python to PATH" na instalacao
+- **IMPORTANTE:** Marcar "Add Python to PATH" na instalacao
 - Verificar: `python --version`
 
 ### 2. Node.js 18+
-- Download: https://nodejs.org/
+- Download: https://nodejs.org/ (LTS)
 - Verificar: `node --version` e `npm --version`
 
 ### 3. Git
@@ -21,167 +22,166 @@
 - Verificar: `git --version`
 
 ### 4. ffmpeg
-- Download: https://ffmpeg.org/download.html
-- Adicionar ao PATH
+- Download: https://github.com/BtbN/FFmpeg-Builds/releases (ffmpeg-master-latest-win64-gpl.zip)
+- Extrair e adicionar a pasta `bin/` ao PATH do Windows
 - Verificar: `ffmpeg -version`
 
 ### 5. Google Chrome
 - Download: https://www.google.com/chrome/
 - Verificar: instalado em `C:\Program Files\Google\Chrome\Application\chrome.exe`
 
+### 6. Claude Code CLI
+- Instalar: `npm install -g @anthropic-ai/claude-code`
+- Fazer login: `claude login` (precisa de conta Max)
+- Verificar: `claude --version`
+
 ---
 
 ## Setup Automatizado
 
-Depois de instalar os pre-requisitos acima, rodar:
+Depois de instalar os pre-requisitos, copiar esta pasta para o novo PC e rodar:
 
 ```bash
 python setup_shorts.py
 ```
 
-Este script faz:
-1. Clona os repositorios (backend, shorts-editor, dashboard)
-2. Instala dependencias Python (pip install)
-3. Instala dependencias Node (npm install)
-4. Configura .env (pede as chaves interativamente)
-5. Cria pastas necessarias (SHORTS, MUSICAS-SHORTS)
-6. Configura Chrome com debug port
-7. Faz build do dashboard
-8. Testa conexoes (Supabase, Freepik)
+O script faz automaticamente:
+1. Clona os repositorios (backend, shorts-editor, shorts-factory-dashboard)
+2. Instala dependencias Python (`pip install -r requirements.txt` + extras)
+3. Instala dependencias Node (shorts-editor + dashboard)
+4. Instala Playwright
+5. Configura `.env` (pede as chaves interativamente)
+6. Copia arquivos de credenciais (service account)
+7. Cria pastas necessarias (SHORTS, MUSICAS-SHORTS)
+8. Cria profile do Chrome pra debug
+9. Faz build do dashboard
+10. Testa conexoes (Supabase, Drive, Sheets)
+11. Cria arquivo `.bat` de inicializacao rapida
 
 ---
 
-## Configuracao Manual (apos script)
+## Credenciais Necessarias
 
-### 1. Login no Freepik Spaces (unica vez)
+Antes de rodar o setup, ter em maos:
 
-1. Abrir Chrome com debug port:
-```
-"C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir=C:\Users\SEU_USUARIO\chrome-debug-profile
-```
+| Credencial | Onde pegar |
+|---|---|
+| SUPABASE_URL | Supabase Dashboard > Settings > API |
+| SUPABASE_KEY (anon) | Supabase Dashboard > Settings > API |
+| SUPABASE_SERVICE_ROLE_KEY | Supabase Dashboard > Settings > API |
+| OPENAI_API_KEY | https://platform.openai.com/api-keys |
+| GOOGLE_SERVICE_ACCOUNT_JSON | Copiar do PC principal (.env) |
+| GOOGLE_SHEETS_CREDENTIALS_2 | Copiar do PC principal (.env) |
+| Service Account JSON (arquivo) | Copiar `service-account-492821-*.json` do PC principal |
 
-2. Navegar para: https://br.freepik.com/pikaso/spaces/a166a80e-8448-4c38-b231-ce4cd2cc49ce
-
-3. Fazer login na conta do Freepik
-
-4. Verificar que o workspace "PRODUCTION SHORTS" esta aberto
-
-5. Fechar o Chrome
-
-Pronto! O perfil fica salvo. Proximas vezes o login ja esta feito.
-
-### 2. Musicas de Fundo
-
-Copiar a pasta `MUSICAS-SHORTS` para:
-```
-C:\Users\SEU_USUARIO\Downloads\SHORTS\MUSICAS-SHORTS\
-```
-
-Estrutura necessaria:
-```
-MUSICAS-SHORTS/
-  Musicas 02/music/  (Guerras e Civilizacoes)
-  Musicas 03/music/  (Relatos/Frentes de Guerra)
-  Musicas 05/music/  (Reis Perversos/Sombrias/Macabras)
-  Musicas 06/music/  (Monetizados)
-```
+**DICA:** A forma mais facil e copiar o `.env` completo do PC principal pro novo PC.
 
 ---
 
-## Variaveis de Ambiente (.env)
+## Estrutura Final
 
-O script `setup_shorts.py` cria o .env automaticamente. Chaves necessarias:
+Apos o setup, a estrutura fica:
 
-```env
-# Supabase
-SUPABASE_URL=https://xxxxx.supabase.co
-SUPABASE_KEY=eyJhbGci...  (anon key)
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGci...  (service role key)
+```
+C:\Users\<usuario>\Desktop\ContentFactory\
+├── youtube-dashboard-backend\    # Backend (API + endpoints)
+│   ├── .env                      # Credenciais
+│   ├── main.py                   # Servidor principal
+│   ├── shorts_endpoints.py       # Endpoints de shorts
+│   └── _features\shorts_production\  # Pipeline de producao
+├── shorts-editor\                # Remotion (renderizacao de video)
+└── shorts-factory-dashboard\     # Frontend React (dash)
 
-# OpenAI (para theme_suggester)
-OPENAI_API_KEY=sk-...
+C:\Users\<usuario>\Downloads\SHORTS\
+├── MUSICAS-SHORTS\               # Musicas de fundo
+│   ├── Musicas 02\               # Guerras e Civilizacoes
+│   ├── Musicas 03\               # Relatos/Frentes de Guerra
+│   ├── Musicas 05\               # Reis Perversos/Sombrias/Macabras
+│   └── Musicas 06\               # Monetizados
+├── Guerras e Civilizacoes\       # Producoes por subnicho
+├── Frentes de Guerra\
+├── Relatos de Guerra\
+├── Reis Perversos\
+├── Historias Sombrias\
+├── Culturas Macabras\
+└── Monetizados\
 
-# Google Drive Service Account
-GOOGLE_SERVICE_ACCOUNT_JSON={"type":"service_account","project_id":...}
-
-# JWT (gerado automaticamente se nao definir)
-JWT_SECRET_KEY=...
-
-# Shorts
-SHORTS_LOCAL_PATH=C:\Users\SEU_USUARIO\Downloads\SHORTS
+C:\Users\<usuario>\chrome-debug-profile\  # Chrome profile pra Freepik
 ```
 
 ---
 
-## Estrutura de Pastas
+## Musicas
 
+As pastas de musica precisam ser copiadas manualmente do PC principal:
 ```
-C:\Users\SEU_USUARIO\
-  Desktop\
-    ContentFactory\
-      youtube-dashboard-backend\     (backend principal)
-      shorts-editor\                 (Remotion)
-      shorts-factory-dashboard\      (dashboard React)
-  Downloads\
-    SHORTS\                          (producoes locais)
-      MUSICAS-SHORTS\                (musicas de fundo)
-      Reis Perversos\
-      Relatos de Guerra\
-      ...
-  chrome-debug-profile\              (perfil Chrome pra Freepik)
+C:\Users\PC\Downloads\SHORTS\MUSICAS-SHORTS\ → copiar toda a pasta
 ```
+
+Sem as musicas, o Remotion nao adiciona trilha sonora nos videos.
 
 ---
 
-## Como Iniciar (dia a dia)
+## Freepik — Login Manual
 
-### Opcao 1: Atalho (INICIAR_SHORTS_FACTORY.bat)
-- Duplo clique no atalho do Desktop
-- Abre backend + dashboard + Chrome com Freepik
+Apos o setup, abrir o Chrome com debug port (o `.bat` faz isso automaticamente) e:
+1. Abrir https://br.freepik.com/
+2. Fazer login com a conta do Freepik
+3. Acessar o workspace: https://br.freepik.com/pikaso/spaces/a166a80e-8448-4c38-b231-ce4cd2cc49ce
+4. Confirmar que o workspace carrega (deve mostrar os blocos de imagem, animacao, narracao)
 
-### Opcao 2: Manual
-```bash
-# Terminal 1 — Backend
-cd youtube-dashboard-backend
-python run_shorts_server.py
-
-# Terminal 2 — Dashboard (dev mode)
-cd shorts-factory-dashboard
-npm run dev
-
-# Terminal 3 — Chrome com Freepik
-"C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir=C:\Users\SEU_USUARIO\chrome-debug-profile https://br.freepik.com/pikaso/spaces/a166a80e-8448-4c38-b231-ce4cd2cc49ce
-```
-
-### Acessar
-- Dashboard: http://localhost:5173
-- Backend API: http://localhost:8000
-- Freepik status: http://localhost:8000/api/shorts/browser-status
+**IMPORTANTE:** O Chrome deve estar em **fullscreen** pra selecao de voz funcionar corretamente.
 
 ---
 
-## Verificacao
+## Iniciar o Sistema
 
-Depois de tudo configurado, verificar:
+Duplo clique no arquivo criado na area de trabalho:
+```
+INICIAR_SHORTS_FACTORY.bat
+```
 
-1. Dashboard abre em localhost:5173
-2. "Freepik Conectado" aparece verde
-3. Criar uma producao de teste
-4. Clicar "Produzir Tudo" e verificar se:
-   - Freepik limpa, cola prompts, executa
-   - Remotion renderiza
-   - Drive upload funciona
-   - Video aparece em "Prontos"
+Isso inicia:
+1. Backend (porta 8000)
+2. Chrome com debug port (porta 9222) + Freepik
+3. Dashboard frontend (porta 5173)
+
+---
+
+## Operacao com 2 PCs
+
+Para rodar producao em 2 PCs simultaneamente:
+
+**PC 1 (principal):** Produz Leva 1 (18 canais)
+- Reis Perversos (9) + Guerras e Civilizacoes (5) + Frentes de Guerra (4)
+
+**PC 2 (producao):** Produz Leva 2 (17 canais)
+- Relatos de Guerra (5) + Monetizados (5) + Culturas Macabras (4) + Historias Sombrias (3)
+
+Ambos usam o mesmo Supabase, Sheets e Drive. O dash em qualquer PC mostra tudo junto.
+
+**Regra:** Nunca produzir o mesmo short nos 2 PCs. Usar o filtro por Leva no modal de Produzir.
+
+---
+
+## Portas
+
+| Servico | Porta |
+|---|---|
+| Backend API | 8000 |
+| Chrome CDP | 9222 |
+| Dashboard Dev | 5173 |
+| Remotion Studio | 3000 |
 
 ---
 
 ## Troubleshooting
 
 | Problema | Solucao |
-|----------|---------|
-| `playwright` nao conecta | Chrome nao esta com --remote-debugging-port=9222 |
-| Whisper lento | Normal em CPU (~18s). GPU acelera mas nao e necessario |
-| Upload Drive falha | Verificar GOOGLE_SERVICE_ACCOUNT_JSON no .env |
-| Freepik nao cola prompts | Verificar se workspace PRODUCTION SHORTS esta aberto |
-| gdown nao encontrado | `pip install gdown` |
-| Musica nao selecionada | Verificar pasta MUSICAS-SHORTS no caminho correto |
+|---|---|
+| Freepik nao conecta | Verificar Chrome com `--remote-debugging-port=9222` |
+| Voz errada no Freepik | Chrome em fullscreen |
+| Claude CLI timeout | Verificar login: `claude login` |
+| Supabase erro RLS | Usar SUPABASE_SERVICE_ROLE_KEY pra OAuth |
+| Sheets 429 rate limit | Espera automatica 60s (retry built-in) |
+| Download 0 bytes | Verificar internet, Freepik logado |
