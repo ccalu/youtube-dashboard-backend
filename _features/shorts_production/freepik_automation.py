@@ -514,9 +514,13 @@ def verificar_status(page: Page) -> dict:
 
         const narEl = document.querySelector('[data-id="{IDS["NARRACAO_TEXTO"]}"]');
         const narText = narEl ? narEl.textContent.trim() : '';
-        const narReady = narText.includes('00:') && !narText.includes('fila');
+        // Verificar narracao: timestamp (00: ou 01:), ou audio output existente
+        const hasTimestamp = /\d{{2}}:\d{{2}}/.test(narText) && !narText.includes('fila');
+        const audioOutput = document.querySelector('[data-id="{IDS["NARRACAO_TEXTO"]}"] [data-id*="audio-output"]');
+        const hasAudioOutput = audioOutput !== null;
+        const narReady = hasTimestamp || hasAudioOutput;
 
-        return {{ imagens: imgCount, videos: vidCount, narracao: narReady }};
+        return {{ imagens: imgCount, videos: vidCount, narracao: narReady, narDebug: narText.substring(0, 80) }};
     }}""")
     return result
 
@@ -764,18 +768,31 @@ def run_freepik_production(producao_json_path: str, log_callback: Optional[Calla
             return False
 
         # Polling a cada 30s
+        waiting_14_14_since = None  # Timestamp de quando detectou 14+14 sem nar
         while time.time() - start < timeout:
             status = verificar_status(page)
             log(f"Status: {status['imagens']} imgs, {status['videos']} vids, nar={status['narracao']}")
 
-            if status["imagens"] >= 14 and status["videos"] >= 14 and status["narracao"]:
-                log(f"{status['imagens']}+{status['videos']}+nar OK. Esperando 4 min pra confirmar renderizacao...")
-                time.sleep(240)
-                status2 = verificar_status(page)
-                if status2["imagens"] >= 14 and status2["videos"] >= 14 and status2["narracao"]:
-                    log("TUDO PRONTO!")
-                    break
-                log("Ainda processando...")
+            if status["imagens"] >= 14 and status["videos"] >= 14:
+                if status["narracao"]:
+                    log(f"{status['imagens']}+{status['videos']}+nar OK. Esperando 4 min pra confirmar renderizacao...")
+                    time.sleep(240)
+                    status2 = verificar_status(page)
+                    if status2["imagens"] >= 14 and status2["videos"] >= 14:
+                        log("TUDO PRONTO!")
+                        break
+                    log("Ainda processando...")
+                else:
+                    # 14+14 mas narracao nao detectada - reverificar
+                    if waiting_14_14_since is None:
+                        waiting_14_14_since = time.time()
+                        nar_debug = status.get("narDebug", "")
+                        log(f"14+14 OK mas nar nao detectada. narDebug: {nar_debug[:60]}. Aguardando 4 min...")
+                    elif time.time() - waiting_14_14_since >= 240:
+                        log("14+14 sem nar por 4 min. Baixando mesmo assim (narracao pode existir).")
+                        break
+            else:
+                waiting_14_14_since = None  # Resetar se imgs/vids diminuiram
 
             time.sleep(30)
         else:

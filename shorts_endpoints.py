@@ -163,18 +163,26 @@ def _run_freepik_bg(producao_id: int, json_path: str):
 
 def _update_sheet_drive_link(producao_id: int, drive_url: str):
     """Atualiza Link Drive na planilha de shorts (se tiver row_num salvo)."""
-    try:
-        prod = db.supabase.table("shorts_production").select(
-            "canal, subnicho, sheets_row_num"
-        ).eq("id", producao_id).single().execute()
-        if prod.data and prod.data.get("sheets_row_num"):
-            from _features.shorts_production.sheets_writer import update_drive_link
-            update_drive_link(
-                prod.data["canal"], prod.data["subnicho"], prod.data["sheets_row_num"], drive_url
-            )
-            logger.info(f"[shorts] Planilha: Drive link atualizado pra producao {producao_id}")
-    except Exception as e:
-        logger.warning(f"[shorts] Planilha: Erro ao atualizar Drive link: {str(e)[:100]}")
+    for attempt in range(2):
+        try:
+            prod = db.supabase.table("shorts_production").select(
+                "canal, subnicho, sheets_row_num"
+            ).eq("id", producao_id).single().execute()
+            if prod.data and prod.data.get("sheets_row_num"):
+                from _features.shorts_production.sheets_writer import update_drive_link
+                update_drive_link(
+                    prod.data["canal"], prod.data["subnicho"], prod.data["sheets_row_num"], drive_url
+                )
+                logger.info(f"[shorts] Planilha: Drive link atualizado pra producao {producao_id} (linha {prod.data['sheets_row_num']})")
+                return
+            else:
+                logger.warning(f"[shorts] Planilha: producao {producao_id} sem sheets_row_num")
+                return
+        except Exception as e:
+            logger.warning(f"[shorts] Planilha: Erro ao atualizar Drive link (tentativa {attempt+1}): {str(e)[:100]}")
+            if attempt == 0:
+                import time
+                time.sleep(5)
 
 
 def _update_sheet_upload_status(producao_id: int, youtube_video_id: str):
