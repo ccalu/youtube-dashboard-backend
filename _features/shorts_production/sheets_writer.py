@@ -144,7 +144,7 @@ def update_drive_link(channel_name: str, subnicho: str, row_num: int, link: str)
         spreadsheetId=sid,
         range=f"'{tab_name}'!J{row_num}",
         valueInputOption="USER_ENTERED",
-        body={"values": [[f'=HYPERLINK("{link}", "LINK")' if link.startswith("http") else link]]},
+        body={"values": [[f'=HIPERLINK("{link}", "LINK")' if link.startswith("http") else link]]},
     ))
 
     logger.info(f"[sheets_writer] {channel_name}: Drive link na linha {row_num}")

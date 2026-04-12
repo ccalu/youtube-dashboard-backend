@@ -149,8 +149,9 @@ def edit_short(production_path: str, subnicho: str = "", log_callback=None) -> s
             clip_durations = None
             log("  Clip timings: usando distribuicao igual (fallback)")
 
-    # 6. Renderizar com Remotion
-    output_path = os.path.join(production_path, "video_final.mp4")
+    # 6. Renderizar com Remotion (usar temp path pra evitar problemas com caracteres especiais)
+    final_output = os.path.join(production_path, "video_final.mp4")
+    temp_output = os.path.join(os.environ.get("TEMP", production_path), "video_final_render.mp4")
     log("  Renderizando vídeo final...")
 
     props_dict = {
@@ -172,7 +173,7 @@ def edit_short(production_path: str, subnicho: str = "", log_callback=None) -> s
         npx_path, "remotion", "render",
         "src/index.ts",
         "ShortsVideo",
-        output_path,
+        temp_output,
         "--props", props,
     ]
 
@@ -182,11 +183,20 @@ def edit_short(production_path: str, subnicho: str = "", log_callback=None) -> s
         capture_output=True,
         text=True,
         timeout=600,
+        encoding="utf-8",
+        errors="replace",
     )
 
     if result.returncode != 0:
-        logger.error(f"Remotion error: {result.stderr[:500]}")
-        raise RuntimeError(f"Remotion render falhou: {result.stderr[:200]}")
+        stderr = result.stderr or ""
+        logger.error(f"Remotion error: {stderr[:500]}")
+        raise RuntimeError(f"Remotion render falhou: {stderr[:200]}")
+
+    # Mover pra pasta final
+    if os.path.exists(temp_output):
+        import shutil
+        shutil.move(temp_output, final_output)
+    output_path = final_output
 
     render_time = time.time() - start_time
     log(f"  Video final: {output_path}")

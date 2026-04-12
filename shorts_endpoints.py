@@ -220,6 +220,23 @@ def _run_editing_bg(producao_id: int, production_path: str, subnicho: str):
         if isinstance(result, dict) and result.get("drive_url"):
             update_data["drive_url"] = result["drive_url"]
             drive_url = result["drive_url"]
+
+        # Se Drive URL vazio, tentar upload manual
+        if not drive_url:
+            _add_log(producao_id, "Drive URL vazio. Tentando upload manual...")
+            try:
+                from _features.shorts_production.drive_uploader import upload_to_drive
+                lingua = db.supabase.table("shorts_production").select("lingua").eq("id", producao_id).single().execute()
+                lingua_val = lingua.data.get("lingua", "") if lingua.data else ""
+                canal_label = f"({lingua_val[:2].upper()}) {production_path.split(os.sep)[-3].split(') ')[-1]}" if lingua_val else ""
+                titulo_short = production_path.split(os.sep)[-1][:40]
+                drive_url = upload_to_drive(production_path, subnicho, canal_label, titulo_short, log_callback=_log_callback(producao_id))
+                if drive_url:
+                    update_data["drive_url"] = drive_url
+                    _add_log(producao_id, f"Drive upload manual OK")
+            except Exception as drive_err:
+                _add_log(producao_id, f"Drive upload manual falhou: {str(drive_err)[:100]}")
+
         db.supabase.table("shorts_production").update(update_data).eq("id", producao_id).execute()
 
         # Atualizar planilha com Drive link
@@ -269,6 +286,23 @@ def _run_full_production_bg(producao_id: int, json_path: str, production_path: s
         if isinstance(result, dict) and result.get("drive_url"):
             update_data["drive_url"] = result["drive_url"]
             drive_url = result["drive_url"]
+
+        # Se Remotion terminou mas Drive falhou, tentar upload manual
+        if not drive_url:
+            log("Drive URL vazio. Tentando upload manual...")
+            try:
+                from _features.shorts_production.drive_uploader import upload_to_drive
+                lingua = db.supabase.table("shorts_production").select("lingua").eq("id", producao_id).single().execute()
+                lingua_val = lingua.data.get("lingua", "") if lingua.data else ""
+                canal_label = f"({lingua_val[:2].upper()}) {production_path.split(os.sep)[-3].split(') ')[-1]}" if lingua_val else ""
+                titulo_short = production_path.split(os.sep)[-1][:40]
+                drive_url = upload_to_drive(production_path, subnicho, canal_label, titulo_short, log_callback=log)
+                if drive_url:
+                    update_data["drive_url"] = drive_url
+                    log(f"Drive upload manual OK: {drive_url}")
+            except Exception as drive_err:
+                log(f"Drive upload manual falhou: {str(drive_err)[:100]}")
+
         db.supabase.table("shorts_production").update(update_data).eq("id", producao_id).execute()
 
         # Atualizar planilha com Drive link
