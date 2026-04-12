@@ -149,7 +149,22 @@ def run_production(topic: str, canal: str, canal_id: int, subnicho: str, lingua:
     # 5. Criar pasta local e salvar arquivos
     titulo_curto = " ".join(producao_json["titulo"].split()[:3])
     shorts_root = os.getenv("SHORTS_LOCAL_PATH", "C:\\Users\\PC\\Downloads\\SHORTS")
-    pasta_base = os.path.join(shorts_root, subnicho, f"({lingua[:2].upper()}) {canal}", titulo_curto)
+    # Mapear lingua pra codigo ISO correto (Português->PT, Inglês->EN, etc.)
+    LINGUA_TO_CODE = {
+        "Português": "PT", "Portugues": "PT", "pt": "PT",
+        "Inglês": "EN", "Ingles": "EN", "en": "EN",
+        "Espanhol": "ES", "es": "ES",
+        "Francês": "FR", "Frances": "FR", "fr": "FR",
+        "Italiano": "IT", "it": "IT",
+        "Alemão": "DE", "Alemao": "DE", "de": "DE",
+        "Russo": "RU", "ru": "RU",
+        "Japonês": "JA", "Japones": "JA", "ja": "JA",
+        "Coreano": "KO", "ko": "KO",
+        "Turco": "TR", "tr": "TR",
+        "Polonês": "PL", "Polones": "PL", "pl": "PL",
+    }
+    lingua_code = LINGUA_TO_CODE.get(lingua, lingua[:2].upper())
+    pasta_base = os.path.join(shorts_root, subnicho, f"({lingua_code}) {canal}", titulo_curto)
     os.makedirs(os.path.join(pasta_base, "img"), exist_ok=True)
     os.makedirs(os.path.join(pasta_base, "clips"), exist_ok=True)
 
