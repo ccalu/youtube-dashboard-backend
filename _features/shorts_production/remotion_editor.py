@@ -194,7 +194,6 @@ def edit_short(production_path: str, subnicho: str = "", log_callback=None) -> s
 
     # Mover pra pasta final
     if os.path.exists(temp_output):
-        import shutil
         shutil.move(temp_output, final_output)
     output_path = final_output
 
