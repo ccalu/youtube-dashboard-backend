@@ -56,21 +56,22 @@ from auth import (
     authenticate_user, hash_password, verify_password
 )
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(message)s",
+    datefmt="%H:%M:%S",
+)
 logger = logging.getLogger(__name__)
 
-# Silenciar logs barulhentos que poluem o output
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("httpcore").setLevel(logging.WARNING)
-logging.getLogger("hpack").setLevel(logging.WARNING)
-logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-logging.getLogger("uvicorn.error").setLevel(logging.WARNING)
-logging.getLogger("googleapiclient.discovery").setLevel(logging.WARNING)
-logging.getLogger("google.auth.transport.requests").setLevel(logging.WARNING)
-logging.getLogger("urllib3").setLevel(logging.WARNING)
-logging.getLogger("openai").setLevel(logging.WARNING)
-logging.getLogger("whisper").setLevel(logging.WARNING)
-logging.getLogger("numba").setLevel(logging.WARNING)
+# Silenciar TUDO que polui o output
+for noisy in [
+    "httpx", "httpcore", "hpack", "uvicorn", "uvicorn.access", "uvicorn.error",
+    "googleapiclient", "googleapiclient.discovery", "google.auth", "google.auth.transport",
+    "google.auth.transport.requests", "urllib3", "openai", "whisper", "numba",
+    "supabase", "postgrest", "gotrue", "realtime", "storage3",
+    "asyncio", "watchfiles", "multipart",
+]:
+    logging.getLogger(noisy).setLevel(logging.ERROR)
 
 app = FastAPI(title="YouTube Dashboard API", version="1.0.0")
 
