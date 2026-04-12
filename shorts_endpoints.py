@@ -456,7 +456,7 @@ async def produzir_completo(producao_id: int):
 
 @router.post("/batch-editar")
 async def batch_editar(background_tasks: BackgroundTasks):
-    """Aciona Remotion + Drive pra todos os shorts em status=edicao."""
+    """Enfileira Remotion + Drive pra todos os shorts em status=edicao (1 por vez)."""
     edicoes = db.supabase.table("shorts_production").select(
         "id, canal, titulo, drive_link, subnicho"
     ).eq("status", "edicao").order("created_at").execute()
@@ -464,28 +464,30 @@ async def batch_editar(background_tasks: BackgroundTasks):
     if not edicoes.data:
         return {"status": "nenhum", "message": "Nenhum short em edicao"}
 
-    resultados = []
+    validos = []
     for p in edicoes.data:
         drive_link = p.get("drive_link", "")
-        if not drive_link or not os.path.exists(drive_link):
-            resultados.append({"id": p["id"], "canal": p["canal"], "status": "erro", "message": "pasta nao encontrada"})
-            continue
+        if drive_link and os.path.exists(drive_link):
+            validos.append(p)
 
-        background_tasks.add_task(_run_editing_bg, p["id"], drive_link, p.get("subnicho", ""))
-        resultados.append({
-            "id": p["id"],
-            "canal": p["canal"],
-            "titulo": p["titulo"],
-            "status": "editando",
-        })
+    background_tasks.add_task(_run_batch_editar_bg, validos)
 
-    editando = sum(1 for r in resultados if r["status"] == "editando")
     return {
         "status": "ok",
         "total": len(edicoes.data),
-        "editando": editando,
-        "resultados": resultados,
+        "editando": len(validos),
+        "message": f"{len(validos)} shorts na fila de edicao (1 por vez)",
     }
+
+
+def _run_batch_editar_bg(validos: list[dict]):
+    """Edita shorts 1 por vez em sequencia."""
+    for i, p in enumerate(validos):
+        logger.info(f"[batch-editar] {i+1}/{len(validos)}: {p['canal']}")
+        try:
+            _run_editing_bg(p["id"], p["drive_link"], p.get("subnicho", ""))
+        except Exception as e:
+            logger.error(f"[batch-editar] ERRO {p['canal']}: {str(e)[:100]}")
 
 
 class BatchProduzirRequest(BaseModel):
