@@ -43,6 +43,9 @@ tokens*.json
 credentials*.json
 client_secret*.json
 
+# Runtime state (Freepik tab target id, etc)
+.freepik_tab_guid
+
 # Claude settings (local)
 .claude/settings.local.json
 

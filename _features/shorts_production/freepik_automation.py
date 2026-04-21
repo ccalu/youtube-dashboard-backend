@@ -66,18 +66,103 @@ VOZES = {
 }
 
 
+def _load_registered_guid() -> Optional[str]:
+    """Le o targetId registrado pelo /inicializar-browser (se existir)."""
+    try:
+        import json as _json
+        # shorts_endpoints.py salva em sua pasta; subimos 2 niveis pra achar
+        candidates = [
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), ".freepik_tab_guid"),
+            os.path.join(r"C:\Users\PC\Desktop\ContentFactory\youtube-dashboard-backend", ".freepik_tab_guid"),
+        ]
+        for path in candidates:
+            if os.path.exists(path):
+                with open(path, "r") as f:
+                    data = _json.load(f)
+                return data.get("kept_guid")
+    except Exception:
+        pass
+    return None
+
+
 def _get_page(browser: Browser) -> Page:
-    """Retorna a primeira página do browser, navegando pro Freepik se necessário."""
-    context = browser.contexts[0]
-    page = context.pages[0]
-    if "spaces" not in page.url:
-        page.goto(WORKFLOW_URL)
+    """Escolhe a aba do Freepik Spaces CERTA (a que o endpoint registrou no /inicializar-browser).
+
+    Estrategia (em ordem):
+      1. Se tem targetId registrado em .freepik_tab_guid, encontra essa page por CDP.
+      2. Fallback: se nao achar, usa a ULTIMA pagina Freepik na lista (pages[-1]),
+         que e a que o usuario viu no teste comparativo de cores.
+      3. Forca bring_to_front + viewport 1920x1080.
+    """
+    space_id = WORKFLOW_URL.rsplit("/", 1)[-1]
+    registered_guid = _load_registered_guid()
+
+    page = None
+    freepik_pages = []
+
+    # Coletar pages Freepik e tentar match pelo targetId registrado
+    for ctx in browser.contexts:
+        for pg in ctx.pages:
+            try:
+                url = pg.url
+            except Exception:
+                continue
+            if "freepik.com/pikaso/spaces/" not in url:
+                continue
+            freepik_pages.append(pg)
+            # Match pelo guid registrado pelo endpoint /inicializar-browser
+            if registered_guid:
+                try:
+                    cdp = pg.context.new_cdp_session(pg)
+                    info = cdp.send("Target.getTargetInfo")
+                    if info.get("targetInfo", {}).get("targetId") == registered_guid:
+                        page = pg
+                        logger.info(f"Freepik: usando tab REGISTRADA pelo endpoint (guid={registered_guid[:8]}...)")
+                        break
+                except Exception:
+                    pass
+        if page:
+            break
+
+    # Fallback: pegar a ULTIMA freepik_page se nao achou a registrada
+    if not page:
+        if freepik_pages:
+            page = freepik_pages[-1]
+            logger.info(f"Freepik: usando ULTIMA das {len(freepik_pages)} tabs Freepik (guid nao achado)")
+        else:
+            logger.warning("Freepik: nenhuma aba do Spaces, abrindo nova")
+            page = browser.contexts[0].new_page()
+            page.goto(WORKFLOW_URL)
+            page.wait_for_timeout(5000)
+
+    # Garantir space correto
+    try:
+        if space_id not in page.url:
+            logger.warning(f"Freepik: tab esta em outro space, navegando pro correto")
+            page.goto(WORKFLOW_URL)
+            page.wait_for_timeout(5000)
+    except Exception:
+        pass
+
+    # Trazer pro front + forçar viewport 1920x1080
+    try:
+        page.bring_to_front()
+    except Exception:
+        pass
+    try:
+        page.set_viewport_size({"width": 1920, "height": 1080})
+    except Exception as e:
+        logger.warning(f"set_viewport_size falhou: {e}")
+
+    page.wait_for_timeout(1500)
+
+    try:
+        page.wait_for_selector('[data-id]', state='attached', timeout=15000)
+    except Exception:
+        logger.warning("Freepik: [data-id] nao apareceu, forçando reload")
+        page.reload()
         page.wait_for_timeout(5000)
-    else:
-        # Esperar página estabilizar (evita "Execution context was destroyed")
-        page.wait_for_timeout(2000)
-    # Confirmar que a página carregou
-    page.wait_for_selector('[data-id]', timeout=10000)
+        page.wait_for_selector('[data-id]', state='attached', timeout=15000)
     return page
 
 
@@ -324,8 +409,11 @@ LINGUA_FILTRO = {
 }
 
 
-def selecionar_voz(page: Page, lingua: str, log_callback=None):
-    """Seleciona voz correta: clica narracao -> clica voz -> filtro lingua -> seleciona voz."""
+def selecionar_voz(page: Page, lingua: str, log_callback=None) -> bool:
+    """Seleciona voz correta: clica narracao -> clica voz -> filtro lingua -> seleciona voz.
+
+    Retorna True se selecionou (ou ja estava correta), False se falhou achar a voz.
+    """
     voz_alvo = VOZES.get(lingua, "Lucas Moreira")
     filtro_lingua = LINGUA_FILTRO.get(lingua, "Português")
 
@@ -355,7 +443,7 @@ def selecionar_voz(page: Page, lingua: str, log_callback=None):
     log(f"VOZ atual: {voz_atual}")
     if voz_atual == voz_alvo:
         log(f"VOZ: ja e {voz_alvo}, pulando")
-        return
+        return True
 
     # 3. Clicar no botao da voz atual pra abrir seletor de vozes
     page.evaluate(f"""() => {{
@@ -412,18 +500,23 @@ def selecionar_voz(page: Page, lingua: str, log_callback=None):
         loc.first.click()
         page.wait_for_timeout(1500)
         log(f"VOZ: selecionada {voz_alvo}")
-    else:
-        # Fallback: locator texto exato
-        loc2 = page.locator(f'text="{voz_alvo}"')
-        if loc2.count() > 0:
-            loc2.first.click()
-            page.wait_for_timeout(1500)
-            log(f"VOZ: selecionada {voz_alvo} (fallback)")
-        else:
-            log(f"VOZ: ERRO - {voz_alvo} nao encontrada na lista")
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(500)
+        return True
+    # Fallback: locator texto exato
+    loc2 = page.locator(f'text="{voz_alvo}"')
+    if loc2.count() > 0:
+        loc2.first.click()
+        page.wait_for_timeout(1500)
+        log(f"VOZ: selecionada {voz_alvo} (fallback)")
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(500)
+        return True
 
+    log(f"VOZ: ERRO - {voz_alvo} nao encontrada na lista")
     page.keyboard.press("Escape")
     page.wait_for_timeout(500)
+    return False
 
 
 # === PASSO 5: VERIFICAR GERADOR ===
@@ -724,7 +817,9 @@ def run_freepik_production(producao_json_path: str, log_callback: Optional[Calla
         colar_narracao(page, script_text)
 
         log("PASSO 4b: Selecionando voz...")
-        selecionar_voz(page, lingua, log_callback=log)
+        voz_ok = selecionar_voz(page, lingua, log_callback=log)
+        if not voz_ok:
+            log("VOZ: falhou na primeira tentativa — seguindo fluxo e tentando retry depois dos downloads")
 
         # 5. Verificar se prompts foram colados corretamente
         img_count = page.evaluate(f"""() => {{
@@ -809,6 +904,50 @@ def run_freepik_production(producao_json_path: str, log_callback: Optional[Calla
 
         log("Baixando vídeos...")
         baixar_bloco(page, IDS["LISTA_VIDEOS"], "VIDEOS", dest_path)
+
+        # 9b. RETRY VOZ se a primeira tentativa falhou (lista de vozes só carrega quando
+        # narração está ativa / não mais em stand-by). Após o workflow+geração rodarem,
+        # a narração foi gerada com voz default, e a lista de vozes está hidratada.
+        if not voz_ok:
+            log("PASSO 9b: Retry voz (lista de vozes agora deve estar carregada)...")
+
+            # ANTES de trocar voz + gerar: conferir que o script no tiptap é o do VIDEO ATUAL
+            # (nao confundir com script de video anterior — tamanho parecido nao garante identidade).
+            script_atual = page.evaluate(f"""() => {{
+                const b = document.querySelector('[data-id="{IDS["NARRACAO_TEXTO"]}"]');
+                const tt = b ? b.querySelector('.tiptap, .ProseMirror, [contenteditable="true"]') : null;
+                return tt ? tt.textContent : '';
+            }}""")
+            # Normalizar (tirar whitespace extra) e comparar os primeiros 80 chars
+            import re as _re
+            def _norm(s):
+                return _re.sub(r'\s+', ' ', (s or '').strip())
+            atual_norm = _norm(script_atual)
+            alvo_norm = _norm(script_text)
+            prefix_atual = atual_norm[:80]
+            prefix_alvo = alvo_norm[:80]
+
+            script_match = prefix_atual == prefix_alvo
+            log(f"VOZ retry: script tiptap ({len(atual_norm)} chars) match do video atual? {script_match}")
+            if not script_match:
+                log(f"  tiptap: {prefix_atual!r}")
+                log(f"  alvo:   {prefix_alvo!r}")
+                log("VOZ retry: script divergente — re-colando o do video atual")
+                limpar_narracao(page)
+                page.wait_for_timeout(500)
+                colar_narracao(page, script_text)
+                page.wait_for_timeout(1000)
+
+            # Agora sim: trocar voz
+            voz_ok_retry = selecionar_voz(page, lingua, log_callback=log)
+            if voz_ok_retry:
+                log("Clicando 'Gerar narração' (Esse nó somente)...")
+                gerar_narracao(page)
+
+                log("Aguardando 60s pra narração nova gerar...")
+                time.sleep(60)
+            else:
+                log("VOZ retry tambem falhou — baixando narração da voz default mesmo assim")
 
         log("Baixando narração...")
         baixar_bloco(page, IDS["WRAPPER_NARRACAO"], "NARRACAO", dest_path)
