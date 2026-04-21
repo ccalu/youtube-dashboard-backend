@@ -717,6 +717,27 @@ def organizar_downloads(dest_path: str):
                     elif name.endswith(".mp3") or name.endswith(".wav"):
                         zf.extract(name, dest_path)
         except zipfile.BadZipFile:
+            # Freepik as vezes entrega MP3 direto com extensao .zip (narracao).
+            # Detecta pelo header ID3 ou MP3 frame sync e renomeia pra .mp3.
+            try:
+                with open(z, "rb") as f:
+                    head = f.read(4)
+                is_mp3 = (head[:3] == b'ID3' or head[:2] == b'\xff\xfb' or head[:2] == b'\xff\xf3')
+                is_wav = head[:4] == b'RIFF'
+                if is_mp3:
+                    base = os.path.splitext(os.path.basename(z))[0]
+                    target = os.path.join(dest_path, f"{base}.mp3")
+                    os.rename(z, target)
+                    logger.info(f"organizar: {os.path.basename(z)} era MP3 direto, renomeado pra {os.path.basename(target)}")
+                elif is_wav:
+                    base = os.path.splitext(os.path.basename(z))[0]
+                    target = os.path.join(dest_path, f"{base}.wav")
+                    os.rename(z, target)
+                    logger.info(f"organizar: {os.path.basename(z)} era WAV direto, renomeado pra {os.path.basename(target)}")
+                else:
+                    logger.warning(f"organizar: {os.path.basename(z)} nao eh ZIP nem audio (header={head!r}), pulando")
+            except Exception as e:
+                logger.warning(f"organizar: falha detectando tipo de {os.path.basename(z)}: {e}")
             continue
 
     # Dedup por MD5
