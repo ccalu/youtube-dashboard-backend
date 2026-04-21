@@ -17,7 +17,7 @@ import os
 import time
 from datetime import datetime
 from collections import defaultdict
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Body
 from pydantic import BaseModel
 from typing import Optional
 from database import SupabaseClient
@@ -454,15 +454,39 @@ async def produzir_completo(producao_id: int):
     }
 
 
+class BatchEditarRequest(BaseModel):
+    mode: str = "todos"  # "subnicho", "leva", "todos"
+    subnicho: Optional[str] = None
+    leva: Optional[int] = None
+
+
 @router.post("/batch-editar")
-async def batch_editar(background_tasks: BackgroundTasks):
-    """Enfileira Remotion + Drive pra todos os shorts em status=edicao (1 por vez)."""
-    edicoes = db.supabase.table("shorts_production").select(
+async def batch_editar(
+    background_tasks: BackgroundTasks,
+    req: Optional[BatchEditarRequest] = Body(None),
+):
+    """Enfileira Remotion + Drive pra shorts em status=edicao (1 por vez). Filtra por subnicho/leva."""
+    req = req or BatchEditarRequest()
+    query = db.supabase.table("shorts_production").select(
         "id, canal, titulo, drive_link, subnicho"
-    ).eq("status", "edicao").order("created_at").execute()
+    ).eq("status", "edicao").order("created_at")
+
+    if req.mode == "subnicho" and req.subnicho:
+        query = query.eq("subnicho", req.subnicho)
+    elif req.mode == "leva":
+        if req.leva == 3:
+            leva3_names = _get_leva3_canal_names()
+            if not leva3_names:
+                return {"status": "nenhum", "message": "Nenhum canal na Leva 3"}
+            query = query.in_("canal", leva3_names)
+        elif req.leva in (1, 2):
+            subs = LEVA_1_SUBNICHOS if req.leva == 1 else LEVA_2_SUBNICHOS
+            query = query.in_("subnicho", subs)
+
+    edicoes = query.execute()
 
     if not edicoes.data:
-        return {"status": "nenhum", "message": "Nenhum short em edicao"}
+        return {"status": "nenhum", "message": "Nenhum short em edicao pra esse filtro"}
 
     validos = []
     for p in edicoes.data:
@@ -507,8 +531,15 @@ async def batch_produzir(req: BatchProduzirRequest, background_tasks: Background
     if req.mode == "subnicho" and req.subnicho:
         query = query.eq("subnicho", req.subnicho)
     elif req.mode == "leva":
-        subs = LEVA_1_SUBNICHOS if req.leva == 1 else LEVA_2_SUBNICHOS
-        query = query.in_("subnicho", subs)
+        if req.leva == 3:
+            # Leva 3: filtra por NOME do canal (lista dinamica OAuth + <1000 subs)
+            leva3_names = _get_leva3_canal_names()
+            if not leva3_names:
+                return {"status": "nenhum", "message": "Nenhum canal na Leva 3"}
+            query = query.in_("canal", leva3_names)
+        else:
+            subs = LEVA_1_SUBNICHOS if req.leva == 1 else LEVA_2_SUBNICHOS
+            query = query.in_("subnicho", subs)
 
     producoes = query.execute()
 
@@ -636,29 +667,226 @@ async def fila_edicao():
     return {"fila": result.data}
 
 
-@router.post("/inicializar-browser")
-async def inicializar_browser():
-    """Abre Chrome com debug port e navega pro Freepik Spaces."""
+def _kill_debug_chrome_only(profile_path: str) -> int:
+    """Mata apenas processos chrome.exe que usam o profile do debug (preserva Chrome pessoal).
+
+    Usa PowerShell + Win32_Process pra filtrar pela command line.
+    Retorna quantos processos foram mortos.
+    """
     import subprocess
+    # Escapar \ pra regex + PowerShell
+    profile_pattern = profile_path.replace("\\", "\\\\")
+    ps_cmd = (
+        "$procs = Get-CimInstance Win32_Process -Filter \"Name='chrome.exe'\" | "
+        f"Where-Object {{ $_.CommandLine -like '*{profile_path}*' }}; "
+        "$procs | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; "
+        "$procs.Count"
+    )
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", ps_cmd],
+            capture_output=True, timeout=8, text=True,
+        )
+        out = result.stdout.strip()
+        try:
+            return int(out) if out.isdigit() else 0
+        except Exception:
+            return 0
+    except Exception as e:
+        logger.warning(f"[kill_debug_chrome] falhou: {e}")
+        return 0
+
+
+def _cdp_alive_with_freepik() -> Optional[dict]:
+    """Verifica se CDP 9222 ja esta vivo e tem aba Freepik hidratada.
+
+    Retorna dict {targetId, url, dataIds} se sim, None caso contrario.
+    Considera "hidratada" se tiver >=10 elementos [data-id].
+    """
+    import urllib.request, json as _json
+    try:
+        with urllib.request.urlopen("http://localhost:9222/json/version", timeout=1.5) as r:
+            _json.loads(r.read())  # so testar se responde
+    except Exception:
+        return None
 
     try:
-        subprocess.run(["taskkill", "/F", "/IM", "chrome.exe"], capture_output=True, timeout=5)
-        time.sleep(2)
+        with urllib.request.urlopen("http://localhost:9222/json/list", timeout=2) as r:
+            tabs = _json.loads(r.read())
+    except Exception:
+        return None
+
+    freepik_targets = [t for t in tabs if t.get("type") == "page" and "freepik.com/pikaso/spaces" in t.get("url", "")]
+    if not freepik_targets:
+        return None
+
+    # Conectar via Playwright e ver qual tem mais data-id (indicador de hidratacao)
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.connect_over_cdp("http://localhost:9222")
+            best = None
+            best_count = 0
+            for ctx in browser.contexts:
+                for pg in ctx.pages:
+                    if "freepik.com/pikaso/spaces" not in pg.url:
+                        continue
+                    try:
+                        cnt = pg.evaluate("document.querySelectorAll('[data-id]').length")
+                    except Exception:
+                        cnt = 0
+                    if cnt > best_count:
+                        try:
+                            cdp = pg.context.new_cdp_session(pg)
+                            info = cdp.send("Target.getTargetInfo")
+                            tid = info.get("targetInfo", {}).get("targetId")
+                        except Exception:
+                            tid = None
+                        best = {"targetId": tid, "url": pg.url, "dataIds": cnt}
+                        best_count = cnt
+            if best and best_count >= 10:
+                return best
+    except Exception as e:
+        logger.warning(f"[cdp_alive_check] erro checando hidratacao: {e}")
+    return None
+
+
+def _cleanup_freepik_duplicates() -> dict:
+    """Registra a tab Freepik correta (a mais hidratada) pro _get_page usar.
+
+    NAO fecha pages 'duplicadas' porque em muitos casos elas sao referencias da
+    MESMA tab (iframes/contexts pareados) — fechar uma derruba a outra.
+    Em vez disso, identifica a que tem mais elementos [data-id] e registra seu targetId.
+    O _get_page() usa esse guid pra achar exatamente essa tab.
+    """
+    tabs_info = {"kept_url": None, "kept_guid": None, "total_found": 0, "chosen_dataIds": 0}
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.connect_over_cdp("http://localhost:9222")
+            candidates = []
+            for ctx in browser.contexts:
+                for pg in ctx.pages:
+                    try:
+                        if "freepik.com/pikaso/spaces" not in pg.url:
+                            continue
+                    except Exception:
+                        continue
+                    try:
+                        cnt = pg.evaluate("document.querySelectorAll('[data-id]').length")
+                    except Exception:
+                        cnt = 0
+                    candidates.append((pg, cnt))
+
+            tabs_info["total_found"] = len(candidates)
+            logger.info(f"[cleanup] {len(candidates)} pages Freepik: {[c[1] for c in candidates]} data-ids")
+
+            if not candidates:
+                return tabs_info
+
+            # Ordenar por data-id count DESC, depois index DESC (ultima empate vence)
+            candidates_indexed = [(pg, cnt, i) for i, (pg, cnt) in enumerate(candidates)]
+            candidates_indexed.sort(key=lambda x: (x[1], x[2]), reverse=True)
+            chosen = candidates_indexed[0][0]
+            tabs_info["chosen_dataIds"] = candidates_indexed[0][1]
+
+            try:
+                chosen.bring_to_front()
+                chosen.set_viewport_size({"width": 1920, "height": 1080})
+                tabs_info["kept_url"] = chosen.url
+                cdp = chosen.context.new_cdp_session(chosen)
+                info = cdp.send("Target.getTargetInfo")
+                tabs_info["kept_guid"] = info.get("targetInfo", {}).get("targetId")
+            except Exception as e:
+                logger.warning(f"[cleanup] setup tab escolhida: {e}")
+    except Exception as e:
+        logger.warning(f"[cleanup] falha geral: {e}")
+    return tabs_info
+
+
+def _save_freepik_guid(tabs_info: dict):
+    if not tabs_info.get("kept_guid"):
+        return
+    try:
+        import json as _json
+        import os as _os
+        with open(_os.path.join(_os.path.dirname(__file__), ".freepik_tab_guid"), "w") as f:
+            _json.dump(tabs_info, f)
     except Exception:
         pass
+
+
+@router.post("/inicializar-browser")
+async def inicializar_browser(force: bool = False):
+    """Abre Chrome debug e GARANTE 1 unica aba do Freepik Spaces.
+
+    Otimizacoes:
+      - Se Chrome debug ja esta vivo e com Freepik hidratada: pula kill/launch,
+        so faz cleanup de duplicatas. Retorna em ~2-3s.
+      - Preserva Chrome pessoal: mata APENAS processos que usam chrome-debug-profile.
+      - Parametro force=true pula essa otimizacao e re-lança do zero.
+    """
+    import subprocess
+    import os as _os
 
     chrome_path = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
     profile_path = r"C:\Users\PC\chrome-debug-profile"
     freepik_url = "https://br.freepik.com/pikaso/spaces/a166a80e-8448-4c38-b231-ce4cd2cc49ce"
 
+    # ===== SKIP: Se Chrome debug ja ta rodando com Freepik hidratada =====
+    if not force:
+        existing = _cdp_alive_with_freepik()
+        if existing:
+            logger.info(f"[inicializar-browser] Chrome debug ja vivo com Freepik hidratada (dataIds={existing['dataIds']}), pulando relaunch")
+            tabs_info = _cleanup_freepik_duplicates()
+            _save_freepik_guid(tabs_info)
+            return {
+                "status": "ok",
+                "mode": "skip_relaunch",
+                "message": f"Chrome ja estava pronto. Tab com {tabs_info['chosen_dataIds']} data-ids registrada.",
+                "kept_url": tabs_info["kept_url"],
+                "kept_guid": tabs_info["kept_guid"],
+                "total_found": tabs_info["total_found"],
+            }
+
+    # ===== KILL: So mata chrome.exe do profile debug (preserva Chrome pessoal) =====
+    killed = _kill_debug_chrome_only(profile_path)
+    logger.info(f"[inicializar-browser] {killed} processos chrome debug mortos (Chrome pessoal preservado)")
+    if killed > 0:
+        time.sleep(2)
+
+    # Limpar session restore files (evita Chrome restaurar duplicatas)
+    for session_file in ["Current Session", "Current Tabs", "Last Session", "Last Tabs"]:
+        path = _os.path.join(profile_path, "Default", session_file)
+        try:
+            if _os.path.exists(path):
+                _os.remove(path)
+        except Exception:
+            pass
+
     subprocess.Popen([
         chrome_path,
         "--remote-debugging-port=9222",
         f"--user-data-dir={profile_path}",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--restore-last-session=false",
+        "--disable-features=InfiniteSessionRestore",
         freepik_url,
     ])
+    time.sleep(7)
 
-    return {"status": "ok", "message": "Chrome aberto com debug port + Freepik Spaces"}
+    tabs_info = _cleanup_freepik_duplicates()
+    _save_freepik_guid(tabs_info)
+
+    return {
+        "status": "ok",
+        "mode": "relaunch",
+        "message": f"Chrome relançado. {killed} procs debug mortos. Tab com {tabs_info['chosen_dataIds']} data-ids registrada.",
+        "kept_url": tabs_info["kept_url"],
+        "kept_guid": tabs_info["kept_guid"],
+        "total_found": tabs_info["total_found"],
+    }
 
 
 @router.get("/browser-status")
@@ -782,12 +1010,96 @@ def _run_youtube_upload_bg(producao_id: int, production_data: dict, video_path: 
 LEVA_1_SUBNICHOS = ["Reis Perversos", "Guerras e Civilizações", "Frentes de Guerra"]
 LEVA_2_SUBNICHOS = ["Relatos de Guerra", "Monetizados", "Culturas Macabras", "Historias Sombrias"]
 
+# Leva 3 = filtro dinamico (OAuth configurado + <LEVA3_INSCRITOS_MAX inscritos).
+# NAO usa subnicho, usa lista de canais calculada em runtime.
+LEVA3_INSCRITOS_MAX = 1000
+_leva3_cache: dict = {"at": 0.0, "canais": []}
+LEVA3_CACHE_TTL = 300  # 5 min
+
 # Mapeamento abreviação -> nome completo da lingua
 LINGUA_MAP = {
     "pt": "Português", "en": "Inglês", "es": "Espanhol", "fr": "Francês",
     "de": "Alemão", "it": "Italiano", "ja": "Japonês", "ko": "Coreano",
     "ru": "Russo", "tr": "Turco", "pl": "Polonês", "ar": "Árabe",
 }
+
+
+def _compute_leva3_canais() -> list[dict]:
+    """Calcula dinamicamente canais da Leva 3: tem OAuth E tem <LEVA3_INSCRITOS_MAX inscritos.
+
+    Cruza:
+      - canais_monitorados (tipo=nosso, ativo) -> id interno, nome, subnicho, lingua
+      - yt_channels (nome -> channel_id YouTube + is_active)
+      - yt_oauth_tokens (tem token)
+      - dados_canais_historico (inscritos mais recentes via canal_id interno)
+
+    Retorna lista de dicts: [{channel_name, subnicho, lingua, inscritos}, ...]
+    """
+    nossos = db.supabase.table("canais_monitorados").select(
+        "id, nome_canal, subnicho, lingua"
+    ).eq("tipo", "nosso").eq("status", "ativo").execute().data or []
+
+    yt = db.supabase.table("yt_channels").select(
+        "channel_id, channel_name"
+    ).eq("is_active", True).execute().data or []
+    yt_name_to_id = {c["channel_name"]: c["channel_id"] for c in yt}
+
+    oauth = db.supabase.table("yt_oauth_tokens").select("channel_id").execute().data or []
+    oauth_ids = {r["channel_id"] for r in oauth}
+
+    # Primeiro filtra canais com OAuth
+    com_oauth = []
+    for c in nossos:
+        nome = c["nome_canal"]
+        ch_id = yt_name_to_id.get(nome)
+        if ch_id and ch_id in oauth_ids:
+            com_oauth.append(c)
+
+    # Depois busca inscritos mais recentes de cada um e filtra < MAX
+    candidatos = []
+    for c in com_oauth:
+        hist = db.supabase.table("dados_canais_historico").select(
+            "inscritos, data_coleta"
+        ).eq("canal_id", c["id"]).order("data_coleta", desc=True).limit(1).execute()
+        if not hist.data:
+            continue  # sem dados de inscritos, não entra na leva
+        inscritos = hist.data[0].get("inscritos")
+        if inscritos is None or inscritos >= LEVA3_INSCRITOS_MAX:
+            continue
+
+        lingua_raw = c.get("lingua", "")
+        lingua_full = LINGUA_MAP.get(lingua_raw, lingua_raw)
+        candidatos.append({
+            "channel_name": c["nome_canal"],
+            "subnicho": c.get("subnicho", ""),
+            "lingua": lingua_full,
+            "inscritos": inscritos,
+        })
+
+    return sorted(candidatos, key=lambda x: (x["subnicho"], x["channel_name"]))
+
+
+def _get_leva3_canais(force_refresh: bool = False) -> list[dict]:
+    """Retorna canais da Leva 3, com cache de LEVA3_CACHE_TTL segundos."""
+    now = time.time()
+    if (not force_refresh
+        and _leva3_cache["canais"]
+        and (now - _leva3_cache["at"]) < LEVA3_CACHE_TTL):
+        return _leva3_cache["canais"]
+    try:
+        canais = _compute_leva3_canais()
+        _leva3_cache["canais"] = canais
+        _leva3_cache["at"] = now
+        return canais
+    except Exception as e:
+        logger.error(f"[leva3] Erro computando: {e}")
+        # Se falhou, devolve ultimo cache (mesmo expirado) pra nao derrubar endpoint
+        return _leva3_cache["canais"] or []
+
+
+def _get_leva3_canal_names(force_refresh: bool = False) -> list[str]:
+    """Apenas os nomes dos canais da Leva 3 (pra filtro IN)."""
+    return [c["channel_name"] for c in _get_leva3_canais(force_refresh)]
 
 _batch_gerar_status: dict = {}  # batch_id -> {status, total, completed, current, results, errors}
 
@@ -824,28 +1136,38 @@ def _get_oauth_channels_by_subnichos(subnichos: list[str]) -> list[dict]:
 
 @router.post("/batch-gerar")
 async def batch_gerar(req: BatchGerarRequest, background_tasks: BackgroundTasks):
-    """Gera scripts em batch: por subnicho, por leva, ou todos."""
-    # Determinar subnichos
-    if req.mode == "subnicho":
-        if not req.subnicho:
-            raise HTTPException(400, "subnicho obrigatorio quando mode=subnicho")
-        subnichos = [req.subnicho]
-    elif req.mode == "leva":
-        if req.leva == 1:
-            subnichos = LEVA_1_SUBNICHOS
-        elif req.leva == 2:
-            subnichos = LEVA_2_SUBNICHOS
-        else:
-            raise HTTPException(400, "leva deve ser 1 ou 2")
-    elif req.mode == "todos":
-        subnichos = LEVA_1_SUBNICHOS + LEVA_2_SUBNICHOS
+    """Gera scripts em batch: por subnicho, por leva (1/2/3), ou todos."""
+    # Leva 3 tem lógica diferente: lista dinamica de canais, nao filtra por subnicho
+    if req.mode == "leva" and req.leva == 3:
+        canais = [
+            {"channel_name": c["channel_name"], "subnicho": c["subnicho"], "lingua": c["lingua"]}
+            for c in _get_leva3_canais()
+        ]
+        subnichos = sorted({c["subnicho"] for c in canais if c.get("subnicho")})
+        if not canais:
+            return {"status": "nenhum", "message": "Nenhum canal na Leva 3 (OAuth + <1000 inscritos)"}
     else:
-        raise HTTPException(400, "mode deve ser 'subnicho', 'leva' ou 'todos'")
+        # Determinar subnichos (fluxo original Leva 1/2/subnicho/todos)
+        if req.mode == "subnicho":
+            if not req.subnicho:
+                raise HTTPException(400, "subnicho obrigatorio quando mode=subnicho")
+            subnichos = [req.subnicho]
+        elif req.mode == "leva":
+            if req.leva == 1:
+                subnichos = LEVA_1_SUBNICHOS
+            elif req.leva == 2:
+                subnichos = LEVA_2_SUBNICHOS
+            else:
+                raise HTTPException(400, "leva deve ser 1, 2 ou 3")
+        elif req.mode == "todos":
+            subnichos = LEVA_1_SUBNICHOS + LEVA_2_SUBNICHOS
+        else:
+            raise HTTPException(400, "mode deve ser 'subnicho', 'leva' ou 'todos'")
 
-    # Buscar canais OAuth dos subnichos
-    canais = _get_oauth_channels_by_subnichos(subnichos)
-    if not canais:
-        return {"status": "nenhum", "message": "Nenhum canal com OAuth nos subnichos selecionados"}
+        # Buscar canais OAuth dos subnichos
+        canais = _get_oauth_channels_by_subnichos(subnichos)
+        if not canais:
+            return {"status": "nenhum", "message": "Nenhum canal com OAuth nos subnichos selecionados"}
 
     import uuid
     batch_id = str(uuid.uuid4())[:8]
@@ -1159,6 +1481,22 @@ def _run_batch_upload_bg(batch_id: str, production_ids: list[int], delay_seconds
     status["status"] = "done"
     status["current"] = None
     logger.info(f"[batch-upload] Concluido: {status['completed']}/{total} uploads, {len(status['errors'])} erros")
+
+
+@router.get("/leva3-channels")
+async def leva3_channels(refresh: bool = False):
+    """Lista dinamica da Leva 3: canais com OAuth configurado E <1000 inscritos.
+
+    Cache de 5min (passa ?refresh=true pra forçar recomputo).
+    Retorna: {count, threshold, canais: [{channel_name, subnicho, lingua, inscritos}]}
+    """
+    canais = _get_leva3_canais(force_refresh=refresh)
+    return {
+        "count": len(canais),
+        "threshold": LEVA3_INSCRITOS_MAX,
+        "canais": canais,
+        "cached_at": _leva3_cache.get("at", 0),
+    }
 
 
 @router.get("/canais-com-oauth")
