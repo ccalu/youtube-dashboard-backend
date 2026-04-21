@@ -25,11 +25,15 @@ WORKFLOW_URL = "https://br.freepik.com/pikaso/spaces/a166a80e-8448-4c38-b231-ce4
 CDP_URL = "http://localhost:9222"
 
 # === IDs DEFINITIVOS DOS BLOCOS ===
+# Bloco Narracao foi recriado em 2026-04-21 (ID anterior 1d28d411..., excluido
+# acidentalmente por limpar_narracao que fez Ctrl+A+Backspace sem tiptap focado —
+# isso deleta o NODE inteiro no vue-flow). WRAPPER agora aponta pro mesmo ID do
+# NARRACAO_TEXTO (bloco unificado: tem tiptap + aba "Áudios", baixar funciona direto).
 IDS = {
     "PROMPTS_IMAGEM": "c4861991-3c27-4026-ad32-8fe46c43e360",
     "PROMPTS_ANIMACAO": "1ce52b31-1c46-4460-b4c2-a01778b76c6d",
-    "NARRACAO_TEXTO": "1d28d411-54eb-4d66-83eb-f414971cb89a",
-    "WRAPPER_NARRACAO": "68ea5e5a-f898-4f35-83b6-cd69a760dd76",
+    "NARRACAO_TEXTO": "64580896-77f3-488c-a044-8213a1beeed0",
+    "WRAPPER_NARRACAO": "64580896-77f3-488c-a044-8213a1beeed0",
     "LISTA_IMAGENS": "8072ef08-819b-495a-8411-68e921856e9c",
     "LISTA_VIDEOS": "f9217fab-bdfe-4a96-965a-2665e0dda2e2",
 }
@@ -226,24 +230,55 @@ def limpar_bloco(page: Page, data_id: str, nome: str):
 
 
 def limpar_narracao(page: Page):
-    """Limpa texto da narração via evaluate (bypass overlays)."""
-    found = page.evaluate(f"""() => {{
+    """Limpa texto da narração via seleção/delete DENTRO do tiptap.
+
+    CRITICO: Ctrl+A+Backspace so eh seguro se o foco estiver GARANTIDAMENTE no tiptap.
+    Se o foco estiver no NODE do vue-flow (bloco selecionado, mas tiptap nao ativo),
+    Ctrl+A seleciona o node e Backspace DELETA O BLOCO INTEIRO do canvas.
+    """
+    # 1. Verificar se o tiptap existe no DOM e se conseguimos focar ele
+    tiptap_ok = page.evaluate(f"""() => {{
         const bloco = document.querySelector('[data-id="{IDS["NARRACAO_TEXTO"]}"]');
-        if (!bloco) return false;
+        if (!bloco) return {{exists: false, reason: 'bloco nao existe'}};
         const tiptap = bloco.querySelector('.tiptap, .ProseMirror, [contenteditable="true"]');
-        if (!tiptap) return false;
+        if (!tiptap) return {{exists: false, reason: 'tiptap nao montado'}};
         tiptap.focus();
-        return true;
+        // Confirmar que o foco foi aplicado no tiptap
+        const focused = document.activeElement === tiptap;
+        return {{
+            exists: true,
+            focused,
+            textLen: tiptap.textContent.length,
+        }};
     }}""")
-    if found:
-        page.wait_for_timeout(500)
-        page.keyboard.press("Control+KeyA")
-        page.wait_for_timeout(200)
-        page.keyboard.press("Backspace")
-        page.wait_for_timeout(500)
-        logger.info("NARRACAO: texto limpo")
+
+    if not tiptap_ok.get("exists"):
+        logger.warning(f"NARRACAO: nao limpando ({tiptap_ok.get('reason')}) — evitando Ctrl+A+Backspace que deletaria o bloco")
+        return
+
+    if not tiptap_ok.get("focused"):
+        logger.warning("NARRACAO: tiptap existe mas foco nao aplicou — usando fallback innerHTML pra limpar sem teclado")
+        # Fallback seguro: limpar via innerHTML, nao usar teclado
+        page.evaluate(f"""() => {{
+            const bloco = document.querySelector('[data-id="{IDS["NARRACAO_TEXTO"]}"]');
+            const tiptap = bloco ? bloco.querySelector('.tiptap, .ProseMirror, [contenteditable="true"]') : null;
+            if (tiptap) tiptap.innerHTML = '<p></p>';
+        }}""")
+        logger.info("NARRACAO: texto limpo via innerHTML (fallback)")
+        return
+
+    # Foco confirmado no tiptap — seguro usar Ctrl+A+Backspace
+    page.wait_for_timeout(500)
+    page.keyboard.press("Control+KeyA")
+    page.wait_for_timeout(200)
+    page.keyboard.press("Backspace")
+    page.wait_for_timeout(500)
+    # Verificar que o bloco AINDA existe (proteção paranoica)
+    still_exists = page.evaluate(f"""() => !!document.querySelector('[data-id="{IDS["NARRACAO_TEXTO"]}"]')""")
+    if not still_exists:
+        logger.error("NARRACAO: BLOCO DESAPARECEU apos limpar — possivel deleção acidental (Ctrl+A selecionou node, Backspace deletou)")
     else:
-        logger.warning("NARRACAO: campo tiptap não encontrado")
+        logger.info(f"NARRACAO: texto limpo (bloco preservado, tinha {tiptap_ok.get('textLen', 0)} chars)")
 
 
 # === PASSO 2-3: COLAR PROMPTS ===
