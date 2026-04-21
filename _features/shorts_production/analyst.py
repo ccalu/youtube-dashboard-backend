@@ -65,16 +65,61 @@ def _sheets_execute(request, max_retries=2):
 
 
 def _get_sheets_service():
-    """Retorna servico autenticado do Google Sheets (SA nova)."""
+    """Retorna servico autenticado do Google Sheets.
+
+    Ordem de tentativa:
+      1. Env var SHORTS_SA_JSON (JSON inline — especifico pras planilhas de Shorts)
+      2. Env var GOOGLE_SHEETS_CREDENTIALS_2 (JSON inline — mesmo SA usado pelo uploader)
+      3. Arquivo em SHORTS_SA_CREDS_PATH (fallback legado)
+
+    Se a SA nao tiver acesso a planilha, erro 403 vai aparecer no read/write — nesse
+    caso compartilhar a planilha com o email da SA. Email vem impresso no log.
+    """
     global _sheets_service
-    if _sheets_service is None:
-        with open(SHORTS_SA_CREDS_PATH) as f:
-            creds_dict = json.load(f)
-        creds = Credentials.from_service_account_info(
-            creds_dict,
-            scopes=["https://www.googleapis.com/auth/spreadsheets"],
-        )
-        _sheets_service = build("sheets", "v4", credentials=creds)
+    if _sheets_service is not None:
+        return _sheets_service
+
+    creds_dict = None
+    source = None
+
+    # 1. SHORTS_SA_JSON (especifico)
+    env_shorts = os.getenv("SHORTS_SA_JSON")
+    if env_shorts:
+        try:
+            creds_dict = json.loads(env_shorts)
+            source = "SHORTS_SA_JSON env"
+        except Exception as e:
+            logger.warning(f"[analyst] SHORTS_SA_JSON invalido: {e}")
+
+    # 2. GOOGLE_SHEETS_CREDENTIALS_2 (compartilhado com uploader)
+    if creds_dict is None:
+        env_shared = os.getenv("GOOGLE_SHEETS_CREDENTIALS_2")
+        if env_shared:
+            try:
+                creds_dict = json.loads(env_shared)
+                source = "GOOGLE_SHEETS_CREDENTIALS_2 env"
+            except Exception as e:
+                logger.warning(f"[analyst] GOOGLE_SHEETS_CREDENTIALS_2 invalido: {e}")
+
+    # 3. Arquivo legado
+    if creds_dict is None:
+        try:
+            with open(SHORTS_SA_CREDS_PATH) as f:
+                creds_dict = json.load(f)
+            source = f"file {SHORTS_SA_CREDS_PATH}"
+        except FileNotFoundError:
+            raise RuntimeError(
+                "Credenciais do Google Sheets nao encontradas. Configure uma destas: "
+                "SHORTS_SA_JSON ou GOOGLE_SHEETS_CREDENTIALS_2 no .env, "
+                f"ou coloque o arquivo em {SHORTS_SA_CREDS_PATH}"
+            )
+
+    logger.info(f"[analyst] Sheets auth via {source} (email={creds_dict.get('client_email','?')})")
+    creds = Credentials.from_service_account_info(
+        creds_dict,
+        scopes=["https://www.googleapis.com/auth/spreadsheets"],
+    )
+    _sheets_service = build("sheets", "v4", credentials=creds)
     return _sheets_service
 
 
