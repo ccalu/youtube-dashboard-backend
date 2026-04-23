@@ -37,10 +37,20 @@ def _get_service():
     return build("drive", "v3", credentials=creds)
 
 
+def _escape_drive_query_value(s: str) -> str:
+    """Escapa aspas simples e backslashes em valores da Drive API query string.
+
+    Sem isso, nomes com ' (ex: This Soldier's Last, Iskender'in) quebram a query com 400.
+    Ver: https://developers.google.com/drive/api/guides/ref-search-terms#string
+    """
+    return s.replace("\\", "\\\\").replace("'", "\\'")
+
+
 def _find_folder(service, parent_id: str, name: str) -> str | None:
     """Encontra pasta pelo nome dentro de um parent. Retorna ID ou None."""
+    safe_name = _escape_drive_query_value(name)
     results = service.files().list(
-        q=f"'{parent_id}' in parents and name='{name}' and mimeType='application/vnd.google-apps.folder' and trashed=false",
+        q=f"'{parent_id}' in parents and name='{safe_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false",
         supportsAllDrives=True,
         includeItemsFromAllDrives=True,
         fields="files(id, name)",
@@ -62,8 +72,9 @@ def _create_folder(service, parent_id: str, name: str) -> str:
 
 def _find_file(service, parent_id: str, name: str) -> str | None:
     """Encontra arquivo pelo nome dentro de um parent. Retorna ID ou None."""
+    safe_name = _escape_drive_query_value(name)
     results = service.files().list(
-        q=f"'{parent_id}' in parents and name='{name}' and trashed=false",
+        q=f"'{parent_id}' in parents and name='{safe_name}' and trashed=false",
         supportsAllDrives=True,
         includeItemsFromAllDrives=True,
         fields="files(id, name)",
