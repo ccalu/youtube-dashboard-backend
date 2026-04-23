@@ -23,8 +23,11 @@ from _features.shorts_production.sheets_writer import write_production_to_sheet,
 db = SupabaseClient()
 
 # 1. Pegar producoes SEM sheets_row_num (qualquer idade)
+# IMPORTANTE: selecionar AMBOS drive_link (path local) e drive_url (URL Drive).
+# A coluna "Link Drive" da planilha PRECISA usar drive_url — bug anterior usou drive_link
+# (path local) e resultou em paths literais aparecendo na planilha.
 prods = db.supabase.table("shorts_production").select(
-    "id, canal, subnicho, lingua, titulo, tom, formato, video_ref, producao_json, drive_link, youtube_video_id, created_at, status"
+    "id, canal, subnicho, lingua, titulo, tom, formato, video_ref, producao_json, drive_link, drive_url, youtube_video_id, created_at, status"
 ).is_("sheets_row_num", "null").order("created_at", desc=False).execute().data or []
 
 print(f"{len(prods)} producoes sem sheets_row_num encontradas\n")
@@ -84,13 +87,15 @@ for i, p in enumerate(prods):
 
         print(f"   OK linha {row_num}")
 
-        # Se ja tem drive_link, tambem atualizar na planilha
-        if p.get("drive_link"):
+        # Se ja tem drive_url (URL Drive, nao path local!), atualizar na planilha.
+        # drive_link == path local (C:\...) — NUNCA usar pra coluna Link Drive.
+        drive_url = p.get("drive_url") or ""
+        if drive_url.startswith("http"):
             try:
-                update_drive_link(canal, subnicho, row_num, p["drive_link"])
-                print(f"   + drive_link aplicado")
+                update_drive_link(canal, subnicho, row_num, drive_url)
+                print(f"   + drive_url aplicado")
             except Exception as e:
-                print(f"   ! drive_link falhou: {str(e)[:80]}")
+                print(f"   ! drive_url falhou: {str(e)[:80]}")
 
         success.append(pid)
 
